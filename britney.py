@@ -47,7 +47,7 @@ class Britney:
                         'unstable': self.read_sources(self.options.unstable),
                         'tpu': self.read_sources(self.options.tpu),}
         self.binaries = {'testing': {}, 'unstable': {}, 'tpu': {}}
-        for arch in self.options.architectures.split():
+        for arch in self.options.architectures:
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
@@ -80,6 +80,13 @@ class Britney:
                     reduce(lambda x,y: x+y, [hasattr(self, "HINTS_" + i) and getattr(self, "HINTS_" + i) or (i,) for i in v.split()])
             else:
                 setattr(self.options, k.lower(), v)
+        # Sort architectures
+        allarches = sorted(self.options.architectures.split())
+        arches = [x for x in allarches if x in self.options.nobreakall_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
+        arches += [x for x in allarches if x not in arches]
+        self.options.architectures = arches
 
     def __log(self, msg, type="I"):
         """Print info messages according to verbosity level"""
@@ -122,7 +129,7 @@ class Britney:
         maxver = None
         if self.sources[dist].has_key(pkg):
             maxver = self.sources[dist][pkg]['version']
-        for arch in self.options.architectures.split():
+        for arch in self.options.architectures:
             if not self.binaries[dist][arch][0].has_key(pkg): continue
             pkgv = self.binaries[dist][arch][0][pkg]['version']
             if maxver == None or apt_pkg.VersionCompare(pkgv, maxver) > 0:
@@ -336,7 +343,6 @@ class Britney:
 
     def get_dependency_solvers(self, block, arch, distribution):
         packages = []
-        missing = []
 
         for name, version, op in block:
             real_package = False
@@ -345,26 +351,20 @@ class Britney:
                 package = self.binaries[distribution][arch][0][name]
                 if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
                     packages.append(name)
-                    return (True, packages)
 
             # TODO: this would be enough according to policy, but not according to britney v.1
-            #if op == '' and version == '' and name in self.binaries['unstable'][arch][1]:
-            #    # packages.extend(self.binaries['unstable'][arch][1][name])
+            #if op == '' and version == '' and name in self.binaries[distribution][arch][1]:
+            #    # packages.extend(self.binaries[distribution][arch][1][name])
             #    return (True, packages)
 
-            if name in self.binaries['unstable'][arch][1]:
-                for prov in self.binaries['unstable'][arch][1][name]:
-                    package = self.binaries['unstable'][arch][0][prov]
+            if name in self.binaries[distribution][arch][1]:
+                for prov in self.binaries[distribution][arch][1][name]:
+                    package = self.binaries[distribution][arch][0][prov]
                     if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
-                        packages.append(name)
+                        packages.append(prov)
                         break
-                if len(packages) > 0:
-                    return (True, packages)
 
-            if real_package:
-                missing.append(name)
-
-        return (False, missing)
+        return (len(packages) > 0, packages)
 
     def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, ignore_break=0):
         binary_u = self.binaries[suite][arch][0][pkg]
@@ -414,7 +414,7 @@ class Britney:
             self.excuses.append(excuse)
             return False
 
-        for pkg in source_u['binaries']:
+        for pkg in sorted(source_u['binaries']):
             if not pkg.endswith("/" + arch): continue
             pkg_name = pkg.split("/")[0]
 
@@ -423,34 +423,34 @@ class Britney:
             pkgsv = self.binaries[suite][arch][0][pkg_name]['source-ver']
 
             if binary_u['architecture'] == 'all':
-                excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg, binary_u['version'], pkgsv))
+                excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg_name, binary_u['version'], pkgsv))
                 continue
 
             if not self.same_source(source_t['version'], pkgsv):
                 anywrongver = True
-                excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg, binary_u['version'], pkgsv, source_t['version']))
+                excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u['version'], pkgsv, source_t['version']))
                 break
 
             self.excuse_unsat_deps(pkg_name, src, arch, suite, excuse)
 
             if not binary_t:
-                excuse.addhtml("New binary: %s (%s)" % (pkg, binary_u['version']))
+                excuse.addhtml("New binary: %s (%s)" % (pkg_name, binary_u['version']))
                 anyworthdoing = True
                 continue
 
             vcompare = apt_pkg.VersionCompare(binary_t['version'], binary_u['version'])
             if vcompare > 0:
                 anywrongver = True
-                excuse.addhtml("Not downgrading: %s (%s to %s)" % (pkg, binary_t['version'], binary_u['version']))
+                excuse.addhtml("Not downgrading: %s (%s to %s)" % (pkg_name, binary_t['version'], binary_u['version']))
                 break
             elif vcompare < 0:
-                excuse.addhtml("Updated binary: %s (%s to %s)" % (pkg, binary_t['version'], binary_u['version']))
+                excuse.addhtml("Updated binary: %s (%s to %s)" % (pkg_name, binary_t['version'], binary_u['version']))
                 anyworthdoing = True
 
         if not anywrongver and (anyworthdoing or src in self.sources[suite]):
             srcv = self.sources[suite][src]['version']
             ssrc = self.same_source(source_t['version'], srcv)
-            for pkg in set(k.split("/")[0] for k in self.sources['testing'][src]['binaries']):
+            for pkg in sorted([x.split("/")[0] for x in self.sources['testing'][src]['binaries'] if x.endswith("/"+arch)]):
                 if self.binaries['testing'][arch][0][pkg]['architecture'] == 'all':
                     excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                     continue
@@ -504,7 +504,7 @@ class Britney:
                self.same_source(source_u['version'], self.hints['remove'][src][0]):
                 excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
                 excuse.addhtml("Trying to remove package, not update it")
-            update_candidate = False
+                update_candidate = False
 
         blocked = None
         if self.hints["block"].has_key(src):
@@ -538,9 +538,9 @@ class Britney:
                     update_candidate = False
 
         pkgs = {src: ["source"]}
-        for arch in self.options.architectures.split():
+        for arch in self.options.architectures:
             oodbins = {}
-            for pkg in set(k.split("/")[0] for k in self.sources[suite][src]['binaries']):
+            for pkg in sorted([x.split("/")[0] for x in self.sources[suite][src]['binaries'] if x.endswith("/"+arch)]):
                 if not pkgs.has_key(pkg): pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
@@ -653,7 +653,7 @@ class Britney:
         # Packages to be upgraded from unstable
         for pkg in self.sources['unstable']:
             if self.sources['testing'].has_key(pkg):
-                for arch in self.options.architectures.split():
+                for arch in self.options.architectures:
                     if self.should_upgrade_srcarch(pkg, arch, 'unstable'):
                         upgrade_me.append("%s/%s" % (pkg, arch))
 
@@ -663,7 +663,7 @@ class Britney:
         # Packages to be upgraded from testing-proposed-updates
         for pkg in self.sources['tpu']:
             if self.sources['testing'].has_key(pkg):
-                for arch in self.options.architectures.split():
+                for arch in self.options.architectures:
                     if self.should_upgrade_srcarch(pkg, arch, 'tpu'):
                         upgrade_me.append("%s/%s_tpu" % (pkg, arch))
 
