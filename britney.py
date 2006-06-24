@@ -15,6 +15,24 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+"""
+== Introdution ==
+
+This is the Debian testing updater script, also known as "Britney".
+
+Packages are usually installed into the `testing' distribution after
+they have undergone some degree of testing in unstable. The goal of
+this software is to do this task in a smart way, allowing testing
+to be alwasy fully installable and close to being a release candidate.
+
+Britney source code is splitted in two different, but related, tasks:
+the first one is the generation of the update excuses, and with the
+second one Britney tries to update testing with the valid candidates;
+first, each package alone, and then larger and even larger sets of
+packages together.  Each try is accepted if testing is not more
+uninstallable after the update than before.
+"""
+
 import os
 import re
 import sys
@@ -26,23 +44,40 @@ import apt_pkg
 
 from excuse import Excuse
 
-VERSION = '2.0.alpha1'
+__author__ = 'Fabio Tranchitella'
+__version__ = '2.0.alpha1'
 
 
 class Britney:
-    """Debian testing updater script"""
+    """Britney, the debian testing updater script
+    
+    This is the script that updates the testing_ distribution. It is executed
+    each day after the installation of the updated packages. It generates the 
+    `Packages' files for the testing distribution, but it does so in an
+    intelligent manner; it try to avoid any inconsistency and to use only
+    non-buggy packages.
 
-    BINARY_FIELDS = ('Version', 'Pre-Depends', 'Depends', 'Conflicts', 'Provides', 'Source', 'Architecture', 'Version')
-    SOURCE_FIELDS = ('Version', 'Maintainer', 'Section')
+    For more documentation on this script, please read the Developers Reference.
+    """
 
     HINTS_STANDARD = ("easy", "hint", "remove", "block", "unblock", "urgent", "approve")
     HINTS_ALL = ("force", "force-hint", "block-all") + HINTS_STANDARD
 
     def __init__(self):
-        """Class constructor method: initialize and populate the data lists"""
-        self.__parse_arguments()
-        apt_pkg.init()
+        """Class constructor
+
+        This method initializes and populates the data lists, which contain all
+        the information needed by the other methods of the class.
+        """
         self.date_now = int(((time.time() / (60*60)) - 15) / 24)
+
+        # parse the command line arguments
+        self.__parse_arguments()
+
+        # initialize the apt_pkg back-end
+        apt_pkg.init()
+
+        # read the source and binary packages for the involved distributions
         self.sources = {'testing': self.read_sources(self.options.testing),
                         'unstable': self.read_sources(self.options.unstable),
                         'tpu': self.read_sources(self.options.tpu),}
@@ -51,9 +86,13 @@ class Britney:
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
+
+        # read the release-critical bug summaries for testing and unstable
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
                      'testing': self.read_bugs(self.options.testing),}
         self.normalize_bugs()
+
+        # read additional data
         self.dates = self.read_dates(self.options.testing)
         self.urgencies = self.read_urgencies(self.options.testing)
         self.approvals = self.read_approvals(self.options.tpu)
@@ -61,15 +100,26 @@ class Britney:
         self.excuses = []
 
     def __parse_arguments(self):
-        """Parse command line arguments"""
-        self.parser = optparse.OptionParser(version="%prog " + VERSION)
+        """Parse the command line arguments
+
+        This method parses and initializes the command line arguments.
+        While doing so, it preprocesses some of the options to be converted
+        in a suitable form for the other methods of the class.
+        """
+        # initialize the parser
+        self.parser = optparse.OptionParser(version="%prog")
         self.parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
         self.parser.add_option("-c", "--config", action="store", dest="config",
                           default="/etc/britney.conf", help="path for the configuration file")
         (self.options, self.args) = self.parser.parse_args()
+
+        # if the configuration file exists, than read it and set the additional options
         if not os.path.isfile(self.options.config):
             self.__log("Unable to read the configuration file (%s), exiting!" % self.options.config, type="E")
             sys.exit(1)
+
+        # minimum days for unstable-testing transition and the list of hints
+        # are handled as an ad-hoc case
         self.MINDAYS = {}
         self.HINTS = {}
         for k, v in [map(string.strip,r.split('=', 1)) for r in file(self.options.config) if '=' in r and not r.strip().startswith('#')]:
@@ -80,7 +130,8 @@ class Britney:
                     reduce(lambda x,y: x+y, [hasattr(self, "HINTS_" + i) and getattr(self, "HINTS_" + i) or (i,) for i in v.split()])
             else:
                 setattr(self.options, k.lower(), v)
-        # Sort architectures
+
+        # Sort the architecture list
         allarches = sorted(self.options.architectures.split())
         arches = [x for x in allarches if x in self.options.nobreakall_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches]
@@ -89,30 +140,154 @@ class Britney:
         self.options.architectures = arches
 
     def __log(self, msg, type="I"):
-        """Print info messages according to verbosity level"""
+        """Print info messages according to verbosity level
+        
+        An easy-and-simple log method which prints messages to the standard
+        output. The type parameter controls the urgency of the message, and
+        can be equal to `I' for `Information', `W' for `Warning' and `E' for
+        `Error'. Warnings and errors are always printed, and information are
+        printed only if the verbose logging is enabled.
+        """
         if self.options.verbose or type in ("E", "W"):
             print "%s: [%s] - %s" % (type, time.asctime(), msg)
 
-    # Data reading/writing
+    # Data reading/writing methods
+    # ----------------------------
 
     def read_sources(self, basedir):
-        """Read the list of source packages from the specified directory"""
+        """Read the list of source packages from the specified directory
+        
+        The source packages are read from the `Sources' file within the
+        directory specified as `basedir' parameter. Considering the
+        large amount of memory needed, not all the fields are loaded
+        in memory. The available fields are Version, Maintainer and Section.
+
+        The method returns a list where every item represents a source
+        package as a dictionary.
+        """
         sources = {}
         package = None
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
-        for l in open(filename):
-            if l.startswith(' ') or ':' not in l: continue
-            fields = map(string.strip, l.split(":",1))
-            if fields[0] == 'Package':
-                package = fields[1]
-                sources[package] = dict([(k.lower(), None) for k in self.SOURCE_FIELDS] + [('binaries', [])])
-            elif fields[0] in self.SOURCE_FIELDS:
-                sources[package][fields[0].lower()] = fields[1]
+        packages = apt_pkg.ParseTagFile(open(filename))
+        while packages.Step():
+            pkg = packages.Section.get('Package')
+            sources[pkg] = {'binaries': [],
+                            'version': packages.Section.get('Version'),
+                            'maintainer': packages.Section.get('Maintainer'),
+                            'section': packages.Section.get('Section'),
+                            }
         return sources
 
+    def read_binaries(self, basedir, distribution, arch):
+        """Read the list of binary packages from the specified directory
+        
+        The binary packages are read from the `Packages_${arch}' files
+        within the directory specified as `basedir' parameter, replacing
+        ${arch} with the value of the arch parameter. Considering the
+        large amount of memory needed, not all the fields are loaded
+        in memory. The available fields are Version, Source, Pre-Depends,
+        Depends, Conflicts, Provides and Architecture.
+        
+        After reading the packages, reverse dependencies are computed
+        and saved in the `rdepends' keys, and the `Provides' field is
+        used to populate the virtual packages list.
+
+        The dependencies are parsed with the apt.pkg.ParseDepends method,
+        and they are stored both as the format of its return value and
+        text.
+
+        The method returns a tuple. The first element is a list where
+        every item represents a binary package as a dictionary; the second
+        element is a dictionary which maps virtual packages to real
+        packages that provide it.
+        """
+
+        packages = {}
+        provides = {}
+        package = None
+        filename = os.path.join(basedir, "Packages_%s" % arch)
+        self.__log("Loading binary packages from %s" % filename)
+        Packages = apt_pkg.ParseTagFile(open(filename))
+        while Packages.Step():
+            pkg = Packages.Section.get('Package')
+            version = Packages.Section.get('Version')
+            dpkg = {'rdepends': [],
+                    'version': version,
+                    'source': pkg, 
+                    'source-ver': version,
+                    'pre-depends': Packages.Section.get('Pre-Depends'),
+                    'depends': Packages.Section.get('Depends'),
+                    'conflicts': Packages.Section.get('Conflicts'),
+                    'provides': Packages.Section.get('Provides'),
+                    'architecture': Packages.Section.get('Architecture'),
+                    }
+
+            # retrieve the name and the version of the source package
+            source = Packages.Section.get('Source')
+            if source:
+                dpkg['source'] = source.split(" ")[0]
+                if "(" in source:
+                    dpkg['source-ver'] = source.split("(")[1].split(")")[0]
+
+            # if the source package is available in the distribution, then register this binary package
+            if dpkg['source'] in self.sources[distribution]:
+                self.sources[distribution][dpkg['source']]['binaries'].append(pkg + "/" + arch)
+            # if the source package doesn't exist, create a fake one
+            else:
+                self.sources[distribution][dpkg['source']] = {'binaries': [pkg + "/" + arch],
+                    'version': dpkg['source-ver'], 'maintainer': None, 'section': None, 'fake': True}
+
+            # register virtual packages and real packages that provide them
+            if dpkg['provides']:
+                parts = map(string.strip, dpkg['provides'].split(","))
+                for p in parts:
+                    try:
+                        provides[p].append(pkg)
+                    except KeyError:
+                        provides[p] = [pkg]
+            del dpkg['provides']
+
+            # append the resulting dictionary to the package list
+            packages[pkg] = dpkg
+
+        # loop again on the list of packages to register reverse dependencies
+        for pkg in packages:
+            dependencies = []
+
+            # analyze dependencies
+            if packages[pkg]['depends']:
+                packages[pkg]['depends-txt'] = packages[pkg]['depends']
+                packages[pkg]['depends'] = apt_pkg.ParseDepends(packages[pkg]['depends'])
+                dependencies.extend(packages[pkg]['depends'])
+
+            # analyze pre-dependencies
+            if packages[pkg]['pre-depends']:
+                packages[pkg]['pre-depends-txt'] = packages[pkg]['pre-depends']
+                packages[pkg]['pre-depends'] = apt_pkg.ParseDepends(packages[pkg]['pre-depends'])
+                dependencies.extend(packages[pkg]['pre-depends'])
+
+            # register the list of the dependencies for the depending packages
+            for p in dependencies:
+                for a in p:
+                    if a[0] not in packages: continue
+                    packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
+
+        # return a tuple with the list of real and virtual packages
+        return (packages, provides)
+
     def read_bugs(self, basedir):
-        """Read the RC bugs count from the specified directory"""
+        """Read the release critial bug summary from the specified directory
+        
+        The RC bug summaries are read from the `Bugs' file within the
+        directory specified as `basedir' parameter. The file contains
+        rows with the format:
+
+        <package-name> <count-of-rc-bugs>
+
+        The method returns a dictionary where the key is the binary package
+        name and the value is the number of open RC bugs for it.
+        """
         bugs = {}
         filename = os.path.join(basedir, "Bugs")
         self.__log("Loading RC bugs count from %s" % filename)
@@ -125,7 +300,14 @@ class Britney:
                 self.__log("Bugs, unable to parse \"%s\"" % line, type="E")
         return bugs
 
-    def maxver(self, pkg, dist):
+    def __maxver(self, pkg, dist):
+        """Return the maximum version for a given package name
+        
+        This method returns None if the specified source package
+        is not available in the `dist' distribution. If the package
+        exists, then it returns the maximum version between the
+        source package and its binary packages.
+        """
         maxver = None
         if self.sources[dist].has_key(pkg):
             maxver = self.sources[dist][pkg]['version']
@@ -137,26 +319,54 @@ class Britney:
         return maxver
 
     def normalize_bugs(self):
-        """Normalize the RC bugs count for testing and unstable"""
+        """Normalize the release critical bug summaries for testing and unstable
+        
+        The method doesn't return any value: it directly modifies the
+        object attribute `bugs'.
+        """
+        # loop on all the package names from testing and unstable bug summaries
         for pkg in set(self.bugs['testing'].keys() + self.bugs['unstable'].keys()):
+
+            # make sure that the key is present in both dictionaries
             if not self.bugs['testing'].has_key(pkg):
                 self.bugs['testing'][pkg] = 0
             elif not self.bugs['unstable'].has_key(pkg):
                 self.bugs['unstable'][pkg] = 0
 
-            maxvert = self.maxver(pkg, 'testing')
+            # retrieve the maximum version of the package in testing:
+            maxvert = self.__maxver(pkg, 'testing')
+
+            # if the package is not available in testing or it has the
+            # same RC bug count, then do nothing
             if maxvert == None or \
                self.bugs['testing'][pkg] == self.bugs['unstable'][pkg]:
                 continue
 
-            maxveru = self.maxver(pkg, 'unstable')
+            # retrieve the maximum version of the package in testing:
+            maxveru = self.__maxver(pkg, 'unstable')
+
+            # if the package is not available in unstable, then do nothing
             if maxveru == None:
                 continue
+            # else if the testing package is more recent, then use the
+            # unstable RC bug count for testing, too
             elif apt_pkg.VersionCompare(maxvert, maxveru) >= 0:
                 self.bugs['testing'][pkg] = self.bugs['unstable'][pkg]
 
     def read_dates(self, basedir):
-        """Read the upload data for the packages from the specified directory"""
+        """Read the upload date for the packages from the specified directory
+        
+        The upload dates are read from the `Date' file within the directory
+        specified as `basedir' parameter. The file contains rows with the
+        format:
+
+        <package-name> <version> <date-of-upload>
+
+        The dates are expressed as days starting from the 1970-01-01.
+
+        The method returns a dictionary where the key is the binary package
+        name and the value is tuple with two items, the version and the date.
+        """
         dates = {}
         filename = os.path.join(basedir, "Dates")
         self.__log("Loading upload data from %s" % filename)
@@ -170,7 +380,19 @@ class Britney:
         return dates
 
     def read_urgencies(self, basedir):
-        """Read the upload urgency of the packages from the specified directory"""
+        """Read the upload urgency of the packages from the specified directory
+        
+        The upload urgencies are read from the `Urgency' file within the
+        directory specified as `basedir' parameter. The file contains rows
+        with the format:
+
+        <package-name> <version> <urgency>
+
+        The method returns a dictionary where the key is the binary package
+        name and the value is the greatest urgency from the versions of the
+        package that are higher then the testing one.
+        """
+
         urgencies = {}
         filename = os.path.join(basedir, "Urgency")
         self.__log("Loading upload urgencies from %s" % filename)
@@ -178,23 +400,46 @@ class Britney:
             l = line.strip().split()
             if len(l) != 3: continue
 
+            # read the minimum days associated to the urgencies
             urgency_old = urgencies.get(l[0], self.options.default_urgency)
             mindays_old = self.MINDAYS.get(urgency_old, self.MINDAYS[self.options.default_urgency])
             mindays_new = self.MINDAYS.get(l[2], self.MINDAYS[self.options.default_urgency])
+
+            # if the new urgency is lower (so the min days are higher), do nothing
             if mindays_old <= mindays_new:
                 continue
+
+            # if the package exists in testing and it is more recent, do nothing
             tsrcv = self.sources['testing'].get(l[0], None)
             if tsrcv and apt_pkg.VersionCompare(tsrcv['version'], l[1]) >= 0:
                 continue
+
+            # if the package doesn't exist in unstable or it is older, do nothing
             usrcv = self.sources['unstable'].get(l[0], None)
             if not usrcv or apt_pkg.VersionCompare(usrcv['version'], l[1]) < 0:
                 continue
+
+            # update the urgency for the package
             urgencies[l[0]] = l[2]
 
         return urgencies
 
     def read_approvals(self, basedir):
-        """Read the approvals data from the specified directory"""
+        """Read the approval commands from the specified directory
+        
+        The approval commands are read from the files contained by the 
+        `Approved' directory within the directory specified as `basedir'
+        parameter. The name of the files has to be the same of the
+        authorized users for the approvals.
+        
+        The file contains rows with the format:
+
+        <package-name> <version>
+
+        The method returns a dictionary where the key is the binary package
+        name followed by an underscore and the version number, and the value
+        is the user who submitted the command.
+        """
         approvals = {}
         for approver in self.options.approvers.split():
             filename = os.path.join(basedir, "Approved", approver)
@@ -206,7 +451,20 @@ class Britney:
         return approvals
 
     def read_hints(self, basedir):
-        """Read the approvals data from the specified directory"""
+        """Read the hint commands from the specified directory
+        
+        The hint commands are read from the files contained by the `Hints'
+        directory within the directory specified as `basedir' parameter. 
+        The name of the files has to be the same of the authorized users
+        for the hints.
+        
+        The file contains rows with the format:
+
+        <command> <package-name>[/<version>]
+
+        The method returns a dictionary where the key is the command, and
+        the value is the list of affected packages.
+        """
         hints = dict([(k,[]) for k in self.HINTS_ALL])
 
         for who in self.HINTS.keys():
@@ -239,76 +497,16 @@ class Britney:
 
         return hints
 
-    def read_binaries(self, basedir, distribution, arch):
-        """Read the list of binary packages from the specified directory"""
-        packages = {}
-        package = None
-        filename = os.path.join(basedir, "Packages_%s" % arch)
-        self.__log("Loading binary packages from %s" % filename)
-        for l in open(filename):
-            if l.startswith(' ') or ':' not in l: continue
-            fields = map(string.strip, l.split(":",1))
-            if fields[0] == 'Package':
-                package = fields[1]
-                packages[package] = dict([(k.lower(), None) for k in self.BINARY_FIELDS] + [('rdepends', [])])
-                packages[package]['source'] = package
-                packages[package]['source-ver'] = None
-            elif fields[0] == 'Source':
-                packages[package][fields[0].lower()] = fields[1].split(" ")[0]
-                if "(" in fields[1]:
-                    packages[package]['source-ver'] = fields[1].split("(")[1].split(")")[0]
-            elif fields[0] in self.BINARY_FIELDS:
-                packages[package][fields[0].lower()] = fields[1]
-
-        provides = {}
-        for pkgname in packages:
-            if not packages[pkgname]['source-ver']:
-                packages[pkgname]['source-ver'] = packages[pkgname]['version']
-            if packages[pkgname]['source'] in self.sources[distribution]:
-                self.sources[distribution][packages[pkgname]['source']]['binaries'].append(pkgname + "/" + arch)
-            if not packages[pkgname]['provides']:
-                continue
-            parts = map(string.strip, packages[pkgname]["provides"].split(","))
-            del packages[pkgname]["provides"]
-            for p in parts:
-                if p in provides:
-                    provides[p].append(pkgname)
-                else:
-                    provides[p] = [pkgname]
-
-        for pkgname in packages:
-            dependencies = []
-            if packages[pkgname]['depends']:
-                packages[pkgname]['depends-txt'] = packages[pkgname]['depends']
-                packages[pkgname]['depends'] = apt_pkg.ParseDepends(packages[pkgname]['depends'])
-                dependencies.extend(packages[pkgname]['depends'])
-            if packages[pkgname]['pre-depends']:
-                packages[pkgname]['pre-depends-txt'] = packages[pkgname]['pre-depends']
-                packages[pkgname]['pre-depends'] = apt_pkg.ParseDepends(packages[pkgname]['pre-depends'])
-                dependencies.extend(packages[pkgname]['pre-depends'])
-            for p in dependencies:
-                for a in p:
-                    if a[0] not in packages: continue
-                    packages[a[0]]['rdepends'].append((pkgname, a[1], a[2]))
-
-        return (packages, provides)
-
-    # Package analisys
-
-    def should_remove_source(self, pkg):
-        """Check if a source package should be removed from testing"""
-        if self.sources['unstable'].has_key(pkg):
-            return False
-        src = self.sources['testing'][pkg]
-        excuse = Excuse("-" + pkg)
-        excuse.set_vers(src['version'], None)
-        src['maintainer'] and excuse.set_maint(src['maintainer'].strip())
-        src['section'] and excuse.set_section(src['section'].strip())
-        excuse.addhtml("Valid candidate")
-        self.excuses.append(excuse)
-        return True
+    # Utility methods for package analisys
+    # ------------------------------------
 
     def same_source(self, sv1, sv2):
+        """Check if two version numbers are built from the same source
+
+        This method returns a boolean value which is true if the two
+        version numbers specified as parameters are built from the same
+        source. The main use of this code is to detect binary-NMU.
+        """
         if sv1 == sv2:
             return 1
 
@@ -342,70 +540,144 @@ class Britney:
             return 0
 
     def get_dependency_solvers(self, block, arch, distribution):
+        """Find the packages which satisfy a dependency block
+
+        This method returns the list of packages which satisfy a dependency
+        block (as returned by apt_pkg.ParseDepends) for the given architecture
+        and distribution.
+
+        It returns a tuple with two items: the first is a boolean which is
+        True if the dependency is satisfied, the second is the list of the
+        solving packages.
+        """
+
         packages = []
 
+        # for every package, version and operation in the block
         for name, version, op in block:
-            real_package = False
+            # look for the package in unstable
             if name in self.binaries[distribution][arch][0]:
-                real_package = True
                 package = self.binaries[distribution][arch][0][name]
+                # check the versioned dependency (if present)
                 if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
                     packages.append(name)
 
-            # TODO: this would be enough according to policy, but not according to britney v.1
-            #if op == '' and version == '' and name in self.binaries[distribution][arch][1]:
-            #    # packages.extend(self.binaries[distribution][arch][1][name])
-            #    return (True, packages)
-
+            # look for the package in the virtual packages list
             if name in self.binaries[distribution][arch][1]:
+                # loop on the list of packages which provides it
                 for prov in self.binaries[distribution][arch][1][name]:
                     package = self.binaries[distribution][arch][0][prov]
+                    # check the versioned dependency (if present)
+                    # TODO: this is forbidden by the debian policy, which says that versioned
+                    #       dependencies on virtual packages are never satisfied. The old britney
+                    #       does it and we have to go with it, but at least a warning should be raised.
                     if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
                         packages.append(prov)
                         break
 
         return (len(packages) > 0, packages)
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, ignore_break=0):
+    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse):
+        """Find unsatisfied dependencies for a binary package
+
+        This method analyzes the dependencies of the binary package specified
+        by the parameter `pkg', built from the source package `src', for the
+        architecture `arch' within the suite `suite'. If the dependency can't
+        be satisfied in testing and/or unstable, it updates the excuse passed
+        as parameter.
+
+        The dependency fields checked are Pre-Depends and Depends.
+        """
+        # retrieve the binary package from the specified suite and arch
         binary_u = self.binaries[suite][arch][0][pkg]
+
+        # analyze the dependency fields (if present)
         for type in ('Pre-Depends', 'Depends'):
             type_key = type.lower()
             if not binary_u[type_key]:
                 continue
 
+            # this list will contain the packages that satisfy the dependency
             packages = []
+
+            # for every block of dependency (which is formed as conjunction of disconjunction)
             for block, block_txt in map(None, binary_u[type_key], binary_u[type_key + '-txt'].split(',')):
+                # if the block is satisfied in testing, then skip the block
                 solved, packages = self.get_dependency_solvers(block, arch, 'testing')
                 if solved: continue
 
+                # check if the block can be satisfied in unstable, and list the solving packages
                 solved, packages = self.get_dependency_solvers(block, arch, suite)
                 packages = [self.binaries[suite][arch][0][p]['source'] for p in packages]
+
+                # if the dependency can be satisfied by the same source package, skip the block:
+                # obviously both binary packages will enter testing togheter
                 if src in packages: continue
 
+                # if no package can satisfy the dependency, add this information to the excuse
                 if len(packages) == 0:
                     excuse.addhtml("%s/%s unsatisfiable %s: %s" % (pkg, arch, type, block_txt.strip()))
 
+                # for the solving packages, update the excuse to add the dependencies
                 for p in packages:
-                    if ignore_break or arch not in self.options.break_arches.split():
+                    if arch not in self.options.break_arches.split():
                         excuse.add_dep(p)
                     else:
                         excuse.add_break_dep(p, arch)
 
+    # Package analisys methods
+    # ------------------------
+
+    def should_remove_source(self, pkg):
+        """Check if a source package should be removed from testing
+        
+        This method checks if a source package should be removed from the
+        testing distribution; this happen if the source package is not
+        present in the unstable distribution anymore.
+
+        It returns True if the package can be removed, False otherwise.
+        In the former case, a new excuse is appended to the the object
+        attribute excuses.
+        """
+        # if the soruce package is available in unstable, then do nothing
+        if self.sources['unstable'].has_key(pkg):
+            return False
+        # otherwise, add a new excuse for its removal and return True
+        src = self.sources['testing'][pkg]
+        excuse = Excuse("-" + pkg)
+        excuse.set_vers(src['version'], None)
+        src['maintainer'] and excuse.set_maint(src['maintainer'].strip())
+        src['section'] and excuse.set_section(src['section'].strip())
+        excuse.addhtml("Valid candidate")
+        self.excuses.append(excuse)
+        return True
+
     def should_upgrade_srcarch(self, src, arch, suite):
-        # binnmu this arch?
+        """Check if binary package should be upgraded
+
+        This method checks if a binary package should be upgraded; this can
+        happen only if the binary package is a binary-NMU for the given arch.
+        The analisys is performed for the source package specified by the
+        `src' parameter, checking the architecture `arch' for the distribution
+        `suite'.
+       
+        It returns False if the given package doesn't need to be upgraded,
+        True otherwise. In the former case, a new excuse is appended to
+        the the object attribute excuses.
+        """
+        # retrieve the source packages for testing and suite
         source_t = self.sources['testing'][src]
         source_u = self.sources[suite][src]
 
+        # build the common part of the excuse, which will be filled by the code below
         ref = "%s/%s%s" % (src, arch, suite != 'unstable' and "_" + suite or "")
-
         excuse = Excuse(ref)
         excuse.set_vers(source_t['version'], source_t['version'])
         source_u['maintainer'] and excuse.set_maint(source_u['maintainer'].strip())
         source_u['section'] and excuse.set_section(source_u['section'].strip())
         
-        anywrongver = False
-        anyworthdoing = False
-
+        # if there is a `remove' hint and the requested version is the same of the
+        # version in testing, then stop here and return False
         if self.hints["remove"].has_key(src) and \
            self.same_source(source_t['version'], self.hints["remove"][src][0]):
             excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
@@ -414,91 +686,137 @@ class Britney:
             self.excuses.append(excuse)
             return False
 
-        for pkg in sorted(source_u['binaries']):
-            if not pkg.endswith("/" + arch): continue
+        # the starting point is that there is nothing wrong and nothing worth doing
+        anywrongver = False
+        anyworthdoing = False
+
+        # for every binary package produced by this source in unstable for this architecture
+        for pkg in sorted(filter(lambda x: x.endswith("/" + arch), source_u['binaries'])):
             pkg_name = pkg.split("/")[0]
 
+            # retrieve the testing (if present) and unstable corresponding binary packages
             binary_t = pkg in source_t['binaries'] and self.binaries['testing'][arch][0][pkg_name] or None
             binary_u = self.binaries[suite][arch][0][pkg_name]
+
+            # this is the source version for the new binary package
             pkgsv = self.binaries[suite][arch][0][pkg_name]['source-ver']
 
+            # if the new binary package is architecture-independent, then skip it
             if binary_u['architecture'] == 'all':
                 excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg_name, binary_u['version'], pkgsv))
                 continue
 
+            # if the new binary package is not from the same source as the testing one, then skip it
             if not self.same_source(source_t['version'], pkgsv):
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u['version'], pkgsv, source_t['version']))
                 break
 
+            # find unsatisfied dependencies for the new binary package
             self.excuse_unsat_deps(pkg_name, src, arch, suite, excuse)
 
+            # if the binary is not present in testing, then it is a new binary;
+            # in this case, there is something worth doing
             if not binary_t:
                 excuse.addhtml("New binary: %s (%s)" % (pkg_name, binary_u['version']))
                 anyworthdoing = True
                 continue
 
+            # at this point, the binary package is present in testing, so we can compare
+            # the versions of the packages ...
             vcompare = apt_pkg.VersionCompare(binary_t['version'], binary_u['version'])
+
+            # ... if updating would mean downgrading, then stop here: there is something wrong
             if vcompare > 0:
                 anywrongver = True
                 excuse.addhtml("Not downgrading: %s (%s to %s)" % (pkg_name, binary_t['version'], binary_u['version']))
                 break
+            # ... if updating would mean upgrading, then there is something worth doing
             elif vcompare < 0:
                 excuse.addhtml("Updated binary: %s (%s to %s)" % (pkg_name, binary_t['version'], binary_u['version']))
                 anyworthdoing = True
 
-        if not anywrongver and (anyworthdoing or src in self.sources[suite]):
+        # if there is nothing wrong and there is something worth doing or the source
+        # package is not fake, then check what packages shuold be removed
+        if not anywrongver and (anyworthdoing or self.sources[suite][src].has_key('fake')):
             srcv = self.sources[suite][src]['version']
             ssrc = self.same_source(source_t['version'], srcv)
+            # for every binary package produced by this source in testing for this architecture
             for pkg in sorted([x.split("/")[0] for x in self.sources['testing'][src]['binaries'] if x.endswith("/"+arch)]):
+                # if the package is architecture-independent, then ignore it
                 if self.binaries['testing'][arch][0][pkg]['architecture'] == 'all':
                     excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                     continue
+                # if the package is not produced by the new source package, then remove it from testing
                 if not self.binaries[suite][arch][0].has_key(pkg):
                     tpkgv = self.binaries['testing'][arch][0][pkg]['version']
                     excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
                     if ssrc: anyworthdoing = True
 
+        # if there is nothing wrong and there is something worth doing, this is valid candidate
         if not anywrongver and anyworthdoing:
             excuse.addhtml("Valid candidate")
             self.excuses.append(excuse)
+        # else if there is something worth doing (but something wrong, too) this package won't be considered
         elif anyworthdoing:
             excuse.addhtml("Not considered")
             self.excuses.append(excuse)
             return False
 
+        # otherwise, return True
         return True
 
     def should_upgrade_src(self, src, suite):
+        """Check if source package should be upgraded
+
+        This method checks if a source package should be upgraded. The analisys
+        is performed for the source package specified by the `src' parameter, 
+        checking the architecture `arch' for the distribution `suite'.
+       
+        It returns False if the given package doesn't need to be upgraded,
+        True otherwise. In the former case, a new excuse is appended to
+        the the object attribute excuses.
+        """
+
+        # retrieve the source packages for testing (if available) and suite
         source_u = self.sources[suite][src]
         if src in self.sources['testing']:
             source_t = self.sources['testing'][src]
+            # if testing and unstable have the same version, then this is a candidate for binary-NMUs only
             if apt_pkg.VersionCompare(source_t['version'], source_u['version']) == 0:
-                # Candidate for binnmus only
                 return False
         else:
             source_t = None
 
+        # build the common part of the excuse, which will be filled by the code below
         ref = "%s%s" % (src, suite != 'unstable' and "_" + suite or "")
-
-        update_candidate = True
-
         excuse = Excuse(ref)
         excuse.set_vers(source_t and source_t['version'] or None, source_u['version'])
         source_u['maintainer'] and excuse.set_maint(source_u['maintainer'].strip())
         source_u['section'] and excuse.set_section(source_u['section'].strip())
+
+        # the starting point is that we will update the candidate
+        update_candidate = True
         
+        # if the version in unstable is older, then stop here with a warning in the excuse and return False
         if source_t and apt_pkg.VersionCompare(source_u['version'], source_t['version']) < 0:
-            # Version in unstable is older!
             excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t['version'], source_u['version']))
             self.excuses.append(excuse)
             return False
 
+        # check if the source package really exists or if it is a fake one
+        if source_u.has_key('fake'):
+            excuse.addhtml("%s source package doesn't exist" % (src))
+            update_candidate = False
+
+        # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
         urgency = self.urgencies.get(src, self.options.default_urgency)
         if not source_t and urgency != self.options.default_urgency:
             excuse.addhtml("Ignoring %s urgency setting for NEW package" % (urgency))
             urgency = self.options.default_urgency
 
+        # if there is a `remove' hint and the requested version is the same of the
+        # version in testing, then stop here and return False
         if self.hints["remove"].has_key(src):
             if source_t and self.same_source(source_t['version'], self.hints['remove'][src][0]) or \
                self.same_source(source_u['version'], self.hints['remove'][src][0]):
@@ -506,22 +824,29 @@ class Britney:
                 excuse.addhtml("Trying to remove package, not update it")
                 update_candidate = False
 
+        # check if there is a `block' hint for this package or a `block-all source' hint
         blocked = None
         if self.hints["block"].has_key(src):
             blocked = self.hints["block"][src]
         elif self.hints["block-all"].has_key("source"):
             blocked = self.hints["block-all"]["source"]
 
+        # if the source is blocked, then look for an `unblock' hint; the unblock request
+        # is processed only if the specified version is correct
         if blocked:
             unblock = self.hints["unblock"].get(src,(None,None))
-            if unblock[0] != None and self.same_source(unblock[0], source_u['version']):
-                excuse.addhtml("Ignoring request to block package by %s, due to unblock request by %s" % (blocked, unblock[1]))
-            else:
-                if unblock[0] != None:
+            if unblock[0] != None:
+                if self.same_source(unblock[0], source_u['version']):
+                    excuse.addhtml("Ignoring request to block package by %s, due to unblock request by %s" % (blocked, unblock[1]))
+                else:
                     excuse.addhtml("Unblock request by %s ignored due to version mismatch: %s" % (unblock[1], unblock[0]))
+            else:
                 excuse.addhtml("Not touching package, as requested by %s (contact debian-release if update is needed)" % (blocked))
                 update_candidate = False
 
+        # if the suite is unstable, then we have to check the urgency and the minimum days of
+        # permanence in unstable before updating testing; if the source package is too young,
+        # the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
             if not self.dates.has_key(src):
                 self.dates[src] = (source_u['version'], self.date_now)
@@ -537,30 +862,45 @@ class Britney:
                 else:
                     update_candidate = False
 
+        # at this point, we check what is the status of the builds on all the supported architectures
+        # to catch the out-of-date ones
         pkgs = {src: ["source"]}
         for arch in self.options.architectures:
             oodbins = {}
+            # for every binary package produced by this source in the suite for this architecture
             for pkg in sorted([x.split("/")[0] for x in self.sources[suite][src]['binaries'] if x.endswith("/"+arch)]):
                 if not pkgs.has_key(pkg): pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
+                # retrieve the binary package and its source version
                 binary_u = self.binaries[suite][arch][0][pkg]
                 pkgsv = binary_u['source-ver']
+
+                # if it wasn't builded by the same source, it is out-of-date
                 if not self.same_source(source_u['version'], pkgsv):
                     if not oodbins.has_key(pkgsv):
                         oodbins[pkgsv] = []
                     oodbins[pkgsv].append(pkg)
                     continue
 
+                # if the package is architecture-dependent or the current arch is `nobreakall'
+                # find unsatisfied dependencies for the binary package
                 if binary_u['architecture'] != 'all' or arch in self.options.nobreakall_arches:
                     self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
 
+            # if there are out-of-date packages, warn about them in the excuse and set update_candidate
+            # to False to block the update; if the architecture where the package is out-of-date is
+            # in the `fucked_arches' list, then do not block the update
             if oodbins:
                 oodtxt = ""
                 for v in oodbins.keys():
                     if oodtxt: oodtxt = oodtxt + "; "
-                    oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % (", ".join(sorted(oodbins[v])), arch, src, v, v)
-                text = "out of date on <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % (arch, src, source_u['version'], arch, oodtxt)
+                    oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/build.php?" \
+                        "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
+                        (", ".join(sorted(oodbins[v])), arch, src, v, v)
+                text = "out of date on <a href=\"http://buildd.debian.org/build.php?" \
+                    "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
+                    (arch, src, source_u['version'], arch, oodtxt)
 
                 if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
@@ -570,10 +910,14 @@ class Britney:
                 if self.date_now != self.dates[src][1]:
                     excuse.addhtml(text)
 
+        # if the source package has no binaries, set update_candidate to False to block the update
         if len(self.sources[suite][src]['binaries']) == 0:
             excuse.addhtml("%s has no binaries on any arch" % src)
             update_candidate = False
 
+        # if the suite is unstable, then we have to check the release-critical bug counts before
+        # updating testing; if the unstable package have a RC bug count greater than the testing
+        # one,  the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
             for pkg in pkgs.keys():
                 if not self.bugs['testing'].has_key(pkg):
@@ -582,16 +926,25 @@ class Britney:
                     self.bugs['unstable'][pkg] = 0
 
                 if self.bugs['unstable'][pkg] > self.bugs['testing'][pkg]:
-                    excuse.addhtml("%s (%s) is <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" target=\"_blank\">buggy</a>! (%d > %d)" % (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
+                    excuse.addhtml("%s (%s) is <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                                   "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                                   "target=\"_blank\">buggy</a>! (%d > %d)" % \
+                                   (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
                     update_candidate = False
                 elif self.bugs['unstable'][pkg] > 0:
-                    excuse.addhtml("%s (%s) is (less) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" target=\"_blank\">buggy</a>! (%d <= %d)" % (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
+                    excuse.addhtml("%s (%s) is (less) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                                   "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                                   "target=\"_blank\">buggy</a>! (%d <= %d)" % \
+                                   (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
 
-        if not update_candidate and self.hints["force"].has_key(src) and self.same_source(source_u['version'], self.hints["force"][src][0]) :
+        # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
+        if not update_candidate and self.hints["force"].has_key(src) and \
+           self.same_source(source_u['version'], self.hints["force"][src][0]):
             excuse.dontinvalidate = 1
             excuse.addhtml("Should ignore, but forced by %s" % (self.hints["force"][src][1]))
             update_candidate = True
 
+        # if the suite is testing-proposed-updates, the package needs an explicit approval in order to go in
         if suite == "tpu":
             if self.approvals.has_key("%s_%s" % (src, source_u['version'])):
                 excuse.addhtml("Approved by %s" % approvals["%s_%s" % (src, source_u['version'])])
@@ -599,8 +952,10 @@ class Britney:
                 excuse.addhtml("NEEDS APPROVAL BY RM")
                 update_candidate = False
 
+        # if the package can be updated, it is a valid candidate
         if update_candidate:
             excuse.addhtml("Valid candidate")
+        # else it won't be considered
         else:
             excuse.addhtml("Not considered")
 
@@ -608,6 +963,11 @@ class Britney:
         return update_candidate
 
     def reversed_exc_deps(self):
+        """Reverse the excuses dependencies
+
+        This method returns a dictionary where the keys are the package names
+        and the values are the excuse names which depend on it.
+        """
         res = {}
         for exc in self.excuses:
             for d in exc.deps:
@@ -616,22 +976,39 @@ class Britney:
         return res
 
     def invalidate_excuses(self, valid, invalid):
-        i = 0
+        """Invalidate impossible excuses
+
+        This method invalidates the impossible excuses, which depend
+        on invalid excuses. The two parameters contains the list of
+        `valid' and `invalid' excuses.
+        """
+        # build a lookup-by-name map
         exclookup = {}
         for e in self.excuses:
             exclookup[e.name] = e
+
+        # build the reverse dependencies
         revdeps = self.reversed_exc_deps()
+
+        # loop on the invalid excuses
+        i = 0
         while i < len(invalid):
+            # if there is no reverse dependency, skip the item
             if not revdeps.has_key(invalid[i]):
                 i += 1
                 continue
+            # if there dependency can be satisfied by a testing-proposed-updates excuse, skip the item
             if (invalid[i] + "_tpu") in valid:
                 i += 1
                 continue
+            # loop on the reverse dependencies
             for x in revdeps[invalid[i]]:
+                # if the item is valid and it is marked as `dontinvalidate', skip the item
                 if x in valid and exclookup[x].dontinvalidate:
                     continue
 
+                # otherwise, invalidate the dependency and mark as invalidated and
+                # remove the depending excuses
                 exclookup[x].invalidate_dep(invalid[i])
                 if x in valid:
                     p = valid.index(x)
@@ -640,45 +1017,60 @@ class Britney:
                     exclookup[x].addhtml("Not considered")
             i = i + 1
  
-    def main(self):
-        """Main method, entry point for the analisys"""
+    def write_excuses(self):
+        """Produce and write the update excuses
 
+        This method handles the update excuses generation: the packages are
+        looked to determine whether they are valid candidates. For the details
+        of this procedure, please refer to the module docstring.
+        """
+
+        # this list will contain the packages which are valid candidates;
+        # if a package is going to be removed, it will have a "-" prefix
         upgrade_me = []
 
-        # Packages to be removed
+        # for every source package in testing, check if it should be removed
         for pkg in self.sources['testing']:
             if self.should_remove_source(pkg):
                 upgrade_me.append("-" + pkg)
 
-        # Packages to be upgraded from unstable
+        # for every source package in unstable check if it should be upgraded
         for pkg in self.sources['unstable']:
+            # if the source package is already present in testing,
+            # check if it should be upgraded for every binary package
             if self.sources['testing'].has_key(pkg):
                 for arch in self.options.architectures:
                     if self.should_upgrade_srcarch(pkg, arch, 'unstable'):
                         upgrade_me.append("%s/%s" % (pkg, arch))
 
+            # check if the source package should be upgraded
             if self.should_upgrade_src(pkg, 'unstable'):
                 upgrade_me.append(pkg)
 
-        # Packages to be upgraded from testing-proposed-updates
+        # for every source package in testing-proposed-updates, check if it should be upgraded
         for pkg in self.sources['tpu']:
+            # if the source package is already present in testing,
+            # check if it should be upgraded for every binary package
             if self.sources['testing'].has_key(pkg):
                 for arch in self.options.architectures:
                     if self.should_upgrade_srcarch(pkg, arch, 'tpu'):
                         upgrade_me.append("%s/%s_tpu" % (pkg, arch))
 
+            # check if the source package should be upgraded
             if self.should_upgrade_src(pkg, 'tpu'):
                 upgrade_me.append("%s_tpu" % pkg)
 
-        # Process 'remove' hints
+        # process the `remove' hints, if the given package is not yet in upgrade_me
         for src in self.hints["remove"].keys():
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
             if not self.sources['testing'].has_key(src): continue
 
+            # check if the version specified in the hint is the same of the considered package
             tsrcv = self.sources['testing'][src]['version']
             if not self.same_source(tsrcv, self.hints["remove"][src][0]): continue
 
+            # add the removal of the package to upgrade_me and build a new excuse
             upgrade_me.append("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
@@ -686,20 +1078,20 @@ class Britney:
             excuse.addhtml("Package is broken, will try to remove")
             self.excuses.append(excuse)
 
-        # Sort excuses by daysold and name
+        # sort the excuses by daysold and name
         self.excuses.sort(lambda x, y: cmp(x.daysold, y.daysold) or cmp(x.name, y.name))
 
-        # Extract unconsidered packages
+        # extract the not considered packages, which are in the excuses but not in upgrade_me
         unconsidered = [e.name for e in self.excuses if e.name not in upgrade_me]
 
-        # Invalidate impossible excuses
+        # invalidate impossible excuses
         for e in self.excuses:
             for d in e.deps:
                 if d not in upgrade_me and d not in unconsidered:
                     e.addhtml("Unpossible dep: %s -> %s" % (e.name, d))
         self.invalidate_excuses(upgrade_me, unconsidered)
 
-        # Write excuses
+        # write excuses to the output file
         f = open(self.options.excuses_output, 'w')
         f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
         f.write("<html><head><title>excuses...</title>")
@@ -710,21 +1102,14 @@ class Britney:
             f.write("<li>%s" % e.html())
         f.write("</ul></body></html>\n")
         f.close()
-        del self.excuses
 
-        # Some examples ...
-        # print self.sources['testing']['zsh-beta']['version']
-        # print self.sources['unstable']['zsh-beta']['version']
-        # print self.urgencies['zsh-beta']
-        # Which packages depend on passwd?
-        # for i in self.binaries['testing']['i386'][0]['passwd']['rdepends']:
-        #     print i
-        # Which packages provide mysql-server?
-        # for i in self.binaries['testing']['i386'][1]['mysql-server']:
-        #     print i
-        # Which binary packages are build from php4 testing source package?
-        # print self.sources['testing']['php4']['binaries']
-
+    def main(self):
+        """Main method
+        
+        This is the entry point for the class: it includes the list of calls
+        for the member methods which will produce the output files.
+        """
+        self.write_excuses()
 
 if __name__ == '__main__':
     Britney().main()

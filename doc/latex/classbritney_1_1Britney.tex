@@ -1,0 +1,514 @@
+\section{britney.Britney Class Reference}
+\label{classbritney_1_1Britney}\index{britney::Britney@{britney::Britney}}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+def {\bf \_\-\_\-init\_\-\_\-}
+\item 
+def {\bf \_\-\_\-parse\_\-arguments}
+\item 
+def {\bf \_\-\_\-log}
+\item 
+def {\bf read\_\-sources}
+\item 
+def {\bf read\_\-binaries}
+\item 
+def {\bf read\_\-bugs}
+\item 
+def {\bf \_\-\_\-maxver}
+\item 
+def {\bf normalize\_\-bugs}
+\item 
+def {\bf read\_\-dates}
+\item 
+def {\bf read\_\-urgencies}
+\item 
+def {\bf read\_\-approvals}
+\item 
+def {\bf read\_\-hints}
+\item 
+def {\bf same\_\-source}
+\item 
+def {\bf get\_\-dependency\_\-solvers}
+\item 
+def {\bf excuse\_\-unsat\_\-deps}
+\item 
+def {\bf should\_\-remove\_\-source}
+\item 
+def {\bf should\_\-upgrade\_\-srcarch}
+\item 
+def {\bf should\_\-upgrade\_\-src}
+\item 
+def {\bf reversed\_\-exc\_\-deps}
+\item 
+def {\bf invalidate\_\-excuses}
+\item 
+def {\bf write\_\-excuses}
+\item 
+def {\bf main}
+\end{CompactItemize}
+\subsection*{Static Public Attributes}
+\begin{CompactItemize}
+\item 
+tuple {\bf HINTS\_\-STANDARD} = (\char`\"{}easy\char`\"{}, \char`\"{}hint\char`\"{}, \char`\"{}remove\char`\"{}, \char`\"{}block\char`\"{}, \char`\"{}unblock\char`\"{}, \char`\"{}urgent\char`\"{}, \char`\"{}approve\char`\"{})\label{classbritney_1_1Britney_ebbe3f40cca59e2de275b0558556ee63}
+
+\item 
+tuple {\bf HINTS\_\-ALL} = (\char`\"{}force\char`\"{}, \char`\"{}force-hint\char`\"{}, \char`\"{}block-all\char`\"{})\label{classbritney_1_1Britney_a088d6fd96963f87f88c9c40cda10bfa}
+
+\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+
+
+\footnotesize\begin{verbatim}Britney, the debian testing updater script
+
+This is the script that updates the testing_ distribution. It is executed
+each day after the installation of the updated packages. It generates the 
+`Packages' files for the testing distribution, but it does so in an
+intelligent manner; it try to avoid any inconsistency and to use only
+non-buggy packages.
+
+For more documentation on this script, please read the Developers Reference.
+\end{verbatim}
+\normalsize
+ 
+
+
+
+Definition at line 33 of file britney.py.
+
+\subsection{Member Function Documentation}
+\index{britney::Britney@{britney::Britney}!__init__@{\_\-\_\-init\_\-\_\-}}
+\index{__init__@{\_\-\_\-init\_\-\_\-}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.\_\-\_\-init\_\-\_\- ( {\em self})}\label{classbritney_1_1Britney_5846d81eace24f479292c47e30fd1851}
+
+
+
+
+\footnotesize\begin{verbatim}Class constructor
+
+This method initializes and populates the data lists, which contain all
+the information needed by the other methods of the class.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 39 of file britney.py.\index{britney::Britney@{britney::Britney}!__log@{\_\-\_\-log}}
+\index{__log@{\_\-\_\-log}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.\_\-\_\-log ( {\em self},  {\em msg},  {\em type} = {\tt \char`\"{}I\char`\"{}})}\label{classbritney_1_1Britney_678036a5200302d77249f5e702532681}
+
+
+
+
+\footnotesize\begin{verbatim}Print info messages according to verbosity level
+
+An easy-and-simple log method which prints messages to the standard
+output. The type parameter controls the urgency of the message, and
+can be equal to `I' for `Information', `W' for `Warning' and `E' for
+`Error'. Warnings and errors are always printed, and information are
+printed only if the verbose logging is enabled.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 115 of file britney.py.\index{britney::Britney@{britney::Britney}!__maxver@{\_\-\_\-maxver}}
+\index{__maxver@{\_\-\_\-maxver}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.\_\-\_\-maxver ( {\em self},  {\em pkg},  {\em dist})}\label{classbritney_1_1Britney_0affb1945986a52c61a4492c9732968e}
+
+
+
+
+\footnotesize\begin{verbatim}Return the maximum version for a given package name
+
+This method returns None if the specified source package
+is not available in the `dist' distribution. If the package
+exists, then it returns the maximum version between the
+source package and its binary packages.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 276 of file britney.py.\index{britney::Britney@{britney::Britney}!__parse_arguments@{\_\-\_\-parse\_\-arguments}}
+\index{__parse_arguments@{\_\-\_\-parse\_\-arguments}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.\_\-\_\-parse\_\-arguments ( {\em self})}\label{classbritney_1_1Britney_506f9800068902cf7cac6236b78d1dc4}
+
+
+
+
+\footnotesize\begin{verbatim}Parse the command line arguments
+
+This method parses and initializes the command line arguments.
+While doing so, it preprocesses some of the options to be converted
+in a suitable form for the other methods of the class.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 75 of file britney.py.\index{britney::Britney@{britney::Britney}!excuse_unsat_deps@{excuse\_\-unsat\_\-deps}}
+\index{excuse_unsat_deps@{excuse\_\-unsat\_\-deps}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.excuse\_\-unsat\_\-deps ( {\em self},  {\em pkg},  {\em src},  {\em arch},  {\em suite},  {\em excuse})}\label{classbritney_1_1Britney_f51c60a69f3a9dc2bc5afdb2ffaf3990}
+
+
+
+
+\footnotesize\begin{verbatim}Find unsatisfied dependencies for a binary package
+
+This method analyzes the dependencies of the binary package specified
+by the parameter `pkg', built from the source package `src', for the
+architecture `arch' within the suite `suite'. If the dependency can't
+be satisfied in testing and/or unstable, it updates the excuse passed
+as parameter.
+
+The dependency fields checked are Pre-Depends and Depends.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 553 of file britney.py.\index{britney::Britney@{britney::Britney}!get_dependency_solvers@{get\_\-dependency\_\-solvers}}
+\index{get_dependency_solvers@{get\_\-dependency\_\-solvers}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.get\_\-dependency\_\-solvers ( {\em self},  {\em block},  {\em arch},  {\em distribution})}\label{classbritney_1_1Britney_5461f49e3e75a251ebedfd37d2a5ff0c}
+
+
+
+
+\footnotesize\begin{verbatim}Find the packages which satisfy a dependency block
+
+This method returns the list of packages which satisfy a dependency
+block (as returned by apt_pkg.ParseDepends) for the given architecture
+and distribution.
+
+It returns a tuple with two items: the first is a boolean which is
+True if the dependency is satisfied, the second is the list of the
+solving packages.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 515 of file britney.py.\index{britney::Britney@{britney::Britney}!invalidate_excuses@{invalidate\_\-excuses}}
+\index{invalidate_excuses@{invalidate\_\-excuses}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.invalidate\_\-excuses ( {\em self},  {\em valid},  {\em invalid})}\label{classbritney_1_1Britney_171969785db449d7a06c3f762774e0cd}
+
+
+
+
+\footnotesize\begin{verbatim}Invalidate impossible excuses
+
+This method invalidates the impossible excuses, which depend
+on invalid excuses. The two parameters contains the list of
+`valid' and `invalid' excuses.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 951 of file britney.py.\index{britney::Britney@{britney::Britney}!main@{main}}
+\index{main@{main}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.main ( {\em self})}\label{classbritney_1_1Britney_0e9551bdf927388f55be5ce15a48c94f}
+
+
+
+
+\footnotesize\begin{verbatim}Main method
+
+This is the entry point for the class: it includes the list of calls
+for the member methods which will produce the output files.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 1079 of file britney.py.\index{britney::Britney@{britney::Britney}!normalize_bugs@{normalize\_\-bugs}}
+\index{normalize_bugs@{normalize\_\-bugs}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.normalize\_\-bugs ( {\em self})}\label{classbritney_1_1Britney_5a6af4a100cfd54e872a27fa7f48ac3c}
+
+
+
+
+\footnotesize\begin{verbatim}Normalize the release critical bug summaries for testing and unstable
+
+The method doesn't return any value: it directly modifies the
+object attribute `bugs'.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 294 of file britney.py.\index{britney::Britney@{britney::Britney}!read_approvals@{read\_\-approvals}}
+\index{read_approvals@{read\_\-approvals}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-approvals ( {\em self},  {\em basedir})}\label{classbritney_1_1Britney_39248f0cfea1c8798b2ca5a97d37eaf8}
+
+
+
+
+\footnotesize\begin{verbatim}Read the approval commands from the specified directory
+
+The approval commands are read from the files contained by the 
+`Approved' directory within the directory specified as `basedir'
+parameter. The name of the files has to be the same of the
+authorized users for the approvals.
+
+The file contains rows with the format:
+
+<package-name> <version>
+
+The method returns a dictionary where the key is the binary package
+name followed by an underscore and the version number, and the value
+is the user who submitted the command.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 400 of file britney.py.\index{britney::Britney@{britney::Britney}!read_binaries@{read\_\-binaries}}
+\index{read_binaries@{read\_\-binaries}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-binaries ( {\em self},  {\em basedir},  {\em distribution},  {\em arch})}\label{classbritney_1_1Britney_1b2b0f42e4af1cee472f93e955b30421}
+
+
+
+
+\footnotesize\begin{verbatim}Read the list of binary packages from the specified directory
+
+The binary packages are read from the `Packages_${arch}' files
+within the directory specified as `basedir' parameter, replacing
+${arch} with the value of the arch parameter. Considering the
+large amount of memory needed, not all the fields are loaded
+in memory. The available fields are Version, Source, Pre-Depends,
+Depends, Conflicts, Provides and Architecture.
+
+After reading the packages, reverse dependencies are computed
+and saved in the `rdepends' keys, and the `Provides' field is
+used to populate the virtual packages list.
+
+The dependencies are parsed with the apt.pkg.ParseDepends method,
+and they are stored both as the format of its return value and
+text.
+
+The method returns a tuple. The first element is a list where
+every item represents a binary package as a dictionary; the second
+element is a dictionary which maps virtual packages to real
+packages that provide it.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 155 of file britney.py.\index{britney::Britney@{britney::Britney}!read_bugs@{read\_\-bugs}}
+\index{read_bugs@{read\_\-bugs}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-bugs ( {\em self},  {\em basedir})}\label{classbritney_1_1Britney_6c777aae69e7bec2efebaf23ddd4a86c}
+
+
+
+
+\footnotesize\begin{verbatim}Read the release critial bug summary from the specified directory
+
+The RC bug summaries are read from the `Bugs' file within the
+directory specified as `basedir' parameter. The file contains
+rows with the format:
+
+<package-name> <count-of-rc-bugs>
+
+The method returns a dictionary where the key is the binary package
+name and the value is the number of open RC bugs for it.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 252 of file britney.py.\index{britney::Britney@{britney::Britney}!read_dates@{read\_\-dates}}
+\index{read_dates@{read\_\-dates}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-dates ( {\em self},  {\em basedir})}\label{classbritney_1_1Britney_085af5ac906813ea40fc2e623748f517}
+
+
+
+
+\footnotesize\begin{verbatim}Read the upload date for the packages from the specified directory
+
+The upload dates are read from the `Date' file within the directory
+specified as `basedir' parameter. The file contains rows with the
+format:
+
+<package-name> <version> <date-of-upload>
+
+The dates are expressed as days starting from the 1970-01-01.
+
+The method returns a dictionary where the key is the binary package
+name and the value is tuple with two items, the version and the date.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 329 of file britney.py.\index{britney::Britney@{britney::Britney}!read_hints@{read\_\-hints}}
+\index{read_hints@{read\_\-hints}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-hints ( {\em self},  {\em basedir})}\label{classbritney_1_1Britney_46d535f617fcf1faaaf5d841ea23c184}
+
+
+
+
+\footnotesize\begin{verbatim}Read the hint commands from the specified directory
+
+The hint commands are read from the files contained by the `Hints'
+directory within the directory specified as `basedir' parameter. 
+The name of the files has to be the same of the authorized users
+for the hints.
+
+The file contains rows with the format:
+
+<command> <package-name>[/<version>]
+
+The method returns a dictionary where the key is the command, and
+the value is the list of affected packages.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 426 of file britney.py.\index{britney::Britney@{britney::Britney}!read_sources@{read\_\-sources}}
+\index{read_sources@{read\_\-sources}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-sources ( {\em self},  {\em basedir})}\label{classbritney_1_1Britney_054f44c47f17c0c4f5a069e821b7f868}
+
+
+
+
+\footnotesize\begin{verbatim}Read the list of source packages from the specified directory
+
+The source packages are read from the `Sources' file within the
+directory specified as `basedir' parameter. Considering the
+large amount of memory needed, not all the fields are loaded
+in memory. The available fields are Version, Maintainer and Section.
+
+The method returns a list where every item represents a source
+package as a dictionary.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 130 of file britney.py.\index{britney::Britney@{britney::Britney}!read_urgencies@{read\_\-urgencies}}
+\index{read_urgencies@{read\_\-urgencies}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.read\_\-urgencies ( {\em self},  {\em basedir})}\label{classbritney_1_1Britney_09fc27899506b4830b1961f125a7b6a4}
+
+
+
+
+\footnotesize\begin{verbatim}Read the upload urgency of the packages from the specified directory
+
+The upload urgencies are read from the `Urgency' file within the
+directory specified as `basedir' parameter. The file contains rows
+with the format:
+
+<package-name> <version> <urgency>
+
+The method returns a dictionary where the key is the binary package
+name and the value is the greatest urgency from the versions of the
+package that are higher then the testing one.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 355 of file britney.py.\index{britney::Britney@{britney::Britney}!reversed_exc_deps@{reversed\_\-exc\_\-deps}}
+\index{reversed_exc_deps@{reversed\_\-exc\_\-deps}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.reversed\_\-exc\_\-deps ( {\em self})}\label{classbritney_1_1Britney_be1b4af9d6c6650c70b24267412bc1a8}
+
+
+
+
+\footnotesize\begin{verbatim}Reverse the excuses dependencies
+
+This method returns a dictionary where the keys are the package names
+and the values are the excuse names which depend on it.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 938 of file britney.py.\index{britney::Britney@{britney::Britney}!same_source@{same\_\-source}}
+\index{same_source@{same\_\-source}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.same\_\-source ( {\em self},  {\em sv1},  {\em sv2})}\label{classbritney_1_1Britney_85d2e45e8431779b62f398c34972ddf1}
+
+
+
+
+\footnotesize\begin{verbatim}Check if two version numbers are built from the same source
+
+This method returns a boolean value which is true if the two
+version numbers specified as parameters are built from the same
+source. The main use of this code is to detect binary-NMU.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 476 of file britney.py.\index{britney::Britney@{britney::Britney}!should_remove_source@{should\_\-remove\_\-source}}
+\index{should_remove_source@{should\_\-remove\_\-source}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.should\_\-remove\_\-source ( {\em self},  {\em pkg})}\label{classbritney_1_1Britney_f8a6c9adbdec7a5a982dd2b74febcc08}
+
+
+
+
+\footnotesize\begin{verbatim}Check if a source package should be removed from testing
+
+This method checks if a source package should be removed from the
+testing distribution; this happen if the source package is not
+present in the unstable distribution anymore.
+
+It returns True if the package can be removed, False otherwise.
+In the former case, a new excuse is appended to the the object
+attribute excuses.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 604 of file britney.py.\index{britney::Britney@{britney::Britney}!should_upgrade_src@{should\_\-upgrade\_\-src}}
+\index{should_upgrade_src@{should\_\-upgrade\_\-src}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.should\_\-upgrade\_\-src ( {\em self},  {\em src},  {\em suite})}\label{classbritney_1_1Britney_94785175a85f44b1afaf3add167a211f}
+
+
+
+
+\footnotesize\begin{verbatim}Check if source package should be upgraded
+
+This method checks if a source package should be upgraded. The analisys
+is performed for the source package specified by the `src' parameter, 
+checking the architecture `arch' for the distribution `suite'.
+       
+It returns False if the given package doesn't need to be upgraded,
+True otherwise. In the former case, a new excuse is appended to
+the the object attribute excuses.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 742 of file britney.py.\index{britney::Britney@{britney::Britney}!should_upgrade_srcarch@{should\_\-upgrade\_\-srcarch}}
+\index{should_upgrade_srcarch@{should\_\-upgrade\_\-srcarch}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.should\_\-upgrade\_\-srcarch ( {\em self},  {\em src},  {\em arch},  {\em suite})}\label{classbritney_1_1Britney_bd18d7acde434387e94344a39db5b0e5}
+
+
+
+
+\footnotesize\begin{verbatim}Check if binary package should be upgraded
+
+This method checks if a binary package should be upgraded; this can
+happen only if the binary package is a binary-NMU for the given arch.
+The analisys is performed for the source package specified by the
+`src' parameter, checking the architecture `arch' for the distribution
+`suite'.
+       
+It returns False if the given package doesn't need to be upgraded,
+True otherwise. In the former case, a new excuse is appended to
+the the object attribute excuses.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 628 of file britney.py.\index{britney::Britney@{britney::Britney}!write_excuses@{write\_\-excuses}}
+\index{write_excuses@{write\_\-excuses}!britney::Britney@{britney::Britney}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def britney.Britney.write\_\-excuses ( {\em self})}\label{classbritney_1_1Britney_010f6deffca32f7f71ecf1f5c1bb4985}
+
+
+
+
+\footnotesize\begin{verbatim}Produce and write the update excuses
+
+This method handles the update excuses generation: the packages are
+looked to determine whether they are valid candidates. For the details
+of this procedure, please refer to the module docstring.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 993 of file britney.py.
+
+The documentation for this class was generated from the following file:\begin{CompactItemize}
+\item 
+britney.py\end{CompactItemize}

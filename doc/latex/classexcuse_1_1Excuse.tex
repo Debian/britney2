@@ -1,0 +1,213 @@
+\section{excuse.Excuse Class Reference}
+\label{classexcuse_1_1Excuse}\index{excuse::Excuse@{excuse::Excuse}}
+\subsection*{Public Member Functions}
+\begin{CompactItemize}
+\item 
+def {\bf \_\-\_\-init\_\-\_\-}
+\item 
+def {\bf set\_\-vers}
+\item 
+def {\bf set\_\-maint}
+\item 
+def {\bf set\_\-section}
+\item 
+def {\bf set\_\-priority}
+\item 
+def {\bf set\_\-date}
+\item 
+def {\bf set\_\-urgency}
+\item 
+def {\bf add\_\-dep}
+\item 
+def {\bf add\_\-break\_\-dep}
+\item 
+def {\bf invalidate\_\-dep}
+\item 
+def {\bf setdaysold}
+\item 
+def {\bf addhtml}
+\item 
+def {\bf html}
+\end{CompactItemize}
+\subsection*{Static Public Attributes}
+\begin{CompactItemize}
+\item 
+tuple {\bf reemail} = re.compile(r\char`\"{}$<$.$\ast$?$>$\char`\"{})\label{classexcuse_1_1Excuse_bb15f55eed8f034db8a64b4ddc46460d}
+
+\begin{CompactList}\small\item\em Regular expression for removing the email address. \item\end{CompactList}\end{CompactItemize}
+
+
+\subsection{Detailed Description}
+
+
+\footnotesize\begin{verbatim}Excuse class
+
+This class represents an update excuse, which is a detailed explanation
+of why a package can or cannot be updated in the testing distribution  from
+a newer package in another distribution (like for example unstable).
+
+The main purpose of the excuses is to be written in an HTML file which
+will be published over HTTP. The maintainers will be able to parse it
+manually or automatically to find the explanation of why their packages
+have been updated or not.
+\end{verbatim}
+\normalsize
+ 
+
+
+
+Definition at line 21 of file excuse.py.
+
+\subsection{Member Function Documentation}
+\index{excuse::Excuse@{excuse::Excuse}!__init__@{\_\-\_\-init\_\-\_\-}}
+\index{__init__@{\_\-\_\-init\_\-\_\-}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.\_\-\_\-init\_\-\_\- ( {\em self},  {\em name})}\label{classexcuse_1_1Excuse_4bdb0917f763d74951c621e466e98bdb}
+
+
+
+
+\footnotesize\begin{verbatim}Class constructor
+
+This method initializes the excuse with the specified name and
+the default values.
+\end{verbatim}
+\normalsize
+ 
+
+Definition at line 28 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!add_break_dep@{add\_\-break\_\-dep}}
+\index{add_break_dep@{add\_\-break\_\-dep}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.add\_\-break\_\-dep ( {\em self},  {\em name},  {\em arch})}\label{classexcuse_1_1Excuse_60e00fe0515f2dab003bd29baceedd34}
+
+
+
+
+\footnotesize\begin{verbatim}Add a break dependency\end{verbatim}
+\normalsize
+ 
+
+Definition at line 80 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!add_dep@{add\_\-dep}}
+\index{add_dep@{add\_\-dep}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.add\_\-dep ( {\em self},  {\em name})}\label{classexcuse_1_1Excuse_fa97c9f61fef17d6028491362153a766}
+
+
+
+
+\footnotesize\begin{verbatim}Add a dependency\end{verbatim}
+\normalsize
+ 
+
+Definition at line 76 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!addhtml@{addhtml}}
+\index{addhtml@{addhtml}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.addhtml ( {\em self},  {\em note})}\label{classexcuse_1_1Excuse_eb0a1ea0fae66a571e5efa703e53ba3a}
+
+
+
+
+\footnotesize\begin{verbatim}Add a note in HTML\end{verbatim}
+\normalsize
+ 
+
+Definition at line 94 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!html@{html}}
+\index{html@{html}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.html ( {\em self})}\label{classexcuse_1_1Excuse_84049740652a58b248fabdb3fa9d4b2c}
+
+
+
+
+\footnotesize\begin{verbatim}Render the excuse in HTML\end{verbatim}
+\normalsize
+ 
+
+Definition at line 98 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!invalidate_dep@{invalidate\_\-dep}}
+\index{invalidate_dep@{invalidate\_\-dep}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.invalidate\_\-dep ( {\em self},  {\em name})}\label{classexcuse_1_1Excuse_8594c46ccf4182fa8b37fe487bf53850}
+
+
+
+
+\footnotesize\begin{verbatim}Invalidate dependency\end{verbatim}
+\normalsize
+ 
+
+Definition at line 85 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!set_date@{set\_\-date}}
+\index{set_date@{set\_\-date}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.set\_\-date ( {\em self},  {\em date})}\label{classexcuse_1_1Excuse_ac01c3b9802ad26571f01b55ffc1098c}
+
+
+
+
+\footnotesize\begin{verbatim}Set the date of upload of the package\end{verbatim}
+\normalsize
+ 
+
+Definition at line 68 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!set_maint@{set\_\-maint}}
+\index{set_maint@{set\_\-maint}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.set\_\-maint ( {\em self},  {\em maint})}\label{classexcuse_1_1Excuse_189ec1709eef0bd8acb9cd093b8350b5}
+
+
+
+
+\footnotesize\begin{verbatim}Set the package maintainer's name\end{verbatim}
+\normalsize
+ 
+
+Definition at line 56 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!set_priority@{set\_\-priority}}
+\index{set_priority@{set\_\-priority}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.set\_\-priority ( {\em self},  {\em pri})}\label{classexcuse_1_1Excuse_3a0ebe3eb87c1af8f093e80a874ea0fa}
+
+
+
+
+\footnotesize\begin{verbatim}Set the priority of the package\end{verbatim}
+\normalsize
+ 
+
+Definition at line 64 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!set_section@{set\_\-section}}
+\index{set_section@{set\_\-section}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.set\_\-section ( {\em self},  {\em section})}\label{classexcuse_1_1Excuse_6b435fa4d19b929d9fb70c8d28688387}
+
+
+
+
+\footnotesize\begin{verbatim}Set the section of the package\end{verbatim}
+\normalsize
+ 
+
+Definition at line 60 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!set_urgency@{set\_\-urgency}}
+\index{set_urgency@{set\_\-urgency}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.set\_\-urgency ( {\em self},  {\em date})}\label{classexcuse_1_1Excuse_c504d40ac6d07ffdb08b7ff8ed555d10}
+
+
+
+
+\footnotesize\begin{verbatim}Set the urgency of upload of the package\end{verbatim}
+\normalsize
+ 
+
+Definition at line 72 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!set_vers@{set\_\-vers}}
+\index{set_vers@{set\_\-vers}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.set\_\-vers ( {\em self},  {\em tver},  {\em uver})}\label{classexcuse_1_1Excuse_b8751fc5d0033b4c734c476d92841d99}
+
+
+
+
+\footnotesize\begin{verbatim}Set the testing and unstable versions\end{verbatim}
+\normalsize
+ 
+
+Definition at line 51 of file excuse.py.\index{excuse::Excuse@{excuse::Excuse}!setdaysold@{setdaysold}}
+\index{setdaysold@{setdaysold}!excuse::Excuse@{excuse::Excuse}}
+\subsubsection{\setlength{\rightskip}{0pt plus 5cm}def excuse.Excuse.setdaysold ( {\em self},  {\em daysold},  {\em mindays})}\label{classexcuse_1_1Excuse_cf1fa7c6fb741bbe7e3120113748f3a5}
+
+
+
+
+\footnotesize\begin{verbatim}Set the number of days from the upload and the minimum number of days for the update\end{verbatim}
+\normalsize
+ 
+
+Definition at line 89 of file excuse.py.
+
+The documentation for this class was generated from the following file:\begin{CompactItemize}
+\item 
+excuse.py\end{CompactItemize}

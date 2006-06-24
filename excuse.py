@@ -19,9 +19,28 @@ import string
 
 
 class Excuse:
+    """Excuse class
+    
+    This class represents an update excuse, which is a detailed explanation
+    of why a package can or cannot be updated in the testing distribution  from
+    a newer package in another distribution (like for example unstable).
+
+    The main purpose of the excuses is to be written in an HTML file which
+    will be published over HTTP. The maintainers will be able to parse it
+    manually or automatically to find the explanation of why their packages
+    have been updated or not.
+    """
+
+    ## @var reemail
+    # Regular expression for removing the email address
     reemail = re.compile(r"<.*?>")
 
     def __init__(self, name):
+        """Class constructor
+        
+        This method initializes the excuse with the specified name and
+        the default values.
+        """
         self.name = name
         self.ver = ("-", "-")
         self.maint = None
@@ -40,42 +59,54 @@ class Excuse:
         self.htmlline = []
 
     def set_vers(self, tver, uver):
+        """Set the testing and unstable versions"""
         if tver: self.ver = (tver, self.ver[1])
         if uver: self.ver = (self.ver[0], uver)
 
     def set_maint(self, maint):
+        """Set the package maintainer's name"""
         self.maint = self.reemail.sub("", maint)
 
     def set_section(self, section):
+        """Set the section of the package"""
         self.section = section
 
     def set_priority(self, pri):
+        """Set the priority of the package"""
         self.pri = pri
 
     def set_date(self, date):
+        """Set the date of upload of the package"""
         self.date = date
 
     def set_urgency(self, date):
+        """Set the urgency of upload of the package"""
         self.urgency = date
 
     def add_dep(self, name):
+        """Add a dependency"""
         if name not in self.deps: self.deps.append(name)
 
     def add_break_dep(self, name, arch):
+        """Add a break dependency"""
         if (name, arch) not in self.break_deps:
             self.break_deps.append( (name, arch) )
 
     def invalidate_dep(self, name):
+        """Invalidate dependency"""
         if name not in self.invalid_deps: self.invalid_deps.append(name)
 
     def setdaysold(self, daysold, mindays):
+        """Set the number of days from the upload and the minimum number of days for the update"""
         self.daysold = daysold
         self.mindays = mindays
 
     def addhtml(self, note):
+        """Add a note in HTML"""
         self.htmlline.append(note)
 
     def html(self):
+        """Render the excuse in HTML"""
         res = "<a id=\"%s\" name=\"%s\">%s</a> (%s to %s)\n<ul>\n" % \
             (self.name, self.name, self.name, self.ver[0], self.ver[1])
         if self.maint:
