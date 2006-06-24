@@ -22,7 +22,7 @@ class Excuse:
     """Excuse class
     
     This class represents an update excuse, which is a detailed explanation
-    of why a package can or cannot be updated in the testing distribution  from
+    of why a package can or cannot be updated in the testing distribution from
     a newer package in another distribution (like for example unstable).
 
     The main purpose of the excuses is to be written in an HTML file which
