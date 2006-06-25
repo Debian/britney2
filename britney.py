@@ -16,21 +16,163 @@
 # GNU General Public License for more details.
 
 """
-== Introdution ==
+= Introdution =
 
 This is the Debian testing updater script, also known as "Britney".
 
 Packages are usually installed into the `testing' distribution after
 they have undergone some degree of testing in unstable. The goal of
 this software is to do this task in a smart way, allowing testing
-to be alwasy fully installable and close to being a release candidate.
+to be always fully installable and close to being a release candidate.
 
-Britney source code is splitted in two different, but related, tasks:
-the first one is the generation of the update excuses, and with the
-second one Britney tries to update testing with the valid candidates;
-first, each package alone, and then larger and even larger sets of
-packages together.  Each try is accepted if testing is not more
-uninstallable after the update than before.
+Britney source code is splitted in two different but related tasks:
+the first one is the generation of the update excuses, while the
+second tries to update testing with the valid candidates; first 
+each package alone, then larger and even larger sets of packages
+together. Each try is accepted if testing is not more uninstallable
+after the update than before.
+
+= Data Loading =
+
+In order to analyze the entire Debian distribution, Britney needs to
+load in memory the whole archive: this means more than 10.000 packages
+for twelve architectures, as well as the dependency interconnection
+between them. For this reason, the memory requirement for running this
+software are quite high and at least 1 gigabyte of RAM should be available.
+
+Britney loads the source packages from the `Sources' file and the binary
+packages from the `Packages_${arch}' files, where ${arch} is substituted
+with the supported architectures. While loading the data, the software
+analyze the dependencies and build a directed weighted graph in memory
+with all the interconnections between the packages (see Britney.read_sources
+and Britney.read_binaries).
+
+Other than source and binary packages, Britney loads the following data:
+
+  * Bugs, which contains the count of release-critical bugs for a given
+    version of a source package (see Britney.read_bugs).
+
+  * Dates, which contains the date of the upload of a given version 
+    of a source package (see Britney.read_dates).
+
+  * Urgencies, which contains the urgency of the upload of a given
+    version of a source package (see Britney.read_urgencies).
+
+  * Approvals, which contains the list of approved testing-proposed-updates
+    packages (see Britney.read_approvals).
+
+  * Hints, which contains lists of commands which modify the standard behaviour
+    of Britney (see Britney.read_hints).
+
+For a more detailed explanation about the format of these files, please read
+the documentation of the related methods. The exact meaning of them will be
+instead explained in the chapter "Excuses Generation".
+
+= Excuses =
+
+An excuse is a detailed explanation of why a package can or cannot
+be updated in the testing distribution from a newer package in 
+another distribution (like for example unstable). The main purpose
+of the excuses is to be written in an HTML file which will be 
+published over HTTP. The maintainers will be able to parse it manually
+or automatically to find the explanation of why their packages have
+been updated or not.
+
+== Excuses generation ==
+
+These are the steps (with references to method names) that Britney
+does for the generation of the update excuses.
+
+ * If a source package is available in testing but it is not
+   present in unstable and no binary packages in unstable are
+   built from it, then it is marked for removal.
+
+ * Every source package in unstable and testing-proposed-updates,
+   if already present in testing, is checked for binary-NMUs, new
+   or dropped binary packages in all the supported architectures
+   (see Britney.should_upgrade_srcarch). The steps to detect if an
+   upgrade is needed are:
+
+    1. If there is a `remove' hint for the source package, the package
+       is ignored: it will be removed and not updated.
+
+    2. For every binary package build from the new source, it checks
+       for unsatisfied dependencies, new binary package and updated
+       binary package (binNMU) excluding the architecture-independent
+       ones and the packages not built from the same source.
+
+    3. For every binary package build from the old source, it checks
+       if it is still built from the new source; if this is not true
+       and the package is not architecture-independent, the script
+       removes it from testing.
+
+    4. Finally, if there is something worth doing (eg. a new or updated
+       binary package) and nothing wrong it marks the source package
+       as "Valid candidate", or "Not considered" if there is something
+       wrong which prevented the update.
+
+ * Every source package in unstable and testing-proposed-updates is
+   checked for upgrade (see Britney.should_upgrade_src). The steps
+   to detect if an upgrade is needed are:
+
+    1. If the source package in testing is more recent the new one
+       is ignored.
+
+    2. If the source package doesn't exist (is fake), which means that
+       a binary package refers to it but it is not present in the
+       `Sources' file, the new one is ignored.
+
+    3. If the package doesn't exist in testing, the urgency of the
+       upload is ignored and set to the default (actually `low').
+
+    4. If there is a `remove' hint for the source package, the package
+       is ignored: it will be removed and not updated.
+
+    5. If there is a `block' hint for the source package without an
+       `unblock` hint or a `block-all source`, the package is ignored.
+
+    7. If the suite is unstable, the update can go ahead only if the
+       upload happend more then the minimum days specified by the
+       urgency of the upload; if this is not true, the package is
+       ignored as `too-young'. Note that the urgency is sticky, meaning
+       that the highest urgency uploaded since the previous testing
+       transition is taken into account.
+
+    8. All the architecture-dependent binary packages and the
+       architecture-independent ones for the `nobreakall' architectures
+       have to be built from the source we are considering. If this is
+       not true, then these are called `out-of-date' architectures and
+       the package is ignored.
+
+    9. The source package must have at least a binary package, otherwise
+       it is ignored.
+
+   10. If the suite is unstable, the count of release critical bugs for
+       the new source package must be less then the count for the testing
+       one. If this is not true, the package is ignored as `buggy'.
+
+   11. If there is a `force' hint for the source package, then it is
+       updated even if it is marked as ignored from the previous steps.
+
+   12. If the suite is testing-proposed-updates, the source package can
+       be updated only if there is an explicit approval for it.
+
+   13. If the package will be ignored, mark it as "Valid candidate",
+       otherwise mark it as "Not considered".
+
+ * The list of `remove' hints is processed: if the requested source
+   package is not already being updated or removed and the version
+   actually in testing is the same specified with the `remove' hint,
+   it is marked for removal.
+
+ * The excuses are sorted by the number of days from the last upload
+   (days-old) and by name.
+
+ * A list of unconsidered excuses (for which the package is not upgraded)
+   is built. Using this list, all the excuses depending on them is marked
+   as invalid for "unpossible dependency".
+
+ * The excuses are written in an HTML file.
 """
 
 import os
@@ -656,7 +798,7 @@ class Britney:
         """Check if binary package should be upgraded
 
         This method checks if a binary package should be upgraded; this can
-        happen only if the binary package is a binary-NMU for the given arch.
+        happen also if the binary package is a binary-NMU for the given arch.
         The analisys is performed for the source package specified by the
         `src' parameter, checking the architecture `arch' for the distribution
         `suite'.
