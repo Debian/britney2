@@ -354,16 +354,14 @@ class Britney:
         while Packages.Step():
             pkg = Packages.Section.get('Package')
             version = Packages.Section.get('Version')
-            dpkg = {'rdepends': [],
-                    'version': version,
+            dpkg = {'version': version,
                     'source': pkg, 
                     'source-ver': version,
-                    'pre-depends': Packages.Section.get('Pre-Depends'),
-                    'depends': Packages.Section.get('Depends'),
-                    'conflicts': Packages.Section.get('Conflicts'),
-                    'provides': Packages.Section.get('Provides'),
                     'architecture': Packages.Section.get('Architecture'),
                     }
+            for k in ('Pre-Depends', 'Depends', 'Provides'):
+                v = Packages.Section.get(k)
+                if v: dpkg[k.lower()] = v
 
             # retrieve the name and the version of the source package
             source = Packages.Section.get('Source')
@@ -381,39 +379,32 @@ class Britney:
                     'version': dpkg['source-ver'], 'maintainer': None, 'section': None, 'fake': True}
 
             # register virtual packages and real packages that provide them
-            if dpkg['provides']:
+            if dpkg.has_key('provides'):
                 parts = map(string.strip, dpkg['provides'].split(","))
                 for p in parts:
                     try:
                         provides[p].append(pkg)
                     except KeyError:
                         provides[p] = [pkg]
-            del dpkg['provides']
+                del dpkg['provides']
 
             # append the resulting dictionary to the package list
             packages[pkg] = dpkg
 
         # loop again on the list of packages to register reverse dependencies
-        for pkg in packages:
-            dependencies = []
-
-            # analyze dependencies
-            if packages[pkg]['depends']:
-                packages[pkg]['depends-txt'] = packages[pkg]['depends']
-                packages[pkg]['depends'] = apt_pkg.ParseDepends(packages[pkg]['depends'])
-                dependencies.extend(packages[pkg]['depends'])
-
-            # analyze pre-dependencies
-            if packages[pkg]['pre-depends']:
-                packages[pkg]['pre-depends-txt'] = packages[pkg]['pre-depends']
-                packages[pkg]['pre-depends'] = apt_pkg.ParseDepends(packages[pkg]['pre-depends'])
-                dependencies.extend(packages[pkg]['pre-depends'])
-
-            # register the list of the dependencies for the depending packages
-            for p in dependencies:
-                for a in p:
-                    if a[0] not in packages: continue
-                    packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
+        # this is not needed for the moment, so it is disabled
+        #for pkg in packages:
+        #    dependencies = []
+        #    if packages[pkg].has_key('depends'):
+        #        dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['depends']))
+        #    if packages[pkg].has_key('pre-depends'):
+        #        dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['pre-depends']))
+        #    # register the list of the dependencies for the depending packages
+        #    for p in dependencies:
+        #        for a in p:
+        #            if a[0] not in packages: continue
+        #            packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
+        #    del dependencies
 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
@@ -736,14 +727,14 @@ class Britney:
         # analyze the dependency fields (if present)
         for type in ('Pre-Depends', 'Depends'):
             type_key = type.lower()
-            if not binary_u[type_key]:
+            if not binary_u.has_key(type_key):
                 continue
 
             # this list will contain the packages that satisfy the dependency
             packages = []
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
-            for block, block_txt in map(None, binary_u[type_key], binary_u[type_key + '-txt'].split(',')):
+            for block, block_txt in map(None, apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
                 solved, packages = self.get_dependency_solvers(block, arch, 'testing')
                 if solved: continue
@@ -1167,6 +1158,8 @@ class Britney:
         of this procedure, please refer to the module docstring.
         """
 
+        self.__log("Update Excuses generation started", type="I")
+
         # this list will contain the packages which are valid candidates;
         # if a package is going to be removed, it will have a "-" prefix
         upgrade_me = []
@@ -1233,6 +1226,8 @@ class Britney:
                     e.addhtml("Unpossible dep: %s -> %s" % (e.name, d))
         self.invalidate_excuses(upgrade_me, unconsidered)
 
+        self.__log("Writing Excuses to %s" % self.options.excuses_output, type="I")
+
         # write excuses to the output file
         f = open(self.options.excuses_output, 'w')
         f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
@@ -1244,6 +1239,8 @@ class Britney:
             f.write("<li>%s" % e.html())
         f.write("</ul></body></html>\n")
         f.close()
+
+        self.__log("Update Excuses generation completed", type="I")
 
     def main(self):
         """Main method
