@@ -1425,7 +1425,7 @@ class Britney:
                     if k in self.sources['testing']:
                         for p in self.sources['testing'][k]['binaries']:
                             binary, arch = p.split("/")
-                            del self.binaries['testing'][arch][0][p]
+                            del self.binaries['testing'][arch][0][binary]
                         del self.sources['testing'][k]
                     self.sources['testing'][k] = undo['sources'][k]
 
