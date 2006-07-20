@@ -181,10 +181,12 @@ import sys
 import string
 import time
 import optparse
+import operator
 
 import apt_pkg
 
 from excuse import Excuse
+from upgrade import UpgradeRun
 
 __author__ = 'Fabio Tranchitella'
 __version__ = '2.0.alpha1'
@@ -358,6 +360,7 @@ class Britney:
                     'source': pkg, 
                     'source-ver': version,
                     'architecture': Packages.Section.get('Architecture'),
+                    'rdepends': [],
                     }
             for k in ('Pre-Depends', 'Depends', 'Provides'):
                 v = Packages.Section.get(k)
@@ -393,18 +396,18 @@ class Britney:
 
         # loop again on the list of packages to register reverse dependencies
         # this is not needed for the moment, so it is disabled
-        #for pkg in packages:
-        #    dependencies = []
-        #    if packages[pkg].has_key('depends'):
-        #        dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['depends']))
-        #    if packages[pkg].has_key('pre-depends'):
-        #        dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['pre-depends']))
-        #    # register the list of the dependencies for the depending packages
-        #    for p in dependencies:
-        #        for a in p:
-        #            if a[0] not in packages: continue
-        #            packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
-        #    del dependencies
+        for pkg in packages:
+            dependencies = []
+            if packages[pkg].has_key('depends'):
+                dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['depends']))
+            if packages[pkg].has_key('pre-depends'):
+                dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['pre-depends']))
+            # register the list of the dependencies for the depending packages
+            for p in dependencies:
+                for a in p:
+                    if a[0] not in packages: continue
+                    packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
+            del dependencies
 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
@@ -672,7 +675,7 @@ class Britney:
 
             return 0
 
-    def get_dependency_solvers(self, block, arch, distribution):
+    def get_dependency_solvers(self, block, arch, distribution, excluded=[]):
         """Find the packages which satisfy a dependency block
 
         This method returns the list of packages which satisfy a dependency
@@ -689,7 +692,7 @@ class Britney:
         # for every package, version and operation in the block
         for name, version, op in block:
             # look for the package in unstable
-            if name in self.binaries[distribution][arch][0]:
+            if name in self.binaries[distribution][arch][0] and name not in excluded:
                 package = self.binaries[distribution][arch][0][name]
                 # check the versioned dependency (if present)
                 if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
@@ -699,6 +702,7 @@ class Britney:
             if name in self.binaries[distribution][arch][1]:
                 # loop on the list of packages which provides it
                 for prov in self.binaries[distribution][arch][1][name]:
+                    if prov in excluded: continue
                     package = self.binaries[distribution][arch][0][prov]
                     # check the versioned dependency (if present)
                     # TODO: this is forbidden by the debian policy, which says that versioned
@@ -710,7 +714,7 @@ class Britney:
 
         return (len(packages) > 0, packages)
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse):
+    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse=None, excluded=[]):
         """Find unsatisfied dependencies for a binary package
 
         This method analyzes the dependencies of the binary package specified
@@ -736,8 +740,10 @@ class Britney:
             # for every block of dependency (which is formed as conjunction of disconjunction)
             for block, block_txt in map(None, apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
-                solved, packages = self.get_dependency_solvers(block, arch, 'testing')
+                solved, packages = self.get_dependency_solvers(block, arch, 'testing', excluded)
                 if solved: continue
+                elif excuse == None:
+                    return False
 
                 # check if the block can be satisfied in unstable, and list the solving packages
                 solved, packages = self.get_dependency_solvers(block, arch, suite)
@@ -757,6 +763,8 @@ class Britney:
                         excuse.add_dep(p)
                     else:
                         excuse.add_break_dep(p, arch)
+
+        return True
 
     # Package analisys methods
     # ------------------------
@@ -1226,9 +1234,11 @@ class Britney:
                     e.addhtml("Unpossible dep: %s -> %s" % (e.name, d))
         self.invalidate_excuses(upgrade_me, unconsidered)
 
-        self.__log("Writing Excuses to %s" % self.options.excuses_output, type="I")
+        self.upgrade_me = sorted(upgrade_me)
 
         # write excuses to the output file
+        self.__log("Writing Excuses to %s" % self.options.excuses_output, type="I")
+
         f = open(self.options.excuses_output, 'w')
         f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
         f.write("<html><head><title>excuses...</title>")
@@ -1242,6 +1252,125 @@ class Britney:
 
         self.__log("Update Excuses generation completed", type="I")
 
+    # Upgrade run
+    # -----------
+
+    def get_nuninst(self):
+        nuninst = {}
+
+        def add_nuninst(pkg, arch):
+            if pkg not in nuninst[arch]:
+                nuninst[arch].append(pkg)
+                for p in self.binaries['testing'][arch][0][pkg]['rdepends']:
+                    tpkg = self.binaries['testing'][arch][0][p[0]]
+                    if skip_archall and tpkg['architecture'] == 'all':
+                        continue
+                    r = self.excuse_unsat_deps(p[0], tpkg['source'], arch, 'testing', None, excluded=nuninst[arch])
+                    if not r:
+                        add_nuninst(p[0], arch)
+
+        for arch in self.options.architectures:
+            if arch not in self.options.nobreakall_arches:
+                skip_archall = True
+            else: skip_archall = False
+
+            nuninst[arch] = []
+            for pkg_name in self.binaries['testing'][arch][0]:
+                pkg = self.binaries['testing'][arch][0][pkg_name]
+                if skip_archall and pkg['architecture'] == 'all':
+                    continue
+                r = self.excuse_unsat_deps(pkg_name, pkg['source'], arch, 'testing', None, excluded=nuninst[arch])
+                if not r:
+                    add_nuninst(pkg_name, arch)
+
+        return nuninst
+
+    def eval_nuninst(self, nuninst):
+        res = []
+        total = 0
+        totalbreak = 0
+        for arch in self.options.architectures:
+            if nuninst.has_key(arch):
+                n = len(nuninst[arch])
+                if arch in self.options.break_arches:
+                    totalbreak = totalbreak + n
+                else:
+                    total = total + n
+                res.append("%s-%d" % (arch[0], n))
+        return "%d+%d: %s" % (total, totalbreak, ":".join(res))
+
+    def eval_uninst(self, nuninst):
+        res = ""
+        for arch in self.arches:
+            if nuninst.has_key(arch) and nuninst[arch] != []:
+                res = res + "    * %s: %s\n" % (arch,
+                    ", ".join(nuninst[arch]))
+        return res
+
+    def iter_packages(self, packages, output):
+        n = 0
+        extra = []
+        for pkg in packages:
+            output.write("trying: %s\n" % (pkg))
+            n += 1
+            nuninst = {}
+            if pkg[0] == "-":
+                pkg_name = pkg[1:]
+                source = self.sources['testing'][pkg_name]
+                for arch in self.options.architectures:
+                    affected = []
+                    binaries = []
+                    for p in sorted(filter(lambda x: x.endswith("/" + arch), source['binaries'])):
+                        p = p.split("/")[0]
+                        binaries.append(p)
+                        affected.extend(self.binaries['testing'][arch][0][p]['rdepends'])
+                    broken = []
+                    for p in affected:
+                        if self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name: continue
+                        r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=binaries)
+                        if not r and p[0] not in broken: broken.append(p[0])
+
+                    l = 0
+                    while l < len(broken):
+                        l = len(broken)
+                        for j in broken:
+                            for p in self.binaries['testing'][arch][0][j]['rdepends']:
+                                if self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name: continue
+                                r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=binaries+broken)
+                                if not r and p[0] not in broken: broken.append(p[0])
+                        
+                    nuninst[arch] = sorted(broken)
+                    if len(nuninst[arch]) > 0:
+                        output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)-n))
+                        output.write("    got: %s\n" % self.eval_nuninst(nuninst))
+                        output.write("    * %s: %s\n" % (arch, ", ".join(nuninst[arch])))
+                        break
+            else:
+                return
+
+    def do_all(self, output):
+        nuninst_start = self.get_nuninst()
+        output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
+        output.write("orig: %s\n" % self.eval_nuninst(nuninst_start))
+        self.iter_packages(self.upgrade_me, output)
+
+    def upgrade_testing(self):
+        """Upgrade testing using the unstable packages
+
+        This method tries to upgrade testing using the packages from unstable.
+        """
+
+        self.__log("Starting the upgrade test", type="I")
+        output = open(self.options.upgrade_output, 'w')
+        output.write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
+        output.write("Arch order is: %s\n" % ", ".join(self.options.architectures))
+
+        # TODO: process hints!
+        self.do_all(output)
+
+        output.close()
+        self.__log("Test completed!", type="I")
+
     def main(self):
         """Main method
         
@@ -1249,6 +1378,7 @@ class Britney:
         for the member methods which will produce the output files.
         """
         self.write_excuses()
+        self.upgrade_testing()
 
 if __name__ == '__main__':
     Britney().main()
