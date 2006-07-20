@@ -902,10 +902,9 @@ class Britney:
         elif anyworthdoing:
             excuse.addhtml("Not considered")
             self.excuses.append(excuse)
-            return False
 
-        # otherwise, return True
-        return True
+        # otherwise, return False
+        return False
 
     def should_upgrade_src(self, src, suite):
         """Check if source package should be upgraded
