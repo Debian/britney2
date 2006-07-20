@@ -702,7 +702,8 @@ class Britney:
             if name in self.binaries[distribution][arch][1]:
                 # loop on the list of packages which provides it
                 for prov in self.binaries[distribution][arch][1][name]:
-                    if prov in excluded: continue
+                    if prov in excluded or \
+                       not self.binaries[distribution][arch][0].has_key(prov): continue
                     package = self.binaries[distribution][arch][0][prov]
                     # check the versioned dependency (if present)
                     # TODO: this is forbidden by the debian policy, which says that versioned
@@ -1306,51 +1307,140 @@ class Britney:
                     ", ".join(nuninst[arch]))
         return res
 
-    def iter_packages(self, packages, output):
-        n = 0
-        extra = []
-        for pkg in packages:
-            output.write("trying: %s\n" % (pkg))
-            n += 1
-            nuninst = {}
+    def doop_source(self, pkg):
+
+        undo = {'binaries': {}, 'sources': {}}
+
+        affected = []
+        binaries = []
+
+        # arch = "<source>/<arch>",
+        if "/" in pkg:
+            print "NOT HANDLED!"
+            sys.exit(1)
+
+        # removals = "-<source>",
+        # normal = "<source>"
+        else:
             if pkg[0] == "-":
                 pkg_name = pkg[1:]
-                source = self.sources['testing'][pkg_name]
-                for arch in self.options.architectures:
-                    affected = []
-                    binaries = []
-                    for p in sorted(filter(lambda x: x.endswith("/" + arch), source['binaries'])):
-                        p = p.split("/")[0]
-                        binaries.append(p)
-                        affected.extend(self.binaries['testing'][arch][0][p]['rdepends'])
-                    broken = []
-                    for p in affected:
-                        if self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name: continue
-                        r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=binaries)
-                        if not r and p[0] not in broken: broken.append(p[0])
-
-                    l = 0
-                    while l < len(broken):
-                        l = len(broken)
-                        for j in broken:
-                            for p in self.binaries['testing'][arch][0][j]['rdepends']:
-                                if self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name: continue
-                                r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=binaries+broken)
-                                if not r and p[0] not in broken: broken.append(p[0])
-                        
-                    nuninst[arch] = sorted(broken)
-                    if len(nuninst[arch]) > 0:
-                        output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)-n))
-                        output.write("    got: %s\n" % self.eval_nuninst(nuninst))
-                        output.write("    * %s: %s\n" % (arch, ", ".join(nuninst[arch])))
-                        break
+            elif pkg[0].endswith("_tpu"):
+                pkg_name = pkg[:-4]
+                suite = "tpu"
             else:
-                return
+                pkg_name = pkg
+                suite = "unstable"
+
+            # remove all binary packages (if the source already exists)
+            if pkg_name in self.sources['testing']:
+                source = self.sources['testing'][pkg_name]
+                for p in source['binaries']:
+                    binary, arch = p.split("/")
+                    undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
+                    binaries.append(p)
+                    for j in self.binaries['testing'][arch][0][binary]['rdepends']:
+                        if j not in affected: affected.append((j[0], j[1], j[2], arch))
+                    del self.binaries['testing'][arch][0][binary]
+                undo['sources'][pkg_name] = source
+                del self.sources['testing'][pkg_name]
+
+            # add the new binary packages (if we are not removing)
+            if pkg[0] != "-":
+                source = self.sources[suite][pkg_name]
+                for p in source['binaries']:
+                    if p not in binaries:
+                        binaries.append(p)
+                    binary, arch = p.split("/")
+                    self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
+                    for j in self.binaries['testing'][arch][0][binary]['rdepends']:
+                        if j not in affected: affected.append((j[0], j[1], j[2], arch))
+                self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
+
+        return (pkg_name, affected, binaries, undo)
+
+    def iter_packages(self, packages, output):
+        extra = []
+        nuninst_comp = self.get_nuninst()
+
+        while packages:
+            pkg = packages.pop(0)
+            output.write("trying: %s\n" % (pkg))
+
+            better = True
+            nuninst = {}
+
+            pkg_name, affected, binaries, undo = self.doop_source(pkg)
+            broken = []
+
+            for arch in self.options.architectures:
+                if arch not in self.options.nobreakall_arches:
+                    skip_archall = True
+                else: skip_archall = False
+
+                for p in filter(lambda x: x[3] == arch, affected):
+                    if not self.binaries['testing'][arch][0].has_key(p[0]) or \
+                       self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name or \
+                       skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
+                    r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None)
+                    if not r and p[0] not in broken: broken.append(p[0])
+
+                l = 0
+                while l < len(broken):
+                    l = len(broken)
+                    for j in broken:
+                        for p in self.binaries['testing'][arch][0][j]['rdepends']:
+                            if not self.binaries['testing'][arch][0].has_key(p[0]) or \
+                               self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name or \
+                               skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
+                            r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken)
+                            if not r and p[0] not in broken: broken.append(p[0])
+                    
+                nuninst[arch] = sorted(broken)
+                if len(nuninst[arch]) > 0:
+                    better = False
+                    break
+
+            if better:
+                self.selected.append(pkg)
+                packages.extend(extra)
+                extra = []
+                nuninst_new = nuninst_comp # FIXME!
+                output.write("accepted: %s\n" % (pkg))
+                output.write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
+                output.write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
+                output.write("   now: %s\n" % (self.eval_nuninst(nuninst_new)))
+                if len(self.selected) <= 20:
+                    output.write("   all: %s\n" % (" ".join(self.selected)))
+                else:
+                    output.write("  most: (%d) .. %s\n" % (len(self.selected), " ".join(self.selected[-20:])))
+                nuninst_comp = nuninst_new
+            else:
+                output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
+                output.write("    got: %s\n" % self.eval_nuninst(nuninst))
+                output.write("    * %s: %s\n" % (arch, ", ".join(nuninst[arch])))
+                extra.append(pkg)
+
+                # undo the changes (source and new binaries)
+                for k in undo['sources'].keys():
+                    if k in self.sources['testing']:
+                        for p in self.sources['testing'][k]['binaries']:
+                            binary, arch = p.split("/")
+                            del self.binaries['testing'][arch][0][p]
+                        del self.sources['testing'][k]
+                    self.sources['testing'][k] = undo['sources'][k]
+
+                # undo the changes (binaries)
+                for p in undo['binaries'].keys():
+                    binary, arch = p.split("/")
+                    self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
+ 
 
     def do_all(self, output):
         nuninst_start = self.get_nuninst()
         output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
         output.write("orig: %s\n" % self.eval_nuninst(nuninst_start))
+        self.selected = []
+        self.nuninst_orig = nuninst_start
         self.iter_packages(self.upgrade_me, output)
 
     def upgrade_testing(self):
