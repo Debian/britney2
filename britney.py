@@ -1395,6 +1395,9 @@ class Britney:
                     del self.binaries['testing'][arch][0][binary]
                 undo['sources'][pkg_name] = source
                 del self.sources['testing'][pkg_name]
+            else:
+                undo['sources']['-' + pkg_name] = True
+
         # single architecture update (eg. binNMU)
         else:
             if self.binaries['testing'][arch][0].has_key(pkg_name):
@@ -1481,21 +1484,23 @@ class Britney:
                 output.write("    * %s: %s\n" % (arch, ", ".join(nuninst[arch])))
                 extra.append(pkg)
 
-                # undo the changes (source and new binaries)
+                # undo the changes (source)
                 for k in undo['sources'].keys():
-                    if k in self.sources[suite]:
-                        for p in self.sources[suite][k]['binaries']:
-                            binary, arch = p.split("/")
-                            del self.binaries['testing'][arch][0][binary]
-                        del self.sources['testing'][k]
-                    self.sources['testing'][k] = undo['sources'][k]
+                    if k[0] == '-':
+                        del self.sources['testing'][k[1:]]
+                    else: self.sources['testing'][k] = undo['sources'][k]
+
+                # undo the changes (new binaries)
+                if pkg in self.sources[suite]:
+                    for p in self.sources[suite][pkg]['binaries']:
+                        binary, arch = p.split("/")
+                        del self.binaries['testing'][arch][0][binary]
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
  
-
     def do_all(self, output):
         nuninst_start = self.get_nuninst()
         output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
