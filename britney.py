@@ -406,8 +406,11 @@ class Britney:
             # register the list of the dependencies for the depending packages
             for p in dependencies:
                 for a in p:
-                    if a[0] not in packages: continue
-                    packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
+                    if a[0] in packages:
+                        packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
+                    elif a[0] in provides:
+                        for i in provides[a[0]]:
+                            packages[i]['rdepends'].append((pkg, a[1], a[2]))
             del dependencies
 
         # return a tuple with the list of real and virtual packages
