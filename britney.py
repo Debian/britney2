@@ -1380,11 +1380,14 @@ class Britney:
                     skip_archall = True
                 else: skip_archall = False
 
-                for p in filter(lambda x: x[3] == arch, affected):
-                    if not self.binaries['testing'][arch][0].has_key(p[0]) or \
-                       skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                    r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=[])
-                    if not r and p[0] not in broken: broken.append(p[0])
+                nbroken = -1
+                while len(broken) > nbroken:
+                    nbroken = len(broken)
+                    for p in filter(lambda x: x[3] == arch, affected):
+                        if not self.binaries['testing'][arch][0].has_key(p[0]) or \
+                           skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
+                        r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken)
+                        if not r and p[0] not in broken: broken.append(p[0])
 
                 l = 0
                 while l < len(broken):
