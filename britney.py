@@ -679,7 +679,7 @@ class Britney:
 
             return 0
 
-    def get_dependency_solvers(self, block, arch, distribution, excluded=[]):
+    def get_dependency_solvers(self, block, arch, distribution, excluded=[], strict=False):
         """Find the packages which satisfy a dependency block
 
         This method returns the list of packages which satisfy a dependency
@@ -713,7 +713,7 @@ class Britney:
                     # TODO: this is forbidden by the debian policy, which says that versioned
                     #       dependencies on virtual packages are never satisfied. The old britney
                     #       does it and we have to go with it, but at least a warning should be raised.
-                    if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
+                    if op == '' and version == '' or not strict and apt_pkg.CheckDep(package['version'], op, version):
                         packages.append(prov)
                         break
 
@@ -742,7 +742,7 @@ class Britney:
             # for every block of dependency (which is formed as conjunction of disconjunction)
             for block, block_txt in zip(apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
-                solved, packages = self.get_dependency_solvers(block, arch, 'testing', excluded)
+                solved, packages = self.get_dependency_solvers(block, arch, 'testing', excluded, strict=(excuse == None))
                 if solved: continue
                 elif excuse == None:
                     return False
