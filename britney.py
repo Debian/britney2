@@ -1310,6 +1310,21 @@ class Britney:
     # Upgrade run
     # -----------
 
+    def slist_subtract(self, base, sub):
+        res = []
+        for x in base:
+            if x not in sub: res.append(x)
+        return res
+
+    def newlyuninst(self, nuold, nunew):
+        res = {}
+        for arch in self.options.architectures:
+            if not nuold.has_key(arch) or not nunew.has_key(arch):
+                continue
+            res[arch] = \
+                self.slist_subtract(nunew[arch], nuold[arch])
+        return res
+
     def get_nuninst(self):
         nuninst = {}
 
@@ -1356,7 +1371,7 @@ class Britney:
 
     def eval_uninst(self, nuninst):
         res = ""
-        for arch in self.arches:
+        for arch in self.options.architectures:
             if nuninst.has_key(arch) and nuninst[arch] != []:
                 res = res + "    * %s: %s\n" % (arch,
                     ", ".join(nuninst[arch]))
@@ -1505,7 +1520,16 @@ class Britney:
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
- 
+
+        output.write(" finish: [%s]\n" % ",".join(self.selected))
+        output.write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
+        output.write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
+        output.write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
+        output.write("\n")
+
+        output.write("Apparently successful\n")
+        return (nuninst_comp, extra)
+
     def do_all(self, output):
         nuninst_start = self.get_nuninst()
         output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
