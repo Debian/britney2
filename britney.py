@@ -180,6 +180,7 @@ import re
 import sys
 import string
 import time
+import copy
 import optparse
 import operator
 
@@ -715,7 +716,7 @@ class Britney:
 
         return (len(packages) > 0, packages)
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse=None, excluded=[]):
+    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse=None, excluded=[], conflicts=False):
         """Find unsatisfied dependencies for a binary package
 
         This method analyzes the dependencies of the binary package specified
@@ -734,9 +735,6 @@ class Britney:
             type_key = type.lower()
             if not binary_u.has_key(type_key):
                 continue
-
-            # this list will contain the packages that satisfy the dependency
-            packages = []
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
             for block, block_txt in zip(apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
@@ -765,7 +763,59 @@ class Britney:
                     else:
                         excuse.add_break_dep(p, arch)
 
-        # otherwise, the package is installable
+        # otherwise, the package is installable (not considering conflicts)
+        # if we have been called inside UpgradeRun, then check conflicts before
+        # saying that the package is really installable
+        if not excuse and conflicts:
+            return self.check_conflicts(pkg, arch, [], {})
+
+        return True
+
+    def check_conflicts(self, pkg, arch, system, conflicts):
+        # if we are talking about a virtual package, skip it
+        if not self.binaries['testing'][arch][0].has_key(pkg):
+            return True
+
+        binary_u = self.binaries['testing'][arch][0][pkg]
+
+        # check the conflicts
+        if conflicts.has_key(pkg):
+            name, version, op = conflicts[pkg]
+            if op == '' and version == '' or apt_pkg.CheckDep(binary_u['version'], op, version):
+                return False
+
+        # add the package
+        lconflicts = conflicts
+        system.append(pkg)
+
+        # register conflicts
+        if binary_u.has_key('conflicts'):
+            for block in map(operator.itemgetter(0), apt_pkg.ParseDepends(binary_u['conflicts'])):
+                if block[0] != pkg and block[0] in system:
+                    name, version, op = block
+                    binary_c = self.binaries['testing'][arch][0][block[0]]
+                    if op == '' and version == '' or apt_pkg.CheckDep(binary_c['version'], op, version):
+                        return False
+                lconflicts[block[0]] = block
+
+        # dependencies
+        dependencies = []
+        for type in ('Pre-Depends', 'Depends'):
+            type_key = type.lower()
+            if not binary_u.has_key(type_key): continue
+            dependencies.extend(apt_pkg.ParseDepends(binary_u[type_key]))
+
+        # go through them
+        for block in dependencies:
+            valid = False
+            for name, version, op in block:
+                if name in system or self.check_conflicts(name, arch, system, lconflicts):
+                    valid = True
+                    break
+            if not valid:
+                return False
+        
+        conflicts.update(lconflicts)
         return True
 
     # Package analisys methods
@@ -1393,7 +1443,7 @@ class Britney:
                     for p in filter(lambda x: x[3] == arch, affected):
                         if not self.binaries['testing'][arch][0].has_key(p[0]) or \
                            skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                        r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken)
+                        r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                         if not r and p[0] not in broken: broken.append(p[0])
 
                 l = 0
@@ -1403,7 +1453,7 @@ class Britney:
                         for p in self.binaries['testing'][arch][0][j]['rdepends']:
                             if not self.binaries['testing'][arch][0].has_key(p[0]) or \
                                skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                            r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken)
+                            r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                             if not r and p[0] not in broken: broken.append(p[0])
                     
                 nuninst[arch] = sorted(broken)
