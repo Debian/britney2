@@ -362,7 +362,7 @@ class Britney:
                     'architecture': Packages.Section.get('Architecture'),
                     'rdepends': [],
                     }
-            for k in ('Pre-Depends', 'Depends', 'Provides'):
+            for k in ('Pre-Depends', 'Depends', 'Provides', 'Conflicts'):
                 v = Packages.Section.get(k)
                 if v: dpkg[k.lower()] = v
 
@@ -739,7 +739,7 @@ class Britney:
             packages = []
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
-            for block, block_txt in map(None, apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
+            for block, block_txt in zip(apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
                 solved, packages = self.get_dependency_solvers(block, arch, 'testing', excluded)
                 if solved: continue
@@ -765,6 +765,7 @@ class Britney:
                     else:
                         excuse.add_break_dep(p, arch)
 
+        # otherwise, the package is installable
         return True
 
     # Package analisys methods
@@ -899,6 +900,7 @@ class Britney:
         if not anywrongver and anyworthdoing:
             excuse.addhtml("Valid candidate")
             self.excuses.append(excuse)
+            return True
         # else if there is something worth doing (but something wrong, too) this package won't be considered
         elif anyworthdoing:
             excuse.addhtml("Not considered")
@@ -1312,7 +1314,6 @@ class Britney:
         undo = {'binaries': {}, 'sources': {}}
 
         affected = []
-        binaries = []
 
         # arch = "<source>/<arch>",
         if "/" in pkg:
@@ -1324,6 +1325,7 @@ class Britney:
         else:
             if pkg[0] == "-":
                 pkg_name = pkg[1:]
+                suite = "testing"
             elif pkg[0].endswith("_tpu"):
                 pkg_name = pkg[:-4]
                 suite = "tpu"
@@ -1337,7 +1339,6 @@ class Britney:
                 for p in source['binaries']:
                     binary, arch = p.split("/")
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
-                    binaries.append(p)
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
                         if j not in affected: affected.append((j[0], j[1], j[2], arch))
                     del self.binaries['testing'][arch][0][binary]
@@ -1348,15 +1349,17 @@ class Britney:
             if pkg[0] != "-":
                 source = self.sources[suite][pkg_name]
                 for p in source['binaries']:
-                    if p not in binaries:
-                        binaries.append(p)
                     binary, arch = p.split("/")
+                    if p not in affected:
+                        affected.append((binary, None, None, arch))
+                    if binary in self.binaries['testing'][arch][0]:
+                        undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
                         if j not in affected: affected.append((j[0], j[1], j[2], arch))
                 self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
 
-        return (pkg_name, affected, binaries, undo)
+        return (pkg_name, suite, affected, undo)
 
     def iter_packages(self, packages, output):
         extra = []
@@ -1369,7 +1372,7 @@ class Britney:
             better = True
             nuninst = {}
 
-            pkg_name, affected, binaries, undo = self.doop_source(pkg)
+            pkg_name, suite, affected, undo = self.doop_source(pkg)
             broken = []
 
             for arch in self.options.architectures:
@@ -1379,9 +1382,8 @@ class Britney:
 
                 for p in filter(lambda x: x[3] == arch, affected):
                     if not self.binaries['testing'][arch][0].has_key(p[0]) or \
-                       self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name or \
                        skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                    r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None)
+                    r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=[])
                     if not r and p[0] not in broken: broken.append(p[0])
 
                 l = 0
@@ -1390,7 +1392,6 @@ class Britney:
                     for j in broken:
                         for p in self.binaries['testing'][arch][0][j]['rdepends']:
                             if not self.binaries['testing'][arch][0].has_key(p[0]) or \
-                               self.binaries['testing'][arch][0][p[0]]['source'] == pkg_name or \
                                skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                             r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken)
                             if not r and p[0] not in broken: broken.append(p[0])
@@ -1422,8 +1423,8 @@ class Britney:
 
                 # undo the changes (source and new binaries)
                 for k in undo['sources'].keys():
-                    if k in self.sources['testing']:
-                        for p in self.sources['testing'][k]['binaries']:
+                    if k in self.sources[suite]:
+                        for p in self.sources[suite][k]['binaries']:
                             binary, arch = p.split("/")
                             del self.binaries['testing'][arch][0][binary]
                         del self.sources['testing'][k]
