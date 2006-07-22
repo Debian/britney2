@@ -1287,13 +1287,13 @@ class Britney:
 
         return nuninst
 
-    def eval_nuninst(self, nuninst):
+    def eval_nuninst(self, nuninst, original=None):
         res = []
         total = 0
         totalbreak = 0
         for arch in self.options.architectures:
             if nuninst.has_key(arch):
-                n = len(nuninst[arch])
+                n = len(nuninst[arch]) + (original and len(original[arch]) or 0)
                 if arch in self.options.break_arches:
                     totalbreak = totalbreak + n
                 else:
@@ -1314,26 +1314,27 @@ class Britney:
         undo = {'binaries': {}, 'sources': {}}
 
         affected = []
+        arch = None
 
         # arch = "<source>/<arch>",
         if "/" in pkg:
-            print "NOT HANDLED!"
-            sys.exit(1)
-
+            pkg_name, arch = pkg.split("/")
+            suite = "unstable"
         # removals = "-<source>",
+        elif pkg[0] == "-":
+            pkg_name = pkg[1:]
+            suite = "testing"
+        # testing-proposed-updates = "<source>_tpu"
+        elif pkg[0].endswith("_tpu"):
+            pkg_name = pkg[:-4]
+            suite = "tpu"
         # normal = "<source>"
         else:
-            if pkg[0] == "-":
-                pkg_name = pkg[1:]
-                suite = "testing"
-            elif pkg[0].endswith("_tpu"):
-                pkg_name = pkg[:-4]
-                suite = "tpu"
-            else:
-                pkg_name = pkg
-                suite = "unstable"
+            pkg_name = pkg
+            suite = "unstable"
 
-            # remove all binary packages (if the source already exists)
+        # remove all binary packages (if the source already exists)
+        if not arch:
             if pkg_name in self.sources['testing']:
                 source = self.sources['testing'][pkg_name]
                 for p in source['binaries']:
@@ -1344,20 +1345,26 @@ class Britney:
                     del self.binaries['testing'][arch][0][binary]
                 undo['sources'][pkg_name] = source
                 del self.sources['testing'][pkg_name]
+        # single architecture update (eg. binNMU)
+        else:
+            if self.binaries['testing'][arch][0].has_key(pkg_name):
+                for j in self.binaries['testing'][arch][0][pkg_name]['rdepends']:
+                    if j not in affected: affected.append((j[0], j[1], j[2], arch))
+            source = {'binaries': [pkg]}
 
-            # add the new binary packages (if we are not removing)
-            if pkg[0] != "-":
-                source = self.sources[suite][pkg_name]
-                for p in source['binaries']:
-                    binary, arch = p.split("/")
-                    if p not in affected:
-                        affected.append((binary, None, None, arch))
-                    if binary in self.binaries['testing'][arch][0]:
-                        undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
-                    self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
-                    for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        if j not in affected: affected.append((j[0], j[1], j[2], arch))
-                self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
+        # add the new binary packages (if we are not removing)
+        if pkg[0] != "-":
+            source = self.sources[suite][pkg_name]
+            for p in source['binaries']:
+                binary, arch = p.split("/")
+                if p not in affected:
+                    affected.append((binary, None, None, arch))
+                if binary in self.binaries['testing'][arch][0]:
+                    undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
+                self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
+                for j in self.binaries['testing'][arch][0][binary]['rdepends']:
+                    if j not in affected: affected.append((j[0], j[1], j[2], arch))
+            self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
 
         return (pkg_name, suite, affected, undo)
 
@@ -1420,7 +1427,7 @@ class Britney:
                 nuninst_comp = nuninst_new
             else:
                 output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
-                output.write("    got: %s\n" % self.eval_nuninst(nuninst))
+                output.write("    got: %s\n" % self.eval_nuninst(nuninst, self.nuninst_orig))
                 output.write("    * %s: %s\n" % (arch, ", ".join(nuninst[arch])))
                 extra.append(pkg)
 
