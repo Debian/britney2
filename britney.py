@@ -1414,6 +1414,8 @@ class Britney:
                     affected.append((binary, None, None, arch))
                 if binary in self.binaries['testing'][arch][0]:
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
+                    for j in self.binaries['testing'][arch][0][binary]['rdepends']:
+                        if j not in affected: affected.append((j[0], j[1], j[2], arch))
                 self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
                 for j in self.binaries['testing'][arch][0][binary]['rdepends']:
                     if j not in affected: affected.append((j[0], j[1], j[2], arch))
