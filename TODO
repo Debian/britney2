@@ -1,1 +1,1 @@
-# Conflicts: do not work at all, we should try to solve the problem in a smarter way (without computing the full closed graph)
+# Conflicts: work, we should try to solve the problem in a smarter way (without computing the full closed graph)
