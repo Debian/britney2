@@ -362,6 +362,7 @@ class Britney:
                     'source-ver': version,
                     'architecture': Packages.Section.get('Architecture'),
                     'rdepends': [],
+                    'rconflicts': [],
                     }
             for k in ('Pre-Depends', 'Depends', 'Provides', 'Conflicts'):
                 v = Packages.Section.get(k)
@@ -396,7 +397,6 @@ class Britney:
             packages[pkg] = dpkg
 
         # loop again on the list of packages to register reverse dependencies
-        # this is not needed for the moment, so it is disabled
         for pkg in packages:
             dependencies = []
             if packages[pkg].has_key('depends'):
@@ -411,8 +411,15 @@ class Britney:
                     elif a[0] in provides:
                         for i in provides[a[0]]:
                             packages[i]['rdepends'].append((pkg, a[1], a[2]))
-            del dependencies
-
+            # register the list of the conflicts for the conflicting packages
+            if packages[pkg].has_key('conflicts'):
+                for p in apt_pkg.ParseDepends(packages[pkg]['conflicts']):
+                    if a[0] in packages:
+                        packages[a[0]]['rconflicts'].append((pkg, a[1], a[2]))
+                    elif a[0] in provides:
+                        for i in provides[a[0]]:
+                            packages[i]['rconflicts'].append((pkg, a[1], a[2]))
+ 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
 
@@ -1409,7 +1416,8 @@ class Britney:
                     binary, arch = p.split("/")
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        if j not in affected: affected.append((j[0], j[1], j[2], arch))
+                        key = (j[0], j[1], j[2], arch)
+                        if key not in affected: affected.append(key)
                     del self.binaries['testing'][arch][0][binary]
                 undo['sources'][pkg_name] = source
                 del self.sources['testing'][pkg_name]
@@ -1420,7 +1428,8 @@ class Britney:
         else:
             if self.binaries['testing'][arch][0].has_key(pkg_name):
                 for j in self.binaries['testing'][arch][0][pkg_name]['rdepends']:
-                    if j not in affected: affected.append((j[0], j[1], j[2], arch))
+                    key = (j[0], j[1], j[2], arch)
+                    if key not in affected: affected.append(key)
             source = {'binaries': [pkg]}
 
         # add the new binary packages (if we are not removing)
@@ -1428,18 +1437,36 @@ class Britney:
             source = self.sources[suite][pkg_name]
             for p in source['binaries']:
                 binary, arch = p.split("/")
-                if p not in affected:
-                    affected.append((binary, None, None, arch))
+                key = (binary, None, None, arch)
+                if key not in affected: affected.append(key)
                 if binary in self.binaries['testing'][arch][0]:
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        if j not in affected: affected.append((j[0], j[1], j[2], arch))
+                        key = (j[0], j[1], j[2], arch)
+                        if key not in affected: affected.append(key)
+                    for j in self.binaries['testing'][arch][0][binary]['rconflicts']:
+                        key = (j[0], j[1], j[2], arch)
+                        if key not in affected: affected.append(key)
+                        for p in self.get_full_tree(j[0], arch, 'testing'):
+                            key = (p, None, None, arch)
+                            if key not in affected: affected.append(key)
                 self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
                 for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                    if j not in affected: affected.append((j[0], j[1], j[2], arch))
+                    key = (j[0], j[1], j[2], arch)
+                    if key not in affected: affected.append(key)
             self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
 
         return (pkg_name, suite, affected, undo)
+
+    def get_full_tree(self, pkg, arch, suite):
+        packages = [pkg]
+        l = n = 0
+        while len(packages) > l:
+            l = len(packages)
+            for p in packages[n:]:
+                packages.extend(map(operator.itemgetter(0), self.binaries[suite][arch][0][p]['rdepends']))
+            n = l
+        return packages
 
     def iter_packages(self, packages, output):
         extra = []
