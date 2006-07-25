@@ -1368,12 +1368,15 @@ class Britney:
         totalbreak = 0
         for arch in self.options.architectures:
             if nuninst.has_key(arch):
-                n = len(nuninst[arch]) + (original and len(original[arch]) or 0)
-                if arch in self.options.break_arches:
-                    totalbreak = totalbreak + n
-                else:
-                    total = total + n
-                res.append("%s-%d" % (arch[0], n))
+                n = len(nuninst[arch])
+            elif original and original.has_key(arch):
+                n = len(original[arch])
+            else: continue
+            if arch in self.options.break_arches:
+                totalbreak = totalbreak + n
+            else:
+                total = total + n
+            res.append("%s-%d" % (arch[0], n))
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
     def eval_uninst(self, nuninst):
@@ -1416,7 +1419,7 @@ class Britney:
                     binary, arch = p.split("/")
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        key = (j[0], j[1], j[2], arch)
+                        key = (j[0], arch)
                         if key not in affected: affected.append(key)
                     del self.binaries['testing'][arch][0][binary]
                 undo['sources'][pkg_name] = source
@@ -1428,7 +1431,7 @@ class Britney:
         else:
             if self.binaries['testing'][arch][0].has_key(pkg_name):
                 for j in self.binaries['testing'][arch][0][pkg_name]['rdepends']:
-                    key = (j[0], j[1], j[2], arch)
+                    key = (j[0], arch)
                     if key not in affected: affected.append(key)
             source = {'binaries': [pkg]}
 
@@ -1437,22 +1440,22 @@ class Britney:
             source = self.sources[suite][pkg_name]
             for p in source['binaries']:
                 binary, arch = p.split("/")
-                key = (binary, None, None, arch)
+                key = (binary, arch)
                 if key not in affected: affected.append(key)
                 if binary in self.binaries['testing'][arch][0]:
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        key = (j[0], j[1], j[2], arch)
+                        key = (j[0], arch)
                         if key not in affected: affected.append(key)
                     for j in self.binaries['testing'][arch][0][binary]['rconflicts']:
-                        key = (j[0], j[1], j[2], arch)
+                        key = (j[0], arch)
                         if key not in affected: affected.append(key)
                         for p in self.get_full_tree(j[0], arch, 'testing'):
-                            key = (p, None, None, arch)
+                            key = (p, arch)
                             if key not in affected: affected.append(key)
                 self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
                 for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                    key = (j[0], j[1], j[2], arch)
+                    key = (j[0], arch)
                     if key not in affected: affected.append(key)
             self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
 
@@ -1480,21 +1483,25 @@ class Britney:
             nuninst = {}
 
             pkg_name, suite, affected, undo = self.doop_source(pkg)
-            broken = []
 
-            for arch in self.options.architectures:
+            for arch in ("/" in pkg and (pkg.split("/")[1],) or self.options.architectures):
                 if arch not in self.options.nobreakall_arches:
                     skip_archall = True
                 else: skip_archall = False
 
+                broken = []
+                nuninst[arch] = nuninst_comp[arch][:]
+
                 l = -1
                 while len(broken) > l and not (l == 0 and l == len(broken)):
                     l = len(broken)
-                    for p in filter(lambda x: x[3] == arch, affected):
+                    for p in filter(lambda x: x[1] == arch, affected):
                         if not self.binaries['testing'][arch][0].has_key(p[0]) or \
                            skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                         r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                         if not r and p[0] not in broken: broken.append(p[0])
+                        elif r and p[0] in nuninst[arch]:
+                            nuninst[arch].remove(p[0])
 
                 l = 0
                 while l < len(broken):
@@ -1505,9 +1512,12 @@ class Britney:
                                skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                             r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                             if not r and p[0] not in broken: broken.append(p[0])
-                    
-                nuninst[arch] = sorted(broken)
-                if len(nuninst[arch]) > 0:
+
+                for b in broken:
+                    if b not in nuninst[arch]:
+                        nuninst[arch].append(b)
+
+                if len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
@@ -1515,20 +1525,20 @@ class Britney:
                 self.selected.append(pkg)
                 packages.extend(extra)
                 extra = []
-                nuninst_new = nuninst_comp # FIXME!
                 output.write("accepted: %s\n" % (pkg))
                 output.write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
                 output.write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
-                output.write("   now: %s\n" % (self.eval_nuninst(nuninst_new)))
+                output.write("   now: %s\n" % (self.eval_nuninst(nuninst)))
                 if len(self.selected) <= 20:
                     output.write("   all: %s\n" % (" ".join(self.selected)))
                 else:
                     output.write("  most: (%d) .. %s\n" % (len(self.selected), " ".join(self.selected[-20:])))
-                nuninst_comp = nuninst_new
+                for k in nuninst:
+                    nuninst_comp[k] = nuninst[k]
             else:
                 output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
-                output.write("    got: %s\n" % self.eval_nuninst(nuninst, self.nuninst_orig))
-                output.write("    * %s: %s\n" % (arch, ", ".join(nuninst[arch])))
+                output.write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and self.nuninst_orig or None)))
+                output.write("    * %s: %s\n" % (arch, ", ".join(sorted(broken))))
                 extra.append(pkg)
 
                 # undo the changes (source)
@@ -1557,13 +1567,21 @@ class Britney:
         output.write("Apparently successful\n")
         return (nuninst_comp, extra)
 
-    def do_all(self, output):
+    def do_all(self, output, maxdepth=0, init=None):
         nuninst_start = self.get_nuninst()
         output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
         output.write("orig: %s\n" % self.eval_nuninst(nuninst_start))
+
         self.selected = []
         self.nuninst_orig = nuninst_start
-        self.iter_packages(self.upgrade_me, output)
+        (nuninst_end, extra) = self.iter_packages(self.upgrade_me, output)
+
+        if nuninst_end:
+            output.write("final: %s\n" % ",".join(self.selected))
+            output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
+            output.write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
+            output.write("  end: %s\n" % self.eval_nuninst(nuninst_end))
+            output.write("SUCCESS (%d/%d)\n" % (len(self.upgrade_me), len(extra)))
 
     def upgrade_testing(self):
         """Upgrade testing using the unstable packages
