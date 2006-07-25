@@ -1475,6 +1475,8 @@ class Britney:
         extra = []
         nuninst_comp = self.get_nuninst()
 
+        output.write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
+
         while packages:
             pkg = packages.pop(0)
             output.write("trying: %s\n" % (pkg))
