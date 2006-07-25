@@ -1574,7 +1574,7 @@ class Britney:
 
         self.selected = []
         self.nuninst_orig = nuninst_start
-        (nuninst_end, extra) = self.iter_packages(self.upgrade_me, output)
+        (nuninst_end, extra) = self.iter_packages(self.upgrade_me[:], output)
 
         if nuninst_end:
             output.write("final: %s\n" % ",".join(self.selected))
