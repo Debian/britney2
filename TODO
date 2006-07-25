@@ -1,1 +1,4 @@
 # Conflicts: work, we should try to solve the problem in a smarter way (without computing the full closed graph)
+# Add support for old libraries (introducing a new operation: remove single binary)
+# Add support for udeb
+# Add support for calling britney from command line
