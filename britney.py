@@ -314,13 +314,14 @@ class Britney:
         package = None
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
-        packages = apt_pkg.ParseTagFile(open(filename))
-        while packages.Step():
-            pkg = packages.Section.get('Package')
+        Packages = apt_pkg.ParseTagFile(open(filename))
+        get_field = Packages.Section.get
+        while Packages.Step():
+            pkg = get_field('Package')
             sources[pkg] = {'binaries': [],
-                            'version': packages.Section.get('Version'),
-                            'maintainer': packages.Section.get('Maintainer'),
-                            'section': packages.Section.get('Section'),
+                            'version': get_field('Version'),
+                            'maintainer': get_field('Maintainer'),
+                            'section': get_field('Section'),
                             }
         return sources
 
@@ -350,41 +351,43 @@ class Britney:
 
         packages = {}
         provides = {}
+        sources = self.sources
         package = None
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
         Packages = apt_pkg.ParseTagFile(open(filename))
+        get_field = Packages.Section.get
         while Packages.Step():
-            pkg = Packages.Section.get('Package')
-            version = Packages.Section.get('Version')
+            pkg = get_field('Package')
+            version = get_field('Version')
             dpkg = {'version': version,
                     'source': pkg, 
                     'source-ver': version,
-                    'architecture': Packages.Section.get('Architecture'),
+                    'architecture': get_field('Architecture'),
                     'rdepends': [],
                     'rconflicts': [],
                     }
             for k in ('Pre-Depends', 'Depends', 'Provides', 'Conflicts'):
-                v = Packages.Section.get(k)
+                v = get_field(k)
                 if v: dpkg[k.lower()] = v
 
             # retrieve the name and the version of the source package
-            source = Packages.Section.get('Source')
+            source = get_field('Source')
             if source:
                 dpkg['source'] = source.split(" ")[0]
                 if "(" in source:
                     dpkg['source-ver'] = source.split("(")[1].split(")")[0]
 
             # if the source package is available in the distribution, then register this binary package
-            if dpkg['source'] in self.sources[distribution]:
-                self.sources[distribution][dpkg['source']]['binaries'].append(pkg + "/" + arch)
+            if dpkg['source'] in sources[distribution]:
+                sources[distribution][dpkg['source']]['binaries'].append(pkg + "/" + arch)
             # if the source package doesn't exist, create a fake one
             else:
-                self.sources[distribution][dpkg['source']] = {'binaries': [pkg + "/" + arch],
+                sources[distribution][dpkg['source']] = {'binaries': [pkg + "/" + arch],
                     'version': dpkg['source-ver'], 'maintainer': None, 'section': None, 'fake': True}
 
             # register virtual packages and real packages that provide them
-            if dpkg.has_key('provides'):
+            if 'provides' in dpkg:
                 parts = map(string.strip, dpkg['provides'].split(","))
                 for p in parts:
                     try:
@@ -397,12 +400,13 @@ class Britney:
             packages[pkg] = dpkg
 
         # loop again on the list of packages to register reverse dependencies
+        parse_depends = apt_pkg.ParseDepends
         for pkg in packages:
             dependencies = []
-            if packages[pkg].has_key('depends'):
-                dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['depends']))
-            if packages[pkg].has_key('pre-depends'):
-                dependencies.extend(apt_pkg.ParseDepends(packages[pkg]['pre-depends']))
+            if 'depends' in packages[pkg]:
+                dependencies.extend(parse_depends(packages[pkg]['depends']))
+            if 'pre-depends' in packages[pkg]:
+                dependencies.extend(parse_depends(packages[pkg]['pre-depends']))
             # register the list of the dependencies for the depending packages
             for p in dependencies:
                 for a in p:
@@ -412,8 +416,8 @@ class Britney:
                         for i in provides[a[0]]:
                             packages[i]['rdepends'].append((pkg, a[1], a[2]))
             # register the list of the conflicts for the conflicting packages
-            if packages[pkg].has_key('conflicts'):
-                for p in apt_pkg.ParseDepends(packages[pkg]['conflicts']):
+            if 'conflicts' in packages[pkg]:
+                for p in parse_depends(packages[pkg]['conflicts']):
                     if a[0] in packages:
                         packages[a[0]]['rconflicts'].append((pkg, a[1], a[2]))
                     elif a[0] in provides:
@@ -456,10 +460,10 @@ class Britney:
         source package and its binary packages.
         """
         maxver = None
-        if self.sources[dist].has_key(pkg):
+        if pkg in self.sources[dist]:
             maxver = self.sources[dist][pkg]['version']
         for arch in self.options.architectures:
-            if not self.binaries[dist][arch][0].has_key(pkg): continue
+            if pkg not in self.binaries[dist][arch][0]: continue
             pkgv = self.binaries[dist][arch][0][pkg]['version']
             if maxver == None or apt_pkg.VersionCompare(pkgv, maxver) > 0:
                 maxver = pkgv
@@ -475,9 +479,9 @@ class Britney:
         for pkg in set(self.bugs['testing'].keys() + self.bugs['unstable'].keys()):
 
             # make sure that the key is present in both dictionaries
-            if not self.bugs['testing'].has_key(pkg):
+            if pkg not in self.bugs['testing']:
                 self.bugs['testing'][pkg] = 0
-            elif not self.bugs['unstable'].has_key(pkg):
+            elif pkg not in self.bugs['unstable']:
                 self.bugs['unstable'][pkg] = 0
 
             # retrieve the maximum version of the package in testing:
@@ -637,7 +641,7 @@ class Britney:
         for x in ["block", "block-all", "unblock", "force", "urgent", "remove"]:
             z = {}
             for a, b in hints[x]:
-                if z.has_key(a):
+                if a in z:
                     self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
                 z[a] = b
             hints[x] = z
@@ -714,7 +718,7 @@ class Britney:
                 # loop on the list of packages which provides it
                 for prov in self.binaries[distribution][arch][1][name]:
                     if prov in excluded or \
-                       not self.binaries[distribution][arch][0].has_key(prov): continue
+                       prov not in self.binaries[distribution][arch][0]: continue
                     package = self.binaries[distribution][arch][0][prov]
                     # check the versioned dependency (if present)
                     # TODO: this is forbidden by the debian policy, which says that versioned
@@ -743,7 +747,7 @@ class Britney:
         # analyze the dependency fields (if present)
         for type in ('Pre-Depends', 'Depends'):
             type_key = type.lower()
-            if not binary_u.has_key(type_key):
+            if type_key not in binary_u:
                 continue
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
@@ -783,13 +787,13 @@ class Britney:
 
     def check_conflicts(self, pkg, arch, system, conflicts):
         # if we are talking about a virtual package, skip it
-        if not self.binaries['testing'][arch][0].has_key(pkg):
+        if pkg not in self.binaries['testing'][arch][0]:
             return True
 
         binary_u = self.binaries['testing'][arch][0][pkg]
 
         # check the conflicts
-        if conflicts.has_key(pkg):
+        if pkg in conflicts:
             name, version, op = conflicts[pkg]
             if op == '' and version == '' or apt_pkg.CheckDep(binary_u['version'], op, version):
                 return False
@@ -799,7 +803,7 @@ class Britney:
         system.append(pkg)
 
         # register conflicts
-        if binary_u.has_key('conflicts'):
+        if 'conflicts' in binary_u:
             for block in map(operator.itemgetter(0), apt_pkg.ParseDepends(binary_u['conflicts'])):
                 if block[0] != pkg and block[0] in system:
                     name, version, op = block
@@ -812,7 +816,7 @@ class Britney:
         dependencies = []
         for type in ('Pre-Depends', 'Depends'):
             type_key = type.lower()
-            if not binary_u.has_key(type_key): continue
+            if type_key not in binary_u: continue
             dependencies.extend(apt_pkg.ParseDepends(binary_u[type_key]))
 
         # go through them
@@ -843,7 +847,7 @@ class Britney:
         attribute excuses.
         """
         # if the soruce package is available in unstable, then do nothing
-        if self.sources['unstable'].has_key(pkg):
+        if pkg in self.sources['unstable']:
             return False
         # otherwise, add a new excuse for its removal and return True
         src = self.sources['testing'][pkg]
@@ -881,7 +885,7 @@ class Britney:
         
         # if there is a `remove' hint and the requested version is the same of the
         # version in testing, then stop here and return False
-        if self.hints["remove"].has_key(src) and \
+        if src in self.hints["remove"] and \
            self.same_source(source_t['version'], self.hints["remove"][src][0]):
             excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
             excuse.addhtml("Trying to remove package, not update it")
@@ -941,7 +945,7 @@ class Britney:
 
         # if there is nothing wrong and there is something worth doing or the source
         # package is not fake, then check what packages shuold be removed
-        if not anywrongver and (anyworthdoing or self.sources[suite][src].has_key('fake')):
+        if not anywrongver and (anyworthdoing or 'fake' in self.sources[suite][src]):
             srcv = self.sources[suite][src]['version']
             ssrc = self.same_source(source_t['version'], srcv)
             # for every binary package produced by this source in testing for this architecture
@@ -951,7 +955,7 @@ class Britney:
                     excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                     continue
                 # if the package is not produced by the new source package, then remove it from testing
-                if not self.binaries[suite][arch][0].has_key(pkg):
+                if pkg not in self.binaries[suite][arch][0]:
                     tpkgv = self.binaries['testing'][arch][0][pkg]['version']
                     excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
                     if ssrc: anyworthdoing = True
@@ -1008,7 +1012,7 @@ class Britney:
             return False
 
         # check if the source package really exists or if it is a fake one
-        if source_u.has_key('fake'):
+        if 'fake' in source_u:
             excuse.addhtml("%s source package doesn't exist" % (src))
             update_candidate = False
 
@@ -1020,7 +1024,7 @@ class Britney:
 
         # if there is a `remove' hint and the requested version is the same of the
         # version in testing, then stop here and return False
-        if self.hints["remove"].has_key(src):
+        if src in self.hints["remove"]:
             if source_t and self.same_source(source_t['version'], self.hints['remove'][src][0]) or \
                self.same_source(source_u['version'], self.hints['remove'][src][0]):
                 excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
@@ -1029,9 +1033,9 @@ class Britney:
 
         # check if there is a `block' hint for this package or a `block-all source' hint
         blocked = None
-        if self.hints["block"].has_key(src):
+        if src in self.hints["block"]:
             blocked = self.hints["block"][src]
-        elif self.hints["block-all"].has_key("source"):
+        elif 'source' in self.hints["block-all"]:
             blocked = self.hints["block-all"]["source"]
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
@@ -1051,7 +1055,7 @@ class Britney:
         # permanence in unstable before updating testing; if the source package is too young,
         # the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
-            if not self.dates.has_key(src):
+            if src not in self.dates:
                 self.dates[src] = (source_u['version'], self.date_now)
             elif not self.same_source(self.dates[src][0], source_u['version']):
                 self.dates[src] = (source_u['version'], self.date_now)
@@ -1060,7 +1064,7 @@ class Britney:
             min_days = self.MINDAYS[urgency]
             excuse.setdaysold(days_old, min_days)
             if days_old < min_days:
-                if self.hints["urgent"].has_key(src) and self.same_source(source_u['version'], self.hints["urgent"][src][0]):
+                if src in self.hints["urgent"] and self.same_source(source_u['version'], self.hints["urgent"][src][0]):
                     excuse.addhtml("Too young, but urgency pushed by %s" % (self.hints["urgent"][src][1]))
                 else:
                     update_candidate = False
@@ -1072,7 +1076,7 @@ class Britney:
             oodbins = {}
             # for every binary package produced by this source in the suite for this architecture
             for pkg in sorted([x.split("/")[0] for x in self.sources[suite][src]['binaries'] if x.endswith("/"+arch)]):
-                if not pkgs.has_key(pkg): pkgs[pkg] = []
+                if pkg not in pkgs: pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
                 # retrieve the binary package and its source version
@@ -1081,7 +1085,7 @@ class Britney:
 
                 # if it wasn't builded by the same source, it is out-of-date
                 if not self.same_source(source_u['version'], pkgsv):
-                    if not oodbins.has_key(pkgsv):
+                    if pkgsv not in oodbins:
                         oodbins[pkgsv] = []
                     oodbins[pkgsv].append(pkg)
                     continue
@@ -1123,9 +1127,9 @@ class Britney:
         # one,  the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
             for pkg in pkgs.keys():
-                if not self.bugs['testing'].has_key(pkg):
+                if pkg not in self.bugs['testing']:
                     self.bugs['testing'][pkg] = 0
-                if not self.bugs['unstable'].has_key(pkg):
+                if pkg not in self.bugs['unstable']:
                     self.bugs['unstable'][pkg] = 0
 
                 if self.bugs['unstable'][pkg] > self.bugs['testing'][pkg]:
@@ -1141,7 +1145,7 @@ class Britney:
                                    (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
-        if not update_candidate and self.hints["force"].has_key(src) and \
+        if not update_candidate and src in self.hints["force"] and \
            self.same_source(source_u['version'], self.hints["force"][src][0]):
             excuse.dontinvalidate = 1
             excuse.addhtml("Should ignore, but forced by %s" % (self.hints["force"][src][1]))
@@ -1149,8 +1153,9 @@ class Britney:
 
         # if the suite is testing-proposed-updates, the package needs an explicit approval in order to go in
         if suite == "tpu":
-            if self.approvals.has_key("%s_%s" % (src, source_u['version'])):
-                excuse.addhtml("Approved by %s" % approvals["%s_%s" % (src, source_u['version'])])
+            key = "%s_%s" % (src, source_u['version'])
+            if key in self.approvals:
+                excuse.addhtml("Approved by %s" % approvals[key])
             else:
                 excuse.addhtml("NEEDS APPROVAL BY RM")
                 update_candidate = False
@@ -1174,7 +1179,7 @@ class Britney:
         res = {}
         for exc in self.excuses:
             for d in exc.deps:
-                if not res.has_key(d): res[d] = []
+                if d not in res: res[d] = []
                 res[d].append(exc.name)
         return res
 
@@ -1197,7 +1202,7 @@ class Britney:
         i = 0
         while i < len(invalid):
             # if there is no reverse dependency, skip the item
-            if not revdeps.has_key(invalid[i]):
+            if invalid[i] not in revdeps:
                 i += 1
                 continue
             # if there dependency can be satisfied by a testing-proposed-updates excuse, skip the item
@@ -1243,7 +1248,7 @@ class Britney:
         for pkg in self.sources['unstable']:
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if self.sources['testing'].has_key(pkg):
+            if pkg in self.sources['testing']:
                 for arch in self.options.architectures:
                     if self.should_upgrade_srcarch(pkg, arch, 'unstable'):
                         upgrade_me.append("%s/%s" % (pkg, arch))
@@ -1256,7 +1261,7 @@ class Britney:
         for pkg in self.sources['tpu']:
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if self.sources['testing'].has_key(pkg):
+            if pkg in self.sources['testing']:
                 for arch in self.options.architectures:
                     if self.should_upgrade_srcarch(pkg, arch, 'tpu'):
                         upgrade_me.append("%s/%s_tpu" % (pkg, arch))
@@ -1269,7 +1274,7 @@ class Britney:
         for src in self.hints["remove"].keys():
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
-            if not self.sources['testing'].has_key(src): continue
+            if src not in self.sources['testing']: continue
 
             # check if the version specified in the hint is the same of the considered package
             tsrcv = self.sources['testing'][src]['version']
@@ -1326,7 +1331,7 @@ class Britney:
     def newlyuninst(self, nuold, nunew):
         res = {}
         for arch in self.options.architectures:
-            if not nuold.has_key(arch) or not nunew.has_key(arch):
+            if arch not in nuold or arch not in nunew:
                 continue
             res[arch] = \
                 self.slist_subtract(nunew[arch], nuold[arch])
@@ -1367,9 +1372,9 @@ class Britney:
         total = 0
         totalbreak = 0
         for arch in self.options.architectures:
-            if nuninst.has_key(arch):
+            if arch in nuninst:
                 n = len(nuninst[arch])
-            elif original and original.has_key(arch):
+            elif original and arch in original:
                 n = len(original[arch])
             else: continue
             if arch in self.options.break_arches:
@@ -1382,7 +1387,7 @@ class Britney:
     def eval_uninst(self, nuninst):
         res = ""
         for arch in self.options.architectures:
-            if nuninst.has_key(arch) and nuninst[arch] != []:
+            if arch in nuninst and nuninst[arch] != []:
                 res = res + "    * %s: %s\n" % (arch,
                     ", ".join(nuninst[arch]))
         return res
@@ -1429,7 +1434,7 @@ class Britney:
 
         # single architecture update (eg. binNMU)
         else:
-            if self.binaries['testing'][arch][0].has_key(pkg_name):
+            if pkg_name in self.binaries['testing'][arch][0]:
                 for j in self.binaries['testing'][arch][0][pkg_name]['rdepends']:
                     key = (j[0], arch)
                     if key not in affected: affected.append(key)
@@ -1498,7 +1503,7 @@ class Britney:
                 while len(broken) > l and not (l == 0 and l == len(broken)):
                     l = len(broken)
                     for p in filter(lambda x: x[1] == arch, affected):
-                        if not self.binaries['testing'][arch][0].has_key(p[0]) or \
+                        if p[0] not in self.binaries['testing'][arch][0] or \
                            skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                         r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                         if not r and p[0] not in broken: broken.append(p[0])
@@ -1510,7 +1515,7 @@ class Britney:
                     l = len(broken)
                     for j in broken:
                         for p in self.binaries['testing'][arch][0][j]['rdepends']:
-                            if not self.binaries['testing'][arch][0].has_key(p[0]) or \
+                            if p[0] not in self.binaries['testing'][arch][0] or \
                                skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                             r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                             if not r and p[0] not in broken: broken.append(p[0])
