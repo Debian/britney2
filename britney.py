@@ -351,10 +351,9 @@ class Britney:
 
         packages = {}
         provides = {}
-        rdepends = {}
-        rconflicts = {}
         sources = self.sources
         package = None
+
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
         Packages = apt_pkg.ParseTagFile(open(filename))
