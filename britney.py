@@ -281,6 +281,7 @@ class Britney:
         arches = [x for x in allarches if x in self.options.nobreakall_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.new_arches]
         arches += [x for x in allarches if x not in arches]
         self.options.architectures = arches
 
@@ -1308,6 +1309,7 @@ class Britney:
                     e.addhtml("Unpossible dep: %s -> %s" % (e.name, d))
         self.invalidate_excuses(upgrade_me, unconsidered)
 
+        # sort the list of candidates
         self.upgrade_me = sorted(upgrade_me)
 
         # write excuses to the output file
@@ -1531,8 +1533,8 @@ class Britney:
                     if b not in nuninst[arch]:
                         nuninst[arch].append(b)
 
-                if arch not in self.options.break_arches and \
-                   len(nuninst[arch]) > len(nuninst_comp[arch]):
+                if (("/" in pkg and arch not in self.options.new_arches) or \
+                    (arch not in self.options.break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
