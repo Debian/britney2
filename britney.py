@@ -351,6 +351,8 @@ class Britney:
 
         packages = {}
         provides = {}
+        rdepends = {}
+        rconflicts = {}
         sources = self.sources
         package = None
         filename = os.path.join(basedir, "Packages_%s" % arch)
@@ -390,10 +392,9 @@ class Britney:
             if 'provides' in dpkg:
                 parts = map(string.strip, dpkg['provides'].split(","))
                 for p in parts:
-                    try:
-                        provides[p].append(pkg)
-                    except KeyError:
-                        provides[p] = [pkg]
+                    if p not in provides:
+                        provides[p] = []
+                    provides[p].append(pkg)
                 del dpkg['provides']
 
             # append the resulting dictionary to the package list
@@ -1235,49 +1236,56 @@ class Britney:
 
         self.__log("Update Excuses generation started", type="I")
 
+        # list of local methods and variables (for better performance)
+        sources = self.sources
+        architectures = self.options.architectures
+        should_remove_source = self.should_remove_source
+        should_upgrade_srcarch = self.should_upgrade_srcarch
+        should_upgrade_src = self.should_upgrade_src
+
         # this list will contain the packages which are valid candidates;
         # if a package is going to be removed, it will have a "-" prefix
         upgrade_me = []
 
         # for every source package in testing, check if it should be removed
-        for pkg in self.sources['testing']:
-            if self.should_remove_source(pkg):
+        for pkg in sources['testing']:
+            if should_remove_source(pkg):
                 upgrade_me.append("-" + pkg)
 
         # for every source package in unstable check if it should be upgraded
-        for pkg in self.sources['unstable']:
+        for pkg in sources['unstable']:
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if pkg in self.sources['testing']:
-                for arch in self.options.architectures:
-                    if self.should_upgrade_srcarch(pkg, arch, 'unstable'):
+            if pkg in sources['testing']:
+                for arch in architectures:
+                    if should_upgrade_srcarch(pkg, arch, 'unstable'):
                         upgrade_me.append("%s/%s" % (pkg, arch))
 
             # check if the source package should be upgraded
-            if self.should_upgrade_src(pkg, 'unstable'):
+            if should_upgrade_src(pkg, 'unstable'):
                 upgrade_me.append(pkg)
 
         # for every source package in testing-proposed-updates, check if it should be upgraded
-        for pkg in self.sources['tpu']:
+        for pkg in sources['tpu']:
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if pkg in self.sources['testing']:
-                for arch in self.options.architectures:
-                    if self.should_upgrade_srcarch(pkg, arch, 'tpu'):
+            if pkg in sources['testing']:
+                for arch in architectures:
+                    if should_upgrade_srcarch(pkg, arch, 'tpu'):
                         upgrade_me.append("%s/%s_tpu" % (pkg, arch))
 
             # check if the source package should be upgraded
-            if self.should_upgrade_src(pkg, 'tpu'):
+            if should_upgrade_src(pkg, 'tpu'):
                 upgrade_me.append("%s_tpu" % pkg)
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for src in self.hints["remove"].keys():
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
-            if src not in self.sources['testing']: continue
+            if src not in sources['testing']: continue
 
             # check if the version specified in the hint is the same of the considered package
-            tsrcv = self.sources['testing'][src]['version']
+            tsrcv = sources['testing'][src]['version']
             if not self.same_source(tsrcv, self.hints["remove"][src][0]): continue
 
             # add the removal of the package to upgrade_me and build a new excuse
