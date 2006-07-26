@@ -1519,7 +1519,8 @@ class Britney:
                     if b not in nuninst[arch]:
                         nuninst[arch].append(b)
 
-                if len(nuninst[arch]) > len(nuninst_comp[arch]):
+                if arch not in self.options.break_arches and \
+                   len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
