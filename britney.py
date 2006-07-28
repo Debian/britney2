@@ -383,7 +383,7 @@ class Britney:
             if source:
                 dpkg['source'] = source.split(" ")[0]
                 if "(" in source:
-                    dpkg['source-ver'] = source.split("(")[1].split(")")[0]
+                    dpkg['source-ver'] = source[source.find("(")+1:source.find(")")]
 
             # if the source package is available in the distribution, then register this binary package
             if dpkg['source'] in sources[distribution]:
@@ -450,7 +450,7 @@ class Britney:
         filename = os.path.join(basedir, "Bugs")
         self.__log("Loading RC bugs count from %s" % filename)
         for line in open(filename):
-            l = line.strip().split()
+            l = line.split()
             if len(l) != 2: continue
             try:
                 bugs[l[0]] = int(l[1])
@@ -529,7 +529,7 @@ class Britney:
         filename = os.path.join(basedir, "Dates")
         self.__log("Loading upload data from %s" % filename)
         for line in open(filename):
-            l = line.strip().split()
+            l = line.split()
             if len(l) != 3: continue
             try:
                 dates[l[0]] = (l[1], int(l[2]))
@@ -555,7 +555,7 @@ class Britney:
         filename = os.path.join(basedir, "Urgency")
         self.__log("Loading upload urgencies from %s" % filename)
         for line in open(filename):
-            l = line.strip().split()
+            l = line.split()
             if len(l) != 3: continue
 
             # read the minimum days associated to the urgencies
@@ -603,7 +603,7 @@ class Britney:
             filename = os.path.join(basedir, "Approved", approver)
             self.__log("Loading approvals list from %s" % filename)
             for line in open(filename):
-                l = line.strip().split()
+                l = line.split()
                 if len(l) != 2: continue
                 approvals["%s_%s" % (l[0], l[1])] = approver
         return approvals
@@ -1407,7 +1407,7 @@ class Britney:
         self.upgrade_me = sorted(upgrade_me)
 
         # write excuses to the output file
-        self.__log("Writing Excuses to %s" % self.options.excuses_output, type="I")
+        self.__log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
 
         f = open(self.options.excuses_output, 'w')
         f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
@@ -1589,7 +1589,7 @@ class Britney:
 
         # local copies for better performances
         excuse_unsat_deps = self.excuse_unsat_deps
-        binaries = self.binaries
+        binaries = self.binaries['testing']
         sources = self.sources
         architectures = self.options.architectures
         nobreakall_arches = self.options.nobreakall_arches
@@ -1612,28 +1612,31 @@ class Britney:
                     skip_archall = True
                 else: skip_archall = False
 
-                broken = []
                 nuninst[arch] = nuninst_comp[arch][:]
+                broken = nuninst[arch][:]
+                to_check = [x[0] for x in affected if x[1] == arch]
 
-                l = -1
-                while len(broken) > l and not (l == 0 and l == len(broken)):
-                    l = len(broken)
-                    for p in filter(lambda x: x[1] == arch, affected):
-                        if p[0] not in binaries['testing'][arch][0] or \
-                           skip_archall and binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                        r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
-                        if not r and p[0] not in broken:
-                            broken.append(p[0])
-                        elif r and p[0] in nuninst[arch]:
-                            nuninst[arch].remove(p[0])
+                old_broken = None
+                while old_broken != broken:
+                    old_broken = broken[:]
+                    for p in to_check:
+                        if p not in binaries[arch][0] or \
+                           skip_archall and binaries[arch][0][p]['architecture'] == 'all': continue
+                        r = excuse_unsat_deps(p, None, arch, 'testing', None, excluded=broken, conflicts=True)
+                        if not r and p not in broken:
+                            broken.append(p)
+                        elif r and p in nuninst[arch]:
+                            broken.remove(p)
+                            nuninst[arch].remove(p)
 
                 l = 0
                 while l < len(broken):
                     l = len(broken)
                     for j in broken:
-                        for p in binaries['testing'][arch][0][j]['rdepends']:
-                            if p[0] not in binaries['testing'][arch][0] or \
-                               skip_archall and binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
+                        if j not in binaries[arch][0]: continue
+                        for p in binaries[arch][0][j]['rdepends']:
+                            if p[0] not in binaries[arch][0] or \
+                               skip_archall and binaries[arch][0][p[0]]['architecture'] == 'all': continue
                             r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                             if not r and p[0] not in broken:
                                 broken.append(p[0])
@@ -1677,12 +1680,12 @@ class Britney:
                 if pkg in sources[suite]:
                     for p in sources[suite][pkg]['binaries']:
                         binary, arch = p.split("/")
-                        del binaries['testing'][arch][0][binary]
+                        del binaries[arch][0][binary]
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
-                    binaries['testing'][arch][0][binary] = undo['binaries'][p]
+                    binaries[arch][0][binary] = undo['binaries'][p]
 
         output.write(" finish: [%s]\n" % ",".join(self.selected))
         output.write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
@@ -1694,10 +1697,12 @@ class Britney:
         return (nuninst_comp, extra)
 
     def do_all(self, output, maxdepth=0, init=None):
+        self.__log("> Calculating current uninstallability counters", type="I")
         nuninst_start = self.get_nuninst()
         output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
         output.write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
+        self.__log("> First loop on the packages with depth = 0", type="I")
         self.selected = []
         self.nuninst_orig = nuninst_start
         (nuninst_end, extra) = self.iter_packages(self.upgrade_me[:], output)
