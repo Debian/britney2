@@ -255,9 +255,11 @@ class Britney:
         self.parser = optparse.OptionParser(version="%prog")
         self.parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
         self.parser.add_option("-c", "--config", action="store", dest="config", default="/etc/britney.conf",
-                                                 help="path for the configuration file")
-        self.parser.add_option("", "--arches", action="store", dest="architectures", default=None,
-                                               help="override architectures from configuration file")
+                               help="path for the configuration file")
+        self.parser.add_option("", "--architectures", action="store", dest="architectures", default=None,
+                               help="override architectures from configuration file")
+        self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
+                               help="override the list of actions to be performed")
         (self.options, self.args) = self.parser.parse_args()
 
         # if the configuration file exists, than read it and set the additional options
@@ -401,7 +403,7 @@ class Britney:
                 dpkg['provides'] = parts
             else: dpkg['provides'] = []
 
-            # append the resulting dictionary to the package list
+            # add the resulting dictionary to the package list
             packages[pkg] = dpkg
 
         # loop again on the list of packages to register reverse dependencies
@@ -1620,7 +1622,8 @@ class Britney:
                         if p[0] not in binaries['testing'][arch][0] or \
                            skip_archall and binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                         r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
-                        if not r and p[0] not in broken: broken.append(p[0])
+                        if not r and p[0] not in broken:
+                            broken.append(p[0])
                         elif r and p[0] in nuninst[arch]:
                             nuninst[arch].remove(p[0])
 
@@ -1632,7 +1635,8 @@ class Britney:
                             if p[0] not in binaries['testing'][arch][0] or \
                                skip_archall and binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
                             r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
-                            if not r and p[0] not in broken: broken.append(p[0])
+                            if not r and p[0] not in broken:
+                                broken.append(p[0])
 
                 for b in broken:
                     if b not in nuninst[arch]:
@@ -1728,7 +1732,10 @@ class Britney:
         This is the entry point for the class: it includes the list of calls
         for the member methods which will produce the output files.
         """
-        self.write_excuses()
+        if not self.options.actions:
+            self.write_excuses()
+        else: self.upgrade_me = self.options.actions.split()
+
         self.upgrade_testing()
 
 if __name__ == '__main__':
