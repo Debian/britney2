@@ -254,8 +254,10 @@ class Britney:
         # initialize the parser
         self.parser = optparse.OptionParser(version="%prog")
         self.parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
-        self.parser.add_option("-c", "--config", action="store", dest="config",
-                          default="/etc/britney.conf", help="path for the configuration file")
+        self.parser.add_option("-c", "--config", action="store", dest="config", default="/etc/britney.conf",
+                                                 help="path for the configuration file")
+        self.parser.add_option("", "--arches", action="store", dest="architectures", default=None,
+                                               help="override architectures from configuration file")
         (self.options, self.args) = self.parser.parse_args()
 
         # if the configuration file exists, than read it and set the additional options
@@ -273,7 +275,8 @@ class Britney:
             elif k.startswith("HINTS_"):
                 self.HINTS[k.split("_")[1].lower()] = \
                     reduce(lambda x,y: x+y, [hasattr(self, "HINTS_" + i) and getattr(self, "HINTS_" + i) or (i,) for i in v.split()])
-            else:
+            elif not hasattr(self.options, k.lower()) or \
+                 not getattr(self.options, k.lower()):
                 setattr(self.options, k.lower(), v)
 
         # Sort the architecture list
@@ -395,7 +398,8 @@ class Britney:
                     if p not in provides:
                         provides[p] = []
                     provides[p].append(pkg)
-                del dpkg['provides']
+                dpkg['provides'] = parts
+            else: dpkg['provides'] = []
 
             # append the resulting dictionary to the package list
             packages[pkg] = dpkg
@@ -705,22 +709,25 @@ class Britney:
 
         packages = []
 
+        # local copies for better performances
+        binaries = self.binaries[distribution][arch]
+
         # for every package, version and operation in the block
         for name, version, op in block:
             # look for the package in unstable
-            if name in self.binaries[distribution][arch][0] and name not in excluded:
-                package = self.binaries[distribution][arch][0][name]
+            if name in binaries[0] and name not in excluded:
+                package = binaries[0][name]
                 # check the versioned dependency (if present)
                 if op == '' and version == '' or apt_pkg.CheckDep(package['version'], op, version):
                     packages.append(name)
 
             # look for the package in the virtual packages list
-            if name in self.binaries[distribution][arch][1]:
+            if name in binaries[1]:
                 # loop on the list of packages which provides it
-                for prov in self.binaries[distribution][arch][1][name]:
+                for prov in binaries[1][name]:
                     if prov in excluded or \
-                       prov not in self.binaries[distribution][arch][0]: continue
-                    package = self.binaries[distribution][arch][0][prov]
+                       prov not in binaries[0]: continue
+                    package = binaries[0][prov]
                     # check the versioned dependency (if present)
                     # TODO: this is forbidden by the debian policy, which says that versioned
                     #       dependencies on virtual packages are never satisfied. The old britney
@@ -745,6 +752,10 @@ class Britney:
         # retrieve the binary package from the specified suite and arch
         binary_u = self.binaries[suite][arch][0][pkg]
 
+        # local copies for better performances
+        parse_depends = apt_pkg.ParseDepends
+        get_dependency_solvers = self.get_dependency_solvers
+
         # analyze the dependency fields (if present)
         for type in ('Pre-Depends', 'Depends'):
             type_key = type.lower()
@@ -752,15 +763,15 @@ class Britney:
                 continue
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
-            for block, block_txt in zip(apt_pkg.ParseDepends(binary_u[type_key]), binary_u[type_key].split(',')):
+            for block, block_txt in zip(parse_depends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
-                solved, packages = self.get_dependency_solvers(block, arch, 'testing', excluded, strict=(excuse == None))
+                solved, packages = get_dependency_solvers(block, arch, 'testing', excluded, strict=(excuse == None))
                 if solved: continue
                 elif excuse == None:
                     return False
 
                 # check if the block can be satisfied in unstable, and list the solving packages
-                solved, packages = self.get_dependency_solvers(block, arch, suite)
+                solved, packages = get_dependency_solvers(block, arch, suite)
                 packages = [self.binaries[suite][arch][0][p]['source'] for p in packages]
 
                 # if the dependency can be satisfied by the same source package, skip the block:
@@ -782,56 +793,137 @@ class Britney:
         # if we have been called inside UpgradeRun, then check conflicts before
         # saying that the package is really installable
         if not excuse and conflicts:
-            return self.check_conflicts(pkg, arch, [], {})
+            return self.check_conflicts(pkg, arch, {}, {})
 
         return True
 
     def check_conflicts(self, pkg, arch, system, conflicts):
-        # if we are talking about a virtual package, skip it
-        if pkg not in self.binaries['testing'][arch][0]:
-            return True
 
-        binary_u = self.binaries['testing'][arch][0][pkg]
+        # local copies for better performances
+        binaries = self.binaries['testing'][arch]
+        parse_depends = apt_pkg.ParseDepends
+        check_depends = apt_pkg.CheckDep
 
-        # check the conflicts
-        if pkg in conflicts:
-            name, version, op = conflicts[pkg]
-            if op == '' and version == '' or apt_pkg.CheckDep(binary_u['version'], op, version):
+        # unregister conflicts
+        def unregister_conflicts(pkg, conflicts):
+            for c in conflicts.keys():
+                if conflicts[c][3] == pkg:
+                    del conflicts[c]
+
+        # try to remove the offeding package
+        def handle_conflict(pkg, source, system, conflicts):
+            # reached the top of the tree
+            if not system[source][1]:
                 return False
+            # remove its conflicts
+            unregister_conflicts(source, conflicts)
+            # if there are alternatives, try them
+            alternatives = system[source][0]
+            for alt in alternatives:
+                if satisfy(alt, [x for x in alternatives if x != alt], pkg_from=system[source][1],
+                        system=system, conflicts=conflicts, excluded=[source]):
+                    return (system, conflicts)
+            # there are no alternatives, so remove the package which depends on it
+            return handle_conflict(pkg, system[source][1], system, conflicts)
 
-        # add the package
-        lconflicts = conflicts
-        system.append(pkg)
+        # try to satisfy the dependency tree
+        def satisfy(pkg, pkg_alt=None, pkg_from=None, system=system, conflicts=conflicts, excluded=[]):
 
-        # register conflicts
-        if 'conflicts' in binary_u:
-            for block in map(operator.itemgetter(0), apt_pkg.ParseDepends(binary_u['conflicts'])):
-                if block[0] != pkg and block[0] in system:
-                    name, version, op = block
-                    binary_c = self.binaries['testing'][arch][0][block[0]]
-                    if op == '' and version == '' or apt_pkg.CheckDep(binary_c['version'], op, version):
+            # real package
+            if pkg in binaries[0]:
+                binary_u = binaries[0][pkg]
+                if pkg in system:
+                    return True
+            else: binary_u = None
+
+            # virtual package
+            providers = []
+            if pkg in binaries[1]:
+                providers = binaries[1][pkg]
+                if binary_u:
+                    providers = filter(lambda x: (not pkg_alt or x not in pkg_alt) and x != pkg, providers)
+                    if not pkg_alt:
+                        pkg_alt = []
+                    pkg_alt.extend(providers)
+                else:
+                    if len(filter(lambda x: x in providers and x not in excluded, system)) > 0:
+                        return True
+                    for p in providers:
+                        if p in excluded: continue
+                        elif satisfy(p, [a for a in providers if a != p], pkg_from):
+                            return True
+                    return False
+
+            # missing package
+            if not binary_u: return False
+
+            # add the package to the system
+            system[pkg] = (pkg_alt, pkg_from)
+
+            # register provided packages
+            if binary_u['provides']:
+                for p in binary_u['provides']:
+                    system[p] = ([], pkg)
+
+            # check the conflicts
+            if pkg in conflicts:
+                name, version, op, conflicting = conflicts[pkg]
+                if conflicting not in binary_u['provides'] and ( \
+                   op == '' and version == '' or check_depends(binary_u['version'], op, version)):
+                    output = handle_conflict(pkg, conflicting, system.copy(), conflicts.copy())
+                    if output:
+                        system, conflicts = output
+                    else:
+                        del system[pkg]
                         return False
-                lconflicts[block[0]] = block
 
-        # dependencies
-        dependencies = []
-        for type in ('Pre-Depends', 'Depends'):
-            type_key = type.lower()
-            if type_key not in binary_u: continue
-            dependencies.extend(apt_pkg.ParseDepends(binary_u[type_key]))
+            # register conflicts
+            if 'conflicts' in binary_u:
+                for block in map(operator.itemgetter(0), parse_depends(binary_u['conflicts'])):
+                    name, version, op = block
+                    if name in binary_u['provides']: continue
+                    if block[0] != pkg and block[0] in system:
+                        if block[0] in binaries[0]:
+                            binary_c = binaries[0][block[0]]
+                        else: binary_c = None
+                        if op == '' and version == '' or binary_c and check_depends(binary_c['version'], op, version):
+                            output = handle_conflict(name, pkg, system.copy(), conflicts.copy())
+                            if output:
+                                system, conflicts = output
+                            else:
+                                del system[pkg]
+                                unregister_conflicts(pkg, conflicts)
+                                return False
+                    # FIXME: what if more than one package conflicts with it???
+                    conflicts[block[0]] = (name, version, op, pkg)
 
-        # go through them
-        for block in dependencies:
-            valid = False
-            for name, version, op in block:
-                if name in system or self.check_conflicts(name, arch, system, lconflicts):
-                    valid = True
-                    break
-            if not valid:
-                return False
-        
-        conflicts.update(lconflicts)
-        return True
+            # its dependencies
+            dependencies = []
+            for type in ('pre-depends', 'depends'):
+                if type not in binary_u: continue
+                dependencies.extend(parse_depends(binary_u[type]))
+
+            # go through them
+            for block in dependencies:
+                alternatives = map(operator.itemgetter(0), block)
+                valid = False
+                for name, version, op in block:
+                    if name in system or satisfy(name, [a for a in alternatives if a != name], pkg):
+                        valid = True
+                        break
+                if not valid:
+                    del system[pkg]
+                    unregister_conflicts(pkg, conflicts)
+                    for p in providers:
+                        if satisfy(p, [a for a in providers if a != p], pkg_from):
+                            return True
+                    return False
+
+            return True
+    
+        # check the package at the top of the tree
+        return satisfy(pkg)
+
 
     # Package analisys methods
     # ------------------------
@@ -1349,14 +1441,18 @@ class Britney:
     def get_nuninst(self):
         nuninst = {}
 
+        # local copies for better performances
+        binaries = self.binaries['testing']
+        excuse_unsat_deps = self.excuse_unsat_deps
+
         def add_nuninst(pkg, arch):
             if pkg not in nuninst[arch]:
                 nuninst[arch].append(pkg)
-                for p in self.binaries['testing'][arch][0][pkg]['rdepends']:
-                    tpkg = self.binaries['testing'][arch][0][p[0]]
+                for p in binaries[arch][0][pkg]['rdepends']:
+                    tpkg = binaries[arch][0][p[0]]
                     if skip_archall and tpkg['architecture'] == 'all':
                         continue
-                    r = self.excuse_unsat_deps(p[0], tpkg['source'], arch, 'testing', None, excluded=nuninst[arch])
+                    r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=nuninst[arch], conflicts=False)
                     if not r:
                         add_nuninst(p[0], arch)
 
@@ -1366,11 +1462,11 @@ class Britney:
             else: skip_archall = False
 
             nuninst[arch] = []
-            for pkg_name in self.binaries['testing'][arch][0]:
-                pkg = self.binaries['testing'][arch][0][pkg_name]
+            for pkg_name in binaries[arch][0]:
+                pkg = binaries[arch][0][pkg_name]
                 if skip_archall and pkg['architecture'] == 'all':
                     continue
-                r = self.excuse_unsat_deps(pkg_name, pkg['source'], arch, 'testing', None, excluded=nuninst[arch])
+                r = excuse_unsat_deps(pkg_name, None, arch, 'testing', None, excluded=nuninst[arch], conflicts=False)
                 if not r:
                     add_nuninst(pkg_name, arch)
 
@@ -1489,6 +1585,15 @@ class Britney:
         extra = []
         nuninst_comp = self.get_nuninst()
 
+        # local copies for better performances
+        excuse_unsat_deps = self.excuse_unsat_deps
+        binaries = self.binaries
+        sources = self.sources
+        architectures = self.options.architectures
+        nobreakall_arches = self.options.nobreakall_arches
+        new_arches = self.options.new_arches
+        break_arches = self.options.break_arches
+
         output.write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
 
         while packages:
@@ -1500,8 +1605,8 @@ class Britney:
 
             pkg_name, suite, affected, undo = self.doop_source(pkg)
 
-            for arch in ("/" in pkg and (pkg.split("/")[1],) or self.options.architectures):
-                if arch not in self.options.nobreakall_arches:
+            for arch in ("/" in pkg and (pkg.split("/")[1],) or architectures):
+                if arch not in nobreakall_arches:
                     skip_archall = True
                 else: skip_archall = False
 
@@ -1512,9 +1617,9 @@ class Britney:
                 while len(broken) > l and not (l == 0 and l == len(broken)):
                     l = len(broken)
                     for p in filter(lambda x: x[1] == arch, affected):
-                        if p[0] not in self.binaries['testing'][arch][0] or \
-                           skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                        r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
+                        if p[0] not in binaries['testing'][arch][0] or \
+                           skip_archall and binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
+                        r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                         if not r and p[0] not in broken: broken.append(p[0])
                         elif r and p[0] in nuninst[arch]:
                             nuninst[arch].remove(p[0])
@@ -1523,18 +1628,18 @@ class Britney:
                 while l < len(broken):
                     l = len(broken)
                     for j in broken:
-                        for p in self.binaries['testing'][arch][0][j]['rdepends']:
-                            if p[0] not in self.binaries['testing'][arch][0] or \
-                               skip_archall and self.binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
-                            r = self.excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
+                        for p in binaries['testing'][arch][0][j]['rdepends']:
+                            if p[0] not in binaries['testing'][arch][0] or \
+                               skip_archall and binaries['testing'][arch][0][p[0]]['architecture'] == 'all': continue
+                            r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
                             if not r and p[0] not in broken: broken.append(p[0])
 
                 for b in broken:
                     if b not in nuninst[arch]:
                         nuninst[arch].append(b)
 
-                if (("/" in pkg and arch not in self.options.new_arches) or \
-                    (arch not in self.options.break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
+                if (("/" in pkg and arch not in new_arches) or \
+                    (arch not in break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
@@ -1561,19 +1666,19 @@ class Britney:
                 # undo the changes (source)
                 for k in undo['sources'].keys():
                     if k[0] == '-':
-                        del self.sources['testing'][k[1:]]
-                    else: self.sources['testing'][k] = undo['sources'][k]
+                        del sources['testing'][k[1:]]
+                    else: sources['testing'][k] = undo['sources'][k]
 
                 # undo the changes (new binaries)
-                if pkg in self.sources[suite]:
-                    for p in self.sources[suite][pkg]['binaries']:
+                if pkg in sources[suite]:
+                    for p in sources[suite][pkg]['binaries']:
                         binary, arch = p.split("/")
-                        del self.binaries['testing'][arch][0][binary]
+                        del binaries['testing'][arch][0][binary]
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
-                    self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
+                    binaries['testing'][arch][0][binary] = undo['binaries'][p]
 
         output.write(" finish: [%s]\n" % ",".join(self.selected))
         output.write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
