@@ -1496,7 +1496,7 @@ class Britney:
         for arch in self.options.architectures:
             if arch in nuninst and nuninst[arch] != []:
                 res = res + "    * %s: %s\n" % (arch,
-                    ", ".join(nuninst[arch]))
+                    ", ".join(sorted(nuninst[arch])))
         return res
 
     def doop_source(self, pkg):
@@ -1612,7 +1612,7 @@ class Britney:
                     skip_archall = True
                 else: skip_archall = False
 
-                nuninst[arch] = nuninst_comp[arch][:]
+                nuninst[arch] = [x for x in nuninst_comp[arch] if x in binaries[arch][0]]
                 broken = nuninst[arch][:]
                 to_check = [x[0] for x in affected if x[1] == arch]
 
@@ -1666,8 +1666,8 @@ class Britney:
                     nuninst_comp[k] = nuninst[k]
             else:
                 output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
-                output.write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and self.nuninst_orig or None)))
-                output.write("    * %s: %s\n" % (arch, ", ".join(sorted(broken))))
+                output.write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and nuninst_comp or None)))
+                output.write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in broken if b not in nuninst_comp[arch]]))))
                 extra.append(pkg)
 
                 # undo the changes (source)
