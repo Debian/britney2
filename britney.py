@@ -407,33 +407,50 @@ class Britney:
             packages[pkg] = dpkg
 
         # loop again on the list of packages to register reverse dependencies
-        parse_depends = apt_pkg.ParseDepends
+        register_reverses = self.register_reverses
         for pkg in packages:
-            dependencies = []
-            if 'depends' in packages[pkg]:
-                dependencies.extend(parse_depends(packages[pkg]['depends']))
-            if 'pre-depends' in packages[pkg]:
-                dependencies.extend(parse_depends(packages[pkg]['pre-depends']))
-            # register the list of the dependencies for the depending packages
-            for p in dependencies:
-                for a in p:
-                    if a[0] in packages:
-                        packages[a[0]]['rdepends'].append((pkg, a[1], a[2]))
-                    elif a[0] in provides:
-                        for i in provides[a[0]]:
-                            packages[i]['rdepends'].append((pkg, a[1], a[2]))
-            # register the list of the conflicts for the conflicting packages
-            if 'conflicts' in packages[pkg]:
-                for p in parse_depends(packages[pkg]['conflicts']):
-                    if a[0] in packages:
-                        packages[a[0]]['rconflicts'].append((pkg, a[1], a[2]))
-                    elif a[0] in provides:
-                        for i in provides[a[0]]:
-                            packages[i]['rconflicts'].append((pkg, a[1], a[2]))
- 
+            register_reverses(pkg, packages, provides, check_doubles=False)
+
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
 
+    def register_reverses(self, pkg, packages, provides, check_doubles=True, parse_depends=apt_pkg.ParseDepends):
+        """Register reverse dependencies and conflicts for the specified package
+
+        This method register the reverse dependencies and conflicts for
+        a give package using `packages` as list of packages and `provides`
+        as list of virtual packages.
+
+        The method has an optional parameter parse_depends which is there
+        just for performance reasons and is not meant to be overwritten.
+        """
+        # register the list of the dependencies for the depending packages
+        dependencies = []
+        if 'depends' in packages[pkg]:
+            dependencies.extend(parse_depends(packages[pkg]['depends']))
+        if 'pre-depends' in packages[pkg]:
+            dependencies.extend(parse_depends(packages[pkg]['pre-depends']))
+        for p in dependencies:
+            for a in p:
+                if a[0] in packages and (not check_doubles or pkg not in packages[a[0]]['rdepends']):
+                    packages[a[0]]['rdepends'].append(pkg)
+                elif a[0] in provides:
+                    for i in provides[a[0]]:
+                        if i not in packages: continue
+                        if not check_doubles or pkg not in packages[i]['rdepends']:
+                            packages[i]['rdepends'].append(pkg)
+        # register the list of the conflicts for the conflicting packages
+        if 'conflicts' in packages[pkg]:
+            for p in parse_depends(packages[pkg]['conflicts']):
+                for a in p:
+                    if a[0] in packages and (not check_doubles or pkg not in packages[a[0]]['rconflicts']):
+                        packages[a[0]]['rconflicts'].append(pkg)
+                    elif a[0] in provides:
+                        for i in provides[a[0]]:
+                            if i not in packages: continue
+                            if not check_doubles or pkg not in packages[i]['rconflicts']:
+                                packages[i]['rconflicts'].append(pkg)
+     
     def read_bugs(self, basedir):
         """Read the release critial bug summary from the specified directory
         
@@ -1451,12 +1468,12 @@ class Britney:
             if pkg not in nuninst[arch]:
                 nuninst[arch].append(pkg)
                 for p in binaries[arch][0][pkg]['rdepends']:
-                    tpkg = binaries[arch][0][p[0]]
+                    tpkg = binaries[arch][0][p]
                     if skip_archall and tpkg['architecture'] == 'all':
                         continue
-                    r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=nuninst[arch], conflicts=False)
+                    r = excuse_unsat_deps(p, None, arch, 'testing', None, excluded=nuninst[arch], conflicts=False)
                     if not r:
-                        add_nuninst(p[0], arch)
+                        add_nuninst(p, arch)
 
         for arch in self.options.architectures:
             if arch not in self.options.nobreakall_arches:
@@ -1501,7 +1518,7 @@ class Britney:
 
     def doop_source(self, pkg):
 
-        undo = {'binaries': {}, 'sources': {}}
+        undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
         affected = []
         arch = None
@@ -1531,8 +1548,14 @@ class Britney:
                     binary, arch = p.split("/")
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        key = (j[0], arch)
+                        key = (j, arch)
                         if key not in affected: affected.append(key)
+                    for j in self.binaries['testing'][arch][0][binary]['provides']:
+                        if j + "/" + arch not in undo['virtual']:
+                            undo['virtual'][j + "/" + arch] = self.binaries['testing'][arch][1][j][:]
+                        self.binaries['testing'][arch][1][j].remove(binary)
+                        if len(self.binaries['testing'][arch][1][j]) == 0:
+                            del self.binaries['testing'][arch][1][j]
                     del self.binaries['testing'][arch][0][binary]
                 undo['sources'][pkg_name] = source
                 del self.sources['testing'][pkg_name]
@@ -1543,7 +1566,7 @@ class Britney:
         else:
             if pkg_name in self.binaries['testing'][arch][0]:
                 for j in self.binaries['testing'][arch][0][pkg_name]['rdepends']:
-                    key = (j[0], arch)
+                    key = (j, arch)
                     if key not in affected: affected.append(key)
             source = {'binaries': [pkg]}
 
@@ -1557,29 +1580,40 @@ class Britney:
                 if binary in self.binaries['testing'][arch][0]:
                     undo['binaries'][p] = self.binaries['testing'][arch][0][binary]
                     for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                        key = (j[0], arch)
+                        key = (j, arch)
                         if key not in affected: affected.append(key)
                     for j in self.binaries['testing'][arch][0][binary]['rconflicts']:
-                        key = (j[0], arch)
+                        key = (j, arch)
                         if key not in affected: affected.append(key)
-                        for p in self.get_full_tree(j[0], arch, 'testing'):
+                        for p in self.get_full_tree(j, arch, 'testing'):
                             key = (p, arch)
                             if key not in affected: affected.append(key)
                 self.binaries['testing'][arch][0][binary] = self.binaries[suite][arch][0][binary]
+                for j in self.binaries['testing'][arch][0][binary]['provides']:
+                    if j not in self.binaries['testing'][arch][1]:
+                        undo['nvirtual'].append(j + "/" + arch)
+                        self.binaries['testing'][arch][1][j] = []
+                    elif j + "/" + arch not in undo['virtual']:
+                        undo['virtual'][j + "/" + arch] = self.binaries['testing'][arch][1][j][:]
+                    self.binaries['testing'][arch][1][j].append(binary)
                 for j in self.binaries['testing'][arch][0][binary]['rdepends']:
-                    key = (j[0], arch)
+                    key = (j, arch)
                     if key not in affected: affected.append(key)
+            for p in source['binaries']:
+                binary, arch = p.split("/")
+                self.register_reverses(binary, self.binaries['testing'][arch][0] , self.binaries['testing'][arch][1])
             self.sources['testing'][pkg_name] = self.sources[suite][pkg_name]
 
         return (pkg_name, suite, affected, undo)
 
     def get_full_tree(self, pkg, arch, suite):
         packages = [pkg]
+        binaries = self.binaries[suite][arch][0]
         l = n = 0
         while len(packages) > l:
             l = len(packages)
             for p in packages[n:]:
-                packages.extend(map(operator.itemgetter(0), self.binaries[suite][arch][0][p]['rdepends']))
+                packages.extend([x for x in binaries[p]['rdepends'] if x not in packages and x in binaries])
             n = l
         return packages
 
@@ -1635,11 +1669,11 @@ class Britney:
                     for j in broken:
                         if j not in binaries[arch][0]: continue
                         for p in binaries[arch][0][j]['rdepends']:
-                            if p[0] not in binaries[arch][0] or \
-                               skip_archall and binaries[arch][0][p[0]]['architecture'] == 'all': continue
-                            r = excuse_unsat_deps(p[0], None, arch, 'testing', None, excluded=broken, conflicts=True)
-                            if not r and p[0] not in broken:
-                                broken.append(p[0])
+                            if p not in binaries[arch][0] or \
+                               skip_archall and binaries[arch][0][p]['architecture'] == 'all': continue
+                            r = excuse_unsat_deps(p, None, arch, 'testing', None, excluded=broken, conflicts=True)
+                            if not r and p not in broken:
+                                broken.append(p)
 
                 for b in broken:
                     if b not in nuninst[arch]:
@@ -1686,6 +1720,14 @@ class Britney:
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     binaries[arch][0][binary] = undo['binaries'][p]
+
+                # undo the changes (virtual packages)
+                for p in undo['nvirtual']:
+                    j, arch = p.split("/")
+                    del binaries[arch][1][j]
+                for p in undo['virtual'].keys():
+                    j, arch = p.split("/")
+                    binaries[arch][1][j] = undo['virtual'][p]
 
         output.write(" finish: [%s]\n" % ",".join(self.selected))
         output.write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
