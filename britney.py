@@ -406,7 +406,7 @@ class Britney:
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
 
-        # loop again on the list of packages to register reverse dependencies
+        # loop again on the list of packages to register reverse dependencies and conflicts
         register_reverses = self.register_reverses
         for pkg in packages:
             register_reverses(pkg, packages, provides, check_doubles=False)
@@ -430,10 +430,13 @@ class Britney:
             dependencies.extend(parse_depends(packages[pkg]['depends']))
         if 'pre-depends' in packages[pkg]:
             dependencies.extend(parse_depends(packages[pkg]['pre-depends']))
+        # go through the list
         for p in dependencies:
             for a in p:
+                # register real packages
                 if a[0] in packages and (not check_doubles or pkg not in packages[a[0]]['rdepends']):
                     packages[a[0]]['rdepends'].append(pkg)
+                # register packages which provides a virtual package
                 elif a[0] in provides:
                     for i in provides.get(a[0]):
                         if i not in packages: continue
@@ -443,8 +446,10 @@ class Britney:
         if 'conflicts' in packages[pkg]:
             for p in parse_depends(packages[pkg]['conflicts']):
                 for a in p:
+                    # register real packages
                     if a[0] in packages and (not check_doubles or pkg not in packages[a[0]]['rconflicts']):
                         packages[a[0]]['rconflicts'].append(pkg)
+                    # register packages which provides a virtual package
                     elif a[0] in provides:
                         for i in provides[a[0]]:
                             if i not in packages: continue
@@ -1304,28 +1309,42 @@ class Britney:
     # Upgrade run
     # -----------
 
-    def slist_subtract(self, base, sub):
-        res = []
-        for x in base:
-            if x not in sub: res.append(x)
-        return res
-
     def newlyuninst(self, nuold, nunew):
+        """Return a nuninst statstic with only new uninstallable packages
+
+        This method subtract the uninstallabla packages of the statistic
+        `nunew` from the statistic `nuold`.
+
+        It returns a dictionary with the architectures as keys and the list
+        of uninstallable packages as values.
+        """
         res = {}
-        for arch in self.options.architectures:
-            if arch not in nuold or arch not in nunew:
-                continue
-            res[arch] = \
-                self.slist_subtract(nunew[arch], nuold[arch])
+        for arch in nuold:
+            if arch not in nunew: continue
+            res[arch] = [x for x in nunew[arch] if x not in nuold[arch]]
         return res
 
     def get_nuninst(self):
+        """Return the uninstallability statistic for all the architectures
+
+        To calculate the uninstallability counters, the method checks the
+        installability of all the packages for all the architectures, and
+        tracking dependencies in a recursive way. The architecture
+        indipendent packages are checked only for the `nobreakall`
+        architectures.
+
+        It returns a dictionary with the architectures as keys and the list
+        of uninstallable packages as values.
+        """
         nuninst = {}
 
         # local copies for better performances
         binaries = self.binaries['testing']
         check_installable = self.check_installable
 
+        # when a new uninstallable package is discovered, check again all the
+        # reverse dependencies and if they are uninstallable, too, call itself
+        # recursively
         def add_nuninst(pkg, arch):
             if pkg not in nuninst[arch]:
                 nuninst[arch].append(pkg)
@@ -1337,11 +1356,15 @@ class Britney:
                     if not r:
                         add_nuninst(p, arch)
 
+        # for all the architectures
         for arch in self.options.architectures:
+            # if it is in the nobreakall ones, check arch-indipendent packages too
             if arch not in self.options.nobreakall_arches:
                 skip_archall = True
             else: skip_archall = False
 
+            # check all the packages for this architecture, calling add_nuninst if a new
+            # uninstallable package is found
             nuninst[arch] = []
             for pkg_name in binaries[arch][0]:
                 pkg = binaries[arch][0][pkg_name]
@@ -1351,9 +1374,23 @@ class Britney:
                 if not r:
                     add_nuninst(pkg_name, arch)
 
+        # return the dictionary with the results
         return nuninst
 
     def eval_nuninst(self, nuninst, original=None):
+        """Return a string which represents the uninstallability counters
+
+        This method returns a string which represents the uninstallability
+        counters reading the uninstallability statistics `nuninst` and, if
+        present, merging the results with the `original` one.
+
+        An example of the output string is:
+        1+2: i-0:a-0:a-0:h-0:i-1:m-0:m-0:p-0:a-0:m-0:s-2:s-0
+
+        where the first part is the number of broken packages in non-break
+        architectures + the total number of broken packages for all the
+        architectures.
+        """
         res = []
         total = 0
         totalbreak = 0
@@ -1371,22 +1408,33 @@ class Britney:
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
     def eval_uninst(self, nuninst):
-        res = ""
+        """Return a string which represents the uninstallable packages
+
+        This method returns a string which represents the uninstallable
+        packages reading the uninstallability statistics `nuninst`.
+
+        An example of the output string is:
+            * i386: broken-pkg1, broken-pkg2
+        """
+        parts = []
         for arch in self.options.architectures:
-            if arch in nuninst and nuninst[arch] != []:
-                res = res + "    * %s: %s\n" % (arch,
-                    ", ".join(sorted(nuninst[arch])))
-        return res
+            if arch in nuninst and len(nuninst[arch]) > 0:
+                parts.append("    * %s: %s\n" % (arch,", ".join(sorted(nuninst[arch]))))
+        return "".join(parts)
 
     def check_installable(self, pkg, arch, suite, excluded=[], conflicts=False):
         """Check if a package is installable
 
         This method analyzes the dependencies of the binary package specified
         by the parameter `pkg' for the architecture `arch' within the suite
-        `suite'. If the dependency can be satisfied in the given `suite`,
-        then the co-installability with conflicts handling is checked, too.
+        `suite'. If the dependency can be satisfied in the given `suite` and
+        `conflicts` parameter is True, then the co-installability with 
+        conflicts handling is checked.
 
         The dependency fields checked are Pre-Depends and Depends.
+
+        The method returns a boolean which is True if the given package is
+        installable.
         """
         # retrieve the binary package from the specified suite and arch
         binary_u = self.binaries[suite][arch][0][pkg]
@@ -1402,34 +1450,52 @@ class Britney:
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
             for block in parse_depends(binary_u[type]):
-                # if the block is satisfied in testing, then skip the block
+                # if the block is not satisfied, return False
                 solved, packages = get_dependency_solvers(block, arch, 'testing', excluded, strict=True)
-                if solved: continue
-                else:
+                if not solved:
                     return False
 
         # otherwise, the package is installable (not considering conflicts)
-        # if we have been called inside UpgradeRun, then check conflicts before
+        # if the conflicts handling is enabled, then check conflicts before
         # saying that the package is really installable
         if conflicts:
-            return self.check_conflicts(pkg, arch, {}, {})
+            return self.check_conflicts(pkg, arch, excluded, {}, {})
 
         return True
 
-    def check_conflicts(self, pkg, arch, system, conflicts):
+    def check_conflicts(self, pkg, arch, broken, system, conflicts):
+        """Check if a package can be installed satisfying the conflicts
+
+        This method checks if the `pkg` package from the `arch` architecture
+        can be installed (excluding `broken` packages) within the system
+        `system` along with all its dependencies. This means that all the
+        conflicts relationships are checked in order to achieve the test
+        co-installability of the package.
+
+        The method returns a boolean which is True if the given package is
+        co-installable in the given system.
+        """
 
         # local copies for better performances
         binaries = self.binaries['testing'][arch]
         parse_depends = apt_pkg.ParseDepends
         check_depends = apt_pkg.CheckDep
 
-        # unregister conflicts
+        # unregister conflicts, local method to remove conflicts
+        # registered from a given package.
         def unregister_conflicts(pkg, conflicts):
             for c in conflicts.keys():
                 if conflicts[c][3] == pkg:
                     del conflicts[c]
 
-        # try to remove the offeding package
+        # handle a conflict, local method to solve a conflict which happened
+        # in the system; the behaviour of the conflict-solver is:
+        #   1. If there are alternatives for the package which must be removed,
+        #      try them, and if one of them resolves the system return True;
+        #   2. If none of the alternatives can solve the conflict, then call
+        #      itself for the package which depends on the conflicting package.
+        #   3. If the top of the dependency tree is reached, then the conflict
+        #      can't be solved, so return False.
         def handle_conflict(pkg, source, system, conflicts):
             # reached the top of the tree
             if not system[source][1]:
@@ -1442,41 +1508,51 @@ class Britney:
                 if satisfy(alt, [x for x in alternatives if x != alt], pkg_from=system[source][1],
                         system=system, conflicts=conflicts, excluded=[source]):
                     return (system, conflicts)
-            # there are no alternatives, so remove the package which depends on it
+            # there are no good alternatives, so remove the package which depends on it
             return handle_conflict(pkg, system[source][1], system, conflicts)
 
-        # try to satisfy the dependency tree
+        # dependency tree satisfier, local method which tries to satisfy the dependency
+        # tree for a given package. It calls itself recursively in order to check the
+        # co-installability of the full tree of dependency of the starting package.
+        # If a conflict is detected, it tries to handle it calling the handle_conflict
+        # method; if it can't be resolved, then it returns False.
         def satisfy(pkg, pkg_alt=None, pkg_from=None, system=system, conflicts=conflicts, excluded=[]):
-
-            # real package
+            # if it is real package and it is already installed, skip it and return True
             if pkg in binaries[0]:
-                binary_u = binaries[0][pkg]
                 if pkg in system:
                     return True
+                binary_u = binaries[0][pkg]
             else: binary_u = None
 
-            # virtual package
+            # if it is a virtual package
             providers = []
             if pkg in binaries[1]:
                 providers = binaries[1][pkg]
+                # it is both real and virtual, so the providers are alternatives
                 if binary_u:
                     providers = filter(lambda x: (not pkg_alt or x not in pkg_alt) and x != pkg, providers)
                     if not pkg_alt:
                         pkg_alt = []
                     pkg_alt.extend(providers)
+                # try all the alternatives and if none of them suits, give up and return False
                 else:
+                    # if we already have a provider in the system, everything is ok and return True
                     if len(filter(lambda x: x in providers and x not in excluded, system)) > 0:
                         return True
                     for p in providers:
+                        # try to install the providers skipping excluded packages,
+                        # which we already tried but do not work
                         if p in excluded: continue
                         elif satisfy(p, [a for a in providers if a != p], pkg_from):
                             return True
+                    # if none of them suits, return False
                     return False
 
-            # missing package
+            # if the package doesn't exist, return False
             if not binary_u: return False
 
-            # add the package to the system
+            # install the package itto the system, recording which package required it
+            # FIXME: what if more than one package requires it???
             system[pkg] = (pkg_alt, pkg_from)
 
             # register provided packages
@@ -1489,6 +1565,9 @@ class Britney:
                 name, version, op, conflicting = conflicts[pkg]
                 if conflicting not in binary_u['provides'] and ( \
                    op == '' and version == '' or check_depends(binary_u['version'], op, version)):
+                    # if conflict is found, check if it can be solved removing
+                    # already-installed packages without broking the system; if
+                    # this is not possible, give up and return False
                     output = handle_conflict(pkg, conflicting, system.copy(), conflicts.copy())
                     if output:
                         system, conflicts = output
@@ -1496,16 +1575,21 @@ class Britney:
                         del system[pkg]
                         return False
 
-            # register conflicts
+            # register conflicts from the just-installed package
             if 'conflicts' in binary_u:
                 for block in map(operator.itemgetter(0), parse_depends(binary_u.get('conflicts', []))):
                     name, version, op = block
+                    # skip conflicts for packages provided by itself
                     if name in binary_u['provides']: continue
+                    # if the conflicting package is in the system (and it is not a self-conflict)
                     if block[0] != pkg and block[0] in system:
                         if block[0] in binaries[0]:
                             binary_c = binaries[0][block[0]]
                         else: binary_c = None
                         if op == '' and version == '' or binary_c and check_depends(binary_c['version'], op, version):
+                            # if conflict is found, check if it can be solved removing
+                            # already-installed packages without broking the system; if
+                            # this is not possible, give up and return False
                             output = handle_conflict(name, pkg, system.copy(), conflicts.copy())
                             if output:
                                 system, conflicts = output
@@ -1516,20 +1600,27 @@ class Britney:
                     # FIXME: what if more than one package conflicts with it???
                     conflicts[block[0]] = (name, version, op, pkg)
 
-            # its dependencies
+            # list all its dependencies ...
             dependencies = []
             for type in ('pre-depends', 'depends'):
                 if type not in binary_u: continue
                 dependencies.extend(parse_depends(binary_u[type]))
 
-            # go through them
+            # ... and go through them
             for block in dependencies:
+                # list the possible alternatives, in case of a conflict
                 alternatives = map(operator.itemgetter(0), block)
                 valid = False
                 for name, version, op in block:
+                    # if the package is broken, don't try it at all
+                    if name in broken: continue
+                    # otherwise, if it is already installed or it is installable, the block is satisfied
                     if name in system or satisfy(name, [a for a in alternatives if a != name], pkg):
                         valid = True
                         break
+                # if the block can't be satisfied, the package is not installable so
+                # we need to remove it, its conflicts and its provided packages and
+                # return False
                 if not valid:
                     del system[pkg]
                     unregister_conflicts(pkg, conflicts)
@@ -1538,13 +1629,22 @@ class Britney:
                             return True
                     return False
 
+            # if all the blocks have been satisfied, the package is installable
             return True
     
         # check the package at the top of the tree
         return satisfy(pkg)
 
     def doop_source(self, pkg):
+        """Apply a change to the testing distribution as requested by `pkg`
 
+        This method apply the changes required by the action `pkg` tracking
+        them so it will be possible to revert them.
+
+        The method returns a list of the package name, the suite where the
+        package comes from, the list of packages affected by the change and
+        the dictionary undo which can be used to rollback the changes.
+        """
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
         affected = []
@@ -1558,7 +1658,7 @@ class Britney:
         if "/" in pkg:
             pkg_name, arch = pkg.split("/")
             suite = "unstable"
-        # removals = "-<source>",
+        # removal of source packages = "-<source>",
         elif pkg[0] == "-":
             pkg_name = pkg[1:]
             suite = "testing"
@@ -1566,7 +1666,7 @@ class Britney:
         elif pkg[0].endswith("_tpu"):
             pkg_name = pkg[:-4]
             suite = "tpu"
-        # normal = "<source>"
+        # normal update of source packages = "<source>"
         else:
             pkg_name = pkg
             suite = "unstable"
@@ -1575,22 +1675,30 @@ class Britney:
         if not arch:
             if pkg_name in sources['testing']:
                 source = sources['testing'][pkg_name]
+                # remove all the binaries
                 for p in source['binaries']:
                     binary, arch = p.split("/")
+                    # save the old binary for undo
                     undo['binaries'][p] = binaries[arch][0][binary]
+                    # all the reverse dependencies are affected by the change
                     for j in binaries[arch][0][binary]['rdepends']:
                         key = (j, arch)
                         if key not in affected: affected.append(key)
+                    # remove the provided virtual packages
                     for j in binaries[arch][0][binary]['provides']:
-                        if j + "/" + arch not in undo['virtual']:
-                            undo['virtual'][j + "/" + arch] = binaries[arch][1][j][:]
+                        key = j + "/" + arch
+                        if key not in undo['virtual']:
+                            undo['virtual'][key] = binaries[arch][1][j][:]
                         binaries[arch][1][j].remove(binary)
                         if len(binaries[arch][1][j]) == 0:
                             del binaries[arch][1][j]
+                    # finally, remove the binary package
                     del binaries[arch][0][binary]
+                # remove the source package
                 undo['sources'][pkg_name] = source
                 del sources['testing'][pkg_name]
             else:
+                # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + pkg_name] = True
 
         # single architecture update (eg. binNMU)
@@ -1607,37 +1715,57 @@ class Britney:
             for p in source['binaries']:
                 binary, arch = p.split("/")
                 key = (binary, arch)
+                # obviously, added/modified packages are affected
                 if key not in affected: affected.append(key)
+                # if the binary already exists (built from another source)
                 if binary in binaries[arch][0]:
+                    # save the old binary package
                     undo['binaries'][p] = binaries[arch][0][binary]
+                    # all the reverse dependencies are affected by the change
                     for j in binaries[arch][0][binary]['rdepends']:
                         key = (j, arch)
                         if key not in affected: affected.append(key)
+                    # all the reverse conflicts and their dependency tree are affected by the change
                     for j in binaries[arch][0][binary]['rconflicts']:
                         key = (j, arch)
                         if key not in affected: affected.append(key)
                         for p in self.get_full_tree(j, arch, 'testing'):
                             key = (p, arch)
                             if key not in affected: affected.append(key)
+                # add/update the binary package
                 binaries[arch][0][binary] = self.binaries[suite][arch][0][binary]
+                # register new provided packages
                 for j in binaries[arch][0][binary]['provides']:
+                    key = j + "/" + arch
                     if j not in binaries[arch][1]:
-                        undo['nvirtual'].append(j + "/" + arch)
+                        undo['nvirtual'].append(key)
                         binaries[arch][1][j] = []
-                    elif j + "/" + arch not in undo['virtual']:
-                        undo['virtual'][j + "/" + arch] = binaries[arch][1][j][:]
+                    elif key not in undo['virtual']:
+                        undo['virtual'][key] = binaries[arch][1][j][:]
                     binaries[arch][1][j].append(binary)
+                # all the reverse dependencies are affected by the change
                 for j in binaries[arch][0][binary]['rdepends']:
                     key = (j, arch)
                     if key not in affected: affected.append(key)
+                # FIXME: why not the conflicts and their tree, too?
+
+            # register reverse dependencies and conflicts for the new binary packages
             for p in source['binaries']:
                 binary, arch = p.split("/")
                 self.register_reverses(binary, binaries[arch][0] , binaries[arch][1])
+
+            # add/update the source package
             sources['testing'][pkg_name] = sources[suite][pkg_name]
 
+        # return the package name, the suite, the list of affected packages and the undo dictionary
         return (pkg_name, suite, affected, undo)
 
     def get_full_tree(self, pkg, arch, suite):
+        """Calculate the full dependency tree for the given package
+
+        This method returns the full dependency tree for the package `pkg`,
+        inside the `arch` architecture for the suite `suite`.
+        """
         packages = [pkg]
         binaries = self.binaries[suite][arch][0]
         l = n = 0
@@ -1649,6 +1777,13 @@ class Britney:
         return packages
 
     def iter_packages(self, packages, output):
+        """Iter on the list of actions and apply them one-by-one
+
+        This method apply the changes from `packages` to testing, checking the uninstallability
+        counters for every action performed. If the action do not improve the it, it is reverted.
+        The method returns the new uninstallability counters and the remaining actions if the
+        final result is successful, otherwise (None, None).
+        """
         extra = []
         nuninst_comp = self.get_nuninst()
 
@@ -1663,6 +1798,7 @@ class Britney:
 
         output.write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
 
+        # loop on the packages (or better, actions)
         while packages:
             pkg = packages.pop(0)
             output.write("trying: %s\n" % (pkg))
@@ -1670,8 +1806,10 @@ class Britney:
             better = True
             nuninst = {}
 
+            # apply the changes
             pkg_name, suite, affected, undo = self.doop_source(pkg)
 
+            # check the affected packages on all the architectures
             for arch in ("/" in pkg and (pkg.split("/")[1],) or architectures):
                 if arch not in nobreakall_arches:
                     skip_archall = True
@@ -1681,20 +1819,27 @@ class Britney:
                 broken = nuninst[arch][:]
                 to_check = [x[0] for x in affected if x[1] == arch]
 
+                # broken packages (first round)
                 old_broken = None
+                last_broken = None
                 while old_broken != broken:
                     old_broken = broken[:]
                     for p in to_check:
+                        if p == last_broken: break
                         if p not in binaries[arch][0] or \
                            skip_archall and binaries[arch][0][p]['architecture'] == 'all': continue
                         r = check_installable(p, arch, 'testing', excluded=broken, conflicts=True)
                         if not r and p not in broken:
+                            last_broken = p
                             broken.append(p)
                         elif r and p in nuninst[arch]:
+                            last_broken = p
                             broken.remove(p)
                             nuninst[arch].remove(p)
 
+                # broken packages (second round, reverse dependencies of the first round)
                 l = 0
+                last_broken = None
                 while l < len(broken):
                     l = len(broken)
                     for j in broken:
@@ -1704,17 +1849,23 @@ class Britney:
                                skip_archall and binaries[arch][0][p]['architecture'] == 'all': continue
                             r = check_installable(p, arch, 'testing', excluded=broken, conflicts=True)
                             if not r and p not in broken:
+                                l = -1
+                                last_broken = j
                                 broken.append(p)
+                    if l != -1 and last_broken == j: break
 
+                # update the uninstallability counter
                 for b in broken:
                     if b not in nuninst[arch]:
                         nuninst[arch].append(b)
 
+                # if the uninstallability counter is worse than before, break the loop
                 if (("/" in pkg and arch not in new_arches) or \
                     (arch not in break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
+            # check if the action improved the uninstallability counters
             if better:
                 self.selected.append(pkg)
                 packages.extend(extra)
@@ -1756,9 +1907,11 @@ class Britney:
                 for p in undo['nvirtual']:
                     j, arch = p.split("/")
                     del binaries[arch][1][j]
-                for p in undo['virtual'].keys():
+                for p in undo['virtual']:
                     j, arch = p.split("/")
-                    binaries[arch][1][j] = undo['virtual'][p]
+                    if j[0] == '-':
+                        del binaries[arch][1][j[1:]]
+                    else: binaries[arch][1][j] = undo['virtual'][p]
 
         output.write(" finish: [%s]\n" % ",".join(self.selected))
         output.write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
@@ -1770,6 +1923,12 @@ class Britney:
         return (nuninst_comp, extra)
 
     def do_all(self, output, maxdepth=0, init=None):
+        """Testing update runner
+
+        This method tries to update testing checking the uninstallability
+        counters before and after the actions to decide if the update was
+        successful or not.
+        """
         self.__log("> Calculating current uninstallability counters", type="I")
         nuninst_start = self.get_nuninst()
         output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
