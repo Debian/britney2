@@ -260,6 +260,8 @@ class Britney:
                                help="override architectures from configuration file")
         self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
                                help="override the list of actions to be performed")
+        self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
+                               help="enable full compatibility with old britney's output")
         (self.options, self.args) = self.parser.parse_args()
 
         # if the configuration file exists, than read it and set the additional options
@@ -1940,7 +1942,7 @@ class Britney:
         (nuninst_end, extra) = self.iter_packages(self.upgrade_me[:], output)
 
         if nuninst_end:
-            output.write("final: %s\n" % ",".join(self.selected))
+            output.write("final: %s\n" % ",".join(sorted(self.selected)))
             output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
             output.write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
             output.write("  end: %s\n" % self.eval_nuninst(nuninst_end))
@@ -1971,6 +1973,18 @@ class Britney:
         """
         if not self.options.actions:
             self.write_excuses()
+            if not self.options.compatible:
+                upgrade_me = [x.name for x in self.excuses if x.name in self.upgrade_me]
+                for e in self.excuses:
+                    if e.name not in upgrade_me: continue
+                    if e.name.startswith("-"):
+                        upgrade_me.remove(e.name)
+                        upgrade_me.append(e.name)
+                    if len(e.deps) > 0:
+                        upgrade_me.remove(e.name)
+                        pos = max([upgrade_me.index(x) for x in e.deps if x in upgrade_me])
+                        upgrade_me.insert(pos+1, e.name)
+                self.upgrade_me = upgrade_me
         else: self.upgrade_me = self.options.actions.split()
 
         self.upgrade_testing()
