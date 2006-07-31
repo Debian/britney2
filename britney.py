@@ -1706,9 +1706,13 @@ class Britney:
         # single architecture update (eg. binNMU)
         else:
             if pkg_name in binaries[arch][0]:
+                undo['binaries'][pkg] = binaries[arch][0][binary]
                 for j in binaries[arch][0][pkg_name]['rdepends']:
                     key = (j, arch)
                     if key not in affected: affected.append(key)
+            else:
+                # the package didn't exist, so we mark it as to-be-removed in case of undo
+                undo['binaries']['-' + pkg] = True
             source = {'binaries': [pkg]}
 
         # add the new binary packages (if we are not removing)
@@ -1903,7 +1907,9 @@ class Britney:
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
-                    binaries[arch][0][binary] = undo['binaries'][p]
+                    if binary[0] == "-":
+                        del binaries[arch][0][binary[1:]]
+                    else: binaries[arch][0][binary] = undo['binaries'][p]
 
                 # undo the changes (virtual packages)
                 for p in undo['nvirtual']:
