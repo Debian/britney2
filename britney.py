@@ -1497,6 +1497,13 @@ class Britney:
                 parts.append("    * %s: %s\n" % (arch,", ".join(sorted(nuninst[arch]))))
         return "".join(parts)
 
+    def is_nuninst_asgood_generous(self, old, new):
+        diff = 0
+        for arch in self.options.architectures:
+            if arch in self.options.break_arches: continue
+            diff = diff + (len(new[arch]) - len(old[arch]))
+        return diff <= 0
+
     def check_installable(self, pkg, arch, suite, excluded=[], conflicts=False):
         """Check if a package is installable
 
@@ -1826,7 +1833,6 @@ class Britney:
                 for j in binaries[arch][0][binary]['rdepends']:
                     key = (j, arch)
                     if key not in affected: affected.append(key)
-                # FIXME: why not the conflicts and their tree, too?
 
             # register reverse dependencies and conflicts for the new binary packages
             for p in source['binaries']:
@@ -1855,7 +1861,7 @@ class Britney:
             n = l
         return packages
 
-    def iter_packages(self, packages):
+    def iter_packages(self, packages, hint=False):
         """Iter on the list of actions and apply them one-by-one
 
         This method apply the changes from `packages` to testing, checking the uninstallability
@@ -1869,7 +1875,7 @@ class Britney:
         mark_passed = False
         position = len(packages)
 
-        nuninst_comp = self.get_nuninst()
+        nuninst_comp = self.nuninst_orig.copy()
 
         # local copies for better performances
         check_installable = self.check_installable
@@ -1882,7 +1888,9 @@ class Britney:
         dependencies = self.dependencies
         compatible = self.options.compatible
 
-        self.output_write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
+        if not hint:
+            self.output_write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
+        else: lundo = []
 
         # loop on the packages (or better, actions)
         while packages:
@@ -1907,13 +1915,16 @@ class Britney:
                         break
                 if defer: continue
 
-            self.output_write("trying: %s\n" % (pkg))
+            if not hint:
+                self.output_write("trying: %s\n" % (pkg))
 
             better = True
             nuninst = {}
 
             # apply the changes
             pkg_name, suite, affected, undo = self.doop_source(pkg)
+            if hint:
+                lundo.append(undo)
 
             # check the affected packages on all the architectures
             for arch in ("/" in pkg and (pkg.split("/")[1],) or architectures):
@@ -1965,11 +1976,19 @@ class Britney:
                     if b not in nuninst[arch]:
                         nuninst[arch].append(b)
 
+                # if we are processing hints, go ahead
+                if hint:
+                    nuninst_comp[arch] = nuninst[arch]
+                    continue
+
                 # if the uninstallability counter is worse than before, break the loop
                 if (("/" in pkg and arch not in new_arches) or \
                     (arch not in break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
+
+            # if we are processing hints, go ahead
+            if hint: continue
 
             # check if the action improved the uninstallability counters
             if better:
@@ -2024,6 +2043,10 @@ class Britney:
                         del binaries[arch][1][j[1:]]
                     else: binaries[arch][1][j] = undo['virtual'][p]
 
+        # if we are processing hints, return now
+        if hint:
+            return (nuninst_comp, lundo)
+
         self.output_write(" finish: [%s]\n" % ",".join(self.selected))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
@@ -2040,13 +2063,14 @@ class Britney:
         counters before and after the actions to decide if the update was
         successful or not.
         """
-        self.__log("> Calculating current uninstallability counters", type="I")
-        nuninst_start = self.get_nuninst()
+        upgrade_me = self.upgrade_me[:]
+        nuninst_start = self.nuninst_orig
 
         # these are special parameters for hints processing
+        undo = False
         force = False
         earlyabort = False
-        if maxdepth == "easy" or maxdepth == 0:
+        if maxdepth == "easy" or maxdepth < 0:
             force = maxdepth < 0
             earlyabort = True
             maxdepth = 0
@@ -2055,29 +2079,40 @@ class Britney:
         if init:
             self.output_write("leading: %s\n" % (",".join(init)))
             for x in init:
-                if x not in self.upgrade_me:
+                if x not in upgrade_me:
                     self.output_write("failed: %s\n" % (x))
                     return None
-                self.doop_source(x)
                 self.selected.append(x)
+                upgrade_me.remove(x)
         
-        self.nuninst_orig = nuninst_start
+        self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
+        self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
         if earlyabort:
-            nuninst_end = self.get_nuninst()
+            extra = upgrade_me[:]
+            (nuninst_end, undo) = self.iter_packages(init, hint=True)
             self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
             self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
-            extra = self.upgrade_me[:]
+            if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
+                nuninst_end, extra = None, None
+                self.selected = self.selected[:len(init)]
         else:
             self.__log("> First loop on the packages with depth = 0", type="I")
-            (nuninst_end, extra) = self.iter_packages(self.upgrade_me[:])
+            (nuninst_end, extra) = self.iter_packages(upgrade_me)
 
         if nuninst_end:
             self.output_write("final: %s\n" % ",".join(sorted(self.selected)))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
             self.output_write("  end: %s\n" % self.eval_nuninst(nuninst_end))
+            if force:
+                self.output_write("force breaks:\n")
+                self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             self.output_write("SUCCESS (%d/%d)\n" % (len(self.upgrade_me), len(extra)))
+            self.upgrade_me = extra
+        else:
+            # FIXME: apply undo
+            self.output_write("FAILED\n")
 
     def upgrade_testing(self):
         """Upgrade testing using the unstable packages
@@ -2092,8 +2127,10 @@ class Britney:
         self.output_write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
         self.output_write("Arch order is: %s\n" % ", ".join(self.options.architectures))
 
+        self.__log("> Calculating current uninstallability counters", type="I")
+        self.nuninst_orig = self.get_nuninst()
+
         # process `easy' hints
-        self.hints['easy'].append(('kobold', [('a2ps', '1:4.13b-5'), ('adeos', '20050809-1')]))
         for x in self.hints['easy']:
             self.do_hint("easy", x[0], x[1])
 
@@ -2102,14 +2139,14 @@ class Britney:
             self.do_hint("force-hint", x[0], x[1])
 
         # run the first round of the upgrade
-        # FIXME: self.do_all()
+        self.do_all()
 
         # write bugs and dates
-        # FIXME: self.write_bugs(self.options.testing, self.bugs['testing'])
-        # FIXME: self.write_dates(self.options.testing, self.dates)
+        self.write_bugs(self.options.testing, self.bugs['testing'])
+        self.write_dates(self.options.testing, self.dates)
 
         # write HeidiResult
-        # FIXME: self.write_heidi(self.options.testing, 'HeidiResult')
+        self.write_heidi(self.options.testing, 'HeidiResult')
 
         self.__output.close()
         self.__log("Test completed!", type="I")
@@ -2124,6 +2161,7 @@ class Britney:
                     "hint": 0,
                     "force-hint": -1,}
 
+        self.__log("> Processing hints from %s" % who, type="I")
         self.output_write("Trying %s from %s: %s\n" % (type, who, " ".join( ["%s/%s" % (p,v) for (p,v) in pkgvers])))
 
         ok = True
