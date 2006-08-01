@@ -1,7 +1,3 @@
-# TODO:
+# Unsatisfable dependencies are not valid candidates, please drop them from upgrade_me (waiting reply from aba)
 # Add support for old libraries (introducing a new operation: remove single binary)
 # Add support for udeb
-
-# DONE:
-# Conflicts: work, we should try to solve the problem in a smarter way (without computing the full closed graph)
-# Add support for calling britney from command line

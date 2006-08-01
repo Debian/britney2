@@ -243,6 +243,7 @@ class Britney:
         self.approvals = self.read_approvals(self.options.tpu)
         self.hints = self.read_hints(self.options.unstable)
         self.excuses = []
+        self.dependencies = {}
 
     def __parse_arguments(self):
         """Parse the command line arguments
@@ -762,7 +763,7 @@ class Britney:
 
         return (len(packages) > 0, packages)
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse=None, excluded=[], conflicts=False):
+    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, excluded=[], conflicts=False):
         """Find unsatisfied dependencies for a binary package
 
         This method analyzes the dependencies of the binary package specified
@@ -779,6 +780,7 @@ class Britney:
         # local copies for better performances
         parse_depends = apt_pkg.ParseDepends
         get_dependency_solvers = self.get_dependency_solvers
+        strict = not self.options.compatible
 
         # analyze the dependency fields (if present)
         for type in ('Pre-Depends', 'Depends'):
@@ -789,11 +791,15 @@ class Britney:
             # for every block of dependency (which is formed as conjunction of disconjunction)
             for block, block_txt in zip(parse_depends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
-                solved, packages = get_dependency_solvers(block, arch, 'testing', excluded, strict=(excuse == None))
-                if solved: continue
+                solved, packages = get_dependency_solvers(block, arch, 'testing', excluded, strict=strict)
+                if solved:
+                    for p in packages:
+                        if p not in self.binaries[suite][arch][0]: continue
+                        excuse.add_sane_dep(self.binaries[suite][arch][0][p]['source'])
+                    continue
 
                 # check if the block can be satisfied in unstable, and list the solving packages
-                solved, packages = get_dependency_solvers(block, arch, suite)
+                solved, packages = get_dependency_solvers(block, arch, suite, [], strict=strict)
                 packages = [self.binaries[suite][arch][0][p]['source'] for p in packages]
 
                 # if the dependency can be satisfied by the same source package, skip the block:
@@ -803,6 +809,8 @@ class Britney:
                 # if no package can satisfy the dependency, add this information to the excuse
                 if len(packages) == 0:
                     excuse.addhtml("%s/%s unsatisfiable %s: %s" % (pkg, arch, type, block_txt.strip()))
+                    if arch not in self.options.break_arches: excuse.add_unsat_dep(arch)
+                    continue
 
                 # for the solving packages, update the excuse to add the dependencies
                 for p in packages:
@@ -1791,6 +1799,11 @@ class Britney:
         final result is successful, otherwise (None, None).
         """
         extra = []
+        deferred = []
+        skipped = []
+        mark_passed = False
+        position = len(packages)
+
         nuninst_comp = self.get_nuninst()
 
         # local copies for better performances
@@ -1801,12 +1814,34 @@ class Britney:
         nobreakall_arches = self.options.nobreakall_arches
         new_arches = self.options.new_arches
         break_arches = self.options.break_arches
+        dependencies = self.dependencies
+        compatible = self.options.compatible
 
         output.write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
             pkg = packages.pop(0)
+
+            # this is the marker for the first loop
+            if not mark_passed and position < 0:
+                mark_passed = True
+                packages.extend(deferred)
+                del deferred
+                continue
+            else: position -= 1
+
+            # defer packages if their dependency has been already skipped
+            if not compatible and not mark_passed:
+                defer = False
+                for p in dependencies.get(pkg, []):
+                    if p in skipped:
+                        deferred.append(pkg)
+                        skipped.append(pkg)
+                        defer = True
+                        break
+                if defer: continue
+
             output.write("trying: %s\n" % (pkg))
 
             better = True
@@ -1890,7 +1925,10 @@ class Britney:
                 output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
                 output.write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and nuninst_comp or None)))
                 output.write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in broken if b not in nuninst_comp[arch]]))))
+
                 extra.append(pkg)
+                if not mark_passed:
+                    skipped.append(pkg)
 
                 # undo the changes (source)
                 for k in undo['sources'].keys():
@@ -1971,6 +2009,37 @@ class Britney:
         output.close()
         self.__log("Test completed!", type="I")
 
+    def sort_actions(self):
+        """Sort actions in a smart way
+
+        This method sorts the list of actions in a smart way. In details, it uses
+        as base sort the number of days the excuse is old, then reordering packages
+        so the ones with most reverse dependencies are at the end of the loop.
+        If an action depends on another one, it is put after it.
+        """
+        upgrade_me = [x.name for x in self.excuses if x.name in self.upgrade_me]
+        for e in self.excuses:
+            if e.name not in upgrade_me: continue
+            # try removes at the end of the loop
+            elif e.name[0] == '-':
+                upgrade_me.remove(e.name)
+                upgrade_me.append(e.name)
+            # otherwise, put it in a good position checking its dependencies
+            else:
+                pos = []
+                udeps = [upgrade_me.index(x) for x in e.deps if x in upgrade_me and x != e.name]
+                if len(udeps) > 0:
+                    pos.append(max(udeps))
+                sdeps = [upgrade_me.index(x) for x in e.sane_deps if x in upgrade_me and x != e.name]
+                if len(sdeps) > 0:
+                    pos.append(min(sdeps))
+                if len(pos) == 0: continue
+                upgrade_me.remove(e.name)
+                upgrade_me.insert(max(pos)+1, e.name)
+                self.dependencies[e.name] = e.deps
+        # replace the list of actions with the new one
+        self.upgrade_me = upgrade_me
+
     def main(self):
         """Main method
         
@@ -1980,17 +2049,7 @@ class Britney:
         if not self.options.actions:
             self.write_excuses()
             if not self.options.compatible:
-                upgrade_me = [x.name for x in self.excuses if x.name in self.upgrade_me]
-                for e in self.excuses:
-                    if e.name not in upgrade_me: continue
-                    if e.name.startswith("-"):
-                        upgrade_me.remove(e.name)
-                        upgrade_me.append(e.name)
-                    if len(e.deps) > 0:
-                        upgrade_me.remove(e.name)
-                        pos = max([upgrade_me.index(x) for x in e.deps if x in upgrade_me])
-                        upgrade_me.insert(pos+1, e.name)
-                self.upgrade_me = upgrade_me
+                self.sort_actions()
         else: self.upgrade_me = self.options.actions.split()
 
         self.upgrade_testing()

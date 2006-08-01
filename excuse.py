@@ -54,7 +54,9 @@ class Excuse:
 
         self.invalid_deps = []
         self.deps = []
+        self.sane_deps = []
         self.break_deps = []
+        self.unsat_deps = {}
         self.bugs = []
         self.htmlline = []
 
@@ -87,10 +89,18 @@ class Excuse:
         """Add a dependency"""
         if name not in self.deps: self.deps.append(name)
 
+    def add_sane_dep(self, name):
+        """Add a sane dependency"""
+        if name not in self.sane_deps: self.sane_deps.append(name)
+
     def add_break_dep(self, name, arch):
         """Add a break dependency"""
         if (name, arch) not in self.break_deps:
             self.break_deps.append( (name, arch) )
+
+    def add_unsat_dep(self, arch):
+        """Add a flag for unsatisfied dependencies"""
+        self.unsat_deps[arch] = True
 
     def invalidate_dep(self, name):
         """Invalidate dependency"""
