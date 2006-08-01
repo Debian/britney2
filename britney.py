@@ -244,6 +244,7 @@ class Britney:
         self.hints = self.read_hints(self.options.unstable)
         self.excuses = []
         self.dependencies = {}
+        self.selected = []
 
     def __parse_arguments(self):
         """Parse the command line arguments
@@ -377,7 +378,7 @@ class Britney:
                     'rdepends': [],
                     'rconflicts': [],
                     }
-            for k in ('Pre-Depends', 'Depends', 'Provides', 'Conflicts'):
+            for k in ('Pre-Depends', 'Depends', 'Provides', 'Conflicts', 'Section'):
                 v = get_field(k)
                 if v: dpkg[k.lower()] = v
 
@@ -483,6 +484,20 @@ class Britney:
                 self.__log("Bugs, unable to parse \"%s\"" % line, type="E")
         return bugs
 
+    def write_bugs(self, basedir, bugs):
+        """Write the release critical bug summary to the specified directory
+
+        For a more detailed explanation of the format, please check the method
+        read_bugs.
+        """
+        filename = os.path.join(basedir, "Bugs")
+        self.__log("Writing RC bugs count to %s" % filename)
+        f = open(filename, 'w')
+        for pkg in sorted(bugs.keys()):
+            if bugs[pkg] == 0: continue
+            f.write("%s %d\n" % (pkg, bugs[pkg]))
+        f.close()
+
     def __maxver(self, pkg, dist):
         """Return the maximum version for a given package name
         
@@ -561,6 +576,20 @@ class Britney:
             except ValueError:
                 self.__log("Dates, unable to parse \"%s\"" % line, type="E")
         return dates
+
+    def write_dates(self, basedir, dates):
+        """Write the upload date for the packages to the specified directory
+
+        For a more detailed explanation of the format, please check the method
+        read_dates.
+        """
+        filename = os.path.join(basedir, "Dates")
+        self.__log("Writing upload data to %s" % filename)
+        f = open(filename, 'w')
+        for pkg in sorted(dates.keys()):
+            f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
+        f.close()
+
 
     def read_urgencies(self, basedir):
         """Read the upload urgency of the packages from the specified directory
@@ -679,6 +708,42 @@ class Britney:
             hints[x] = z
 
         return hints
+
+    def write_heidi(self, basedir, filename):
+        """Write the output HeidiResult
+
+        This method write the output for Heidi, which contains all the
+        binary packages and the source packages in the form:
+        
+        <pkg-name> <pkg-version> <pkg-architecture> <pkg-section>
+        <src-name> <src-version> <src-section>
+        """
+        filename = os.path.join(basedir, filename)
+        self.__log("Writing Heidi results to %s" % filename)
+        f = open(filename, 'w')
+
+        # local copies
+        sources = self.sources['testing']
+
+        # write binary packages
+        for arch in sorted(self.options.architectures):
+            binaries = self.binaries['testing'][arch][0]
+            for pkg_name in sorted(binaries):
+                pkg = binaries[pkg_name]
+                pkgv = pkg['version']
+                pkgarch = pkg['architecture']
+                pkgsec = pkg.get('section', 'unknown')
+                f.write('%s %s %s %s\n' % (pkg_name, pkgv, pkgarch, pkgsec))
+
+        # write sources
+        for src_name in sorted(sources):
+            src = sources[src_name]
+            srcv = src['version']
+            srcsec = 'fake' in src and 'faux' or src.get('section', 'unknown')
+            f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
+
+        f.close()
+
 
     # Utility methods for package analisys
     # ------------------------------------
@@ -1790,7 +1855,7 @@ class Britney:
             n = l
         return packages
 
-    def iter_packages(self, packages, output):
+    def iter_packages(self, packages):
         """Iter on the list of actions and apply them one-by-one
 
         This method apply the changes from `packages` to testing, checking the uninstallability
@@ -1817,7 +1882,7 @@ class Britney:
         dependencies = self.dependencies
         compatible = self.options.compatible
 
-        output.write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
+        self.output_write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
@@ -1842,7 +1907,7 @@ class Britney:
                         break
                 if defer: continue
 
-            output.write("trying: %s\n" % (pkg))
+            self.output_write("trying: %s\n" % (pkg))
 
             better = True
             nuninst = {}
@@ -1911,20 +1976,20 @@ class Britney:
                 self.selected.append(pkg)
                 packages.extend(extra)
                 extra = []
-                output.write("accepted: %s\n" % (pkg))
-                output.write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
-                output.write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
-                output.write("   now: %s\n" % (self.eval_nuninst(nuninst)))
+                self.output_write("accepted: %s\n" % (pkg))
+                self.output_write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
+                self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
+                self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst)))
                 if len(self.selected) <= 20:
-                    output.write("   all: %s\n" % (" ".join(self.selected)))
+                    self.output_write("   all: %s\n" % (" ".join(self.selected)))
                 else:
-                    output.write("  most: (%d) .. %s\n" % (len(self.selected), " ".join(self.selected[-20:])))
+                    self.output_write("  most: (%d) .. %s\n" % (len(self.selected), " ".join(self.selected[-20:])))
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
-                output.write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
-                output.write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and nuninst_comp or None)))
-                output.write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in broken if b not in nuninst_comp[arch]]))))
+                self.output_write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
+                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and nuninst_comp or None)))
+                self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in broken if b not in nuninst_comp[arch]]))))
 
                 extra.append(pkg)
                 if not mark_passed:
@@ -1959,16 +2024,16 @@ class Britney:
                         del binaries[arch][1][j[1:]]
                     else: binaries[arch][1][j] = undo['virtual'][p]
 
-        output.write(" finish: [%s]\n" % ",".join(self.selected))
-        output.write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
-        output.write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
-        output.write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
-        output.write("\n")
+        self.output_write(" finish: [%s]\n" % ",".join(self.selected))
+        self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
+        self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
+        self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
+        self.output_write("\n")
 
-        output.write("Apparently successful\n")
+        self.output_write("Apparently successful\n")
         return (nuninst_comp, extra)
 
-    def do_all(self, output, maxdepth=0, init=None):
+    def do_all(self, maxdepth=0, init=None):
         """Testing update runner
 
         This method tries to update testing checking the uninstallability
@@ -1977,37 +2042,121 @@ class Britney:
         """
         self.__log("> Calculating current uninstallability counters", type="I")
         nuninst_start = self.get_nuninst()
-        output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
-        output.write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
-        self.__log("> First loop on the packages with depth = 0", type="I")
-        self.selected = []
+        # these are special parameters for hints processing
+        force = False
+        earlyabort = False
+        if maxdepth == "easy" or maxdepth == 0:
+            force = maxdepth < 0
+            earlyabort = True
+            maxdepth = 0
+
+        # if we have a list of initial packages, check them
+        if init:
+            self.output_write("leading: %s\n" % (",".join(init)))
+            for x in init:
+                if x not in self.upgrade_me:
+                    self.output_write("failed: %s\n" % (x))
+                    return None
+                self.doop_source(x)
+                self.selected.append(x)
+        
         self.nuninst_orig = nuninst_start
-        (nuninst_end, extra) = self.iter_packages(self.upgrade_me[:], output)
+
+        if earlyabort:
+            nuninst_end = self.get_nuninst()
+            self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
+            self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
+            extra = self.upgrade_me[:]
+        else:
+            self.__log("> First loop on the packages with depth = 0", type="I")
+            (nuninst_end, extra) = self.iter_packages(self.upgrade_me[:])
 
         if nuninst_end:
-            output.write("final: %s\n" % ",".join(sorted(self.selected)))
-            output.write("start: %s\n" % self.eval_nuninst(nuninst_start))
-            output.write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
-            output.write("  end: %s\n" % self.eval_nuninst(nuninst_end))
-            output.write("SUCCESS (%d/%d)\n" % (len(self.upgrade_me), len(extra)))
+            self.output_write("final: %s\n" % ",".join(sorted(self.selected)))
+            self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
+            self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
+            self.output_write("  end: %s\n" % self.eval_nuninst(nuninst_end))
+            self.output_write("SUCCESS (%d/%d)\n" % (len(self.upgrade_me), len(extra)))
 
     def upgrade_testing(self):
         """Upgrade testing using the unstable packages
 
         This method tries to upgrade testing using the packages from unstable.
+        Before running the do_all method, it tries the easy and force-hint
+        commands.
         """
 
         self.__log("Starting the upgrade test", type="I")
-        output = open(self.options.upgrade_output, 'w')
-        output.write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
-        output.write("Arch order is: %s\n" % ", ".join(self.options.architectures))
+        self.__output = open(self.options.upgrade_output, 'w')
+        self.output_write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
+        self.output_write("Arch order is: %s\n" % ", ".join(self.options.architectures))
 
-        # TODO: process hints!
-        self.do_all(output)
+        # process `easy' hints
+        self.hints['easy'].append(('kobold', [('a2ps', '1:4.13b-5'), ('adeos', '20050809-1')]))
+        for x in self.hints['easy']:
+            self.do_hint("easy", x[0], x[1])
 
-        output.close()
+        # process `easy' hints
+        for x in self.hints["force-hint"]:
+            self.do_hint("force-hint", x[0], x[1])
+
+        # run the first round of the upgrade
+        # FIXME: self.do_all()
+
+        # write bugs and dates
+        # FIXME: self.write_bugs(self.options.testing, self.bugs['testing'])
+        # FIXME: self.write_dates(self.options.testing, self.dates)
+
+        # write HeidiResult
+        # FIXME: self.write_heidi(self.options.testing, 'HeidiResult')
+
+        self.__output.close()
         self.__log("Test completed!", type="I")
+
+    def do_hint(self, type, who, pkgvers):
+        """Process hints
+
+        This method process `easy`, `hint` and `force-hint` hints. If the
+        requested version is not in unstable, than the hint is skipped.
+        """
+        hintinfo = {"easy": "easy",
+                    "hint": 0,
+                    "force-hint": -1,}
+
+        self.output_write("Trying %s from %s: %s\n" % (type, who, " ".join( ["%s/%s" % (p,v) for (p,v) in pkgvers])))
+
+        ok = True
+        # loop on the requested packages and versions
+        for pkg, v in pkgvers:
+            # remove architecture
+            if "/" in pkg:
+                pkg = pkg[:pkg.find("/")]
+
+            # skip removal requests
+            if pkg[0] == "-":
+                continue
+            # handle testing-proposed-updates
+            elif pkg.endswith("_tpu"):
+                pkg = pkg[:-4]
+                if pkg not in self.sources['tpu']: continue
+                if apt_pkg.VersionCompare(self.sources['tpu'][pkg]['version'], v) != 0:
+                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['tpu'][pkg]['version']))
+                    ok = False
+            # does the package exist in unstable?
+            elif pkg not in self.sources['unstable']:
+                self.output_write(" Source %s has no version in unstable\n" % pkg)
+                ok = False
+            elif apt_pkg.VersionCompare(self.sources['unstable'][pkg]['version'], v) != 0:
+                self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['unstable'][pkg]['version']))
+                ok = False
+        if not ok:
+            self.output_write("Not using hint\n")
+            return False
+
+        self.do_all(hintinfo[type], map(operator.itemgetter(0), pkgvers))
+
+        return True
 
     def sort_actions(self):
         """Sort actions in a smart way
@@ -2037,8 +2186,13 @@ class Britney:
                 upgrade_me.remove(e.name)
                 upgrade_me.insert(max(pos)+1, e.name)
                 self.dependencies[e.name] = e.deps
+
         # replace the list of actions with the new one
         self.upgrade_me = upgrade_me
+
+    def output_write(self, msg):
+        """Simple wrapper for output writing"""
+        self.__output.write(msg)
 
     def main(self):
         """Main method

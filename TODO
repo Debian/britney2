@@ -1,3 +1,4 @@
 # Unsatisfable dependencies are not valid candidates, please drop them from upgrade_me (waiting reply from aba)
 # Add support for old libraries (introducing a new operation: remove single binary)
 # Add support for udeb
+# Add support for writing out the Packages_* and Sources files.
