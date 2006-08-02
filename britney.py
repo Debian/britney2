@@ -1897,11 +1897,10 @@ class Britney:
             pkg = packages.pop(0)
 
             # this is the marker for the first loop
-            if not mark_passed and position < 0:
+            if not compatible and not mark_passed and position < 0:
                 mark_passed = True
                 packages.extend(deferred)
                 del deferred
-                continue
             else: position -= 1
 
             # defer packages if their dependency has been already skipped
