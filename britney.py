@@ -1942,7 +1942,7 @@ class Britney:
             # apply the changes
             pkg_name, suite, affected, undo = self.doop_source(pkg)
             if hint:
-                lundo.append(undo)
+                lundo.append((undo, pkg, suite))
 
             # check the affected packages on all the architectures
             for arch in ("/" in pkg and (pkg.split("/")[1],) or architectures):
@@ -2108,7 +2108,7 @@ class Britney:
 
         if earlyabort:
             extra = upgrade_me[:]
-            (nuninst_end, undo) = self.iter_packages(init, hint=True)
+            (nuninst_end, lundo) = self.iter_packages(init, hint=True)
             self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
             self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
@@ -2129,8 +2129,39 @@ class Britney:
             self.output_write("SUCCESS (%d/%d)\n" % (len(self.upgrade_me), len(extra)))
             self.upgrade_me = extra
         else:
-            # FIXME: apply undo
             self.output_write("FAILED\n")
+            if not earlyabort: return
+
+            # undo all the changes
+            for (undo, pkg, suite) in lundo:
+                # undo the changes (source)
+                for k in undo['sources'].keys():
+                    if k[0] == '-':
+                        del self.sources['testing'][k[1:]]
+                    else: self.sources['testing'][k] = undo['sources'][k]
+
+                # undo the changes (new binaries)
+                if pkg in self.sources[suite]:
+                    for p in self.sources[suite][pkg]['binaries']:
+                        binary, arch = p.split("/")
+                        del self.binaries['testing'][arch][0][binary]
+
+                # undo the changes (binaries)
+                for p in undo['binaries'].keys():
+                    binary, arch = p.split("/")
+                    if binary[0] == "-":
+                        del self.binaries['testing'][arch][0][binary[1:]]
+                    else: self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
+
+                # undo the changes (virtual packages)
+                for p in undo['nvirtual']:
+                    j, arch = p.split("/")
+                    del self.binaries['testing'][arch][1][j]
+                for p in undo['virtual']:
+                    j, arch = p.split("/")
+                    if j[0] == '-':
+                        del self.binaries['testing'][arch][1][j[1:]]
+                    else: self.binaries['testing'][arch][1][j] = undo['virtual'][p]
 
     def upgrade_testing(self):
         """Upgrade testing using the unstable packages
