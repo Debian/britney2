@@ -756,7 +756,7 @@ class Britney:
 
         self.__log("Writing new %s control files to %s" % (suite, basedir))
         for arch in self.options.architectures:
-            filename = os.path.join(basedir, 'Packages_%s.new' % arch)
+            filename = os.path.join(basedir, 'Packages_%s' % arch)
             f = open(filename, 'w')
             binaries = self.binaries[suite][arch][0]
             for pkg in binaries:
@@ -786,7 +786,7 @@ class Britney:
                 f.write(output + "\n")
             f.close()
 
-        filename = os.path.join(basedir, 'Sources.new')
+        filename = os.path.join(basedir, 'Sources')
         f = open(filename, 'w')
         for src in sources:
             output = "Package: %s\n" % src
