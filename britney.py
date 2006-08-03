@@ -1567,7 +1567,12 @@ class Britney:
         # registered from a given package.
         def unregister_conflicts(pkg, conflicts):
             for c in conflicts.keys():
-                if conflicts[c][3] == pkg:
+                i = 0
+                while i < len(conflicts[c]):
+                    if conflicts[c][i][3] == pkg:
+                        del conflicts[c][i]
+                    else: i = i + 1
+                if len(conflicts[c]) == 0:
                     del conflicts[c]
 
         # handle a conflict, local method to solve a conflict which happened
@@ -1591,7 +1596,13 @@ class Britney:
                         system=system, conflicts=conflicts, excluded=[source]):
                     return (system, conflicts)
             # there are no good alternatives, so remove the package which depends on it
-            return handle_conflict(pkg, system[source][1], system, conflicts)
+            for p in system[source][1]:
+                if not p: return False
+                output = handle_conflict(pkg, p, system, conflicts)
+                if output:
+                    system, conflicts = output
+                else: return False
+            return (system, conflicts)
 
         # dependency tree satisfier, local method which tries to satisfy the dependency
         # tree for a given package. It calls itself recursively in order to check the
@@ -1602,6 +1613,11 @@ class Britney:
             # if it is real package and it is already installed, skip it and return True
             if pkg in binaries[0]:
                 if pkg in system:
+                    if type(pkg_from) == list:
+                        system[pkg][1].extend(pkg_from)
+                    else:
+                        system[pkg][1].append(pkg_from)
+                    system[pkg] = (system[pkg][1], filter(lambda x: x in pkg_alt, system[pkg][0]))
                     return True
                 binary_u = binaries[0][pkg]
             else: binary_u = None
@@ -1633,29 +1649,30 @@ class Britney:
             # if the package doesn't exist, return False
             if not binary_u: return False
 
-            # install the package itto the system, recording which package required it
-            # FIXME: what if more than one package requires it???
-            system[pkg] = (pkg_alt, pkg_from)
+            # install the package into the system, recording which package required it
+            if type(pkg_from) != list:
+                pkg_from = [pkg_from]
+            system[pkg] = (pkg_alt or [], pkg_from)
 
             # register provided packages
             if binary_u['provides']:
                 for p in binary_u['provides']:
-                    system[p] = ([], pkg)
+                    system[p] = ([], [pkg])
 
             # check the conflicts
             if pkg in conflicts:
-                name, version, op, conflicting = conflicts[pkg]
-                if conflicting not in binary_u['provides'] and ( \
-                   op == '' and version == '' or check_depends(binary_u['version'], op, version)):
-                    # if conflict is found, check if it can be solved removing
-                    # already-installed packages without broking the system; if
-                    # this is not possible, give up and return False
-                    output = handle_conflict(pkg, conflicting, system.copy(), conflicts.copy())
-                    if output:
-                        system, conflicts = output
-                    else:
-                        del system[pkg]
-                        return False
+                for name, version, op, conflicting in conflicts[pkg]:
+                    if conflicting not in binary_u['provides'] and ( \
+                       op == '' and version == '' or check_depends(binary_u['version'], op, version)):
+                        # if conflict is found, check if it can be solved removing
+                        # already-installed packages without broking the system; if
+                        # this is not possible, give up and return False
+                        output = handle_conflict(pkg, conflicting, system.copy(), conflicts.copy())
+                        if output:
+                            system, conflicts = output
+                        else:
+                            del system[pkg]
+                            return False
 
             # register conflicts from the just-installed package
             if 'conflicts' in binary_u:
@@ -1679,14 +1696,16 @@ class Britney:
                                 del system[pkg]
                                 unregister_conflicts(pkg, conflicts)
                                 return False
-                    # FIXME: what if more than one package conflicts with it???
-                    conflicts[block[0]] = (name, version, op, pkg)
+                    # register the conflict)
+                    if block[0] not in conflicts:
+                        conflicts[block[0]] = []
+                    conflicts[block[0]].append((name, version, op, pkg))
 
             # list all its dependencies ...
             dependencies = []
-            for type in ('pre-depends', 'depends'):
-                if type not in binary_u: continue
-                dependencies.extend(parse_depends(binary_u[type]))
+            for key in ('pre-depends', 'depends'):
+                if key not in binary_u: continue
+                dependencies.extend(parse_depends(binary_u[key]))
 
             # ... and go through them
             for block in dependencies:
