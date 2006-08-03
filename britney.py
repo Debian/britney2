@@ -264,6 +264,8 @@ class Britney:
                                help="override the list of actions to be performed")
         self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
                                help="enable full compatibility with old britney's output")
+        self.parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
+                               help="enable control files generation")
         (self.options, self.args) = self.parser.parse_args()
 
         # if the configuration file exists, than read it and set the additional options
@@ -742,6 +744,57 @@ class Britney:
             srcsec = 'fake' in src and 'faux' or src.get('section', 'unknown')
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
 
+        f.close()
+
+    def write_controlfiles(self, basedir, suite):
+        """Write the control files
+
+        This method write the control files for the binary packages of all
+        the architectures and for the source packages.
+        """
+        sources = self.sources[suite]
+
+        self.__log("Writing new %s control files to %s" % (suite, basedir))
+        for arch in self.options.architectures:
+            filename = os.path.join(basedir, 'Packages_%s.new' % arch)
+            f = open(filename, 'w')
+            binaries = self.binaries[suite][arch][0]
+            for pkg in binaries:
+                output = "Package: %s\n" % pkg
+                for k in ('Section', 'Architecture', 'Source', 'Version', 
+                          'Pre-Depends', 'Depends', 'Provides', 'Conflicts'):
+                    key = k.lower()
+                    if key not in binaries[pkg]: continue
+                    if key == 'source':
+                        if binaries[pkg]['source'] == pkg:
+                            if binaries[pkg]['source-ver'] != binaries[pkg]['version']:
+                                source = binaries[pkg]['source'] + " (" + binaries[pkg]['source-ver'] + ")"
+                            else: continue
+                        else:
+                            if binaries[pkg]['source-ver'] != binaries[pkg]['version']:
+                                source = binaries[pkg]['source'] + " (" + binaries[pkg]['source-ver'] + ")"
+                            else:
+                                source = binaries[pkg]['source']
+                        output += (k + ": " + source + "\n")
+                        if sources[binaries[pkg]['source']]['maintainer']:
+                            output += (k + ": " + sources[binaries[pkg]['source']]['maintainer'] + "\n")
+                    elif key == 'provides':
+                        if len(binaries[pkg][key]) > 0:
+                            output += (k + ": " + ", ".join(binaries[pkg][key]) + "\n")
+                    else:
+                        output += (k + ": " + binaries[pkg][key] + "\n")
+                f.write(output + "\n")
+            f.close()
+
+        filename = os.path.join(basedir, 'Sources.new')
+        f = open(filename, 'w')
+        for src in sources:
+            output = "Package: %s\n" % src
+            for k in ('Version', 'Section', 'Maintainer'):
+                key = k.lower()
+                if key not in sources[src] or not sources[src][key]: continue
+                output += (k + ": " + sources[src][key] + "\n")
+            f.write(output + "\n")
         f.close()
 
 
@@ -2189,6 +2242,10 @@ class Britney:
 
         # run the first round of the upgrade
         self.do_all()
+
+        # re-write control files
+        if self.options.control_files:
+            self.write_controlfiles(self.options.testing, 'testing')
 
         # write bugs and dates
         self.write_bugs(self.options.testing, self.bugs['testing'])
