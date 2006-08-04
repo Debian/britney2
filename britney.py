@@ -2242,6 +2242,10 @@ class Britney:
         # run the first round of the upgrade
         self.do_all()
 
+        # run the auto hinter
+        if not self.options.compatible:
+            self.auto_hinter()
+
         # re-write control files
         if self.options.control_files:
             self.write_controlfiles(self.options.testing, 'testing')
@@ -2332,6 +2336,45 @@ class Britney:
 
         # replace the list of actions with the new one
         self.upgrade_me = upgrade_me
+
+    def auto_hinter(self):
+        """Auto hint circular dependencies
+
+        This method tries to auto hint circular dependencies analyzing the update
+        excuses.
+        """
+        self.__log("> Processing hints from the auto hinter", type="I")
+
+        # consider only excuses which are valid candidates
+        excuses = dict([(x.name, x) for x in self.excuses if x.name in self.upgrade_me])
+
+        def find_related(e, hint, first=False):
+            if e not in excuses:
+                return False
+            excuse = excuses[e]
+            if e in self.sources['testing'] and self.sources['testing'][e]['version'] == excuse.ver[1]:
+                return True
+            if not first:
+                hint[e] = excuse.ver[1]
+            if len(excuse.deps) == 0:
+                return hint
+            for p in excuse.deps:
+                if p in hint: continue
+                if not find_related(p, hint):
+                    return False
+            return hint
+
+        # loop on them
+        cache = []
+        for e in excuses:
+            excuse = excuses[e]
+            if e in self.sources['testing'] and self.sources['testing'][e]['version'] == excuse.ver[1] or \
+               len(excuse.deps) == 0:
+                continue
+            hint = find_related(e, {}, True)
+            if hint and e in hint and hint not in cache:
+                self.do_hint("easy", "autohinter", hint.items())
+                cache.append(hint)
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
