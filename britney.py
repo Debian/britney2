@@ -187,7 +187,6 @@ import operator
 import apt_pkg
 
 from excuse import Excuse
-from upgrade import UpgradeRun
 
 __author__ = 'Fabio Tranchitella'
 __version__ = '2.0.alpha1'
