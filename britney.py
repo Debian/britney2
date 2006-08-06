@@ -1814,7 +1814,9 @@ class Britney:
         if pkg[0] == "-" and "/" in pkg:
             pkg_name, arch = pkg.split("/")
             pkg_name = pkg_name[1:]
-            suite = "testing"
+            if arch.endswith("_tpu"):
+                arch, suite = arch.split("_")
+            else: suite = "testing"
         # arch = "<source>/<arch>",
         elif "/" in pkg:
             pkg_name, arch = pkg.split("/")
@@ -2012,7 +2014,7 @@ class Britney:
                 lundo.append((undo, pkg, suite))
 
             # check the affected packages on all the architectures
-            for arch in ("/" in pkg and (pkg.split("/")[1],) or architectures):
+            for arch in ("/" in pkg and (pkg.split("/")[1].split("_")[0],) or architectures):
                 if arch not in nobreakall_arches:
                     skip_archall = True
                 else: skip_archall = False
