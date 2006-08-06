@@ -263,6 +263,8 @@ class Britney:
                                help="override the list of actions to be performed")
         self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
                                help="enable full compatibility with old britney's output")
+        self.parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
+                               help="disable all outputs to the testing directory")
         self.parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
                                help="enable control files generation")
         (self.options, self.args) = self.parser.parse_args()
@@ -294,6 +296,7 @@ class Britney:
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches]
         arches += [x for x in allarches if x not in arches]
         self.options.architectures = arches
+        self.options.smooth_updates = self.options.smooth_updates.split()
 
     def __log(self, msg, type="I"):
         """Print info messages according to verbosity level
@@ -1807,8 +1810,13 @@ class Britney:
         sources = self.sources
         binaries = self.binaries['testing']
 
-        # arch = "<source>/<arch>",
-        if "/" in pkg:
+        # removal of single-arch binary packag = "-<package>/<arch>"
+        if pkg[0] == "-" and "/" in pkg:
+            pkg_name, arch = pkg.split("/")
+            pkg_name = pkg_name[1:]
+            suite = "testing"
+        # arch = "<package>/<arch>",
+        elif "/" in pkg:
             pkg_name, arch = pkg.split("/")
             suite = "unstable"
         # removal of source packages = "-<source>",
@@ -1831,6 +1839,12 @@ class Britney:
                 # remove all the binaries
                 for p in source['binaries']:
                     binary, arch = p.split("/")
+                    # if a smooth update is possible for the package, skip it
+                    if not self.options.compatible and suite == 'unstable' and \
+                       binary not in self.binaries[suite][arch][0] and \
+                       ('ALL' in self.options.smooth_updates or \
+                        binaries[arch][0][binary].get('section', None) in self.options.smooth_updates):
+                        continue
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[arch][0][binary]
                     # all the reverse dependencies are affected by the change
@@ -1854,17 +1868,20 @@ class Britney:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + pkg_name] = True
 
-        # single architecture update (eg. binNMU)
+        # single architecture updates (eg. binNMU or single binary removal)
         else:
             if pkg_name in binaries[arch][0]:
-                undo['binaries'][pkg] = binaries[arch][0][binary]
+                undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
                 for j in binaries[arch][0][pkg_name]['rdepends']:
                     key = (j, arch)
                     if key not in affected: affected.append(key)
-            else:
-                # the package didn't exist, so we mark it as to-be-removed in case of undo
+            # the package didn't exist, so we mark it as to-be-removed in case of undo
+            if pkg[0] != "-":
                 undo['binaries']['-' + pkg] = True
-            source = {'binaries': [pkg]}
+                source = {'binaries': [pkg]}
+            # or we delete it if this is what the action required
+            else:
+                del binaries[arch][0][pkg_name]
 
         # add the new binary packages (if we are not removing)
         if pkg[0] != "-":
@@ -2126,14 +2143,19 @@ class Britney:
         self.output_write("Apparently successful\n")
         return (nuninst_comp, extra)
 
-    def do_all(self, maxdepth=0, init=None):
+    def do_all(self, maxdepth=0, init=None, actions=None):
         """Testing update runner
 
         This method tries to update testing checking the uninstallability
         counters before and after the actions to decide if the update was
         successful or not.
         """
-        upgrade_me = self.upgrade_me[:]
+        if actions:
+            upgrade_me = actions[:]
+            selected = []
+        else:
+            upgrade_me = self.upgrade_me[:]
+            selected = self.selected
         nuninst_start = self.nuninst_orig
 
         # these are special parameters for hints processing
@@ -2152,7 +2174,7 @@ class Britney:
                 if x not in upgrade_me:
                     self.output_write("failed: %s\n" % (x))
                     return None
-                self.selected.append(x)
+                selected.append(x)
                 upgrade_me.remove(x)
         
         self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
@@ -2165,21 +2187,21 @@ class Britney:
             self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
-                self.selected = self.selected[:len(init)]
+                self.selected = selected[:len(init)]
         else:
-            self.__log("> First loop on the packages with depth = 0", type="I")
             (nuninst_end, extra) = self.iter_packages(upgrade_me)
 
         if nuninst_end:
-            self.output_write("final: %s\n" % ",".join(sorted(self.selected)))
+            self.output_write("final: %s\n" % ",".join(sorted(selected)))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
             self.output_write("  end: %s\n" % self.eval_nuninst(nuninst_end))
             if force:
                 self.output_write("force breaks:\n")
                 self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
-            self.output_write("SUCCESS (%d/%d)\n" % (len(self.upgrade_me), len(extra)))
-            self.upgrade_me = extra
+            self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
+            if not actions:
+                self.upgrade_me = extra
         else:
             self.output_write("FAILED\n")
             if not earlyabort: return
@@ -2240,22 +2262,39 @@ class Britney:
             self.do_hint("force-hint", x[0], x[1])
 
         # run the first round of the upgrade
+        self.__log("> First loop on the packages with depth = 0", type="I")
         self.do_all()
 
         # run the auto hinter
         if not self.options.compatible:
             self.auto_hinter()
 
-        # re-write control files
-        if self.options.control_files:
-            self.write_controlfiles(self.options.testing, 'testing')
+        # smooth updates
+        if not self.options.compatible and len(self.options.smooth_updates) > 0:
+            self.__log("> Removing old packages left in testing from smooth updates", type="I")
+            removals = self.old_libraries()
+            if len(removals) > 0:
+                self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
+                    (len(removals), self.old_libraries_format(removals)))
+                self.do_all(actions=removals)
+                removals = self.old_libraries()
 
-        # write bugs and dates
-        self.write_bugs(self.options.testing, self.bugs['testing'])
-        self.write_dates(self.options.testing, self.dates)
+        if not self.options.compatible:
+            self.output_write("List of old libraries in testing (%d):\n%s" % \
+                (len(removals), self.old_libraries_format(removals)))
 
-        # write HeidiResult
-        self.write_heidi(self.options.testing, 'HeidiResult')
+        # output files
+        if not self.options.dry_run:
+            # re-write control files
+            if self.options.control_files:
+                self.write_controlfiles(self.options.testing, 'testing')
+
+            # write bugs and dates
+            self.write_bugs(self.options.testing, self.bugs['testing'])
+            self.write_dates(self.options.testing, self.dates)
+
+            # write HeidiResult
+            self.write_heidi(self.options.testing, 'HeidiResult')
 
         self.__output.close()
         self.__log("Test completed!", type="I")
@@ -2341,7 +2380,8 @@ class Britney:
         """Auto hint circular dependencies
 
         This method tries to auto hint circular dependencies analyzing the update
-        excuses.
+        excuses relationships. If they build a circular dependency, which we already
+        know as not-working with the standard do_all algorithm, try to `easy` them.
         """
         self.__log("> Processing hints from the auto hinter", type="I")
 
@@ -2375,6 +2415,38 @@ class Britney:
             if hint and e in hint and hint not in cache:
                 self.do_hint("easy", "autohinter", hint.items())
                 cache.append(hint)
+
+    def old_libraries(self):
+        """Detect old libraries left in testing for smooth transitions
+
+        This method detect old libraries which are in testing but no longer
+        built from the source package: they are still there because other
+        packages still depend on them, but they should be removed as soon
+        as possible.
+        """
+        sources = self.sources['testing']
+        testing = self.binaries['testing']
+        unstable = self.binaries['unstable']
+        removals = []
+        for arch in self.options.architectures:
+            for pkg_name in testing[arch][0]:
+                pkg = testing[arch][0][pkg_name]
+                if pkg_name not in unstable[arch][0] and \
+                   not self.same_source(sources[pkg['source']]['version'], pkg['source-ver']):
+                    removals.append("-" + pkg_name + "/" + arch)
+        return removals
+
+    def old_libraries_format(self, libs):
+        """Format old libraries in a smart table"""
+        libraries = {}
+        for i in libs:
+            pkg, arch = i.split("/")
+            pkg = pkg[1:]
+            if pkg in libraries:
+                    libraries[pkg].append(arch)
+            else:
+                    libraries[pkg] = [arch]
+        return "\n".join(["  " + k + ": " + " ".join(libraries[k]) for k in libraries]) + "\n"
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
