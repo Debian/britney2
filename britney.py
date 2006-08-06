@@ -1810,12 +1810,12 @@ class Britney:
         sources = self.sources
         binaries = self.binaries['testing']
 
-        # removal of single-arch binary packag = "-<package>/<arch>"
+        # removal of single-arch binary package = "-<package>/<arch>"
         if pkg[0] == "-" and "/" in pkg:
             pkg_name, arch = pkg.split("/")
             pkg_name = pkg_name[1:]
             suite = "testing"
-        # arch = "<package>/<arch>",
+        # arch = "<source>/<arch>",
         elif "/" in pkg:
             pkg_name, arch = pkg.split("/")
             suite = "unstable"
@@ -1833,102 +1833,100 @@ class Britney:
             suite = "unstable"
 
         # remove all binary packages (if the source already exists)
-        if not arch:
+        if not (arch and pkg[0] == '-'):
             if pkg_name in sources['testing']:
                 source = sources['testing'][pkg_name]
                 # remove all the binaries
                 for p in source['binaries']:
-                    binary, arch = p.split("/")
+                    binary, parch = p.split("/")
+                    if arch and parch != arch: continue
                     # if a smooth update is possible for the package, skip it
                     if not self.options.compatible and suite == 'unstable' and \
-                       binary not in self.binaries[suite][arch][0] and \
+                       binary not in self.binaries[suite][parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
-                        binaries[arch][0][binary].get('section', None) in self.options.smooth_updates):
+                        binaries[parch][0][binary].get('section', None) in self.options.smooth_updates):
                         continue
                     # save the old binary for undo
-                    undo['binaries'][p] = binaries[arch][0][binary]
+                    undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    for j in binaries[arch][0][binary]['rdepends']:
-                        key = (j, arch)
+                    for j in binaries[parch][0][binary]['rdepends']:
+                        key = (j, parch)
                         if key not in affected: affected.append(key)
                     # remove the provided virtual packages
-                    for j in binaries[arch][0][binary]['provides']:
-                        key = j + "/" + arch
+                    for j in binaries[parch][0][binary]['provides']:
+                        key = j + "/" + parch
                         if key not in undo['virtual']:
-                            undo['virtual'][key] = binaries[arch][1][j][:]
-                        binaries[arch][1][j].remove(binary)
-                        if len(binaries[arch][1][j]) == 0:
-                            del binaries[arch][1][j]
+                            undo['virtual'][key] = binaries[parch][1][j][:]
+                        binaries[parch][1][j].remove(binary)
+                        if len(binaries[parch][1][j]) == 0:
+                            del binaries[parch][1][j]
                     # finally, remove the binary package
-                    del binaries[arch][0][binary]
+                    del binaries[parch][0][binary]
                 # remove the source package
-                undo['sources'][pkg_name] = source
-                del sources['testing'][pkg_name]
+                if not arch:
+                    undo['sources'][pkg_name] = source
+                    del sources['testing'][pkg_name]
             else:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + pkg_name] = True
 
-        # single architecture updates (eg. binNMU or single binary removal)
-        else:
-            if pkg_name in binaries[arch][0]:
-                undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
-                for j in binaries[arch][0][pkg_name]['rdepends']:
-                    key = (j, arch)
-                    if key not in affected: affected.append(key)
-            # the package didn't exist, so we mark it as to-be-removed in case of undo
-            if pkg[0] != "-":
-                undo['binaries']['-' + pkg] = True
-                source = {'binaries': [pkg]}
-            # or we delete it if this is what the action required
-            else:
-                del binaries[arch][0][pkg_name]
+        # single binary removal
+        elif pkg_name in binaries[arch][0]:
+            undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
+            for j in binaries[arch][0][pkg_name]['rdepends']:
+                key = (j, arch)
+                if key not in affected: affected.append(key)
+            del binaries[arch][0][pkg_name]
 
         # add the new binary packages (if we are not removing)
         if pkg[0] != "-":
             source = sources[suite][pkg_name]
             for p in source['binaries']:
-                binary, arch = p.split("/")
-                key = (binary, arch)
+                binary, parch = p.split("/")
+                if arch and parch != arch: continue
+                key = (binary, parch)
                 # obviously, added/modified packages are affected
                 if key not in affected: affected.append(key)
-                # if the binary already exists (built from another source)
-                if binary in binaries[arch][0]:
+                # if the binary already exists (built from another ource)
+                if binary in binaries[parch][0]:
                     # save the old binary package
-                    undo['binaries'][p] = binaries[arch][0][binary]
+                    undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    for j in binaries[arch][0][binary]['rdepends']:
-                        key = (j, arch)
+                    for j in binaries[parch][0][binary]['rdepends']:
+                        key = (j, parch)
                         if key not in affected: affected.append(key)
                     # all the reverse conflicts and their dependency tree are affected by the change
-                    for j in binaries[arch][0][binary]['rconflicts']:
-                        key = (j, arch)
+                    for j in binaries[parch][0][binary]['rconflicts']:
+                        key = (j, parch)
                         if key not in affected: affected.append(key)
-                        for p in self.get_full_tree(j, arch, 'testing'):
-                            key = (p, arch)
+                        for p in self.get_full_tree(j, parch, 'testing'):
+                            key = (p, parch)
                             if key not in affected: affected.append(key)
                 # add/update the binary package
-                binaries[arch][0][binary] = self.binaries[suite][arch][0][binary]
+                binaries[parch][0][binary] = self.binaries[suite][parch][0][binary]
                 # register new provided packages
-                for j in binaries[arch][0][binary]['provides']:
-                    key = j + "/" + arch
-                    if j not in binaries[arch][1]:
+                for j in binaries[parch][0][binary]['provides']:
+                    key = j + "/" + parch
+                    if j not in binaries[parch][1]:
                         undo['nvirtual'].append(key)
-                        binaries[arch][1][j] = []
+                        binaries[parch][1][j] = []
                     elif key not in undo['virtual']:
-                        undo['virtual'][key] = binaries[arch][1][j][:]
-                    binaries[arch][1][j].append(binary)
+                        undo['virtual'][key] = binaries[parch][1][j][:]
+                    binaries[parch][1][j].append(binary)
                 # all the reverse dependencies are affected by the change
-                for j in binaries[arch][0][binary]['rdepends']:
-                    key = (j, arch)
+                for j in binaries[parch][0][binary]['rdepends']:
+                    key = (j, parch)
                     if key not in affected: affected.append(key)
 
             # register reverse dependencies and conflicts for the new binary packages
             for p in source['binaries']:
-                binary, arch = p.split("/")
-                self.register_reverses(binary, binaries[arch][0] , binaries[arch][1])
+                binary, parch = p.split("/")
+                if arch and parch != arch: continue
+                self.register_reverses(binary, binaries[parch][0] , binaries[parch][1])
 
             # add/update the source package
-            sources['testing'][pkg_name] = sources[suite][pkg_name]
+            if not arch:
+                sources['testing'][pkg_name] = sources[suite][pkg_name]
 
         # return the package name, the suite, the list of affected packages and the undo dictionary
         return (pkg_name, suite, affected, undo)
