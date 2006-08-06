@@ -1007,7 +1007,7 @@ class Britney:
         anyworthdoing = False
 
         # for every binary package produced by this source in unstable for this architecture
-        for pkg in sorted(filter(lambda x: x.endswith("/" + arch), source_u['binaries'])):
+        for pkg in sorted(filter(lambda x: x.endswith("/" + arch), source_u['binaries']), key=lambda x: x.split("/")[0]):
             pkg_name = pkg.split("/")[0]
 
             # retrieve the testing (if present) and unstable corresponding binary packages
@@ -1362,9 +1362,10 @@ class Britney:
 
         # for every source package in unstable check if it should be upgraded
         for pkg in sources['unstable']:
+            if 'fake' in sources['unstable'][pkg]: continue
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if pkg in sources['testing']:
+            if pkg in sources['testing'] and 'fake' not in sources['testing'][pkg]:
                 for arch in architectures:
                     if should_upgrade_srcarch(pkg, arch, 'unstable'):
                         upgrade_me.append("%s/%s" % (pkg, arch))
@@ -1375,6 +1376,7 @@ class Britney:
 
         # for every source package in testing-proposed-updates, check if it should be upgraded
         for pkg in sources['tpu']:
+            if 'fake' in sources['tpu'][pkg]: continue
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
             if pkg in sources['testing']:
