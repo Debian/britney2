@@ -291,9 +291,9 @@ class Britney:
         # Sort the architecture list
         allarches = sorted(self.options.architectures.split())
         arches = [x for x in allarches if x in self.options.nobreakall_arches]
-        arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches]
-        arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
-        arches += [x for x in allarches if x not in arches and x not in self.options.new_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches.split()]
+        arches += [x for x in allarches if x not in arches and x not in self.options.break_arches.split()]
+        arches += [x for x in allarches if x not in arches and x not in self.options.new_arches.split()]
         arches += [x for x in allarches if x not in arches]
         self.options.architectures = arches
         self.options.smooth_updates = self.options.smooth_updates.split()
@@ -964,6 +964,12 @@ class Britney:
         excuse.set_vers(src['version'], None)
         src['maintainer'] and excuse.set_maint(src['maintainer'].strip())
         src['section'] and excuse.set_section(src['section'].strip())
+
+        # if the package is blocked, skip it
+        if self.hints['block'].has_key('-' + pkg):
+            exc.addhtml("Not touching package, as requested by %s (contact debian-release if update is needed)" % hints['block']['-' + pkg])
+            return False
+
         excuse.addhtml("Valid candidate")
         self.excuses.append(excuse)
         return True
@@ -2265,7 +2271,27 @@ class Britney:
 
         # run the first round of the upgrade
         self.__log("> First loop on the packages with depth = 0", type="I")
+
+        # separate runs for break arches
+        allpackages = []
+        normpackages = self.upgrade_me[:]
+        archpackages = {}
+        for a in self.options.break_arches.split():
+            archpackages[a] = [p for p in normpackages if p.endswith("/" + a)]
+            normpackages = [p for p in normpackages if not p.endswith("/" + a)]
+        self.upgrade_me = normpackages
+        self.output_write("info: main run\n")
         self.do_all()
+        allpackages += self.upgrade_me
+        for a in self.options.break_arches.split():
+            x = self.options.break_arches
+            self.options.break_arches = " ".join([x for x in self.options.break_arches.split() if x != a])
+            self.upgrade_me = archpackages[a]
+            self.output_write("info: broken arch run for %s\n" % (a))
+            self.do_all()
+            allpackages += self.upgrade_me
+            self.options.break_arches = x
+        self.upgrade_me = allpackages
 
         # run the auto hinter
         if not self.options.compatible:
