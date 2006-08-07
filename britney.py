@@ -1688,7 +1688,7 @@ class Britney:
         #      can't be solved, so return False.
         def handle_conflict(pkg, source, system, conflicts):
             # reached the top of the tree
-            if not system[source][1]:
+            if not system[source][1][0]:
                 return False
             # remove its conflicts
             unregister_conflicts(source, conflicts)
@@ -1727,7 +1727,7 @@ class Britney:
 
             # if it is a virtual package
             providers = []
-            if pkg in binaries[1]:
+            if pkg_from and pkg in binaries[1]:
                 providers = binaries[1][pkg]
                 # it is both real and virtual, so the providers are alternatives
                 if binary_u:
@@ -1752,6 +1752,16 @@ class Britney:
             # if the package doesn't exist, return False
             if not binary_u: return False
 
+            # it is broken, but we have providers
+            if pkg in broken:
+                for p in providers:
+                    # try to install the providers skipping excluded packages,
+                    # which we already tried but do not work
+                    if p in excluded: continue
+                    elif satisfy(p, [a for a in providers if a != p], pkg_from):
+                        return True
+                return False
+
             # install the package into the system, recording which package required it
             if type(pkg_from) != list:
                 pkg_from = [pkg_from]
@@ -1760,13 +1770,17 @@ class Britney:
             # register provided packages
             if binary_u['provides']:
                 for p in binary_u['provides']:
-                    system[p] = ([], [pkg])
+                    if p in system:
+                        if system[p][1][0] == None: continue
+                        system[p][1].append(pkg)
+                    else:
+                        system[p] = ([], [pkg])
 
             # check the conflicts
             if pkg in conflicts:
                 for name, version, op, conflicting in conflicts[pkg]:
-                    if conflicting not in binary_u['provides'] and ( \
-                       op == '' and version == '' or check_depends(binary_u['version'], op, version)):
+                    if conflicting in binary_u['provides'] and system[conflicting][1] == [pkg]: continue
+                    if op == '' and version == '' or check_depends(binary_u['version'], op, version):
                         # if conflict is found, check if it can be solved removing
                         # already-installed packages without broking the system; if
                         # this is not possible, give up and return False
@@ -1816,8 +1830,6 @@ class Britney:
                 alternatives = map(operator.itemgetter(0), block)
                 valid = False
                 for name, version, op in block:
-                    # if the package is broken, don't try it at all
-                    if name in broken: continue
                     # otherwise, if it is already installed or it is installable, the block is satisfied
                     if name in system or satisfy(name, [a for a in alternatives if a != name], pkg):
                         valid = True
