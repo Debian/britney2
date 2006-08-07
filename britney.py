@@ -221,6 +221,21 @@ class Britney:
         # initialize the apt_pkg back-end
         apt_pkg.init()
 
+        # if requested, build the non-installable status and save it
+        if not self.options.nuninst_cache:
+            self.__log("Building the list of not installable packages for the full archive", type="I")
+            self.sources = {'testing': self.read_sources(self.options.testing)}
+            nuninst = {}
+            for arch in self.options.architectures:
+                self.binaries = {'testing': {arch: self.read_binaries(self.options.testing, "testing", arch)}}
+                self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
+                result = self.get_nuninst(arch, build=True)
+                nuninst.update(result)
+                self.__log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
+            self.write_nuninst(nuninst)
+        else:
+            self.__log("Not building the list of not installable packages, as requested", type="I")
+
         # read the source and binary packages for the involved distributions
         self.sources = {'testing': self.read_sources(self.options.testing),
                         'unstable': self.read_sources(self.options.unstable),
@@ -261,12 +276,14 @@ class Britney:
                                help="override architectures from configuration file")
         self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
                                help="override the list of actions to be performed")
-        self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
-                               help="enable full compatibility with old britney's output")
         self.parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
                                help="disable all outputs to the testing directory")
+        self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
+                               help="enable full compatibility with old britney's output")
         self.parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
                                help="enable control files generation")
+        self.parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
+                               help="do not build the non-installability status, use the cache from file")
         (self.options, self.args) = self.parser.parse_args()
 
         # if the configuration file exists, than read it and set the additional options
@@ -798,6 +815,24 @@ class Britney:
                 output += (k + ": " + sources[src][key] + "\n")
             f.write(output + "\n")
         f.close()
+
+    def write_nuninst(self, nuninst):
+        """Write the non-installable report"""
+        f = open(self.options.noninst_status, 'w')
+        f.write("Built on: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n")
+        f.write("Last update: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n\n")
+        f.write("".join([k + ": " + " ".join(nuninst[k]) + "\n" for k in nuninst]))
+        f.close()
+
+    def read_nuninst(self):
+        """Read the non-installable report"""
+        f = open(self.options.noninst_status)
+        nuninst = {}
+        for r in f:
+            if ":" not in r: continue
+            arch, packages = r.strip().split(":", 1)
+            nuninst[arch] = packages.split()
+        return nuninst
 
 
     # Utility methods for package analisys
@@ -1462,7 +1497,7 @@ class Britney:
             res[arch] = [x for x in nunew[arch] if x not in nuold[arch]]
         return res
 
-    def get_nuninst(self):
+    def get_nuninst(self, requested_arch=None, build=False):
         """Return the uninstallability statistic for all the architectures
 
         To calculate the uninstallability counters, the method checks the
@@ -1474,6 +1509,10 @@ class Britney:
         It returns a dictionary with the architectures as keys and the list
         of uninstallable packages as values.
         """
+        # if we are not asked to build the nuninst, read it from the cache
+        if not build:
+            return self.read_nuninst()
+
         nuninst = {}
 
         # local copies for better performances
@@ -1490,12 +1529,13 @@ class Britney:
                     tpkg = binaries[arch][0][p]
                     if skip_archall and tpkg['architecture'] == 'all':
                         continue
-                    r = check_installable(p, arch, 'testing', excluded=nuninst[arch], conflicts=False)
+                    r = check_installable(p, arch, 'testing', excluded=nuninst[arch], conflicts=True)
                     if not r:
                         add_nuninst(p, arch)
 
         # for all the architectures
         for arch in self.options.architectures:
+            if requested_arch and arch != requested_arch: continue
             # if it is in the nobreakall ones, check arch-indipendent packages too
             if arch not in self.options.nobreakall_arches:
                 skip_archall = True
@@ -1508,7 +1548,7 @@ class Britney:
                 pkg = binaries[arch][0][pkg_name]
                 if skip_archall and pkg['architecture'] == 'all':
                     continue
-                r = check_installable(pkg_name, arch, 'testing', excluded=nuninst[arch], conflicts=False)
+                r = check_installable(pkg_name, arch, 'testing', excluded=nuninst[arch], conflicts=True)
                 if not r:
                     add_nuninst(pkg_name, arch)
 
@@ -1752,7 +1792,7 @@ class Britney:
                             # if conflict is found, check if it can be solved removing
                             # already-installed packages without broking the system; if
                             # this is not possible, give up and return False
-                            output = handle_conflict(name, pkg, system.copy(), conflicts.copy())
+                            output = handle_conflict(pkg, name, system.copy(), conflicts.copy())
                             if output:
                                 system, conflicts = output
                             else:
@@ -1795,7 +1835,7 @@ class Britney:
 
             # if all the blocks have been satisfied, the package is installable
             return True
-    
+
         # check the package at the top of the tree
         return satisfy(pkg)
 
@@ -2486,12 +2526,15 @@ class Britney:
         This is the entry point for the class: it includes the list of calls
         for the member methods which will produce the output files.
         """
+        # if no actions are provided, build the excuses and sort them
         if not self.options.actions:
             self.write_excuses()
             if not self.options.compatible:
                 self.sort_actions()
+        # otherwise, use the actions provided by the command line
         else: self.upgrade_me = self.options.actions.split()
 
+        # run the upgrade test
         self.upgrade_testing()
 
 if __name__ == '__main__':
