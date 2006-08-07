@@ -900,7 +900,7 @@ class Britney:
         # local copies for better performances
         parse_depends = apt_pkg.ParseDepends
         get_dependency_solvers = self.get_dependency_solvers
-        strict = not self.options.compatible
+        strict = True # not self.options.compatible
 
         # analyze the dependency fields (if present)
         for type in ('Pre-Depends', 'Depends'):
