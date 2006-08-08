@@ -831,7 +831,8 @@ class Britney:
         for r in f:
             if ":" not in r: continue
             arch, packages = r.strip().split(":", 1)
-            nuninst[arch] = packages.split()
+            if arch in self.options.architectures:
+                nuninst[arch] = packages.split()
         return nuninst
 
 
@@ -1526,9 +1527,6 @@ class Britney:
             if pkg not in nuninst[arch]:
                 nuninst[arch].append(pkg)
                 for p in binaries[arch][0][pkg]['rdepends']:
-                    tpkg = binaries[arch][0][p]
-                    if skip_archall and tpkg['architecture'] == 'all':
-                        continue
                     r = check_installable(p, arch, 'testing', excluded=nuninst[arch], conflicts=True)
                     if not r:
                         add_nuninst(p, arch)
@@ -1545,12 +1543,16 @@ class Britney:
             # uninstallable package is found
             nuninst[arch] = []
             for pkg_name in binaries[arch][0]:
-                pkg = binaries[arch][0][pkg_name]
-                if skip_archall and pkg['architecture'] == 'all':
-                    continue
                 r = check_installable(pkg_name, arch, 'testing', excluded=nuninst[arch], conflicts=True)
                 if not r:
                     add_nuninst(pkg_name, arch)
+
+            # if they are not required, removed architecture-indipendent packages
+            if skip_archall:
+                for pkg in nuninst[arch][:]:
+                    bpkg = binaries[arch][0][pkg]
+                    if bpkg['architecture'] == 'all':
+                        nuninst[arch].remove(pkg)
 
         # return the dictionary with the results
         return nuninst
@@ -1678,6 +1680,12 @@ class Britney:
                 if len(conflicts[c]) == 0:
                     del conflicts[c]
 
+        def remove_package(pkg, system, conflicts):
+            for k in system.keys():
+                if pkg in system[k][1]:
+                    system[k][1].remove(pkg)
+            unregister_conflicts(pkg, conflicts)
+
         # handle a conflict, local method to solve a conflict which happened
         # in the system; the behaviour of the conflict-solver is:
         #   1. If there are alternatives for the package which must be removed,
@@ -1687,6 +1695,10 @@ class Britney:
         #   3. If the top of the dependency tree is reached, then the conflict
         #      can't be solved, so return False.
         def handle_conflict(pkg, source, system, conflicts):
+            # skip packages which don't have reverse dependencies
+            if source not in system or system[source][1] == []:
+                remove_package(source, system, conflicts)
+                return (system, conflicts)
             # reached the top of the tree
             if not system[source][1][0]:
                 return False
@@ -1697,14 +1709,19 @@ class Britney:
             for alt in alternatives:
                 if satisfy(alt, [x for x in alternatives if x != alt], pkg_from=system[source][1],
                         system=system, conflicts=conflicts, excluded=[source]):
+                    remove_package(source, system, conflicts)
                     return (system, conflicts)
             # there are no good alternatives, so remove the package which depends on it
             for p in system[source][1]:
+                # the package does not exist, we reached the top of the tree
                 if not p: return False
+                # we are providing the package we conflict on (eg. exim4 and mail-transfer-agent), skip it
+                if p == pkg: continue
                 output = handle_conflict(pkg, p, system, conflicts)
                 if output:
                     system, conflicts = output
                 else: return False
+            remove_package(source, system, conflicts)
             return (system, conflicts)
 
         # dependency tree satisfier, local method which tries to satisfy the dependency
@@ -1771,7 +1788,8 @@ class Britney:
             if binary_u['provides']:
                 for p in binary_u['provides']:
                     if p in system:
-                        if system[p][1][0] == None: continue
+                        # do not consider packages providing the one which we are checking
+                        if len(system[p][1]) == 1 and system[p][1][0] == None: continue
                         system[p][1].append(pkg)
                     else:
                         system[p] = ([], [pkg])
@@ -1796,9 +1814,9 @@ class Britney:
                 for block in map(operator.itemgetter(0), parse_depends(binary_u.get('conflicts', []))):
                     name, version, op = block
                     # skip conflicts for packages provided by itself
-                    if name in binary_u['provides']: continue
                     # if the conflicting package is in the system (and it is not a self-conflict)
-                    if block[0] != pkg and block[0] in system:
+                    if not (name in binary_u['provides'] and system[name][1] == [pkg]) and \
+                       block[0] != pkg and block[0] in system:
                         if block[0] in binaries[0]:
                             binary_c = binaries[0][block[0]]
                         else: binary_c = None
