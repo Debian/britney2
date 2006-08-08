@@ -2233,7 +2233,7 @@ class Britney:
             selected = []
         else:
             upgrade_me = self.upgrade_me[:]
-            selected = self.selected
+            selected = self.selected[:]
         nuninst_start = self.nuninst_orig
 
         # these are special parameters for hints processing
