@@ -2027,7 +2027,7 @@ class Britney:
             n = l
         return packages
 
-    def iter_packages(self, packages, hint=False):
+    def iter_packages(self, packages, selected, hint=False):
         """Iter on the list of actions and apply them one-by-one
 
         This method apply the changes from `packages` to testing, checking the uninstallability
@@ -2055,7 +2055,7 @@ class Britney:
         compatible = self.options.compatible
 
         if not hint:
-            self.output_write("recur: [%s] %s %d/%d\n" % (",".join(self.selected), "", len(packages), len(extra)))
+            self.output_write("recur: [%s] %s %d/%d\n" % (",".join(selected), "", len(packages), len(extra)))
         else: lundo = []
 
         # loop on the packages (or better, actions)
@@ -2157,17 +2157,17 @@ class Britney:
 
             # check if the action improved the uninstallability counters
             if better:
-                self.selected.append(pkg)
+                selected.append(pkg)
                 packages.extend(extra)
                 extra = []
                 self.output_write("accepted: %s\n" % (pkg))
                 self.output_write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
                 self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
-                self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst)))
-                if len(self.selected) <= 20:
-                    self.output_write("   all: %s\n" % (" ".join(self.selected)))
+                self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
+                if len(selected) <= 20:
+                    self.output_write("   all: %s\n" % (" ".join(selected)))
                 else:
-                    self.output_write("  most: (%d) .. %s\n" % (len(self.selected), " ".join(self.selected[-20:])))
+                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(selected[-20:])))
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
@@ -2212,7 +2212,7 @@ class Britney:
         if hint:
             return (nuninst_comp, lundo)
 
-        self.output_write(" finish: [%s]\n" % ",".join(self.selected))
+        self.output_write(" finish: [%s]\n" % ",".join(selected))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
         self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
@@ -2233,7 +2233,7 @@ class Britney:
             selected = []
         else:
             upgrade_me = self.upgrade_me[:]
-            selected = self.selected[:]
+            selected = self.selected
         nuninst_start = self.nuninst_orig
 
         # these are special parameters for hints processing
@@ -2260,14 +2260,14 @@ class Britney:
 
         if earlyabort:
             extra = upgrade_me[:]
-            (nuninst_end, lundo) = self.iter_packages(init, hint=True)
+            (nuninst_end, lundo) = self.iter_packages(init, selected, hint=True)
             self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
             self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
                 self.selected = selected[:len(init)]
         else:
-            (nuninst_end, extra) = self.iter_packages(upgrade_me)
+            (nuninst_end, extra) = self.iter_packages(upgrade_me, selected)
 
         if nuninst_end:
             self.output_write("final: %s\n" % ",".join(sorted(selected)))
@@ -2359,7 +2359,10 @@ class Britney:
             self.options.break_arches = " ".join([x for x in self.options.break_arches.split() if x != a])
             self.upgrade_me = archpackages[a]
             self.output_write("info: broken arch run for %s\n" % (a))
+            tmp = self.selected
+            self.selected = []
             self.do_all()
+            self.selected = tmp + self.selected
             allpackages += self.upgrade_me
             self.options.break_arches = x
         self.upgrade_me = allpackages
