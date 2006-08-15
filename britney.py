@@ -2026,7 +2026,7 @@ class Britney:
             n = l
         return packages
 
-    def iter_packages(self, packages, selected, hint=False):
+    def iter_packages(self, packages, selected, hint=False, nuninst=None):
         """Iter on the list of actions and apply them one-by-one
 
         This method apply the changes from `packages` to testing, checking the uninstallability
@@ -2040,7 +2040,10 @@ class Britney:
         mark_passed = False
         position = len(packages)
 
-        nuninst_comp = self.nuninst_orig.copy()
+        if nuninst:
+            nuninst_comp = nuninst.copy()
+        else:
+            nuninst_comp = self.nuninst_orig.copy()
 
         # local copies for better performances
         check_installable = self.check_installable
@@ -2053,8 +2056,15 @@ class Britney:
         dependencies = self.dependencies
         compatible = self.options.compatible
 
+        # pre-process a hint batch
+        pre_process = {}
+        if selected and hint:
+            for pkg in selected:
+                pkg_name, suite, affected, undo = self.doop_source(pkg)
+                pre_process[pkg] = (pkg_name, suite, affected, undo)
+
         if not hint:
-            self.output_write("recur: [%s] %s %d/%d\n" % (",".join(selected), "", len(packages), len(extra)))
+            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(selected), len(packages), len(extra)))
         else: lundo = []
 
         # loop on the packages (or better, actions)
@@ -2086,7 +2096,10 @@ class Britney:
             nuninst = {}
 
             # apply the changes
-            pkg_name, suite, affected, undo = self.doop_source(pkg)
+            if pkg in pre_process:
+                pkg_name, suite, affected, undo = pre_process[pkg]
+            else:
+                pkg_name, suite, affected, undo = self.doop_source(pkg)
             if hint:
                 lundo.append((undo, pkg, suite))
 
@@ -2151,8 +2164,8 @@ class Britney:
                     better = False
                     break
 
-            # if we are processing hints, go ahead
-            if hint: continue
+            # if we are processing hints or the package is already accepted, go ahead
+            if hint or pkg in selected: continue
 
             # check if the action improved the uninstallability counters
             if better:
@@ -2217,7 +2230,6 @@ class Britney:
         self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
         self.output_write("\n")
 
-        self.output_write("Apparently successful\n")
         return (nuninst_comp, extra)
 
     def do_all(self, maxdepth=0, init=None, actions=None):
@@ -2265,14 +2277,14 @@ class Britney:
                 nuninst_end, extra = None, None
         else:
             if init:
-                backup = self.nuninst_orig
                 (nuninst_end, extra) = self.iter_packages(init, selected, hint=True)
-                self.nuninst_orig = nuninst_end
-            (nuninst_end, extra) = self.iter_packages(upgrade_me, selected)
+            else: nuninst_end = None
+            (nuninst_end, extra) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end)
             if not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
 
         if nuninst_end:
+            self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted(selected)))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
