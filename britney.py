@@ -258,7 +258,6 @@ class Britney:
         self.hints = self.read_hints(self.options.unstable)
         self.excuses = []
         self.dependencies = {}
-        self.selected = []
 
     def __parse_arguments(self):
         """Parse the command line arguments
@@ -2228,12 +2227,11 @@ class Britney:
         counters before and after the actions to decide if the update was
         successful or not.
         """
+        selected = []
         if actions:
             upgrade_me = actions[:]
-            selected = []
         else:
             upgrade_me = self.upgrade_me[:]
-            selected = self.selected
         nuninst_start = self.nuninst_orig
 
         # these are special parameters for hints processing
@@ -2265,9 +2263,14 @@ class Britney:
             self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
-                self.selected = selected[:len(init)]
         else:
+            if init:
+                backup = self.nuninst_orig
+                (nuninst_end, extra) = self.iter_packages(init, selected, hint=True)
+                self.nuninst_orig = nuninst_end
             (nuninst_end, extra) = self.iter_packages(upgrade_me, selected)
+            if not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
+                nuninst_end, extra = None, None
 
         if nuninst_end:
             self.output_write("final: %s\n" % ",".join(sorted(selected)))
@@ -2280,8 +2283,11 @@ class Britney:
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
             if not actions:
-                self.upgrade_me = extra
+                self.upgrade_me = sorted(extra)
+                if not self.options.compatible:
+                    self.sort_actions()
         else:
+            if init: self.nuninst_orig = backup
             self.output_write("FAILED\n")
             if not earlyabort: return
 
@@ -2336,7 +2342,7 @@ class Britney:
         for x in self.hints['easy']:
             self.do_hint("easy", x[0], x[1])
 
-        # process `easy' hints
+        # process `force-hint' hints
         for x in self.hints["force-hint"]:
             self.do_hint("force-hint", x[0], x[1])
 
@@ -2355,17 +2361,23 @@ class Britney:
         self.do_all()
         allpackages += self.upgrade_me
         for a in self.options.break_arches.split():
-            x = self.options.break_arches
+            backup = self.options.break_arches
             self.options.break_arches = " ".join([x for x in self.options.break_arches.split() if x != a])
             self.upgrade_me = archpackages[a]
             self.output_write("info: broken arch run for %s\n" % (a))
-            tmp = self.selected
-            self.selected = []
             self.do_all()
-            self.selected = tmp + self.selected
             allpackages += self.upgrade_me
-            self.options.break_arches = x
+            self.options.break_arches = backup
         self.upgrade_me = allpackages
+
+        # process `hint' hints
+        hintcnt = 0
+        for x in self.hints["hint"][:50]:
+            if hintcnt > 50:
+                self.output_write("Skipping remaining hints...")
+                break
+            if self.do_hint("hint", x[0], x[1]):
+                hintcnt += 1
 
         # run the auto hinter
         if not self.options.compatible:
@@ -2411,7 +2423,7 @@ class Britney:
                     "hint": 0,
                     "force-hint": -1,}
 
-        self.__log("> Processing hints from %s" % who, type="I")
+        self.__log("> Processing '%s' hint from %s" % (type, who), type="I")
         self.output_write("Trying %s from %s: %s\n" % (type, who, " ".join( ["%s/%s" % (p,v) for (p,v) in pkgvers])))
 
         ok = True
@@ -2443,7 +2455,6 @@ class Britney:
             return False
 
         self.do_all(hintinfo[type], map(operator.itemgetter(0), pkgvers))
-
         return True
 
     def sort_actions(self):
