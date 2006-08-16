@@ -2291,7 +2291,7 @@ class Britney:
                 nuninst_end, extra = None, None
         else:
             if init:
-                (nuninst_end, extra) = self.iter_packages(init, selected, hint=True)
+                (nuninst_end, lundo) = self.iter_packages(init, selected, hint=True)
             else: nuninst_end = None
             (nuninst_end, extra) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end)
             if not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
@@ -2315,7 +2315,7 @@ class Britney:
         else:
             if init: self.nuninst_orig = backup
             self.output_write("FAILED\n")
-            if not earlyabort: return
+            if not earlyabort and not init: return
 
             # undo all the changes
             for (undo, pkg, pkg_name, suite) in lundo:
