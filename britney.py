@@ -1,5 +1,4 @@
-#!/usr/bin/env python2.4
-# -*- coding: utf-8 -*-
+#!/usr/bin/env python2.4 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2001-2004 Anthony Towns <ajt@debian.org>
 #                         Andreas Barth <aba@debian.org>
@@ -830,7 +829,7 @@ class Britney:
         for r in f:
             if ":" not in r: continue
             arch, packages = r.strip().split(":", 1)
-            if arch in self.options.architectures:
+            if arch.split("+", 1)[0] in self.options.architectures:
                 nuninst[arch] = packages.split()
         return nuninst
 
@@ -1547,8 +1546,9 @@ class Britney:
                     add_nuninst(pkg_name, arch)
 
             # if they are not required, removed architecture-indipendent packages
+            nuninst[arch + "+all"] = nuninst[arch][:]
             if skip_archall:
-                for pkg in nuninst[arch][:]:
+                for pkg in nuninst[arch + "+all"]:
                     bpkg = binaries[arch][0][pkg]
                     if bpkg['architecture'] == 'all':
                         nuninst[arch].remove(pkg)
@@ -1769,7 +1769,7 @@ class Britney:
             if not binary_u: return False
 
             # it is broken, but we have providers
-            if pkg in broken:
+            if pkg in broken and pkg_from:
                 for p in providers:
                     # try to install the providers skipping excluded packages,
                     # which we already tried but do not work
@@ -2101,7 +2101,7 @@ class Britney:
             else:
                 pkg_name, suite, affected, undo = self.doop_source(pkg)
             if hint:
-                lundo.append((undo, pkg, suite))
+                lundo.append((undo, pkg, pkg_name, suite))
 
             # check the affected packages on all the architectures
             for arch in ("/" in pkg and (pkg.split("/")[1].split("_")[0],) or architectures):
@@ -2110,52 +2110,65 @@ class Britney:
                 else: skip_archall = False
 
                 nuninst[arch] = [x for x in nuninst_comp[arch] if x in binaries[arch][0]]
-                broken = nuninst[arch][:]
+                nuninst[arch + "+all"] = [x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]]
+                broken = nuninst[arch + "+all"][:]
                 to_check = [x[0] for x in affected if x[1] == arch]
-
                 # broken packages (first round)
+                repaired = []
                 old_broken = None
                 last_broken = None
                 while old_broken != broken:
                     old_broken = broken[:]
                     for p in to_check:
                         if p == last_broken: break
-                        if p not in binaries[arch][0] or \
-                           skip_archall and binaries[arch][0][p]['architecture'] == 'all': continue
+                        if p not in binaries[arch][0]: continue
                         r = check_installable(p, arch, 'testing', excluded=broken, conflicts=True)
                         if not r and p not in broken:
                             last_broken = p
                             broken.append(p)
-                        elif r and p in nuninst[arch]:
+                        elif r and p in nuninst[arch + "+all"]:
                             last_broken = p
+                            repaired.append(p)
                             broken.remove(p)
-                            nuninst[arch].remove(p)
+                            nuninst[arch + "+all"].remove(p)
+                            if not (skip_archall and binaries[arch][0][p]['architecture'] == 'all'):
+                                nuninst[arch].remove(p)
 
                 # broken packages (second round, reverse dependencies of the first round)
                 l = 0
+                old_broken = None
                 last_broken = None
-                while l < len(broken):
-                    l = len(broken)
-                    for j in broken:
+                while old_broken != broken:
+                    old_broken = broken[:]
+                    for j in broken + repaired:
                         if j not in binaries[arch][0]: continue
                         for p in binaries[arch][0][j]['rdepends']:
-                            if p in broken or p not in binaries[arch][0] or \
-                               skip_archall and binaries[arch][0][p]['architecture'] == 'all': continue
+                            if p in broken or p not in binaries[arch][0]: continue
                             r = check_installable(p, arch, 'testing', excluded=broken, conflicts=True)
                             if not r and p not in broken:
                                 l = -1
                                 last_broken = j
                                 broken.append(p)
+                            elif r and p in nuninst[arch + "+all"]:
+                                last_broken = p
+                                repaired.append(p)
+                                broken.remove(p)
+                                nuninst[arch + "+all"].remove(p)
+                                if not (skip_archall and binaries[arch][0][p]['architecture'] == 'all'):
+                                    nuninst[arch].remove(p)
                     if l != -1 and last_broken == j: break
 
                 # update the uninstallability counter
                 for b in broken:
-                    if b not in nuninst[arch]:
+                    if b not in nuninst[arch + "+all"]:
+                        nuninst[arch + "+all"].append(b)
+                    if b not in nuninst[arch] and not (skip_archall and binaries[arch][0][b]['architecture'] == 'all'):
                         nuninst[arch].append(b)
 
                 # if we are processing hints, go ahead
                 if hint:
                     nuninst_comp[arch] = nuninst[arch]
+                    nuninst_comp[arch + "+all"] = nuninst[arch + "+all"]
                     continue
 
                 # if the uninstallability counter is worse than before, break the loop
@@ -2185,7 +2198,7 @@ class Britney:
             else:
                 self.output_write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
                 self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and nuninst_comp or None)))
-                self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in broken if b not in nuninst_comp[arch]]))))
+                self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in nuninst[arch] if b not in nuninst_comp[arch]]))))
 
                 extra.append(pkg)
                 if not mark_passed:
@@ -2198,9 +2211,10 @@ class Britney:
                     else: sources['testing'][k] = undo['sources'][k]
 
                 # undo the changes (new binaries)
-                if pkg in sources[suite]:
-                    for p in sources[suite][pkg]['binaries']:
+                if pkg[0] != '-' and pkg_name in sources[suite]:
+                    for p in sources[suite][pkg_name]['binaries']:
                         binary, arch = p.split("/")
+                        if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
                         del binaries[arch][0][binary]
 
                 # undo the changes (binaries)
@@ -2304,7 +2318,7 @@ class Britney:
             if not earlyabort: return
 
             # undo all the changes
-            for (undo, pkg, suite) in lundo:
+            for (undo, pkg, pkg_name, suite) in lundo:
                 # undo the changes (source)
                 for k in undo['sources'].keys():
                     if k[0] == '-':
@@ -2312,9 +2326,10 @@ class Britney:
                     else: self.sources['testing'][k] = undo['sources'][k]
 
                 # undo the changes (new binaries)
-                if pkg in self.sources[suite]:
-                    for p in self.sources[suite][pkg]['binaries']:
+                if pkg_name in self.sources[suite]:
+                    for p in self.sources[suite][pkg_name]['binaries']:
                         binary, arch = p.split("/")
+                        if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
                         del self.binaries['testing'][arch][0][binary]
 
                 # undo the changes (binaries)
@@ -2350,13 +2365,14 @@ class Britney:
         self.__log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
 
-        # process `easy' hints
-        for x in self.hints['easy']:
-            self.do_hint("easy", x[0], x[1])
+        if not self.options.actions:
+            # process `easy' hints
+            for x in self.hints['easy']:
+                self.do_hint("easy", x[0], x[1])
 
-        # process `force-hint' hints
-        for x in self.hints["force-hint"]:
-            self.do_hint("force-hint", x[0], x[1])
+            # process `force-hint' hints
+            for x in self.hints["force-hint"]:
+                self.do_hint("force-hint", x[0], x[1])
 
         # run the first round of the upgrade
         self.__log("> First loop on the packages with depth = 0", type="I")
@@ -2381,6 +2397,9 @@ class Britney:
             allpackages += self.upgrade_me
             self.options.break_arches = backup
         self.upgrade_me = allpackages
+
+        if self.options.actions:
+            return
 
         # process `hint' hints
         hintcnt = 0
