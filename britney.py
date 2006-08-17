@@ -2063,9 +2063,9 @@ class Britney:
                 pkg_name, suite, affected, undo = self.doop_source(pkg)
                 pre_process[pkg] = (pkg_name, suite, affected, undo)
 
+        lundo = []
         if not hint:
             self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(selected), len(packages), len(extra)))
-        else: lundo = []
 
         # loop on the packages (or better, actions)
         while packages:
@@ -2182,6 +2182,7 @@ class Britney:
 
             # check if the action improved the uninstallability counters
             if better:
+                lundo.append((undo, pkg, pkg_name, suite))
                 selected.append(pkg)
                 packages.extend(extra)
                 extra = []
@@ -2236,7 +2237,7 @@ class Britney:
 
         # if we are processing hints, return now
         if hint:
-            return (nuninst_comp, lundo)
+            return (nuninst_comp, [], lundo)
 
         self.output_write(" finish: [%s]\n" % ",".join(selected))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
@@ -2244,7 +2245,7 @@ class Britney:
         self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
         self.output_write("\n")
 
-        return (nuninst_comp, extra)
+        return (nuninst_comp, extra, lundo)
 
     def do_all(self, maxdepth=0, init=None, actions=None):
         """Testing update runner
@@ -2284,16 +2285,21 @@ class Britney:
 
         if earlyabort:
             extra = upgrade_me[:]
-            (nuninst_end, lundo) = self.iter_packages(init, selected, hint=True)
+            (nuninst_end, extra, lundo) = self.iter_packages(init, selected, hint=True)
+            undo = True
             self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
             self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
         else:
+            lundo = []
             if init:
-                (nuninst_end, lundo) = self.iter_packages(init, selected, hint=True)
+                (nuninst_end, extra, tundo) = self.iter_packages(init, selected, hint=True)
+                lundo.extend(tundo)
+                undo = True
             else: nuninst_end = None
-            (nuninst_end, extra) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end)
+            (nuninst_end, extra, tundo) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end)
+            lundo.extend(tundo)
             if not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
 
@@ -2313,9 +2319,8 @@ class Britney:
                 if not self.options.compatible:
                     self.sort_actions()
         else:
-            if init: self.nuninst_orig = backup
             self.output_write("FAILED\n")
-            if not earlyabort and not init: return
+            if not undo: return
 
             # undo all the changes
             for (undo, pkg, pkg_name, suite) in lundo:
@@ -2326,7 +2331,7 @@ class Britney:
                     else: self.sources['testing'][k] = undo['sources'][k]
 
                 # undo the changes (new binaries)
-                if pkg_name in self.sources[suite]:
+                if pkg[0] != '-' and pkg_name in self.sources[suite]:
                     for p in self.sources[suite][pkg_name]['binaries']:
                         binary, arch = p.split("/")
                         if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
