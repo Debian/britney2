@@ -1815,7 +1815,7 @@ class Britney:
             if pkg in conflicts:
                 for name, version, op, conflicting in conflicts[pkg]:
                     if conflicting in binary_u[PROVIDES] and system[conflicting][1] == [pkg]: continue
-                    if op == '' and version == '' or check_depends(binary_u[VERSION], op, version):
+                    f op == '' and version == '' or check_depends(binary_u[VERSION], op, version):
                         # if conflict is found, check if it can be solved removing
                         # already-installed packages without broking the system; if
                         # this is not possible, give up and return False
@@ -2129,14 +2129,14 @@ class Britney:
 
                 nuninst[arch] = [x for x in nuninst_comp[arch] if x in binaries[arch][0]]
                 nuninst[arch + "+all"] = [x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]]
-                broken = nuninst[arch + "+all"][:]
+                broken = nuninst[arch + "+all"]
                 to_check = [x[0] for x in affected if x[1] == arch]
                 # broken packages (first round)
                 repaired = []
-                old_broken = None
+                broken_changed = True
                 last_broken = None
-                while old_broken != broken:
-                    old_broken = broken[:]
+                while broken_changed:
+                    broken_changed = False
                     for p in to_check:
                         if p == last_broken: break
                         if p not in binaries[arch][0]: continue
@@ -2144,20 +2144,23 @@ class Britney:
                         if not r and p not in broken:
                             last_broken = p
                             broken.append(p)
-                        elif r and p in nuninst[arch + "+all"]:
+                            broken_changed = True
+                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                                nuninst[arch].append(p)
+                        elif r and p in broken:
                             last_broken = p
                             repaired.append(p)
                             broken.remove(p)
-                            nuninst[arch + "+all"].remove(p)
+                            broken_changed = True
                             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
                                 nuninst[arch].remove(p)
 
                 # broken packages (second round, reverse dependencies of the first round)
                 l = 0
-                old_broken = None
+                broken_changed = True
                 last_broken = None
-                while old_broken != broken:
-                    old_broken = broken[:]
+                while broken_changed:
+                    broken_changed = False
                     for j in broken + repaired:
                         if j not in binaries[arch][0]: continue
                         for p in binaries[arch][0][j][RDEPENDS]:
@@ -2167,21 +2170,17 @@ class Britney:
                                 l = -1
                                 last_broken = j
                                 broken.append(p)
+                                broken_changed = True
+                                if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                                    nuninst[arch].append(p)
                             elif r and p in nuninst[arch + "+all"]:
                                 last_broken = p
                                 repaired.append(p)
                                 broken.remove(p)
-                                nuninst[arch + "+all"].remove(p)
+                                broken_changed = True
                                 if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
                                     nuninst[arch].remove(p)
                     if l != -1 and last_broken == j: break
-
-                # update the uninstallability counter
-                for b in broken:
-                    if b not in nuninst[arch + "+all"]:
-                        nuninst[arch + "+all"].append(b)
-                    if b not in nuninst[arch] and not (skip_archall and binaries[arch][0][b][ARCHITECTURE] == 'all'):
-                        nuninst[arch].append(b)
 
                 # if we are processing hints, go ahead
                 if hint:
