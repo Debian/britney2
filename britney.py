@@ -1698,7 +1698,7 @@ class Britney:
                     del conflicts[c]
 
         def remove_package(pkg, system, conflicts):
-            for k in system.keys():
+            for k in system:
                 if pkg in system[k][1]:
                     system[k][1].remove(pkg)
             unregister_conflicts(pkg, conflicts)
