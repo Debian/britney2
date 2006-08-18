@@ -1,0 +1,32 @@
+
+BUILDING
+========
+
+Install libapt-pkg-dev
+
+testing/ $ make
+testing/ $ mkdir old cur out
+testing/ $ cd testing
+testing/testing/ $ perl Makefile.PL
+testing/testing/ $ make
+
+Add old and new packages files into old and cur, respectively.
+
+testing/ $ ./checklib i386 alpha
+
+Will generate some test stuff in out/
+
+TODO
+====
+
+Need some way of actually updating archives.
+Need some way of judging differences between Packages files.
+  (so I can see what hasn't been updated and work out why;
+   so I can check that Packages.gz matches dpkg-scanpackages output)
+Need some way of automatically explaining why packages aren't upgraded.
+  (shouldn't be hard?)
+
+BUGS
+====
+
+out/ directory must exist for checklib, or segfault

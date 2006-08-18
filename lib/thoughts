@@ -1,0 +1,13 @@
+remove_source(name)                      source exists
+	remove_sourcetbl
+	remove the binaries?? but how?
+upgrade_source(dpkg_source)              source may exist
+	remove_source(src->name)
+	add the new source to the table thing
+	foreach arch, binary: add binary to arch pkgs
+upgrade_architecture(dpkg_source, arch)  source exists, binary may
+	find source
+	foreach binary in <arch>: remove it
+	foreach binary in new <arch>: add it
+
+(remove_architecture, upgrade_source_only; could also be used, theoretically)
