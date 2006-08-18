@@ -853,6 +853,168 @@ static PyObject *apt_versioncmp(PyObject *self, PyObject *args) {
 }
 
 /**************************************************************************
+ * britney.buildSystem() -- build a fake package system, with the only purpose of
+ *                          calling the is_installable method on the packages.
+ ******************************************************/
+
+static PyObject *build_system(PyObject *self, PyObject *args) {
+    int pos = 0;
+    char *arch;
+	PyObject *pkgs, *key, *value, *pyString;
+
+	(void)self; /* unused */
+
+    if (!PyArg_ParseTuple(args, "sO", &arch, &pkgs) ||
+        !PyDict_Check(pkgs)) return NULL;
+
+    /* Fields and positions for the binary package:
+       # VERSION = 0
+       # SECTION = 1
+       # SOURCE = 2
+       # SOURCEVER = 3
+       # ARCHITECTURE = 4
+       # PREDEPENDS = 5
+       # DEPENDS = 6
+       # CONFLICTS = 7
+       # PROVIDES = 8
+       # RDEPENDS = 9
+       # RCONFLICTS = 10
+    */
+
+    dpkg_packages *dpkg_pkgs = new_packages(arch);
+
+    /* loop on the dictionary keys to build the packages */
+    while (PyDict_Next(pkgs, &pos, &key, &value)) {
+
+        /* initialize the new package */
+        dpkg_package *pkg;
+        pkg = block_malloc(sizeof(dpkg_package));
+        pkg->package = PyString_AsString(key);
+        pkg->priority = 0;
+        pkg->details    = NULL;
+        pkg->depends[2] = NULL;
+        pkg->depends[3] = NULL;
+
+        pyString = PyList_GetItem(value, 0);
+        if (pyString == NULL) continue;
+        pkg->version = PyString_AsString(pyString);
+
+        pyString = PyList_GetItem(value, 2);
+        if (pyString == NULL) continue;
+        pkg->source = PyString_AsString(pyString);
+
+        pyString = PyList_GetItem(value, 3);
+        if (pyString == NULL) continue;
+        pkg->source_ver = PyString_AsString(pyString);
+
+        pyString = PyList_GetItem(value, 4);
+        if (pyString == NULL) continue;
+        pkg->arch_all = (!strcmp(PyString_AsString(pyString), "all") ? 1 : 0);
+
+        pyString = PyList_GetItem(value, 5);
+        if (pyString == NULL) continue;
+        pkg->depends[0] = read_dep_andor(PyString_AsString(pyString));
+
+        pyString = PyList_GetItem(value, 6);
+        if (pyString == NULL) continue;
+        pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
+
+        pyString = PyList_GetItem(value, 7);
+        if (pyString == NULL) continue;
+        pkg->conflicts = read_dep_and(PyString_AsString(pyString));
+
+        pyString = PyList_GetItem(value, 8);
+        if (pyString == NULL) continue;
+        pkg->provides = read_packagenames(PyString_AsString(pyString));
+
+        add_package(dpkg_pkgs, pkg);
+    }
+
+    dpkgpackages *res;
+    res = PyObject_NEW(dpkgpackages, &Packages_Type);
+    if (res == NULL) return NULL;
+
+    res->pkgs = dpkg_pkgs;
+    res->freeme = FREE;
+    res->ref = NULL;
+
+    return (PyObject *)res;
+}
+
+static PyObject *remove_binary(PyObject *self, PyObject *args) {
+    char *pkg_name;
+	dpkgpackages *pkgs;
+
+	(void)self; /* unused */
+
+    if (!PyArg_ParseTuple(args, "Os", &pkgs, &pkg_name))
+        return NULL;
+
+    dpkg_collected_package *cpkg = lookup_packagetbl(pkgs->pkgs->packages, pkg_name);
+    if (cpkg == NULL) return Py_BuildValue("i", 0);
+
+    remove_package(pkgs->pkgs, cpkg);
+    return Py_BuildValue("i", 1);
+}
+
+static PyObject *add_binary(PyObject *self, PyObject *args) {
+    char *pkg_name;
+	dpkgpackages *pkgs;
+	PyObject *value, *pyString;
+
+	(void)self; /* unused */
+
+    if (!PyArg_ParseTuple(args, "OsO", &pkgs, &pkg_name, &value) ||
+        !PyList_Check(value)) return NULL;
+
+    /* initialize the new package */
+    dpkg_package *pkg;
+    pkg = block_malloc(sizeof(dpkg_package));
+    pkg->package = pkg_name;
+    pkg->priority = 0;
+    pkg->details    = NULL;
+    pkg->depends[2] = NULL;
+    pkg->depends[3] = NULL;
+
+    pyString = PyList_GetItem(value, 0);
+    if (pyString == NULL) return NULL;
+    pkg->version = PyString_AsString(pyString);
+
+    pyString = PyList_GetItem(value, 2);
+    if (pyString == NULL) return NULL;
+    pkg->source = PyString_AsString(pyString);
+
+    pyString = PyList_GetItem(value, 3);
+    if (pyString == NULL) return NULL;
+    pkg->source_ver = PyString_AsString(pyString);
+
+    pyString = PyList_GetItem(value, 4);
+    if (pyString == NULL) return NULL;
+    pkg->arch_all = (!strcmp(PyString_AsString(pyString), "all") ? 1 : 0);
+
+    pyString = PyList_GetItem(value, 5);
+    if (pyString == NULL) return NULL;
+    pkg->depends[0] = read_dep_andor(PyString_AsString(pyString));
+
+    pyString = PyList_GetItem(value, 6);
+    if (pyString == NULL) return NULL;
+    pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
+
+    pyString = PyList_GetItem(value, 7);
+    if (pyString == NULL) return NULL;
+    pkg->conflicts = read_dep_and(PyString_AsString(pyString));
+
+    pyString = PyList_GetItem(value, 8);
+    if (pyString == NULL) return NULL;
+    pkg->provides = read_packagenames(PyString_AsString(pyString));
+
+    add_package(pkgs->pkgs, pkg);
+
+    return Py_BuildValue("i", 1);
+}
+
+
+/**************************************************************************
  * module initialisation
  ***********************/
 
@@ -861,6 +1023,10 @@ static PyMethodDef britneymethods[] = {
 	{ "SourcesNote", dpkgsrcsn_new, METH_VARARGS, NULL },
 
 	{ "versioncmp", apt_versioncmp, METH_VARARGS, NULL },
+
+	{ "buildSystem", build_system, METH_VARARGS, NULL },
+	{ "removeBinary", remove_binary, METH_VARARGS, NULL },
+	{ "addBinary", add_binary, METH_VARARGS, NULL },
 
 	{ NULL, NULL, 0, NULL }
 };

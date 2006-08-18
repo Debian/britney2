@@ -204,4 +204,11 @@ void commit_changes(dpkg_sources_note *srcsn);
 int versioncmp(char *left, char *right);
 int cmpversions(char *left, int op, char *right);
 
+void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
+void remove_package(dpkg_packages *pkgs, dpkg_collected_package *pkg);
+deplist *read_dep_and(char *buf);
+deplistlist *read_dep_andor(char *buf);
+ownedpackagenamelist *read_packagenames(char *buf);
+dpkg_packages *new_packages(char *arch);
+
 #endif

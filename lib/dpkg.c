@@ -19,9 +19,9 @@ static dpkg_package *read_package( FILE *f );
 static collpackagelist **get_matching_low(collpackagelist **addto, 
 		                          dpkg_packages *pkgs, dependency *dep, int line);
 static collpackagelist *get_matching(dpkg_packages *pkgs, deplist *depopts, int line);
-static deplist *read_dep_and(char *buf);
-static deplistlist *read_dep_andor(char *buf);
-static ownedpackagenamelist *read_packagenames(char *buf);
+deplist *read_dep_and(char *buf);
+deplistlist *read_dep_andor(char *buf);
+ownedpackagenamelist *read_packagenames(char *buf);
 static dpkg_sources *read_sources_file(char *filename, int n_arches);
 static dpkg_source *new_source(dpkg_sources *owner);
 static dpkg_source *read_source(FILE *f, dpkg_sources *owner);
@@ -33,8 +33,8 @@ static void remove_virtualpackage(virtualpkgtbl *vpkgs, char *pkgname,
 			          dpkg_collected_package *cpkg);
 static char *read_packagename(char **buf, char *end);
 static char *read_until_char(char **buf, char *end);
-static void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
-static void remove_package(dpkg_packages *pkgs, dpkg_collected_package *pkg);
+void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
+void remove_package(dpkg_packages *pkgs, dpkg_collected_package *pkg);
 static dpkg_source_note *copy_source_note(dpkg_source_note *srcn);
 
 #if 0
@@ -483,7 +483,7 @@ dpkg_packages *new_packages(char *arch) {
     return result;
 }
 
-static void add_package(dpkg_packages *pkgs, dpkg_package *pkg) 
+void add_package(dpkg_packages *pkgs, dpkg_package *pkg) 
 {
     ownedpackagenamelist *v;
     dpkg_collected_package *cpkg;
@@ -502,7 +502,7 @@ static void add_package(dpkg_packages *pkgs, dpkg_package *pkg)
     }
 }
 
-static void remove_package(dpkg_packages *pkgs, dpkg_collected_package *cpkg) {
+void remove_package(dpkg_packages *pkgs, dpkg_collected_package *cpkg) {
     ownedpackagenamelist *v;
     packagenamelist *aff;
     dpkg_collected_package *p;
@@ -626,7 +626,7 @@ static void add_virtualpackage(virtualpkgtbl *vpkgs, char *package,
  * Parsing Helper Functions
  */
 
-static ownedpackagenamelist *read_packagenames(char *buf) {
+ownedpackagenamelist *read_packagenames(char *buf) {
     ownedpackagenamelist *result = NULL;
     ownedpackagenamelist **addto = &result;
 
@@ -688,7 +688,7 @@ static char *read_packagename(char **buf, char *end) {
     return read_until_char(buf, end);
 }
 
-static deplist *read_dep_and(char *buf) {
+deplist *read_dep_and(char *buf) {
     return read_deplist(&buf, ',', '\0'); 
 }
 
@@ -723,7 +723,7 @@ static deplist *read_deplist(char **buf, char sep, char end) {
     return result;
 }
 
-static deplistlist *read_dep_andor(char *buf) {
+deplistlist *read_dep_andor(char *buf) {
     deplistlist *result = NULL;
     deplistlist **addto = &result;
     
