@@ -38,7 +38,11 @@
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top">def&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="classexcuse_1_1Excuse.html#fa97c9f61fef17d6028491362153a766">add_dep</a></td></tr>
 
+<tr><td class="memItemLeft" nowrap align="right" valign="top">def&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="classexcuse_1_1Excuse.html#8a89f54df8036e6f5c7c6bfa3f0cc6fc">add_sane_dep</a></td></tr>
+
 <tr><td class="memItemLeft" nowrap align="right" valign="top">def&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="classexcuse_1_1Excuse.html#60e00fe0515f2dab003bd29baceedd34">add_break_dep</a></td></tr>
+
+<tr><td class="memItemLeft" nowrap align="right" valign="top">def&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="classexcuse_1_1Excuse.html#7c76b47749dc3da2b1988a6991664a40">add_unsat_dep</a></td></tr>
 
 <tr><td class="memItemLeft" nowrap align="right" valign="top">def&nbsp;</td><td class="memItemRight" valign="bottom"><a class="el" href="classexcuse_1_1Excuse.html#8594c46ccf4182fa8b37fe487bf53850">invalidate_dep</a></td></tr>
 
@@ -139,7 +143,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00028">28</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Add a break dependency</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00080">80</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00086">86</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="fa97c9f61fef17d6028491362153a766"></a><!-- doxytag: member="excuse::Excuse::add_dep" ref="fa97c9f61fef17d6028491362153a766" args="" -->
@@ -170,7 +174,69 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00080">80</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Add a dependency</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00076">76</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00078">78</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+</div>
+</div><p>
+<a class="anchor" name="8a89f54df8036e6f5c7c6bfa3f0cc6fc"></a><!-- doxytag: member="excuse::Excuse::add_sane_dep" ref="8a89f54df8036e6f5c7c6bfa3f0cc6fc" args="" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">def excuse.Excuse.add_sane_dep           </td>
+          <td>(</td>
+          <td class="paramtype">&nbsp;</td>
+          <td class="paramname"> <em>self</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&nbsp;</td>
+          <td class="paramname"> <em>name</em></td><td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td><td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+<div class="fragment"><pre class="fragment">Add a sane dependency</pre></div> 
+<p>
+Definition at line <a class="el" href="excuse_8py-source.html#l00082">82</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+</div>
+</div><p>
+<a class="anchor" name="7c76b47749dc3da2b1988a6991664a40"></a><!-- doxytag: member="excuse::Excuse::add_unsat_dep" ref="7c76b47749dc3da2b1988a6991664a40" args="" -->
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">def excuse.Excuse.add_unsat_dep           </td>
+          <td>(</td>
+          <td class="paramtype">&nbsp;</td>
+          <td class="paramname"> <em>self</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">&nbsp;</td>
+          <td class="paramname"> <em>arch</em></td><td>&nbsp;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td><td width="100%"></td>
+        </tr>
+      </table>
+</div>
+<div class="memdoc">
+
+<p>
+<div class="fragment"><pre class="fragment">Add a flag for unsatisfied dependencies</pre></div> 
+<p>
+Definition at line <a class="el" href="excuse_8py-source.html#l00091">91</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="eb0a1ea0fae66a571e5efa703e53ba3a"></a><!-- doxytag: member="excuse::Excuse::addhtml" ref="eb0a1ea0fae66a571e5efa703e53ba3a" args="" -->
@@ -201,7 +267,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00076">76</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Add a note in HTML</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00094">94</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00104">104</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="84049740652a58b248fabdb3fa9d4b2c"></a><!-- doxytag: member="excuse::Excuse::html" ref="84049740652a58b248fabdb3fa9d4b2c" args="" -->
@@ -223,7 +289,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00094">94</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Render the excuse in HTML</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00098">98</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00108">108</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="8594c46ccf4182fa8b37fe487bf53850"></a><!-- doxytag: member="excuse::Excuse::invalidate_dep" ref="8594c46ccf4182fa8b37fe487bf53850" args="" -->
@@ -254,7 +320,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00098">98</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Invalidate dependency</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00085">85</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00095">95</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="ac01c3b9802ad26571f01b55ffc1098c"></a><!-- doxytag: member="excuse::Excuse::set_date" ref="ac01c3b9802ad26571f01b55ffc1098c" args="" -->
@@ -285,7 +351,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00085">85</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the date of upload of the package</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00068">68</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00070">70</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="189ec1709eef0bd8acb9cd093b8350b5"></a><!-- doxytag: member="excuse::Excuse::set_maint" ref="189ec1709eef0bd8acb9cd093b8350b5" args="" -->
@@ -316,7 +382,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00068">68</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the package maintainer's name</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00056">56</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00058">58</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="3a0ebe3eb87c1af8f093e80a874ea0fa"></a><!-- doxytag: member="excuse::Excuse::set_priority" ref="3a0ebe3eb87c1af8f093e80a874ea0fa" args="" -->
@@ -347,7 +413,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00056">56</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the priority of the package</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00064">64</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00066">66</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="6b435fa4d19b929d9fb70c8d28688387"></a><!-- doxytag: member="excuse::Excuse::set_section" ref="6b435fa4d19b929d9fb70c8d28688387" args="" -->
@@ -378,7 +444,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00064">64</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the section of the package</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00060">60</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00062">62</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="c504d40ac6d07ffdb08b7ff8ed555d10"></a><!-- doxytag: member="excuse::Excuse::set_urgency" ref="c504d40ac6d07ffdb08b7ff8ed555d10" args="" -->
@@ -409,7 +475,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00060">60</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the urgency of upload of the package</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00072">72</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00074">74</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="b8751fc5d0033b4c734c476d92841d99"></a><!-- doxytag: member="excuse::Excuse::set_vers" ref="b8751fc5d0033b4c734c476d92841d99" args="" -->
@@ -446,7 +512,7 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00072">72</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the testing and unstable versions</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00051">51</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00053">53</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <a class="anchor" name="cf1fa7c6fb741bbe7e3120113748f3a5"></a><!-- doxytag: member="excuse::Excuse::setdaysold" ref="cf1fa7c6fb741bbe7e3120113748f3a5" args="" -->
@@ -483,12 +549,12 @@ Definition at line <a class="el" href="excuse_8py-source.html#l00051">51</a> of 
 <p>
 <div class="fragment"><pre class="fragment">Set the number of days from the upload and the minimum number of days for the update</pre></div> 
 <p>
-Definition at line <a class="el" href="excuse_8py-source.html#l00089">89</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
+Definition at line <a class="el" href="excuse_8py-source.html#l00099">99</a> of file <a class="el" href="excuse_8py-source.html">excuse.py</a>.
 </div>
 </div><p>
 <hr>The documentation for this class was generated from the following file:<ul>
 <li><a class="el" href="excuse_8py-source.html">excuse.py</a></ul>
-<hr size="1"><address style="align: right;"><small>Generated on Sat Jul 22 09:29:59 2006 for briteny by&nbsp;
+<hr size="1"><address style="align: right;"><small>Generated on Fri Aug 18 23:23:25 2006 for briteny by&nbsp;
 <a href="http://www.doxygen.org/index.html">
 <img src="doxygen.png" alt="doxygen" align="middle" border="0"></a> 1.4.7 </small></address>
 </body>
