@@ -1815,7 +1815,7 @@ class Britney:
             if pkg in conflicts:
                 for name, version, op, conflicting in conflicts[pkg]:
                     if conflicting in binary_u[PROVIDES] and system[conflicting][1] == [pkg]: continue
-                    f op == '' and version == '' or check_depends(binary_u[VERSION], op, version):
+                    if op == '' and version == '' or check_depends(binary_u[VERSION], op, version):
                         # if conflict is found, check if it can be solved removing
                         # already-installed packages without broking the system; if
                         # this is not possible, give up and return False
