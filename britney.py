@@ -1,4 +1,5 @@
-#!/usr/bin/env python2.4 # -*- coding: utf-8 -*-
+#!/usr/bin/env python2.4
+# -*- coding: utf-8 -*-
 
 # Copyright (C) 2001-2004 Anthony Towns <ajt@debian.org>
 #                         Andreas Barth <aba@debian.org>
@@ -186,6 +187,7 @@ import operator
 import apt_pkg
 
 from excuse import Excuse
+from britney import buildSystem, addBinary, removeBinary
 
 __author__ = 'Fabio Tranchitella'
 __version__ = '2.0.alpha1'
@@ -237,6 +239,7 @@ class Britney:
 
         # initialize the apt_pkg back-end
         apt_pkg.init()
+        self.systems = {}
 
         # if requested, build the non-installable status and save it
         if not self.options.nuninst_cache:
@@ -245,6 +248,7 @@ class Britney:
             nuninst = {}
             for arch in self.options.architectures:
                 self.binaries = {'testing': {arch: self.read_binaries(self.options.testing, "testing", arch)}}
+                self.build_systems(arch)
                 self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
                 result = self.get_nuninst(arch, build=True)
                 nuninst.update(result)
@@ -252,6 +256,7 @@ class Britney:
             self.write_nuninst(nuninst)
         else:
             self.__log("Not building the list of not installable packages, as requested", type="I")
+
 
         # read the source and binary packages for the involved distributions
         self.sources = {'testing': self.read_sources(self.options.testing),
@@ -262,6 +267,9 @@ class Britney:
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
+            # build the testing system if not already available
+            if arch not in self.systems:
+                self.build_systems(arch)
 
         # read the release-critical bug summaries for testing and unstable
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
@@ -345,6 +353,18 @@ class Britney:
 
     # Data reading/writing methods
     # ----------------------------
+
+    def build_systems(self, arch=None):
+        for a in self.options.architectures:
+            if arch and a != arch: continue
+            packages = {}
+            binaries = self.binaries['testing'][arch][0].copy()
+            for k in binaries:
+                packages[k] = binaries[k][:]
+                if packages[k][PROVIDES]:
+                    packages[k][PROVIDES] = ", ".join(packages[k][PROVIDES])
+                else: packages[k][PROVIDES] = None
+            self.systems[a] = buildSystem(a, packages)
 
     def read_sources(self, basedir):
         """Read the list of source packages from the specified directory
@@ -1534,7 +1554,7 @@ class Britney:
 
         # local copies for better performances
         binaries = self.binaries['testing']
-        check_installable = self.check_installable
+        systems = self.systems
 
         # when a new uninstallable package is discovered, check again all the
         # reverse dependencies and if they are uninstallable, too, call itself
@@ -1543,7 +1563,7 @@ class Britney:
             if pkg not in nuninst[arch]:
                 nuninst[arch].append(pkg)
                 for p in binaries[arch][0][pkg][RDEPENDS]:
-                    r = check_installable(p, arch, 'testing', excluded=nuninst[arch], conflicts=True)
+                    r = systems[arch].is_installable(p)
                     if not r:
                         add_nuninst(p, arch)
 
@@ -1559,7 +1579,7 @@ class Britney:
             # uninstallable package is found
             nuninst[arch] = []
             for pkg_name in binaries[arch][0]:
-                r = check_installable(pkg_name, arch, 'testing', excluded=nuninst[arch], conflicts=True)
+                r = systems[arch].is_installable(pkg_name)
                 if not r:
                     add_nuninst(pkg_name, arch)
 
@@ -1639,7 +1659,13 @@ class Britney:
 
         The method returns a boolean which is True if the given package is
         installable.
+
+        NOTE: this method has been deprecated, actually we use is_installable
+        from the britney c extension called within a testing system. See
+        self.build_systems for more information.
         """
+        self.__log("WARNING: method check_installable is deprecated: use is_installable instead!", type="E")
+
         # retrieve the binary package from the specified suite and arch
         binary_u = self.binaries[suite][arch][0][pkg]
 
@@ -1959,6 +1985,7 @@ class Britney:
                             del binaries[parch][1][j]
                     # finally, remove the binary package
                     del binaries[parch][0][binary]
+                    removeBinary(self.systems[parch], binary)
                 # remove the source package
                 if not arch:
                     undo['sources'][pkg_name] = source
@@ -1974,6 +2001,7 @@ class Britney:
                 key = (j, arch)
                 if key not in affected: affected.append(key)
             del binaries[arch][0][pkg_name]
+            removeBinary(self.systems[arch], pkg_name)
 
         # add the new binary packages (if we are not removing)
         if pkg[0] != "-":
@@ -1999,8 +2027,11 @@ class Britney:
                         for p in self.get_full_tree(j, parch, 'testing'):
                             key = (p, parch)
                             if key not in affected: affected.append(key)
+                    removeBinary(self.systems[parch], binary)
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[suite][parch][0][binary]
+                addBinary(self.systems[parch], binary, binaries[parch][0][binary][:PROVIDES] + \
+                    [", ".join(binaries[parch][0][binary][PROVIDES]) or None])
                 # register new provided packages
                 for j in binaries[parch][0][binary][PROVIDES]:
                     key = j + "/" + parch
@@ -2064,9 +2095,9 @@ class Britney:
             nuninst_comp = self.nuninst_orig.copy()
 
         # local copies for better performances
-        check_installable = self.check_installable
         binaries = self.binaries['testing']
         sources = self.sources
+        systems = self.systems
         architectures = self.options.architectures
         nobreakall_arches = self.options.nobreakall_arches
         new_arches = self.options.new_arches
@@ -2140,7 +2171,7 @@ class Britney:
                     for p in to_check:
                         if p == last_broken: break
                         if p not in binaries[arch][0]: continue
-                        r = check_installable(p, arch, 'testing', excluded=broken, conflicts=True)
+                        r = systems[arch].is_installable(p)
                         if not r and p not in broken:
                             last_broken = p
                             broken.append(p)
@@ -2165,7 +2196,7 @@ class Britney:
                         if j not in binaries[arch][0]: continue
                         for p in binaries[arch][0][j][RDEPENDS]:
                             if p in broken or p not in binaries[arch][0]: continue
-                            r = check_installable(p, arch, 'testing', excluded=broken, conflicts=True)
+                            r = systems[arch].is_installable(p)
                             if not r and p not in broken:
                                 l = -1
                                 last_broken = j
@@ -2234,13 +2265,19 @@ class Britney:
                         binary, arch = p.split("/")
                         if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
                         del binaries[arch][0][binary]
+                        removeBinary(self.systems[arch], binary)
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     if binary[0] == "-":
                         del binaries[arch][0][binary[1:]]
-                    else: binaries[arch][0][binary] = undo['binaries'][p]
+                        removeBinary(self.systems[arch], binary[1:])
+                    else:
+                        binaries[arch][0][binary] = undo['binaries'][p]
+                        removeBinary(self.systems[arch], binary)
+                        addBinary(self.systems[arch], binary, binaries[arch][0][binary][:PROVIDES] + \
+                            [", ".join(binaries[arch][0][binary][PROVIDES]) or None])
 
                 # undo the changes (virtual packages)
                 for p in undo['nvirtual']:
@@ -2353,12 +2390,14 @@ class Britney:
                         binary, arch = p.split("/")
                         if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
                         del self.binaries['testing'][arch][0][binary]
+                        removeBinary(self.systems[arch], binary)
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     if binary[0] == "-":
                         del self.binaries['testing'][arch][0][binary[1:]]
+                        removeBinary(self.systems[arch], binary[1:])
                     else: self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
 
                 # undo the changes (virtual packages)

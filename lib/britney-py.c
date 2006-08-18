@@ -913,19 +913,27 @@ static PyObject *build_system(PyObject *self, PyObject *args) {
 
         pyString = PyList_GetItem(value, 5);
         if (pyString == NULL) continue;
-        pkg->depends[0] = read_dep_andor(PyString_AsString(pyString));
+        if (pyString != Py_None) {
+            pkg->depends[0] = read_dep_andor(PyString_AsString(pyString));
+        } else pkg->depends[0] = NULL;
 
         pyString = PyList_GetItem(value, 6);
         if (pyString == NULL) continue;
-        pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
+        if (pyString != Py_None) {
+            pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
+        } else pkg->depends[1] = NULL;
 
         pyString = PyList_GetItem(value, 7);
         if (pyString == NULL) continue;
-        pkg->conflicts = read_dep_and(PyString_AsString(pyString));
+        if (pyString != Py_None) {
+            pkg->conflicts = read_dep_and(PyString_AsString(pyString));
+        } else pkg->conflicts = NULL;
 
         pyString = PyList_GetItem(value, 8);
         if (pyString == NULL) continue;
-        pkg->provides = read_packagenames(PyString_AsString(pyString));
+        if (pyString != Py_None) {
+            pkg->provides = read_packagenames(PyString_AsString(pyString));
+        } else pkg->provides = NULL;
 
         add_package(dpkg_pkgs, pkg);
     }
@@ -994,19 +1002,27 @@ static PyObject *add_binary(PyObject *self, PyObject *args) {
 
     pyString = PyList_GetItem(value, 5);
     if (pyString == NULL) return NULL;
-    pkg->depends[0] = read_dep_andor(PyString_AsString(pyString));
+    if (pyString != Py_None) {
+        pkg->depends[0] = read_dep_andor(PyString_AsString(pyString));
+    } else pkg->depends[0] = NULL;
 
     pyString = PyList_GetItem(value, 6);
     if (pyString == NULL) return NULL;
-    pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
+    if (pyString != Py_None) {
+        pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
+    } else pkg->depends[1] = NULL;
 
     pyString = PyList_GetItem(value, 7);
     if (pyString == NULL) return NULL;
-    pkg->conflicts = read_dep_and(PyString_AsString(pyString));
+    if (pyString != Py_None) {
+        pkg->conflicts = read_dep_and(PyString_AsString(pyString));
+    } else pkg->conflicts = NULL;
 
     pyString = PyList_GetItem(value, 8);
     if (pyString == NULL) return NULL;
-    pkg->provides = read_packagenames(PyString_AsString(pyString));
+    if (pyString != Py_None) {
+        pkg->provides = read_packagenames(PyString_AsString(pyString));
+    } else pkg->provides = NULL;
 
     add_package(pkgs->pkgs, pkg);
 
