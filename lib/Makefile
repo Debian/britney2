@@ -1,7 +1,8 @@
 
 CC = gcc
 CXX = g++
-CFLAGS = -Wall -W -O2 -DNDEBUG -DMDEBUG0 -g -p
+CFLAGS = -Wall -W -O2 -DNDEBUG -DMDEBUG0 -g -p -fPIC
+CXXFLAGS += -fPIC
 
 all : checklib aptvercmp freelist britneymodule.so # libajdpkg.a 
 
