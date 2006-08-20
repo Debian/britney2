@@ -325,27 +325,6 @@ static PyObject *dpkgpackages_add_binary(dpkgpackages *self, PyObject *args) {
     return Py_BuildValue("i", 1);
 }
 
-static PyObject *dpkgpackages_print_providers(dpkgpackages *self, PyObject *args) {
-    char *pkg_name;
-
-	(void)self; /* unused */
-
-    if (!PyArg_ParseTuple(args, "s", &pkg_name)) return NULL;
-
-    virtualpkg *list;
-    virtualpkg **where;
-    list = lookup_virtualpkgtbl(self->pkgs->virtualpkgs, pkg_name);
-    where = &list;
-    printf("Virtual package: %s\n", pkg_name);
-    while (*where != NULL) {
-        printf(" + provided by: %s\n", (*where)->value.pkg->pkg->package);
-        where = &(*where)->next;
-    }
-    printf("\n");
-
-    return Py_BuildValue("i", 1);
-}
-
 static PyObject *dpkgpackages_getattr(dpkgpackages *self, char *name) {
 	static struct PyMethodDef dpkgsources_methods[] = {
 		{ "is_present", (binaryfunc) dpkgpackages_ispresent, 
@@ -372,8 +351,6 @@ static PyObject *dpkgpackages_getattr(dpkgpackages *self, char *name) {
 	    { "remove_binary", (binaryfunc) dpkgpackages_remove_binary,
             METH_VARARGS, NULL },
 	    { "add_binary", (binaryfunc) dpkgpackages_add_binary,
-            METH_VARARGS, NULL },
-	    { "print_providers", (binaryfunc) dpkgpackages_print_providers,
             METH_VARARGS, NULL },
 
 		{ NULL, NULL, 0, NULL }
