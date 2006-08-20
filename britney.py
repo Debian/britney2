@@ -187,7 +187,7 @@ import operator
 import apt_pkg
 
 from excuse import Excuse
-from britney import buildSystem, addBinary, removeBinary
+from britney import buildSystem
 
 __author__ = 'Fabio Tranchitella'
 __version__ = '2.0.alpha1'
@@ -1556,17 +1556,6 @@ class Britney:
         binaries = self.binaries['testing']
         systems = self.systems
 
-        # when a new uninstallable package is discovered, check again all the
-        # reverse dependencies and if they are uninstallable, too, call itself
-        # recursively
-        def add_nuninst(pkg, arch):
-            if pkg not in nuninst[arch]:
-                nuninst[arch].append(pkg)
-                for p in binaries[arch][0][pkg][RDEPENDS]:
-                    r = systems[arch].is_installable(p)
-                    if not r:
-                        add_nuninst(p, arch)
-
         # for all the architectures
         for arch in self.options.architectures:
             if requested_arch and arch != requested_arch: continue
@@ -1581,7 +1570,7 @@ class Britney:
             for pkg_name in binaries[arch][0]:
                 r = systems[arch].is_installable(pkg_name)
                 if not r:
-                    add_nuninst(pkg_name, arch)
+                    nuninst[arch].append(pkg_name)
 
             # if they are not required, removed architecture-indipendent packages
             nuninst[arch + "+all"] = nuninst[arch][:]
@@ -1963,6 +1952,8 @@ class Britney:
                 for p in source[BINARIES]:
                     binary, parch = p.split("/")
                     if arch and parch != arch: continue
+                    # do not remove binaries which have been hijacked by other sources
+                    if binaries[parch][0][binary][SOURCE] != pkg_name: continue
                     # if a smooth update is possible for the package, skip it
                     if not self.options.compatible and suite == 'unstable' and \
                        binary not in self.binaries[suite][parch][0] and \
@@ -1985,7 +1976,7 @@ class Britney:
                             del binaries[parch][1][j]
                     # finally, remove the binary package
                     del binaries[parch][0][binary]
-                    removeBinary(self.systems[parch], binary)
+                    self.systems[parch].remove_binary(binary)
                 # remove the source package
                 if not arch:
                     undo['sources'][pkg_name] = source
@@ -2001,7 +1992,7 @@ class Britney:
                 key = (j, arch)
                 if key not in affected: affected.append(key)
             del binaries[arch][0][pkg_name]
-            removeBinary(self.systems[arch], pkg_name)
+            self.systems[arch].remove_binary(pkg_name)
 
         # add the new binary packages (if we are not removing)
         if pkg[0] != "-":
@@ -2027,10 +2018,10 @@ class Britney:
                         for p in self.get_full_tree(j, parch, 'testing'):
                             key = (p, parch)
                             if key not in affected: affected.append(key)
-                    removeBinary(self.systems[parch], binary)
+                    self.systems[parch].remove_binary(binary)
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[suite][parch][0][binary]
-                addBinary(self.systems[parch], binary, binaries[parch][0][binary][:PROVIDES] + \
+                self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
                     [", ".join(binaries[parch][0][binary][PROVIDES]) or None])
                 # register new provided packages
                 for j in binaries[parch][0][binary][PROVIDES]:
@@ -2161,57 +2152,40 @@ class Britney:
                 nuninst[arch] = [x for x in nuninst_comp[arch] if x in binaries[arch][0]]
                 nuninst[arch + "+all"] = [x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]]
                 broken = nuninst[arch + "+all"]
-                to_check = [x[0] for x in affected if x[1] == arch]
+                to_check = []
+
                 # broken packages (first round)
-                repaired = []
-                broken_changed = True
-                last_broken = None
-                while broken_changed:
-                    broken_changed = False
-                    for p in to_check:
-                        if p == last_broken: break
-                        if p not in binaries[arch][0]: continue
-                        r = systems[arch].is_installable(p)
-                        if not r and p not in broken:
-                            last_broken = p
-                            broken.append(p)
-                            broken_changed = True
-                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].append(p)
-                        elif r and p in broken:
-                            last_broken = p
-                            repaired.append(p)
-                            broken.remove(p)
-                            broken_changed = True
-                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].remove(p)
+                for p in [x[0] for x in affected if x[1] == arch]:
+                    if p not in binaries[arch][0]: continue
+                    r = systems[arch].is_installable(p)
+                    if not r and p not in broken:
+                        to_check.append(p)
+                        broken.append(p)
+                        if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                            nuninst[arch].append(p)
+                    elif r and p in broken:
+                        to_check.append(p)
+                        broken.remove(p)
+                        if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                            nuninst[arch].remove(p)
 
                 # broken packages (second round, reverse dependencies of the first round)
-                l = 0
-                broken_changed = True
-                last_broken = None
-                while broken_changed:
-                    broken_changed = False
-                    for j in broken + repaired:
-                        if j not in binaries[arch][0]: continue
-                        for p in binaries[arch][0][j][RDEPENDS]:
-                            if p in broken or p not in binaries[arch][0]: continue
-                            r = systems[arch].is_installable(p)
-                            if not r and p not in broken:
-                                l = -1
-                                last_broken = j
-                                broken.append(p)
-                                broken_changed = True
-                                if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                    nuninst[arch].append(p)
-                            elif r and p in nuninst[arch + "+all"]:
-                                last_broken = p
-                                repaired.append(p)
-                                broken.remove(p)
-                                broken_changed = True
-                                if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                    nuninst[arch].remove(p)
-                    if l != -1 and last_broken == j: break
+                while to_check:
+                    j = to_check.pop(0)
+                    if j not in binaries[arch][0]: continue
+                    for p in binaries[arch][0][j][RDEPENDS]:
+                        if p in broken or p not in binaries[arch][0]: continue
+                        r = systems[arch].is_installable(p)
+                        if not r and p not in broken:
+                            broken.append(p)
+                            to_check.append(p)
+                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                                nuninst[arch].append(p)
+                        elif r and p in nuninst[arch + "+all"]:
+                            broken.remove(p)
+                            to_check.append(p)
+                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                                nuninst[arch].remove(p)
 
                 # if we are processing hints, go ahead
                 if hint:
@@ -2265,18 +2239,18 @@ class Britney:
                         binary, arch = p.split("/")
                         if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
                         del binaries[arch][0][binary]
-                        removeBinary(self.systems[arch], binary)
+                        self.systems[arch].remove_binary(binary)
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     if binary[0] == "-":
                         del binaries[arch][0][binary[1:]]
-                        removeBinary(self.systems[arch], binary[1:])
+                        self.systems[arch].remove_binary(binary[1:])
                     else:
                         binaries[arch][0][binary] = undo['binaries'][p]
-                        removeBinary(self.systems[arch], binary)
-                        addBinary(self.systems[arch], binary, binaries[arch][0][binary][:PROVIDES] + \
+                        self.systems[arch].remove_binary(binary)
+                        self.systems[arch].add_binary(binary, binaries[arch][0][binary][:PROVIDES] + \
                             [", ".join(binaries[arch][0][binary][PROVIDES]) or None])
 
                 # undo the changes (virtual packages)
@@ -2390,14 +2364,14 @@ class Britney:
                         binary, arch = p.split("/")
                         if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
                         del self.binaries['testing'][arch][0][binary]
-                        removeBinary(self.systems[arch], binary)
+                        self.systems[arch].remove_binary(binary)
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
                     if binary[0] == "-":
                         del self.binaries['testing'][arch][0][binary[1:]]
-                        removeBinary(self.systems[arch], binary[1:])
+                        self.systems[arch].remove_binary(binary[1:])
                     else: self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
 
                 # undo the changes (virtual packages)

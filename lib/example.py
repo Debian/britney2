@@ -21,7 +21,7 @@ packages = {'phpldapadmin': ['1.0', 'web', 'phpldapadmin', '1.0', 'all', '', 'ap
 
 system = britney.buildSystem('i386', packages)
 print system.is_installable('phpldapadmin'), system.packages
-britney.removeBinary(system, 'apache2')
+system.remove_binary('apache2')
 print system.is_installable('phpldapadmin'), system.packages
-britney.addBinary(system, 'apache2', ['2.0', 'web', 'apache2', '2.0', 'i386', '', '', 'phpldapadmin (<= 1.0~)', '', [], []])
+system.add_binary('apache2', ['2.0', 'web', 'apache2', '2.0', 'i386', '', '', 'phpldapadmin (<= 1.0~)', '', [], []])
 print system.is_installable('phpldapadmin'), system.packages
