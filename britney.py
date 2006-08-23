@@ -2342,7 +2342,7 @@ class Britney:
                 self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
-            if not actions:
+            if not actions and not earlyabort:
                 self.upgrade_me = sorted(extra)
                 if not self.options.compatible:
                     self.sort_actions()
