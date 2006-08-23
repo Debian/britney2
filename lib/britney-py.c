@@ -294,7 +294,7 @@ static PyObject *dpkgpackages_add_binary(dpkgpackages *self, PyObject *args) {
 
     pyString = PyList_GetItem(value, 4);
     if (pyString == NULL) return NULL;
-    pkg->arch_all = (!strcmp(PyString_AsString(pyString), "all") ? 1 : 0);
+    pkg->arch_all = (pyString == Py_None || strcmp(PyString_AsString(pyString), "all") ? 0 : 1);
 
     pyString = PyList_GetItem(value, 5);
     if (pyString == NULL) return NULL;
@@ -994,7 +994,7 @@ static PyObject *build_system(PyObject *self, PyObject *args) {
 
         pyString = PyList_GetItem(value, 4);
         if (pyString == NULL) continue;
-        pkg->arch_all = (!strcmp(PyString_AsString(pyString), "all") ? 1 : 0);
+        pkg->arch_all = (pyString == Py_None || strcmp(PyString_AsString(pyString), "all") ? 0 : 1);
 
         pyString = PyList_GetItem(value, 5);
         if (pyString == NULL) continue;
