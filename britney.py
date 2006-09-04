@@ -304,6 +304,8 @@ class Britney:
                                help="disable all outputs to the testing directory")
         self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
                                help="enable full compatibility with old britney's output")
+        self.parser.add_option("", "--auto-hinter", action="store_true", dest="autohinter", default=False,
+                               help="enable use of auto-hinter")
         self.parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
                                help="enable control files generation")
         self.parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
@@ -2446,7 +2448,7 @@ class Britney:
                 hintcnt += 1
 
         # run the auto hinter
-        if not self.options.compatible:
+        if not self.options.compatible or self.options.autohinter:
             self.auto_hinter()
 
         # smooth updates
