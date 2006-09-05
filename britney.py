@@ -267,9 +267,8 @@ class Britney:
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
-            # build the testing system if not already available
-            if arch not in self.systems:
-                self.build_systems(arch)
+            # build the testing system
+            self.build_systems(arch)
 
         # read the release-critical bug summaries for testing and unstable
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
