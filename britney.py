@@ -2311,14 +2311,18 @@ class Britney:
                 upgrade_me.remove(x)
         
         self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
-        self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
+        if not force:
+            self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
         if earlyabort:
             extra = upgrade_me[:]
             (nuninst_end, extra, lundo) = self.iter_packages(init, selected, hint=True)
             undo = True
-            self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
-            self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
+            if force:
+                self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_end))
+            self.output_write("easy: %s\n\n" % (self.eval_nuninst(nuninst_end)))
+            if not force:
+                self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
                 nuninst_end, extra = None, None
         else:
@@ -2334,18 +2338,24 @@ class Britney:
                 nuninst_end, extra = None, None
 
         if nuninst_end:
-            self.output_write("Apparently successful\n")
+            if not force: self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted(selected)))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
-            self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
+            if not force:
+                self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
+            else:
+                self.output_write(" orig: %s\n" % self.eval_nuninst(nuninst_end))
             self.output_write("  end: %s\n" % self.eval_nuninst(nuninst_end))
             if force:
                 self.output_write("force breaks:\n")
                 self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
-            if not actions and not earlyabort:
-                self.upgrade_me = sorted(extra)
+            if not actions:
+                if not earlyabort:
+                    self.upgrade_me = sorted(extra)
+                else:
+                    self.upgrade_me = [x for x in self.upgrade_me if x not in selected]
                 if not self.options.compatible:
                     self.sort_actions()
         else:
