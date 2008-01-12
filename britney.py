@@ -744,7 +744,7 @@ class Britney:
                 elif l[0] in ["age-days"] and len(l) >= 3 and l[1].isdigit():
                     days = l[1]
                     tmp = [tuple([who] + k.rsplit("/", 1)) for k in l[2:] if "/" in k]
-                    hints[l[0]].extend([(p, (v, h, days)) for h, p, v in tmp]
+                    hints[l[0]].extend([(p, (v, h, days)) for h, p, v in tmp])
                 elif l[0] in ["remove", "approve", "unblock", "force", "urgent"]:
                     hints[l[0]].extend([(k.rsplit("/", 1)[0], (k.rsplit("/", 1)[1], who)) for k in l if "/" in k])
 
