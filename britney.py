@@ -223,7 +223,7 @@ class Britney:
     For more documentation on this script, please read the Developers Reference.
     """
 
-    HINTS_STANDARD = ("easy", "hint", "remove", "block", "unblock", "urgent", "approve")
+    HINTS_STANDARD = ("easy", "hint", "remove", "block", "unblock", "urgent", "age-days", "approve")
     HINTS_ALL = ("force", "force-hint", "block-all") + HINTS_STANDARD
 
     def __init__(self):
@@ -533,15 +533,13 @@ class Britney:
         name and the value is the number of open RC bugs for it.
         """
         bugs = {}
-        filename = os.path.join(basedir, "Bugs")
+        filename = os.path.join(basedir, "BugsV")
         self.__log("Loading RC bugs count from %s" % filename)
         for line in open(filename):
             l = line.split()
-            if len(l) != 2: continue
-            try:
-                bugs[l[0]] = int(l[1])
-            except ValueError:
-                self.__log("Bugs, unable to parse \"%s\"" % line, type="E")
+            if len(l) != 2:
+                continue
+            bugs[l[0]] = l[1].split(",")
         return bugs
 
     def write_bugs(self, basedir, bugs):
@@ -550,12 +548,13 @@ class Britney:
         For a more detailed explanation of the format, please check the method
         read_bugs.
         """
-        filename = os.path.join(basedir, "Bugs")
+        filename = os.path.join(basedir, "BugsV")
         self.__log("Writing RC bugs count to %s" % filename)
         f = open(filename, 'w')
         for pkg in sorted(bugs.keys()):
-            if bugs[pkg] == 0: continue
-            f.write("%s %d\n" % (pkg, bugs[pkg]))
+            if not bugs[pkg]:
+                continue
+            f.write("%s %d\n" % (pkg, ','.join(bugs[pkg])))
         f.close()
 
     def __maxver(self, pkg, dist):
@@ -587,29 +586,9 @@ class Britney:
 
             # make sure that the key is present in both dictionaries
             if pkg not in self.bugs['testing']:
-                self.bugs['testing'][pkg] = 0
+                self.bugs['testing'][pkg] = []
             elif pkg not in self.bugs['unstable']:
-                self.bugs['unstable'][pkg] = 0
-
-            # retrieve the maximum version of the package in testing:
-            maxvert = self.__maxver(pkg, 'testing')
-
-            # if the package is not available in testing or it has the
-            # same RC bug count, then do nothing
-            if maxvert == None or \
-               self.bugs['testing'][pkg] == self.bugs['unstable'][pkg]:
-                continue
-
-            # retrieve the maximum version of the package in testing:
-            maxveru = self.__maxver(pkg, 'unstable')
-
-            # if the package is not available in unstable, then do nothing
-            if maxveru == None:
-                continue
-            # else if the testing package is more recent, then use the
-            # unstable RC bug count for testing, too
-            elif apt_pkg.VersionCompare(maxvert, maxveru) >= 0:
-                self.bugs['testing'][pkg] = self.bugs['unstable'][pkg]
+                self.bugs['unstable'][pkg] = []
 
     def read_dates(self, basedir):
         """Read the upload date for the packages from the specified directory
@@ -715,6 +694,9 @@ class Britney:
         approvals = {}
         for approver in self.options.approvers.split():
             filename = os.path.join(basedir, "Approved", approver)
+            if not os.path.isfile(filename):
+                self.__log("Cannot read approvals list from %s, no such file!" % filename, type="E")
+                continue
             self.__log("Loading approvals list from %s" % filename)
             for line in open(filename):
                 l = line.split()
@@ -741,6 +723,9 @@ class Britney:
 
         for who in self.HINTS.keys():
             filename = os.path.join(basedir, "Hints", who)
+            if not os.path.isfile(filename):
+                self.__log("Cannot read hints list from %s, no such file!" % filename, type="E")
+                continue
             self.__log("Loading hints list from %s" % filename)
             for line in open(filename):
                 line = line.strip()
@@ -751,18 +736,22 @@ class Britney:
                 elif l[0] not in self.HINTS[who]:
                     continue
                 elif l[0] in ["easy", "hint", "force-hint"]:
-                    hints[l[0]].append((who, [k.split("/") for k in l if "/" in k]))
+                    hints[l[0]].append((who, [k.rsplit("/", 1) for k in l if "/" in k]))
                 elif l[0] in ["block-all"]:
                     hints[l[0]].extend([(y, who) for y in l[1:]])
                 elif l[0] in ["block"]:
                     hints[l[0]].extend([(y, who) for y in l[1:]])
+                elif l[0] in ["age-days"] and len(l) >= 3 and l[1].isdigit():
+                    days = l[1]
+                    tmp = [tuple([who] + k.rsplit("/", 1)) for k in l[2:] if "/" in k]
+                    hints[l[0]].extend([(p, (v, h, days)) for h, p, v in tmp]
                 elif l[0] in ["remove", "approve", "unblock", "force", "urgent"]:
-                    hints[l[0]].extend([(k.split("/")[0], (k.split("/")[1],who) ) for k in l if "/" in k])
+                    hints[l[0]].extend([(k.rsplit("/", 1)[0], (k.rsplit("/", 1)[1], who)) for k in l if "/" in k])
 
-        for x in ["block", "block-all", "unblock", "force", "urgent", "remove"]:
+        for x in ["block", "block-all", "unblock", "force", "urgent", "remove", "age-days"]:
             z = {}
             for a, b in hints[x]:
-                if a in z:
+                if z.has_key(a) and z[a] != b:
                     self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
                 z[a] = b
             hints[x] = z
@@ -886,6 +875,11 @@ class Britney:
         """
         if sv1 == sv2:
             return 1
+        else:
+            # XXX: don't know why this method is lobotomized... we should check
+            # later the reason, and if it still applies we should remove the
+            # following code
+            return 0
 
         m = re.match(r'^(.*)\+b\d+$', sv1)
         if m: sv1 = m.group(1)
@@ -1040,7 +1034,8 @@ class Britney:
 
         # if the package is blocked, skip it
         if self.hints['block'].has_key('-' + pkg):
-            exc.addhtml("Not touching package, as requested by %s (contact debian-release if update is needed)" % hints['block']['-' + pkg])
+            excuse.addhtml("Not touching package, as requested by %s (contact debian-release "
+                "if update is needed)" % self.hints['block']['-' + pkg])
             return False
 
         excuse.addhtml("Valid candidate")
@@ -1241,7 +1236,8 @@ class Britney:
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
         # permanence in unstable before updating testing; if the source package is too young,
-        # the check fails and we set update_candidate to False to block the update
+        # the check fails and we set update_candidate to False to block the update; consider
+        # the age-days hint, if specified for the package
         if suite == 'unstable':
             if src not in self.dates:
                 self.dates[src] = (source_u[VERSION], self.date_now)
@@ -1250,6 +1246,13 @@ class Britney:
 
             days_old = self.date_now - self.dates[src][1]
             min_days = self.MINDAYS[urgency]
+
+            if self.hints["age-days"].has_key(src) and (self.hints["age-days"][src][0] == "-" or \
+               self.same_source(source_u[VERSION], hints["age-days"][src][0])):
+                excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
+                    int(self.hints["age-days"][src][2]), self.hints["age-days"][src][1]))
+                min_days = int(self.hints["age-days"][src][2])
+
             excuse.setdaysold(days_old, min_days)
             if days_old < min_days:
                 if src in self.hints["urgent"] and self.same_source(source_u[VERSION], self.hints["urgent"][src][0]):
@@ -1316,21 +1319,27 @@ class Britney:
         if suite == 'unstable':
             for pkg in pkgs.keys():
                 if pkg not in self.bugs['testing']:
-                    self.bugs['testing'][pkg] = 0
+                    self.bugs['testing'][pkg] = []
                 if pkg not in self.bugs['unstable']:
-                    self.bugs['unstable'][pkg] = 0
+                    self.bugs['unstable'][pkg] = []
 
-                if self.bugs['unstable'][pkg] > self.bugs['testing'][pkg]:
-                    excuse.addhtml("%s (%s) is <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                                   "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                                   "target=\"_blank\">buggy</a>! (%d > %d)" % \
-                                   (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
+                new_bugs = set(self.bugs['unstable'][pkg]).difference(self.bugs['testing'][pkg])
+                old_bugs = set(self.bugs['testing'][pkg]).difference(self.bugs['unstable'][pkg])
+
+                if len(new_bugs) > 0:
+                    excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                        "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                        "target=\"_blank\">has new bugs</a>!" % (pkg, ", ".join(pkgs[pkg]), pkg))
+                    excuse.addhtml("Updating %s introduces new bugs: %s" % (pkg, ", ".join(
+                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (a, a) for a in new_bugs])))
                     update_candidate = False
-                elif self.bugs['unstable'][pkg] > 0:
-                    excuse.addhtml("%s (%s) is (less) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                                   "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                                   "target=\"_blank\">buggy</a>! (%d <= %d)" % \
-                                   (pkg, ", ".join(pkgs[pkg]), pkg, self.bugs['unstable'][pkg], self.bugs['testing'][pkg]))
+
+                if len(old_bugs) > 0:
+                    excuse.addhtml("Updating %s fixes old bugs: %s" % (pkg, ", ".join(
+                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (a, a) for a in old_bugs])))
+                if len(old_bugs) > len(newb) and len(newb) > 0:
+                    excuse.addhtml("%s introduces new bugs, so still ignored (even "
+                        "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
         if not update_candidate and src in self.hints["force"] and \
@@ -2481,7 +2490,6 @@ class Britney:
                 self.write_controlfiles(self.options.testing, 'testing')
 
             # write bugs and dates
-            self.write_bugs(self.options.testing, self.bugs['testing'])
             self.write_dates(self.options.testing, self.dates)
 
             # write HeidiResult
