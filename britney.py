@@ -1036,6 +1036,8 @@ class Britney:
         if self.hints['block'].has_key('-' + pkg):
             excuse.addhtml("Not touching package, as requested by %s (contact debian-release "
                 "if update is needed)" % self.hints['block']['-' + pkg])
+            excuse.addhtml("Not considered")
+            self.excuses.append(excuse)
             return False
 
         excuse.addhtml("Valid candidate")
@@ -1247,8 +1249,9 @@ class Britney:
             days_old = self.date_now - self.dates[src][1]
             min_days = self.MINDAYS[urgency]
 
-            if self.hints["age-days"].has_key(src) and (self.hints["age-days"][src][0] == "-" or \
-               self.same_source(source_u[VERSION], hints["age-days"][src][0])):
+            age_days_hint = self.hints["age-days"].get(src)
+            if age_days_hint is not None and (age_days_hint[0] == "-" or \
+               self.same_source(source_u[VERSION], age_days_hint[0])):
                 excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
                     int(self.hints["age-days"][src][2]), self.hints["age-days"][src][1]))
                 min_days = int(self.hints["age-days"][src][2])
@@ -1337,7 +1340,7 @@ class Britney:
                 if len(old_bugs) > 0:
                     excuse.addhtml("Updating %s fixes old bugs: %s" % (pkg, ", ".join(
                         ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (a, a) for a in old_bugs])))
-                if len(old_bugs) > len(newb) and len(newb) > 0:
+                if len(old_bugs) > len(new_bugs) and len(new_bugs) > 0:
                     excuse.addhtml("%s introduces new bugs, so still ignored (even "
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
