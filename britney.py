@@ -590,6 +590,14 @@ class Britney:
             elif pkg not in self.bugs['unstable']:
                 self.bugs['unstable'][pkg] = []
 
+            # retrieve the maximum version of the package in testing:
+            maxvert = self.__maxver(pkg, 'testing')
+
+            # if the package is not available in testing, then reset
+            # the list of RC bugs
+            if maxvert == None:
+                self.bugs['testing'][pkg] = []
+
     def read_dates(self, basedir):
         """Read the upload date for the packages from the specified directory
         
@@ -875,11 +883,6 @@ class Britney:
         """
         if sv1 == sv2:
             return 1
-        else:
-            # XXX: don't know why this method is lobotomized... we should check
-            # later the reason, and if it still applies we should remove the
-            # following code
-            return 0
 
         m = re.match(r'^(.*)\+b\d+$', sv1)
         if m: sv1 = m.group(1)
@@ -889,26 +892,7 @@ class Britney:
         if sv1 == sv2:
             return 1
 
-        if re.search("-", sv1) or re.search("-", sv2):
-            m = re.match(r'^(.*-[^.]+)\.0\.\d+$', sv1)
-            if m: sv1 = m.group(1)
-            m = re.match(r'^(.*-[^.]+\.[^.]+)\.\d+$', sv1)
-            if m: sv1 = m.group(1)
-
-            m = re.match(r'^(.*-[^.]+)\.0\.\d+$', sv2)
-            if m: sv2 = m.group(1)
-            m = re.match(r'^(.*-[^.]+\.[^.]+)\.\d+$', sv2)
-            if m: sv2 = m.group(1)
-
-            return (sv1 == sv2)
-        else:
-            m = re.match(r'^([^-]+)\.0\.\d+$', sv1)
-            if m and sv2 == m.group(1): return 1
-
-            m = re.match(r'^([^-]+)\.0\.\d+$', sv2)
-            if m and sv1 == m.group(1): return 1
-
-            return 0
+        return 0
 
     def get_dependency_solvers(self, block, arch, distribution, excluded=[], strict=False):
         """Find the packages which satisfy a dependency block
@@ -1227,12 +1211,11 @@ class Britney:
         # is processed only if the specified version is correct
         if blocked:
             unblock = self.hints["unblock"].get(src,(None,None))
-            if unblock[0] != None:
-                if self.same_source(unblock[0], source_u[VERSION]):
+            if unblock[0] != None and self.same_source(unblock[0], source_u[VERSION]):
                     excuse.addhtml("Ignoring request to block package by %s, due to unblock request by %s" % (blocked, unblock[1]))
-                else:
-                    excuse.addhtml("Unblock request by %s ignored due to version mismatch: %s" % (unblock[1], unblock[0]))
             else:
+                if unblock[0] != None:
+                    excuse.addhtml("Unblock request by %s ignored due to version mismatch: %s" % (unblock[1], unblock[0]))
                 excuse.addhtml("Not touching package, as requested by %s (contact debian-release if update is needed)" % (blocked))
                 update_candidate = False
 
