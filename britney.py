@@ -766,7 +766,7 @@ class Britney:
 
         return hints
 
-    def write_heidi(self, basedir, filename):
+    def write_heidi(self, filename):
         """Write the output HeidiResult
 
         This method write the output for Heidi, which contains all the
@@ -775,7 +775,6 @@ class Britney:
         <pkg-name> <pkg-version> <pkg-architecture> <pkg-section>
         <src-name> <src-version> <src-section>
         """
-        filename = os.path.join(basedir, filename)
         self.__log("Writing Heidi results to %s" % filename)
         f = open(filename, 'w')
 
@@ -788,8 +787,8 @@ class Britney:
             for pkg_name in sorted(binaries):
                 pkg = binaries[pkg_name]
                 pkgv = pkg[VERSION]
-                pkgarch = pkg[ARCHITECTURE]
-                pkgsec = pkg[SECTION] or 'unknown'
+                pkgarch = pkg[ARCHITECTURE] or 'all'
+                pkgsec = pkg[SECTION] or 'faux'
                 f.write('%s %s %s %s\n' % (pkg_name, pkgv, pkgarch, pkgsec))
 
         # write sources
@@ -2476,10 +2475,11 @@ class Britney:
                 self.write_controlfiles(self.options.testing, 'testing')
 
             # write bugs and dates
-            self.write_dates(self.options.testing, self.dates)
+            # XXX: disabled, we don't have write permission over there
+            # self.write_dates(self.options.testing, self.dates)
 
             # write HeidiResult
-            self.write_heidi(self.options.testing, 'HeidiResult')
+            self.write_heidi(self.options.heidi_output)
 
         self.__output.close()
         self.__log("Test completed!", type="I")
