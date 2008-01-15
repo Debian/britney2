@@ -299,6 +299,8 @@ class Britney:
                                help="override architectures from configuration file")
         self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
                                help="override the list of actions to be performed")
+        self.parser.add_option("", "--hint-tester", action="store_true", dest="hint_tester", default=None,
+                               help="provide a command line interface to test hints")
         self.parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
                                help="disable all outputs to the testing directory")
         self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
@@ -1496,18 +1498,18 @@ class Britney:
         self.upgrade_me = sorted(upgrade_me)
 
         # write excuses to the output file
-        self.__log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
-
-        f = open(self.options.excuses_output, 'w')
-        f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
-        f.write("<html><head><title>excuses...</title>")
-        f.write("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"></head><body>\n")
-        f.write("<p>Generated: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "</p>\n")
-        f.write("<ul>\n")
-        for e in self.excuses:
-            f.write("<li>%s" % e.html())
-        f.write("</ul></body></html>\n")
-        f.close()
+        if not self.options.dry_run:
+            self.__log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
+            f = open(self.options.excuses_output, 'w')
+            f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
+            f.write("<html><head><title>excuses...</title>")
+            f.write("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"></head><body>\n")
+            f.write("<p>Generated: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "</p>\n")
+            f.write("<ul>\n")
+            for e in self.excuses:
+                f.write("<li>%s" % e.html())
+            f.write("</ul></body></html>\n")
+            f.close()
 
         self.__log("Update Excuses generation completed", type="I")
 
@@ -2165,22 +2167,24 @@ class Britney:
                             nuninst[arch].remove(p)
 
                 # broken packages (second round, reverse dependencies of the first round)
-                while to_check:
-                    j = to_check.pop(0)
-                    if j not in binaries[arch][0]: continue
-                    for p in binaries[arch][0][j][RDEPENDS]:
-                        if p in broken or p not in binaries[arch][0]: continue
-                        r = systems[arch].is_installable(p)
-                        if not r and p not in broken:
-                            broken.append(p)
-                            to_check.append(p)
-                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].append(p)
-                        elif r and p in nuninst[arch + "+all"]:
-                            broken.remove(p)
-                            to_check.append(p)
-                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].remove(p)
+                # XXX: let's disable this block, we don't need the list of all the broken packages
+                # in the archive after an upgrade from unstable to testing.
+                # while to_check:
+                #     j = to_check.pop(0)
+                #     if j not in binaries[arch][0]: continue
+                #     for p in binaries[arch][0][j][RDEPENDS]:
+                #         if p in broken or p not in binaries[arch][0]: continue
+                #         r = systems[arch].is_installable(p)
+                #         if not r and p not in broken:
+                #             broken.append(p)
+                #             to_check.append(p)
+                #             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                #                 nuninst[arch].append(p)
+                #         elif r and p in nuninst[arch + "+all"]:
+                #             broken.remove(p)
+                #             to_check.append(p)
+                #             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                #                 nuninst[arch].remove(p)
 
                 # if we are processing hints, go ahead
                 if hint:
@@ -2484,6 +2488,30 @@ class Britney:
         self.__output.close()
         self.__log("Test completed!", type="I")
 
+    def hint_tester(self):
+        """Run a command line interface to test hints
+
+        This methods provides a command line interface for the release team to
+        try hints and evaulate the results.
+        """
+        self.__log("> Calculating current uninstallability counters", type="I")
+        self.nuninst_orig = self.get_nuninst()
+
+        while True:
+            # read the command from the command line
+            try:
+                input = raw_input('britney> ').lower().split()
+            except EOFError:
+                print ""
+                break
+            # quit the hint tester
+            if input[0] in ('quit', 'exit'):
+                break
+            # run a hint
+            elif input[0] in ('easy', 'hint', 'force-hint'):
+                self.do_hint(input[0], 'hint-tester',
+                    [k.rsplit("/", 1) for k in input[1:] if "/" in k])
+
     def do_hint(self, type, who, pkgvers):
         """Process hints
 
@@ -2634,7 +2662,10 @@ class Britney:
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
-        self.__output.write(msg)
+        if self.options.hint_tester:
+            print msg,
+        else:
+            self.__output.write(msg)
 
     def main(self):
         """Main method
@@ -2648,10 +2679,15 @@ class Britney:
             if not self.options.compatible:
                 self.sort_actions()
         # otherwise, use the actions provided by the command line
-        else: self.upgrade_me = self.options.actions.split()
+        else:
+            self.upgrade_me = self.options.actions.split()
 
+        # run the hint tester
+        if self.options.hint_tester:
+            self.hint_tester()
         # run the upgrade test
-        self.upgrade_testing()
+        else:
+            self.upgrade_testing()
 
 if __name__ == '__main__':
     Britney().main()
