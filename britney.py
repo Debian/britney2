@@ -299,6 +299,8 @@ class Britney:
                                help="override architectures from configuration file")
         self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
                                help="override the list of actions to be performed")
+        self.parser.add_option("", "--hints", action="store", dest="hints", default=None,
+                               help="additional hints, separated by semicolons")
         self.parser.add_option("", "--hint-tester", action="store_true", dest="hint_tester", default=None,
                                help="provide a command line interface to test hints")
         self.parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
@@ -321,7 +323,7 @@ class Britney:
         # minimum days for unstable-testing transition and the list of hints
         # are handled as an ad-hoc case
         self.MINDAYS = {}
-        self.HINTS = {}
+        self.HINTS = {'command-line': self.HINTS_ALL}
         for k, v in [map(string.strip,r.split('=', 1)) for r in file(self.options.config) if '=' in r and not r.strip().startswith('#')]:
             if k.startswith("MINDAYS_"):
                 self.MINDAYS[k.split("_")[1].lower()] = int(v)
@@ -732,12 +734,16 @@ class Britney:
         hints = dict([(k,[]) for k in self.HINTS_ALL])
 
         for who in self.HINTS.keys():
-            filename = os.path.join(basedir, "Hints", who)
-            if not os.path.isfile(filename):
-                self.__log("Cannot read hints list from %s, no such file!" % filename, type="E")
-                continue
-            self.__log("Loading hints list from %s" % filename)
-            for line in open(filename):
+            if who == 'command-line':
+                lines = self.options.hints and self.options.hints.split(';') or ()
+            else:
+                filename = os.path.join(basedir, "Hints", who)
+                if not os.path.isfile(filename):
+                    self.__log("Cannot read hints list from %s, no such file!" % filename, type="E")
+                    continue
+                self.__log("Loading hints list from %s" % filename)
+                lines = open(filename)
+            for line in lines:
                 line = line.strip()
                 if line == "": continue
                 l = line.split()
