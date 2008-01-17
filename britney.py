@@ -2167,24 +2167,22 @@ class Britney:
                             nuninst[arch].remove(p)
 
                 # broken packages (second round, reverse dependencies of the first round)
-                # XXX: let's disable this block, we don't need the list of all the broken packages
-                # in the archive after an upgrade from unstable to testing.
-                # while to_check:
-                #     j = to_check.pop(0)
-                #     if j not in binaries[arch][0]: continue
-                #     for p in binaries[arch][0][j][RDEPENDS]:
-                #         if p in broken or p not in binaries[arch][0]: continue
-                #         r = systems[arch].is_installable(p)
-                #         if not r and p not in broken:
-                #             broken.append(p)
-                #             to_check.append(p)
-                #             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                #                 nuninst[arch].append(p)
-                #         elif r and p in nuninst[arch + "+all"]:
-                #             broken.remove(p)
-                #             to_check.append(p)
-                #             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                #                 nuninst[arch].remove(p)
+                while to_check:
+                    j = to_check.pop(0)
+                    if j not in binaries[arch][0]: continue
+                    for p in binaries[arch][0][j][RDEPENDS]:
+                        if p in broken or p not in binaries[arch][0]: continue
+                        r = systems[arch].is_installable(p)
+                        if not r and p not in broken:
+                            broken.append(p)
+                            to_check.append(p)
+                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                                nuninst[arch].append(p)
+                        elif r and p in nuninst[arch + "+all"]:
+                            broken.remove(p)
+                            to_check.append(p)
+                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                                nuninst[arch].remove(p)
 
                 # if we are processing hints, go ahead
                 if hint:
