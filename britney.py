@@ -223,7 +223,8 @@ class Britney:
     For more documentation on this script, please read the Developers Reference.
     """
 
-    HINTS_STANDARD = ("easy", "hint", "remove", "block", "unblock", "urgent", "age-days", "approve")
+    HINTS_HELPERS = ("easy", "hint", "remove", "block", "unblock", "approve")
+    HINTS_STANDARD = ("urgent", "age-days") + HINTS_HELPERS
     HINTS_ALL = ("force", "force-hint", "block-all") + HINTS_STANDARD
 
     def __init__(self):
