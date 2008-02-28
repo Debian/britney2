@@ -875,7 +875,7 @@ class Britney:
             if ":" not in r: continue
             arch, packages = r.strip().split(":", 1)
             if arch.split("+", 1)[0] in self.options.architectures:
-                nuninst[arch] = packages.split()
+                nuninst[arch] = set(packages.split())
         return nuninst
 
 
@@ -1570,14 +1570,14 @@ class Britney:
 
             # check all the packages for this architecture, calling add_nuninst if a new
             # uninstallable package is found
-            nuninst[arch] = []
+            nuninst[arch] = set()
             for pkg_name in binaries[arch][0]:
                 r = systems[arch].is_installable(pkg_name)
                 if not r:
-                    nuninst[arch].append(pkg_name)
+                    nuninst[arch].add(pkg_name)
 
             # if they are not required, removed architecture-indipendent packages
-            nuninst[arch + "+all"] = nuninst[arch][:]
+            nuninst[arch + "+all"] = nuninst[arch].copy()
             if skip_archall:
                 for pkg in nuninst[arch + "+all"]:
                     bpkg = binaries[arch][0][pkg]
@@ -2153,8 +2153,8 @@ class Britney:
                     skip_archall = True
                 else: skip_archall = False
 
-                nuninst[arch] = [x for x in nuninst_comp[arch] if x in binaries[arch][0]]
-                nuninst[arch + "+all"] = [x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]]
+                nuninst[arch] = set([x for x in nuninst_comp[arch] if x in binaries[arch][0]])
+                nuninst[arch + "+all"] = set([x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]])
                 broken = nuninst[arch + "+all"]
                 to_check = []
 
@@ -2164,9 +2164,9 @@ class Britney:
                     r = systems[arch].is_installable(p)
                     if not r and p not in broken:
                         to_check.append(p)
-                        broken.append(p)
+                        broken.add(p)
                         if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                            nuninst[arch].append(p)
+                            nuninst[arch].add(p)
                     elif r and p in broken:
                         to_check.append(p)
                         broken.remove(p)
@@ -2181,10 +2181,10 @@ class Britney:
                         if p in broken or p not in binaries[arch][0]: continue
                         r = systems[arch].is_installable(p)
                         if not r and p not in broken:
-                            broken.append(p)
+                            broken.add(p)
                             to_check.append(p)
                             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].append(p)
+                                nuninst[arch].add(p)
                         elif r and p in nuninst[arch + "+all"]:
                             broken.remove(p)
                             to_check.append(p)
@@ -2510,10 +2510,10 @@ class Britney:
                 print ""
                 break
             # quit the hint tester
-            if input[0] in ('quit', 'exit'):
+            if input and input[0] in ('quit', 'exit'):
                 break
             # run a hint
-            elif input[0] in ('easy', 'hint', 'force-hint'):
+            elif input and input[0] in ('easy', 'hint', 'force-hint'):
                 self.do_hint(input[0], 'hint-tester',
                     [k.rsplit("/", 1) for k in input[1:] if "/" in k])
 
