@@ -337,7 +337,7 @@ class Britney:
 
         # Sort the architecture list
         allarches = sorted(self.options.architectures.split())
-        arches = [x for x in allarches if x in self.options.nobreakall_arches]
+        arches = [x for x in allarches if x in self.options.nobreakall_arches.split()]
         arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches.split()]
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches.split()]
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches.split()]
@@ -988,7 +988,8 @@ class Britney:
                 # if no package can satisfy the dependency, add this information to the excuse
                 if len(packages) == 0:
                     excuse.addhtml("%s/%s unsatisfiable %s: %s" % (pkg, arch, type, block_txt.strip()))
-                    if arch not in self.options.break_arches: excuse.add_unsat_dep(arch)
+                    if arch not in self.options.break_arches.split():
+                        excuse.add_unsat_dep(arch)
                     continue
 
                 # for the solving packages, update the excuse to add the dependencies
@@ -1277,7 +1278,7 @@ class Britney:
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
-                if binary_u[ARCHITECTURE] != 'all' or arch in self.options.nobreakall_arches:
+                if binary_u[ARCHITECTURE] != 'all' or arch in self.options.nobreakall_arches.split():
                     self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
 
             # if there are out-of-date packages, warn about them in the excuse and set update_candidate
@@ -1294,7 +1295,7 @@ class Britney:
                     "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
                     (arch, src, source_u[VERSION], arch, oodtxt)
 
-                if arch in self.options.fucked_arches:
+                if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
                 else:
                     update_candidate = False
@@ -1564,7 +1565,7 @@ class Britney:
         for arch in self.options.architectures:
             if requested_arch and arch != requested_arch: continue
             # if it is in the nobreakall ones, check arch-indipendent packages too
-            if arch not in self.options.nobreakall_arches:
+            if arch not in self.options.nobreakall_arches.split():
                 skip_archall = True
             else: skip_archall = False
 
@@ -1610,7 +1611,7 @@ class Britney:
             elif original and arch in original:
                 n = len(original[arch])
             else: continue
-            if arch in self.options.break_arches:
+            if arch in self.options.break_arches.split():
                 totalbreak = totalbreak + n
             else:
                 total = total + n
@@ -1635,7 +1636,7 @@ class Britney:
     def is_nuninst_asgood_generous(self, old, new):
         diff = 0
         for arch in self.options.architectures:
-            if arch in self.options.break_arches: continue
+            if arch in self.options.break_arches.split(): continue
             diff = diff + (len(new[arch]) - len(old[arch]))
         return diff <= 0
 
@@ -2094,9 +2095,9 @@ class Britney:
         sources = self.sources
         systems = self.systems
         architectures = self.options.architectures
-        nobreakall_arches = self.options.nobreakall_arches
-        new_arches = self.options.new_arches
-        break_arches = self.options.break_arches
+        nobreakall_arches = self.options.nobreakall_arches.split()
+        new_arches = self.options.new_arches.split()
+        break_arches = self.options.break_arches.split()
         dependencies = self.dependencies
         compatible = self.options.compatible
 
