@@ -2341,7 +2341,8 @@ class Britney:
                 nuninst_end, extra = None, None
 
         if nuninst_end:
-            if not force: self.output_write("Apparently successful\n")
+            if not force and maxdepth != "easy":
+                self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted(selected)))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             if not force:
@@ -2503,6 +2504,11 @@ class Britney:
         self.__log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
 
+        import readline
+        histfile = os.path.expanduser('~/.britney2_history')
+        if os.path.exists(histfile):
+            readline.read_history_file(histfile)
+
         while True:
             # read the command from the command line
             try:
@@ -2510,13 +2516,21 @@ class Britney:
             except EOFError:
                 print ""
                 break
+            except KeyboardInterrupt:
+                print ""
+                continue
             # quit the hint tester
             if input and input[0] in ('quit', 'exit'):
                 break
             # run a hint
             elif input and input[0] in ('easy', 'hint', 'force-hint'):
-                self.do_hint(input[0], 'hint-tester',
-                    [k.rsplit("/", 1) for k in input[1:] if "/" in k])
+                try:
+                    self.do_hint(input[0], 'hint-tester',
+                        [k.rsplit("/", 1) for k in input[1:] if "/" in k])
+                except KeyboardInterrupt:
+                    continue
+
+        readline.write_history_file(histfile)
 
     def do_hint(self, type, who, pkgvers):
         """Process hints
