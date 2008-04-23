@@ -2474,6 +2474,8 @@ class Britney:
                     (len(removals), self.old_libraries_format(removals)))
                 self.do_all(actions=removals)
                 removals = self.old_libraries()
+        else:
+            removals = ()
 
         if not self.options.compatible:
             self.output_write("List of old libraries in testing (%d):\n%s" % \
