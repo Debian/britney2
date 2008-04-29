@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.4
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2001-2004 Anthony Towns <ajt@debian.org>
+# Copyright (C) 2001-2008 Anthony Towns <ajt@debian.org>
 #                         Andreas Barth <aba@debian.org>
 #                         Fabio Tranchitella <kobold@debian.org>
 
@@ -254,10 +254,18 @@ class Britney:
                 result = self.get_nuninst(arch, build=True)
                 nuninst.update(result)
                 self.__log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
-            self.write_nuninst(nuninst)
+                for p in sorted(nuninst[arch]):
+                    pkg = self.binaries['testing'][arch][0][p]
+                    print "%s %s %s (%s) uninstallable" % (pkg[SOURCE], pkg[SOURCEVER], p, arch)
+            if not self.options.check_out:
+                self.write_nuninst(nuninst)
         else:
             self.__log("Not building the list of not installable packages, as requested", type="I")
 
+        # if running in check_out.py mode, quit here
+        if self.options.check_out:
+            print ":".join(map(lambda x: '%s-%s' % (x, len(nuninst[x])), self.options.architectures))
+            return
 
         # read the source and binary packages for the involved distributions
         self.sources = {'testing': self.read_sources(self.options.testing),
@@ -314,10 +322,16 @@ class Britney:
                                help="enable control files generation")
         self.parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
                                help="do not build the non-installability status, use the cache from file")
+        self.parser.add_option("", "--check-out", action="store_true", dest="check_out", default=False,
+                               help="compatibility mode with check_out.py")
         (self.options, self.args) = self.parser.parse_args()
-
+        
+        # integrity checks
+        if self.options.nuninst_cache and self.options.check_out:
+            exit.__log("nuninst_cache and check_out are mutually exclusive!", type="E")
+            sys.exit(1)
         # if the configuration file exists, than read it and set the additional options
-        if not os.path.isfile(self.options.config):
+        elif not os.path.isfile(self.options.config):
             self.__log("Unable to read the configuration file (%s), exiting!" % self.options.config, type="E")
             sys.exit(1)
 
@@ -2695,8 +2709,11 @@ class Britney:
         This is the entry point for the class: it includes the list of calls
         for the member methods which will produce the output files.
         """
+        # if running in check_out.py mode, quit
+        if self.options.check_out:
+            return
         # if no actions are provided, build the excuses and sort them
-        if not self.options.actions:
+        elif not self.options.actions:
             self.write_excuses()
             if not self.options.compatible:
                 self.sort_actions()
