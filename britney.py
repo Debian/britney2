@@ -242,6 +242,10 @@ class Britney:
         apt_pkg.init()
         self.systems = {}
 
+        # in check-out mode, nobreakall shuold be empty
+        if self.options.check_out:
+            self.options.nobreakall_arches = ''
+
         # if requested, build the non-installable status and save it
         if not self.options.nuninst_cache:
             self.__log("Building the list of not installable packages for the full archive", type="I")
