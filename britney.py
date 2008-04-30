@@ -242,9 +242,9 @@ class Britney:
         apt_pkg.init()
         self.systems = {}
 
-        # in check-out mode, nobreakall shuold be empty
+        # in check-out mode, nobreakall should include all the architectures
         if self.options.check_out:
-            self.options.nobreakall_arches = ''
+            self.options.nobreakall_arches = ' '.join(self.options.architectures)
 
         # if requested, build the non-installable status and save it
         if not self.options.nuninst_cache:
