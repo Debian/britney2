@@ -242,10 +242,6 @@ class Britney:
         apt_pkg.init()
         self.systems = {}
 
-        # in check-out mode, nobreakall should include all the architectures
-        if self.options.check_out:
-            self.options.nobreakall_arches = ' '.join(self.options.architectures)
-
         # if requested, build the non-installable status and save it
         if not self.options.nuninst_cache:
             self.__log("Building the list of not installable packages for the full archive", type="I")
@@ -258,17 +254,17 @@ class Britney:
                 result = self.get_nuninst(arch, build=True)
                 nuninst.update(result)
                 self.__log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
-                for p in sorted(nuninst[arch]):
-                    pkg = self.binaries['testing'][arch][0][p]
-                    print "%s %s %s (%s) uninstallable" % (pkg[SOURCE], pkg[SOURCEVER], p, arch)
-            if not self.options.check_out:
+                if self.options.print_uninst:
+                    self.nuninst_arch_report(nuninst, arch)
+            if not self.options.print_uninst:
                 self.write_nuninst(nuninst)
         else:
             self.__log("Not building the list of not installable packages, as requested", type="I")
 
-        # if running in check_out.py mode, quit here
-        if self.options.check_out:
-            print ":".join(map(lambda x: '%s-%s' % (x, len(nuninst[x])), self.options.architectures))
+        # if running in --print-uninst mode, quit here
+        if self.options.print_uninst:
+            print '* summary'
+            print '\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures))
             return
 
         # read the source and binary packages for the involved distributions
@@ -326,13 +322,13 @@ class Britney:
                                help="enable control files generation")
         self.parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
                                help="do not build the non-installability status, use the cache from file")
-        self.parser.add_option("", "--check-out", action="store_true", dest="check_out", default=False,
-                               help="compatibility mode with check_out.py")
+        self.parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
+                               help="just print a summary of uninstallable packages")
         (self.options, self.args) = self.parser.parse_args()
         
         # integrity checks
-        if self.options.nuninst_cache and self.options.check_out:
-            exit.__log("nuninst_cache and check_out are mutually exclusive!", type="E")
+        if self.options.nuninst_cache and self.options.print_uninst:
+            exit.__log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
             sys.exit(1)
         # if the configuration file exists, than read it and set the additional options
         elif not os.path.isfile(self.options.config):
@@ -2341,7 +2337,7 @@ class Britney:
             undo = True
             if force:
                 self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_end))
-            self.output_write("easy: %s\n\n" % (self.eval_nuninst(nuninst_end)))
+            self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
             if not force:
                 self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
             if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
@@ -2359,7 +2355,7 @@ class Britney:
                 nuninst_end, extra = None, None
 
         if nuninst_end:
-            if not force and maxdepth != "easy":
+            if not force and not earlyabort:
                 self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted(selected)))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
@@ -2700,6 +2696,20 @@ class Britney:
                     libraries[pkg] = [arch]
         return "\n".join(["  " + k + ": " + " ".join(libraries[k]) for k in libraries]) + "\n"
 
+    def nuninst_arch_report(self, nuninst, arch):
+        """Print a report of uninstallable packages for one architecture."""
+        all = {}
+        for p in nuninst[arch]:
+            pkg = self.binaries['testing'][arch][0][p]
+            all.setdefault((pkg[SOURCE], pkg[SOURCEVER]), set()).add(p)
+
+        print '* %s' % (arch,)
+
+        for (src, ver), pkgs in sorted(all.items()):
+            print '  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs)))
+
+        print
+
     def output_write(self, msg):
         """Simple wrapper for output writing"""
         if self.options.hint_tester:
@@ -2713,8 +2723,8 @@ class Britney:
         This is the entry point for the class: it includes the list of calls
         for the member methods which will produce the output files.
         """
-        # if running in check_out.py mode, quit
-        if self.options.check_out:
+        # if running in --print-uninst mode, quit
+        if self.options.print_uninst:
             return
         # if no actions are provided, build the excuses and sort them
         elif not self.options.actions:
