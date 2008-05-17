@@ -1137,7 +1137,7 @@ class Britney:
 
         # if there is nothing wrong and there is something worth doing or the source
         # package is not fake, then check what packages shuold be removed
-        if not anywrongver and (anyworthdoing or self.sources[suite][src][FAKESRC]):
+        if not anywrongver and (anyworthdoing or not self.sources[suite][src][FAKESRC]):
             srcv = self.sources[suite][src][VERSION]
             ssrc = self.same_source(source_t[VERSION], srcv)
             # for every binary package produced by this source in testing for this architecture
