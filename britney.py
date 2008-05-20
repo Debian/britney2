@@ -746,7 +746,7 @@ class Britney:
                 elif l[0] in ["remove", "approve", "unblock", "force", "urgent"]:
                     hints[l[0]].extend([(k.rsplit("/", 1)[0], (k.rsplit("/", 1)[1], who)) for k in l if "/" in k])
 
-        for x in ["block", "block-all", "unblock", "force", "urgent", "remove", "age-days"]:
+        for x in ["approve", "block", "block-all", "unblock", "force", "urgent", "remove", "age-days"]:
             z = {}
             for a, b in hints[x]:
                 if z.has_key(a) and z[a] != b:
