@@ -58,9 +58,6 @@ Other than source and binary packages, Britney loads the following data:
   * Urgencies, which contains the urgency of the upload of a given
     version of a source package (see Britney.read_urgencies).
 
-  * Approvals, which contains the list of approved testing-proposed-updates
-    packages (see Britney.read_approvals).
-
   * Hints, which contains lists of commands which modify the standard behaviour
     of Britney (see Britney.read_hints).
 
@@ -287,7 +284,6 @@ class Britney:
         # read additional data
         self.dates = self.read_dates(self.options.testing)
         self.urgencies = self.read_urgencies(self.options.testing)
-        self.approvals = self.read_approvals(self.options.tpu)
         self.hints = self.read_hints(self.options.unstable)
         self.excuses = []
         self.dependencies = {}
@@ -701,35 +697,6 @@ class Britney:
             urgencies[l[0]] = l[2]
 
         return urgencies
-
-    def read_approvals(self, basedir):
-        """Read the approval commands from the specified directory
-        
-        The approval commands are read from the files contained by the 
-        `Approved' directory within the directory specified as `basedir'
-        parameter. The name of the files has to be the same of the
-        authorized users for the approvals.
-        
-        The file contains rows with the format:
-
-        <package-name> <version>
-
-        The method returns a dictionary where the key is the binary package
-        name followed by an underscore and the version number, and the value
-        is the user who submitted the command.
-        """
-        approvals = {}
-        for approver in self.options.approvers.split():
-            filename = os.path.join(basedir, "Approved", approver)
-            if not os.path.isfile(filename):
-                self.__log("Cannot read approvals list from %s, no such file!" % filename, type="E")
-                continue
-            self.__log("Loading approvals list from %s" % filename)
-            for line in open(filename):
-                l = line.split()
-                if len(l) != 2: continue
-                approvals["%s_%s" % (l[0], l[1])] = approver
-        return approvals
 
     def read_hints(self, basedir):
         """Read the hint commands from the specified directory
@@ -1360,8 +1327,9 @@ class Britney:
         # if the suite is testing-proposed-updates, the package needs an explicit approval in order to go in
         if suite == "tpu":
             key = "%s_%s" % (src, source_u[VERSION])
-            if key in self.approvals:
-                excuse.addhtml("Approved by %s" % approvals[key])
+            if src in self.hints["approve"] and \
+               self.same_source(source_t[VERSION], self.hints["approve"][src][0]):
+                excuse.addhtml("Approved by %s" % self.hints["approve"][src][1])
             else:
                 excuse.addhtml("NEEDS APPROVAL BY RM")
                 update_candidate = False
