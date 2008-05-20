@@ -1328,7 +1328,7 @@ class Britney:
         if suite == "tpu":
             key = "%s_%s" % (src, source_u[VERSION])
             if src in self.hints["approve"] and \
-               self.same_source(source_t[VERSION], self.hints["approve"][src][0]):
+               self.same_source(source_u[VERSION], self.hints["approve"][src][0]):
                 excuse.addhtml("Approved by %s" % self.hints["approve"][src][1])
             else:
                 excuse.addhtml("NEEDS APPROVAL BY RM")
