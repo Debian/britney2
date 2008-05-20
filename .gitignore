@@ -1,0 +1,8 @@
+*.o
+*.so
+*.pyc
+
+/lib/aptvercmp
+/lib/checklib
+/lib/freelist
+/lib/Makefile.dep
