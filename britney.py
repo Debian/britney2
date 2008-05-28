@@ -833,9 +833,8 @@ class Britney:
         f = open(filename, 'w')
         for src in sources:
             output = "Package: %s\n" % src
-            for k in ('Version', 'Section', 'Maintainer'):
-                key = k.lower()
-                if key not in sources[src] or not sources[src][key]: continue
+            for key, k in ((VERSION, 'Version'), (SECTION, 'Section'), (MAINTAINER, 'Maintainer')):
+                if not sources[src][key]: continue
                 output += (k + ": " + sources[src][key] + "\n")
             f.write(output + "\n")
         f.close()
