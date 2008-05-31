@@ -820,7 +820,7 @@ class Britney:
                                 source = binaries[pkg][SOURCE]
                         output += (k + ": " + source + "\n")
                         if sources[binaries[pkg][SOURCE]][MAINTAINER]:
-                            output += (k + ": " + sources[binaries[pkg][SOURCE]][MAINTAINER] + "\n")
+                            output += ("Maintainer: " + sources[binaries[pkg][SOURCE]][MAINTAINER] + "\n")
                     elif key == PROVIDES:
                         if len(binaries[pkg][key]) > 0:
                             output += (k + ": " + ", ".join(binaries[pkg][key]) + "\n")
