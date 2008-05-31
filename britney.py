@@ -2390,7 +2390,6 @@ class Britney:
         """
 
         self.__log("Starting the upgrade test", type="I")
-        self.__output = open(self.options.upgrade_output, 'w')
         self.output_write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
         self.output_write("Arch order is: %s\n" % ", ".join(self.options.architectures))
 
@@ -2475,7 +2474,6 @@ class Britney:
             # write HeidiResult
             self.write_heidi(self.options.heidi_output)
 
-        self.__output.close()
         self.__log("Test completed!", type="I")
 
     def hint_tester(self):
@@ -2679,10 +2677,8 @@ class Britney:
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
-        if self.options.hint_tester:
-            print msg,
-        else:
-            self.__output.write(msg)
+        print msg,
+        self.__output.write(msg)
 
     def main(self):
         """Main method
@@ -2702,12 +2698,16 @@ class Britney:
         else:
             self.upgrade_me = self.options.actions.split()
 
+        self.__output = open(self.options.upgrade_output, 'w')
+
         # run the hint tester
         if self.options.hint_tester:
             self.hint_tester()
         # run the upgrade test
         else:
             self.upgrade_testing()
+
+        self.__output.close()
 
 if __name__ == '__main__':
     Britney().main()
