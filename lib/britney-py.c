@@ -1,4 +1,4 @@
-#include <python2.4/Python.h>
+#include <python2.5/Python.h>
 
 #include "dpkg.h"
 
@@ -54,7 +54,7 @@ static void dpkgpackages_dealloc(dpkgpackages *self) {
 	Py_XDECREF(self->ref);
 	self->pkgs = NULL;
 	self->ref = NULL;
-	PyMem_DEL(self);
+	PyObject_DEL(self);
 }
 
 
@@ -456,7 +456,7 @@ end:
 static void dpkgsources_dealloc(dpkgsources *self) {
 	free_sources(self->srcs);
 	self->srcs = NULL;
-	PyMem_DEL(self);
+	PyObject_DEL(self);
 }
 
 static PyObject *dpkgsources_packages(dpkgsources *self, PyObject *args)
@@ -678,7 +678,7 @@ static void dpkgsrcsn_dealloc(dpkgsrcsn *self) {
 	Py_XDECREF(self->refs);
 	self->refs = NULL;
 
-	PyMem_DEL(self);
+	PyObject_DEL(self);
 }
 
 static PyObject *dpkgsrcsn_removesource(dpkgsrcsn *self, PyObject *args) {
