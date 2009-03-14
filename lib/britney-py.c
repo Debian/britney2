@@ -1,4 +1,6 @@
-#include <python2.5/Python.h>
+// XXX Please notify DSA once britney2 moves to Python2.5, so that
+// they can uninstall python2.4-dev from ftp-master.
+#include <python2.4/Python.h>
 
 #include "dpkg.h"
 
