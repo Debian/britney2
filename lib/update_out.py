@@ -25,8 +25,8 @@ testingupdatesdir = sys.argv[3]
 
 # Configuration information
 
-expected_arches = 12
-allarches = [ 'i386', 'sparc', 'alpha', 'powerpc', 'arm', 'm68k', 'hppa', 'ia64', 'mips', 'mipsel', 's390', 'amd64' ]
+expected_arches = 13
+allarches = [ 'i386', 'sparc', 'alpha', 'powerpc', 'armel', 'hppa', 'ia64', 'mips', 'mipsel', 's390', 'amd64' , 'kfreebsd-i386', 'kfreebsd-amd64']
 
 mindays = { "low" : 10, "medium" : 5, "high" : 2, "critical" : 0, 
 	    "emergency" : 0 }
@@ -35,11 +35,11 @@ defaulturgency = "low"
 # if you're not in this list, arch: all packages are allowed to break on you
 nobreakarchallarches = ['i386']
 # if you're in this list, your packages may not stay in sync with the source
-fuckedarches = ['m68k', 'sparc']
+fuckedarches = ['kfreebsd-i386','kfreebsd-amd64']
 # if you're in this list, your uninstallability count may increase
-breakarches = ['m68k', 'sparc']
+breakarches = ['kfreebsd-i386','kfreebsd-amd64']
 # new architectures
-newarches = []
+newarches = ['kfreebsd-i386','kfreebsd-amd64']
 
 allarches.sort()
 arches = [ x for x in allarches if x in nobreakarchallarches ]
