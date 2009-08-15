@@ -128,6 +128,10 @@ does for the generation of the update excuses.
     5. If there is a `block' hint for the source package without an
        `unblock` hint or a `block-all source`, the package is ignored.
 
+    6. If there is a `block-udeb' hint for the source package, it will
+       have the same effect as `block', but may only be cancelled by
+       a subsequent `unblock-udeb' hint.
+
     7. If the suite is unstable, the update can go ahead only if the
        upload happend more then the minimum days specified by the
        urgency of the upload; if this is not true, the package is
@@ -220,7 +224,7 @@ class Britney:
     For more documentation on this script, please read the Developers Reference.
     """
 
-    HINTS_HELPERS = ("easy", "hint", "remove", "block", "unblock", "approve")
+    HINTS_HELPERS = ("easy", "hint", "remove", "block", "block-udeb", "unblock", "unblock-udeb", "approve")
     HINTS_STANDARD = ("urgent", "age-days") + HINTS_HELPERS
     HINTS_ALL = ("force", "force-hint", "block-all") + HINTS_STANDARD
 
@@ -737,16 +741,16 @@ class Britney:
                     hints[l[0]].append((who, [k.rsplit("/", 1) for k in l if "/" in k]))
                 elif l[0] in ["block-all"]:
                     hints[l[0]].extend([(y, who) for y in l[1:]])
-                elif l[0] in ["block"]:
+                elif l[0] in ["block", "block-udeb"]:
                     hints[l[0]].extend([(y, who) for y in l[1:]])
                 elif l[0] in ["age-days"] and len(l) >= 3 and l[1].isdigit():
                     days = l[1]
                     tmp = [tuple([who] + k.rsplit("/", 1)) for k in l[2:] if "/" in k]
                     hints[l[0]].extend([(p, (v, h, days)) for h, p, v in tmp])
-                elif l[0] in ["remove", "approve", "unblock", "force", "urgent"]:
+                elif l[0] in ["remove", "approve", "unblock", "unblock-udeb", "force", "urgent"]:
                     hints[l[0]].extend([(k.rsplit("/", 1)[0], (k.rsplit("/", 1)[1], who)) for k in l if "/" in k])
 
-        for x in ["approve", "block", "block-all", "unblock", "force", "urgent", "remove", "age-days"]:
+        for x in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
             z = {}
             for a, b in hints[x]:
                 if z.has_key(a) and z[a] != b:
@@ -1189,23 +1193,31 @@ class Britney:
                 excuse.addhtml("Trying to remove package, not update it")
                 update_candidate = False
 
-        # check if there is a `block' hint for this package or a `block-all source' hint
-        blocked = None
+        # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
+        blocked = {}
         if src in self.hints["block"]:
-            blocked = self.hints["block"][src]
+            blocked["block"] = self.hints["block"][src]
         elif 'source' in self.hints["block-all"]:
-            blocked = self.hints["block-all"]["source"]
+            blocked["block"] = self.hints["block-all"]["source"]
+
+        if src in hints["block-udeb"]:
+            blocked["block-udeb"] = hints["block-udeb"][src]
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
-        # is processed only if the specified version is correct
-        if blocked:
-            unblock = self.hints["unblock"].get(src,(None,None))
+        # is processed only if the specified version is correct. If a package is blocked
+        # by `block-udeb', then `unblock-udeb' must be present to cancel it.
+        for block_cmd in blocked:
+            unblock_cmd = "un" + block_cmd
+            unblock = self.hints[unblock_cmd].get(src,(None,None))
             if unblock[0] != None and self.same_source(unblock[0], source_u[VERSION]):
-                    excuse.addhtml("Ignoring request to block package by %s, due to unblock request by %s" % (blocked, unblock[1]))
+                excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
+                               (block_cmd, blocked[block_cmd], unblock_cmd, hints[unblock_cmd][src][1]))
             else:
                 if unblock[0] != None:
-                    excuse.addhtml("Unblock request by %s ignored due to version mismatch: %s" % (unblock[1], unblock[0]))
-                excuse.addhtml("Not touching package, as requested by %s (contact debian-release if update is needed)" % (blocked))
+                    excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
+                                   (unblock_cmd.capitalize(), hints[unblock_cmd][src][1], hints[unblock_cmd][src][0]))
+                excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
+                               (block_cmd, blocked[block_cmd]))
                 update_candidate = False
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
