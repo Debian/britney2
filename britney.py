@@ -1200,8 +1200,8 @@ class Britney:
         elif 'source' in self.hints["block-all"]:
             blocked["block"] = self.hints["block-all"]["source"]
 
-        if src in hints["block-udeb"]:
-            blocked["block-udeb"] = hints["block-udeb"][src]
+        if src in self.hints["block-udeb"]:
+            blocked["block-udeb"] = self.hints["block-udeb"][src]
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
         # is processed only if the specified version is correct. If a package is blocked
