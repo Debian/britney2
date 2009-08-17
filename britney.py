@@ -1211,11 +1211,11 @@ class Britney:
             unblock = self.hints[unblock_cmd].get(src,(None,None))
             if unblock[0] != None and self.same_source(unblock[0], source_u[VERSION]):
                 excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
-                               (block_cmd, blocked[block_cmd], unblock_cmd, hints[unblock_cmd][src][1]))
+                               (block_cmd, blocked[block_cmd], unblock_cmd, self.hints[unblock_cmd][src][1]))
             else:
                 if unblock[0] != None:
                     excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
-                                   (unblock_cmd.capitalize(), hints[unblock_cmd][src][1], hints[unblock_cmd][src][0]))
+                                   (unblock_cmd.capitalize(), self.hints[unblock_cmd][src][1], self.hints[unblock_cmd][src][0]))
                 excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
                                (block_cmd, blocked[block_cmd]))
                 update_candidate = False
