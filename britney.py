@@ -923,7 +923,6 @@ class Britney:
                 #       does it and we have to go with it, but at least a warning should be raised.
                 if op == '' and version == '' or not strict and apt_pkg.CheckDep(package[VERSION], op, version):
                     packages.append(prov)
-                    break
 
         return (len(packages) > 0, packages)
 
