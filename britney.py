@@ -1451,7 +1451,6 @@ class Britney:
 
         # for every source package in testing-proposed-updates, check if it should be upgraded
         for pkg in sources['tpu']:
-            if sources['tpu'][pkg][FAKESRC]: continue
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
             if pkg in sources['testing']:
