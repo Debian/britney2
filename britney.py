@@ -449,6 +449,13 @@ class Britney:
         while Packages.Step():
             pkg = get_field('Package')
             version = get_field('Version')
+            final_conflicts_list = []
+            conflicts = get_field('Conflicts')
+            if conflicts:
+                final_conflicts_list.append(conflicts)
+            breaks = get_field('Breaks')
+            if breaks:
+                final_conflicts_list.append(breaks)
             dpkg = [version,
                     get_field('Section'),
                     pkg, 
@@ -456,7 +463,7 @@ class Britney:
                     get_field('Architecture'),
                     get_field('Pre-Depends'),
                     get_field('Depends'),
-                    get_field('Conflicts'),
+                    ', '.join(final_conflicts_list) or None,
                     get_field('Provides'),
                     [],
                     [],
