@@ -1,2 +1,2 @@
-# Unsatisfable dependencies are not valid candidates, please drop them from upgrade_me (waiting reply from aba)
-# Add support for udeb
+# Add Breaks support
+# Review tpu support
