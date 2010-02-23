@@ -566,7 +566,10 @@ class Britney:
             if len(l) != 2:
                 print "WARNING: Malformed line found in %s: %s" % (file, line)
                 continue
-            bugs[l[0]] = l[1].split(",")
+            pkg = l[0]
+            if pkg.startswith('src:'): pkg = pkg[4:]
+            bugs.setdefault(pkg, [])
+            bugs[pkg] += l[1].split(",")
         return bugs
 
     def write_bugs(self, basedir, bugs):
