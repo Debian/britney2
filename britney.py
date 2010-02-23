@@ -580,7 +580,7 @@ class Britney:
         for pkg in sorted(bugs.keys()):
             if not bugs[pkg]:
                 continue
-            f.write("%s %d\n" % (pkg, ','.join(bugs[pkg])))
+            f.write("%s %s\n" % (pkg, ','.join(bugs[pkg])))
         f.close()
 
     def __maxver(self, pkg, dist):
