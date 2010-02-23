@@ -564,6 +564,7 @@ class Britney:
         for line in open(filename):
             l = line.split()
             if len(l) != 2:
+                print "WARNING: Malformed line found in %s: %s" % (file, line)
                 continue
             bugs[l[0]] = l[1].split(",")
         return bugs
