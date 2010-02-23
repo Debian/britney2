@@ -49,8 +49,8 @@ and Britney.read_binaries).
 
 Other than source and binary packages, Britney loads the following data:
 
-  * Bugs, which contains the count of release-critical bugs for a given
-    version of a source package (see Britney.read_bugs).
+  * BugsV, which contains the list of release-critical bugs for a given
+    version of a source or binary package (see Britney.read_bugs).
 
   * Dates, which contains the date of the upload of a given version 
     of a source package (see Britney.read_dates).
@@ -148,8 +148,8 @@ does for the generation of the update excuses.
     9. The source package must have at least a binary package, otherwise
        it is ignored.
 
-   10. If the suite is unstable, the count of release critical bugs for
-       the new source package must be less then the count for the testing
+   10. If the suite is unstable, the new source package must have no
+       release critical bugs which do not also apply to the testing
        one. If this is not true, the package is ignored as `buggy'.
 
    11. If there is a `force' hint for the source package, then it is
@@ -549,14 +549,14 @@ class Britney:
     def read_bugs(self, basedir):
         """Read the release critial bug summary from the specified directory
         
-        The RC bug summaries are read from the `Bugs' file within the
+        The RC bug summaries are read from the `BugsV' file within the
         directory specified as `basedir' parameter. The file contains
         rows with the format:
 
-        <package-name> <count-of-rc-bugs>
+        <package-name> <bug number>[,<bug number>...]
 
         The method returns a dictionary where the key is the binary package
-        name and the value is the number of open RC bugs for it.
+        name and the value is the list of open RC bugs for it.
         """
         bugs = {}
         filename = os.path.join(basedir, "BugsV")
@@ -1306,8 +1306,8 @@ class Britney:
             excuse.addhtml("%s has no binaries on any arch" % src)
             update_candidate = False
 
-        # if the suite is unstable, then we have to check the release-critical bug counts before
-        # updating testing; if the unstable package have a RC bug count greater than the testing
+        # if the suite is unstable, then we have to check the release-critical bug lists before
+        # updating testing; if the unstable package has RC bugs that do not apply to the testing
         # one,  the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
             for pkg in pkgs.keys():
