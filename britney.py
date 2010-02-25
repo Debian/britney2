@@ -1347,9 +1347,10 @@ class Britney:
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
+        if src in self.hints["force"] and self.same_source(source_u[VERSION], self.hints["force"][src][0]):
+            excuse.dontinvalidate = 1
         if not update_candidate and src in self.hints["force"] and \
            self.same_source(source_u[VERSION], self.hints["force"][src][0]):
-            excuse.dontinvalidate = 1
             excuse.addhtml("Should ignore, but forced by %s" % (self.hints["force"][src][1]))
             update_candidate = True
 
