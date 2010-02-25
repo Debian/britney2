@@ -457,6 +457,14 @@ class Britney:
         while Packages.Step():
             pkg = get_field('Package')
             version = get_field('Version')
+
+            # There may be multiple versions of any arch:all packages
+            # (in unstable) if some architectures have out-of-date
+            # binaries.  We only ever consider the package with the
+            # largest version for migration.
+            if pkg in packages and apt_pkg.VersionCompare(packages[pkg][0], version) > 0:
+                continue
+
             final_conflicts_list = []
             conflicts = get_field('Conflicts')
             if conflicts:
