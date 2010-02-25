@@ -184,6 +184,7 @@ import time
 import copy
 import optparse
 import operator
+import urllib
 
 import apt_pkg
 
@@ -1292,10 +1293,10 @@ class Britney:
                     if oodtxt: oodtxt = oodtxt + "; "
                     oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/build.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
-                        (", ".join(sorted(oodbins[v])), arch, src, v, v)
+                        (", ".join(sorted(oodbins[v])), urllib.quote(arch), urllib.quote(src), urllib.quote(v), v)
                 text = "out of date on <a href=\"http://buildd.debian.org/build.php?" \
                     "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
-                    (arch, src, source_u[VERSION], arch, oodtxt)
+                    (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
 
                 if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
@@ -1326,14 +1327,14 @@ class Britney:
                 if len(new_bugs) > 0:
                     excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
                         "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                        "target=\"_blank\">has new bugs</a>!" % (pkg, ", ".join(pkgs[pkg]), pkg))
+                        "target=\"_blank\">has new bugs</a>!" % (pkg, ", ".join(pkgs[pkg]), urllib.quote(pkg)))
                     excuse.addhtml("Updating %s introduces new bugs: %s" % (pkg, ", ".join(
-                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (a, a) for a in new_bugs])))
+                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (urllib.quote(a), a) for a in new_bugs])))
                     update_candidate = False
 
                 if len(old_bugs) > 0:
                     excuse.addhtml("Updating %s fixes old bugs: %s" % (pkg, ", ".join(
-                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (a, a) for a in old_bugs])))
+                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (urllib.quote(a), a) for a in old_bugs])))
                 if len(old_bugs) > len(new_bugs) and len(new_bugs) > 0:
                     excuse.addhtml("%s introduces new bugs, so still ignored (even "
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
