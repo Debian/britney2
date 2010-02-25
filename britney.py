@@ -406,7 +406,14 @@ class Britney:
         get_field = Packages.Section.get
         while Packages.Step():
             pkg = get_field('Package')
-            sources[pkg] = [get_field('Version'),
+            ver = get_field('Version')
+            # There may be multiple versions of the source package
+            # (in unstable) if some architectures have out-of-date
+            # binaries.  We only ever consider the source with the
+            # largest version for migration.
+            if pkg in sources and apt_pkg.VersionCompare(sources[pkg][0], ver) > 0:
+                continue
+            sources[pkg] = [ver,
                             get_field('Section'),
                             [],
                             get_field('Maintainer'),
