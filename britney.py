@@ -794,6 +794,10 @@ class Britney:
                 z[a] = b
             hints[x] = z
 
+        # Sanity check the hints hash
+        if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
+            self.__log("WARNING: No block hints at all, not even udeb ones!", type="W")
+
         return hints
 
     def write_heidi(self, filename):
