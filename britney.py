@@ -25,7 +25,7 @@ they have undergone some degree of testing in unstable. The goal of
 this software is to do this task in a smart way, allowing testing
 to be always fully installable and close to being a release candidate.
 
-Britney source code is splitted in two different but related tasks:
+Britney's source code is split between two different but related tasks:
 the first one is the generation of the update excuses, while the
 second tries to update testing with the valid candidates; first 
 each package alone, then larger and even larger sets of packages
@@ -36,14 +36,14 @@ after the update than before.
 
 In order to analyze the entire Debian distribution, Britney needs to
 load in memory the whole archive: this means more than 10.000 packages
-for twelve architectures, as well as the dependency interconnection
-between them. For this reason, the memory requirement for running this
+for twelve architectures, as well as the dependency interconnections
+between them. For this reason, the memory requirements for running this
 software are quite high and at least 1 gigabyte of RAM should be available.
 
 Britney loads the source packages from the `Sources' file and the binary
 packages from the `Packages_${arch}' files, where ${arch} is substituted
 with the supported architectures. While loading the data, the software
-analyze the dependencies and build a directed weighted graph in memory
+analyzes the dependencies and builds a directed weighted graph in memory
 with all the interconnections between the packages (see Britney.read_sources
 and Britney.read_binaries).
 
@@ -93,12 +93,12 @@ does for the generation of the update excuses.
     1. If there is a `remove' hint for the source package, the package
        is ignored: it will be removed and not updated.
 
-    2. For every binary package build from the new source, it checks
+    2. For every binary package built from the new source, it checks
        for unsatisfied dependencies, new binary package and updated
        binary package (binNMU) excluding the architecture-independent
        ones and the packages not built from the same source.
 
-    3. For every binary package build from the old source, it checks
+    3. For every binary package built from the old source, it checks
        if it is still built from the new source; if this is not true
        and the package is not architecture-independent, the script
        removes it from testing.
@@ -133,7 +133,7 @@ does for the generation of the update excuses.
        a subsequent `unblock-udeb' hint.
 
     7. If the suite is unstable, the update can go ahead only if the
-       upload happend more then the minimum days specified by the
+       upload happened more than the minimum days specified by the
        urgency of the upload; if this is not true, the package is
        ignored as `too-young'. Note that the urgency is sticky, meaning
        that the highest urgency uploaded since the previous testing
@@ -214,12 +214,12 @@ RCONFLICTS = 10
 
 
 class Britney:
-    """Britney, the debian testing updater script
+    """Britney, the Debian testing updater script
     
-    This is the script that updates the testing_ distribution. It is executed
+    This is the script that updates the testing distribution. It is executed
     each day after the installation of the updated packages. It generates the 
     `Packages' files for the testing distribution, but it does so in an
-    intelligent manner; it try to avoid any inconsistency and to use only
+    intelligent manner; it tries to avoid any inconsistency and to use only
     non-buggy packages.
 
     For more documentation on this script, please read the Developers Reference.
@@ -366,7 +366,7 @@ class Britney:
         An easy-and-simple log method which prints messages to the standard
         output. The type parameter controls the urgency of the message, and
         can be equal to `I' for `Information', `W' for `Warning' and `E' for
-        `Error'. Warnings and errors are always printed, and information are
+        `Error'. Warnings and errors are always printed, and information is
         printed only if the verbose logging is enabled.
         """
         if self.options.verbose or type in ("E", "W"):
@@ -442,7 +442,7 @@ class Britney:
         The method returns a tuple. The first element is a list where
         every item represents a binary package as a dictionary; the second
         element is a dictionary which maps virtual packages to real
-        packages that provide it.
+        packages that provide them.
         """
 
         packages = {}
@@ -542,7 +542,7 @@ class Britney:
                 # register real packages
                 if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RDEPENDS]):
                     packages[a[0]][RDEPENDS].append(pkg)
-                # register packages which provides a virtual package
+                # register packages which provide a virtual package
                 elif a[0] in provides:
                     for i in provides.get(a[0]):
                         if i not in packages: continue
@@ -705,7 +705,7 @@ class Britney:
             l = line.split()
             if len(l) != 3: continue
 
-            # read the minimum days associated to the urgencies
+            # read the minimum days associated with the urgencies
             urgency_old = urgencies.get(l[0], self.options.default_urgency)
             mindays_old = self.MINDAYS.get(urgency_old, self.MINDAYS[self.options.default_urgency])
             mindays_new = self.MINDAYS.get(l[2], self.MINDAYS[self.options.default_urgency])
@@ -732,9 +732,9 @@ class Britney:
     def read_hints(self, basedir):
         """Read the hint commands from the specified directory
         
-        The hint commands are read from the files contained by the `Hints'
+        The hint commands are read from the files contained in the `Hints'
         directory within the directory specified as `basedir' parameter. 
-        The name of the files has to be the same of the authorized users
+        The names of the files have to be the same as the authorized users
         for the hints.
         
         The file contains rows with the format:
@@ -824,7 +824,7 @@ class Britney:
     def write_controlfiles(self, basedir, suite):
         """Write the control files
 
-        This method write the control files for the binary packages of all
+        This method writes the control files for the binary packages of all
         the architectures and for the source packages.
         """
         sources = self.sources[suite]
@@ -992,7 +992,7 @@ class Britney:
                 packages = [self.binaries[suite][arch][0][p][SOURCE] for p in packages]
 
                 # if the dependency can be satisfied by the same source package, skip the block:
-                # obviously both binary packages will enter testing togheter
+                # obviously both binary packages will enter testing together
                 if src in packages: continue
 
                 # if no package can satisfy the dependency, add this information to the excuse
@@ -1011,21 +1011,21 @@ class Britney:
 
         return True
 
-    # Package analisys methods
+    # Package analysis methods
     # ------------------------
 
     def should_remove_source(self, pkg):
         """Check if a source package should be removed from testing
         
         This method checks if a source package should be removed from the
-        testing distribution; this happen if the source package is not
+        testing distribution; this happens if the source package is not
         present in the unstable distribution anymore.
 
         It returns True if the package can be removed, False otherwise.
         In the former case, a new excuse is appended to the the object
         attribute excuses.
         """
-        # if the soruce package is available in unstable, then do nothing
+        # if the source package is available in unstable, then do nothing
         if pkg in self.sources['unstable']:
             return False
         # otherwise, add a new excuse for its removal and return True
@@ -1048,11 +1048,11 @@ class Britney:
         return True
 
     def should_upgrade_srcarch(self, src, arch, suite):
-        """Check if binary package should be upgraded
+        """Check if a binary package should be upgraded
 
         This method checks if a binary package should be upgraded; this can
         happen also if the binary package is a binary-NMU for the given arch.
-        The analisys is performed for the source package specified by the
+        The analysis is performed for the source package specified by the
         `src' parameter, checking the architecture `arch' for the distribution
         `suite'.
        
@@ -1071,7 +1071,7 @@ class Britney:
         source_u[MAINTAINER] and excuse.set_maint(source_u[MAINTAINER].strip())
         source_u[SECTION] and excuse.set_section(source_u[SECTION].strip())
         
-        # if there is a `remove' hint and the requested version is the same of the
+        # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
         if src in self.hints["remove"] and \
            self.same_source(source_t[VERSION], self.hints["remove"][src][0]):
@@ -1132,7 +1132,7 @@ class Britney:
                 anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing or the source
-        # package is not fake, then check what packages shuold be removed
+        # package is not fake, then check what packages should be removed
         if not anywrongver and (anyworthdoing or not self.sources[suite][src][FAKESRC]):
             srcv = self.sources[suite][src][VERSION]
             ssrc = self.same_source(source_t[VERSION], srcv)
@@ -1148,7 +1148,7 @@ class Britney:
                     excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
                     if ssrc: anyworthdoing = True
 
-        # if there is nothing wrong and there is something worth doing, this is valid candidate
+        # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
             excuse.addhtml("Valid candidate")
             self.excuses.append(excuse)
@@ -1164,7 +1164,7 @@ class Britney:
     def should_upgrade_src(self, src, suite):
         """Check if source package should be upgraded
 
-        This method checks if a source package should be upgraded. The analisys
+        This method checks if a source package should be upgraded. The analysis
         is performed for the source package specified by the `src' parameter, 
         checking the architecture `arch' for the distribution `suite'.
        
@@ -1210,7 +1210,7 @@ class Britney:
             excuse.addhtml("Ignoring %s urgency setting for NEW package" % (urgency))
             urgency = self.options.default_urgency
 
-        # if there is a `remove' hint and the requested version is the same of the
+        # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
         if src in self.hints["remove"]:
             if source_t and self.same_source(source_t[VERSION], self.hints['remove'][src][0]) or \
@@ -1273,7 +1273,7 @@ class Britney:
                 else:
                     update_candidate = False
 
-        # at this point, we check what is the status of the builds on all the supported architectures
+        # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
         pkgs = {src: ["source"]}
         for arch in self.options.architectures:
@@ -1417,7 +1417,7 @@ class Britney:
             if invalid[i] not in revdeps:
                 i += 1
                 continue
-            # if there dependency can be satisfied by a testing-proposed-updates excuse, skip the item
+            # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
             if (invalid[i] + "_tpu") in valid:
                 i += 1
                 continue
@@ -1441,7 +1441,7 @@ class Britney:
         """Produce and write the update excuses
 
         This method handles the update excuses generation: the packages are
-        looked to determine whether they are valid candidates. For the details
+        looked at to determine whether they are valid candidates. For the details
         of this procedure, please refer to the module docstring.
         """
 
@@ -1496,7 +1496,7 @@ class Britney:
             if ("-"+src) in upgrade_me: continue
             if src not in sources['testing']: continue
 
-            # check if the version specified in the hint is the same of the considered package
+            # check if the version specified in the hint is the same as the considered package
             tsrcv = sources['testing'][src][VERSION]
             if not self.same_source(tsrcv, self.hints["remove"][src][0]): continue
 
@@ -1546,7 +1546,7 @@ class Britney:
     def newlyuninst(self, nuold, nunew):
         """Return a nuninst statstic with only new uninstallable packages
 
-        This method subtract the uninstallabla packages of the statistic
+        This method subtracts the uninstallable packages of the statistic
         `nunew` from the statistic `nuold`.
 
         It returns a dictionary with the architectures as keys and the list
@@ -1563,8 +1563,8 @@ class Britney:
 
         To calculate the uninstallability counters, the method checks the
         installability of all the packages for all the architectures, and
-        tracking dependencies in a recursive way. The architecture
-        indipendent packages are checked only for the `nobreakall`
+        tracks dependencies in a recursive way. The architecture
+        independent packages are checked only for the `nobreakall`
         architectures.
 
         It returns a dictionary with the architectures as keys and the list
@@ -1576,14 +1576,14 @@ class Britney:
 
         nuninst = {}
 
-        # local copies for better performances
+        # local copies for better performance
         binaries = self.binaries['testing']
         systems = self.systems
 
         # for all the architectures
         for arch in self.options.architectures:
             if requested_arch and arch != requested_arch: continue
-            # if it is in the nobreakall ones, check arch-indipendent packages too
+            # if it is in the nobreakall ones, check arch-independent packages too
             if arch not in self.options.nobreakall_arches.split():
                 skip_archall = True
             else: skip_archall = False
@@ -1596,7 +1596,7 @@ class Britney:
                 if not r:
                     nuninst[arch].add(pkg_name)
 
-            # if they are not required, removed architecture-indipendent packages
+            # if they are not required, remove architecture-independent packages
             nuninst[arch + "+all"] = nuninst[arch].copy()
             if skip_archall:
                 for pkg in nuninst[arch + "+all"]:
@@ -1786,7 +1786,7 @@ class Britney:
         # If a conflict is detected, it tries to handle it calling the handle_conflict
         # method; if it can't be resolved, then it returns False.
         def satisfy(pkg, pkg_alt=None, pkg_from=None, system=system, conflicts=conflicts, excluded=[]):
-            # if it is real package and it is already installed, skip it and return True
+            # if it is a real package and it is already installed, skip it and return True
             if pkg in binaries[0]:
                 if pkg in system:
                     if type(pkg_from) == list:
@@ -1856,7 +1856,7 @@ class Britney:
                     if conflicting in binary_u[PROVIDES] and system[conflicting][1] == [pkg]: continue
                     if op == '' and version == '' or check_depends(binary_u[VERSION], op, version):
                         # if conflict is found, check if it can be solved removing
-                        # already-installed packages without broking the system; if
+                        # already-installed packages without breaking the system; if
                         # this is not possible, give up and return False
                         output = handle_conflict(pkg, conflicting, system.copy(), conflicts.copy())
                         if output:
@@ -1878,7 +1878,7 @@ class Britney:
                         else: binary_c = None
                         if op == '' and version == '' or binary_c and check_depends(binary_c[VERSION], op, version):
                             # if conflict is found, check if it can be solved removing
-                            # already-installed packages without broking the system; if
+                            # already-installed packages without breaking the system; if
                             # this is not possible, give up and return False
                             output = handle_conflict(pkg, name, system.copy(), conflicts.copy())
                             if output:
@@ -1887,7 +1887,7 @@ class Britney:
                                 del system[pkg]
                                 unregister_conflicts(pkg, conflicts)
                                 return False
-                    # register the conflict)
+                    # register the conflict
                     if block[0] not in conflicts:
                         conflicts[block[0]] = []
                     conflicts[block[0]].append((name, version, op, pkg))
@@ -1928,7 +1928,7 @@ class Britney:
     def doop_source(self, pkg):
         """Apply a change to the testing distribution as requested by `pkg`
 
-        This method apply the changes required by the action `pkg` tracking
+        This method applies the changes required by the action `pkg` tracking
         them so it will be possible to revert them.
 
         The method returns a list of the package name, the suite where the
@@ -2093,8 +2093,8 @@ class Britney:
     def iter_packages(self, packages, selected, hint=False, nuninst=None):
         """Iter on the list of actions and apply them one-by-one
 
-        This method apply the changes from `packages` to testing, checking the uninstallability
-        counters for every action performed. If the action do not improve the it, it is reverted.
+        This method applies the changes from `packages` to testing, checking the uninstallability
+        counters for every action performed. If the action does not improve them, it is reverted.
         The method returns the new uninstallability counters and the remaining actions if the
         final result is successful, otherwise (None, None).
         """
@@ -2109,7 +2109,7 @@ class Britney:
         else:
             nuninst_comp = self.nuninst_orig.copy()
 
-        # local copies for better performances
+        # local copies for better performance
         binaries = self.binaries['testing']
         sources = self.sources
         systems = self.systems
@@ -2517,7 +2517,7 @@ class Britney:
     def hint_tester(self):
         """Run a command line interface to test hints
 
-        This methods provides a command line interface for the release team to
+        This method provides a command line interface for the release team to
         try hints and evaulate the results.
         """
         self.__log("> Calculating current uninstallability counters", type="I")
@@ -2555,7 +2555,7 @@ class Britney:
         """Process hints
 
         This method process `easy`, `hint` and `force-hint` hints. If the
-        requested version is not in unstable, than the hint is skipped.
+        requested version is not in unstable, then the hint is skipped.
         """
         hintinfo = {"easy": "easy",
                     "hint": 0,
@@ -2598,8 +2598,8 @@ class Britney:
     def sort_actions(self):
         """Sort actions in a smart way
 
-        This method sorts the list of actions in a smart way. In details, it uses
-        as base sort the number of days the excuse is old, then reordering packages
+        This method sorts the list of actions in a smart way. In detail, it uses
+        as the base sort the number of days the excuse is old, then reorders packages
         so the ones with most reverse dependencies are at the end of the loop.
         If an action depends on another one, it is put after it.
         """
@@ -2670,7 +2670,7 @@ class Britney:
     def old_libraries(self):
         """Detect old libraries left in testing for smooth transitions
 
-        This method detect old libraries which are in testing but no longer
+        This method detects old libraries which are in testing but no longer
         built from the source package: they are still there because other
         packages still depend on them, but they should be removed as soon
         as possible.
