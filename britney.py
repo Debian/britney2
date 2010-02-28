@@ -580,7 +580,7 @@ class Britney:
         for line in open(filename):
             l = line.split()
             if len(l) != 2:
-                print "WARNING: Malformed line found in %s: %s" % (file, line)
+                self.__log("Malformed line found in line %s" % (line), type='W')
                 continue
             pkg = l[0]
             if pkg.startswith('src:'): pkg = pkg[4:]
