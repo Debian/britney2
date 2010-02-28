@@ -781,7 +781,16 @@ class Britney:
             z = {}
             for a, b in hints[x]:
                 if z.has_key(a) and z[a] != b:
-                    self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
+                    if x in ['unblock', 'unblock-udeb']:
+                        if apt_pkg.VersionCompare(z[a][0], b[0]) < 0:
+                            # This hint is for a newer version, so discard the old one
+                            self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
+                        else:
+                            # This hint is for an older version, so ignore the new one
+                            self.__log("Ignoring %s[%s] = %s, %s is higher or equal" % (x, a, b, z[a]), type="W")
+                            continue
+                    else:
+                        self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
                 z[a] = b
             hints[x] = z
 
