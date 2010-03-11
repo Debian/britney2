@@ -1349,8 +1349,8 @@ class Britney:
                 if pkg not in self.bugs['unstable']:
                     self.bugs['unstable'][pkg] = []
 
-                new_bugs = set(self.bugs['unstable'][pkg]).difference(self.bugs['testing'][pkg])
-                old_bugs = set(self.bugs['testing'][pkg]).difference(self.bugs['unstable'][pkg])
+                new_bugs = sorted(set(self.bugs['unstable'][pkg]).difference(self.bugs['testing'][pkg]))
+                old_bugs = sorted(set(self.bugs['testing'][pkg]).difference(self.bugs['unstable'][pkg]))
 
                 if len(new_bugs) > 0:
                     excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
