@@ -245,6 +245,8 @@ class Britney:
         self.systems = {}
 
         # if requested, build the non-installable status and save it
+        # if this or the population of self.binaries below takes a very
+        # long time, try increasing SIZEOFHASHMAP in lib/dpkg.c and rebuilding
         if not self.options.nuninst_cache:
             self.__log("Building the list of not installable packages for the full archive", type="I")
             self.sources = {'testing': self.read_sources(self.options.testing)}
@@ -270,6 +272,8 @@ class Britney:
             return
 
         # read the source and binary packages for the involved distributions
+        # if this takes a very long time, try increasing SIZEOFHASHMAP in
+        # lib/dpkg.c and rebuilding
         self.sources = {'testing': self.read_sources(self.options.testing),
                         'unstable': self.read_sources(self.options.unstable),
                         'tpu': self.read_sources(self.options.tpu),}

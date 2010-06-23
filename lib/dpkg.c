@@ -7,6 +7,10 @@
 #include "dpkg.h"
 #include "memory.h"
 
+// enlarge this if britney has issues parsing packages
+// (e.g. very slow installability checks)
+#define SIZEOFHASHMAP 16
+
 /* #define DIAGNOSE 1 */
 
 #define insert_packagenamelist(x,y) insert_l_packagenamelist(x,y,__LINE__)
@@ -562,9 +566,9 @@ void free_packages(dpkg_packages *pkgs) {
 }
 
 
-HASH_IMPL(packagetbl, char *, dpkg_collected_package *, 15, strhash, strcmp,
+HASH_IMPL(packagetbl, char *, dpkg_collected_package *, SIZEOFHASHMAP, strhash, strcmp,
 	  KEEP(char*),free_collected_package);
-HASH_IMPL(virtualpkgtbl, char *, virtualpkg *, 15, strhash, strcmp,
+HASH_IMPL(virtualpkgtbl, char *, virtualpkg *, SIZEOFHASHMAP, strhash, strcmp,
 	  KEEP(char*), free_virtualpkg);
 
 /* dpkg_provision refers to memory allocated elsewhere */
