@@ -802,6 +802,10 @@ class Britney:
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
             self.__log("WARNING: No block hints at all, not even udeb ones!", type="W")
 
+        # A t-p-u approval overrides an unstable block
+        for p in hints["approve"]:
+            hints["unblock"][p] = hints["approve"][p]
+
         return hints
 
     def write_heidi(self, filename):
