@@ -1981,7 +1981,7 @@ class Britney:
             pkg_name = pkg[1:]
             suite = "testing"
         # testing-proposed-updates = "<source>_tpu"
-        elif pkg[0].endswith("_tpu"):
+        elif pkg.endswith("_tpu"):
             pkg_name = pkg[:-4]
             suite = "tpu"
         # normal update of source packages = "<source>"
