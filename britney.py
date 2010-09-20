@@ -139,11 +139,11 @@ does for the generation of the update excuses.
        that the highest urgency uploaded since the previous testing
        transition is taken into account.
 
-    8. All the architecture-dependent binary packages and the
-       architecture-independent ones for the `nobreakall' architectures
-       have to be built from the source we are considering. If this is
-       not true, then these are called `out-of-date' architectures and
-       the package is ignored.
+    8. If the suite is unstable, all the architecture-dependent binary
+       packages and the architecture-independent ones for the `nobreakall'
+       architectures have to be built from the source we are considering.
+       If this is not true, then these are called `out-of-date'
+       architectures and the package is ignored.
 
     9. The source package must have at least a binary package, otherwise
        it is ignored.
@@ -156,7 +156,10 @@ does for the generation of the update excuses.
        updated even if it is marked as ignored from the previous steps.
 
    12. If the suite is testing-proposed-updates, the source package can
-       be updated only if there is an explicit approval for it.
+       be updated only if there is an explicit approval for it.  Unless
+       a `force' hint exists, the new package must also be available
+       on all of the architectures for which it has binary packages in
+       testing.
 
    13. If the package will be ignored, mark it as "Valid candidate",
        otherwise mark it as "Not considered".
@@ -1293,6 +1296,29 @@ class Britney:
                     excuse.addhtml("Too young, but urgency pushed by %s" % (self.hints["urgent"][src][1]))
                 else:
                     update_candidate = False
+
+        if suite == 'tpu':
+            # o-o-d(ish) checks for t-p-u
+            for arch in self.options.architectures:
+                # If the package isn't in testing or the testing
+                # package produces no packages on this architecture,
+                # then it can't be out-of-date.  We assume that if
+                # the t-p-u package has produced any binaries for
+                # this architecture then it is ok
+
+                if not src in self.sources["testing"] or \
+                   (len([x for x in self.sources["testing"][src][BINARIES] if x.endswith("/"+arch)]) == 0) or \
+                   (len([x for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch)]) > 0):
+                    continue
+
+                text = "Not yet built on <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s&suite=testing\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch)
+
+                if arch in self.options.fucked_arches.split():
+                    text = text + " (but %s isn't keeping up, so never mind)" % (arch)
+                else:
+                    update_candidate = False
+
+                excuse.addhtml(text)
 
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
