@@ -1307,8 +1307,8 @@ class Britney:
                 # this architecture then it is ok
 
                 if not src in self.sources["testing"] or \
-                   (len([x for x in self.sources["testing"][src][BINARIES] if x.endswith("/"+arch)]) == 0) or \
-                   (len([x for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch)]) > 0):
+                   (len([x for x in self.sources["testing"][src][BINARIES] if x.endswith("/"+arch) and self.binaries["testing"][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) == 0) or \
+                   (len([x for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch) and self.binaries[suite][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) > 0):
                     continue
 
                 text = "Not yet built on <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s&suite=testing\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch)
