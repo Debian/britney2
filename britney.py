@@ -1995,9 +1995,7 @@ class Britney:
         if pkg[0] == "-" and "/" in pkg:
             pkg_name, arch = pkg.split("/")
             pkg_name = pkg_name[1:]
-            if arch.endswith("_tpu"):
-                arch, suite = arch.split("_")
-            else: suite = "testing"
+            suite = "testing"
         # arch = "<source>/<arch>",
         elif "/" in pkg:
             pkg_name, arch = pkg.split("/")
