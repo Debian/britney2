@@ -2001,7 +2001,9 @@ class Britney:
         # arch = "<source>/<arch>",
         elif "/" in pkg:
             pkg_name, arch = pkg.split("/")
-            suite = "unstable"
+            if arch.endswith("_tpu"):
+                arch, suite = arch.split("_")
+            else: suite = "unstable"
         # removal of source packages = "-<source>",
         elif pkg[0] == "-":
             pkg_name = pkg[1:]
