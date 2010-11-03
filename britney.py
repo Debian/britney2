@@ -2074,7 +2074,7 @@ class Britney:
                 key = (binary, parch)
                 # obviously, added/modified packages are affected
                 if key not in affected: affected.append(key)
-                # if the binary already exists (built from another ource)
+                # if the binary already exists (built from another source)
                 if binary in binaries[parch][0]:
                     # save the old binary package
                     undo['binaries'][p] = binaries[parch][0][binary]
