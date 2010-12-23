@@ -2444,9 +2444,9 @@ class Britney:
                 if pkg[0] != '-' and pkg_name in self.sources[suite]:
                     for p in self.sources[suite][pkg_name][BINARIES]:
                         binary, arch = p.split("/")
-                        if "/" in pkg and arch != pkg[pkg.find("/")+1:]: continue
-                        del self.binaries['testing'][arch][0][binary]
-                        self.systems[arch].remove_binary(binary)
+                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)):
+                            del self.binaries['testing'][arch][0][binary]
+                            self.systems[arch].remove_binary(binary)
 
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
