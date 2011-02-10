@@ -1,6 +1,4 @@
-// XXX Please notify DSA once britney2 moves to Python2.5, so that
-// they can uninstall python2.4-dev from ftp-master.
-#include <python2.4/Python.h>
+#include <python2.5/Python.h>
 
 #include "dpkg.h"
 
@@ -945,7 +943,7 @@ static PyObject *apt_versioncmp(PyObject *self, PyObject *args) {
  ******************************************************/
 
 static PyObject *build_system(PyObject *self, PyObject *args) {
-    int pos = 0;
+    Py_ssize_t pos = 0;
     char *arch;
 	PyObject *pkgs, *key, *value, *pyString;
 
