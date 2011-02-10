@@ -4,7 +4,7 @@ INSTALL for britney v2.0
 Requirements:
 -------------
 
-  * Python 2.4 (>= 2.4.2)       aptitude install python2.4
-  * Python APT/DPKG bindings    aptitude install python2.4-apt dpkg-dev
-  * Python dev headers          aptitude install python2.4-dev
+  * Python 2.5                  aptitude install python2.5
+  * Python APT/DPKG bindings    aptitude install python2.5-apt libapt-pkg-dev dpkg-dev
+  * Python dev headers          aptitude install python2.5-dev
 
