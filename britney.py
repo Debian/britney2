@@ -2037,6 +2037,9 @@ class Britney:
                     for j in binaries[parch][0][binary][RDEPENDS]:
                         key = (j, parch)
                         if key not in affected: affected.append(key)
+                        for p in self.get_full_tree(j, parch, 'testing'):
+                            key = (p, parch)
+                            if key not in affected: affected.append(key)
                     # remove the provided virtual packages
                     for j in binaries[parch][0][binary][PROVIDES]:
                         key = j + "/" + parch
