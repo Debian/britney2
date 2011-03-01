@@ -2132,13 +2132,16 @@ class Britney:
         """
         packages = [pkg]
         binaries = self.binaries[suite][arch][0]
-        l = n = 0
-        while len(packages) > l:
-            l = len(packages)
-            for p in packages[n:]:
-                packages.extend([x for x in binaries[p][RDEPENDS] if x not in packages and x in binaries])
-            n = l
-        return packages
+        if pkg in binaries:
+            l = n = 0
+            while len(packages) > l:
+                l = len(packages)
+                for p in packages[n:]:
+                    packages.extend([x for x in binaries[p][RDEPENDS] if x not in packages and x in binaries])
+                n = l
+            return packages
+        else:
+            return []
 
     def iter_packages(self, packages, selected, hint=False, nuninst=None):
         """Iter on the list of actions and apply them one-by-one
