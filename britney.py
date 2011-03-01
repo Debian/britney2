@@ -2241,7 +2241,14 @@ class Britney:
                         to_check.append(p)
                         broken.remove(p)
                         if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                            nuninst[arch].remove(p)
+                            # if the package was previously arch:all and uninstallable
+                            # and has moved to being architecture-dependent, becoming
+                            # installable in the process then it will not be in the
+                            # architecture-dependent uninstallability set; therefore,
+                            # don't try removing it
+                            if p in nuninst[arch]:
+                                nuninst[arch].remove(p)
+                                 
 
                 # broken packages (second round, reverse dependencies of the first round)
                 while to_check:
@@ -2259,7 +2266,13 @@ class Britney:
                             broken.remove(p)
                             to_check.append(p)
                             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].remove(p)
+                                # if the package was previously arch:all and uninstallable
+                                # and has moved to being architecture-dependent, becoming
+                                # installable in the process then it will not be in the
+                                # architecture-dependent uninstallability set; therefore,
+                                # don't try removing it
+                                if p in nuninst[arch]:
+                                    nuninst[arch].remove(p)
 
                 # if we are processing hints, go ahead
                 if hint:
