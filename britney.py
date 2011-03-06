@@ -409,9 +409,15 @@ class Britney:
         package = None
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
-        Packages = apt_pkg.ParseTagFile(open(filename))
-        get_field = Packages.Section.get
-        while Packages.Step():
+        try:
+            Packages = apt_pkg.TagFile(open(filename))
+            get_field = Packages.section.get
+            step = Packages.step
+        except AttributeError, e:
+            Packages = apt_pkg.ParseTagFile(open(filename))
+            get_field = Packages.Section.get
+            step = Packages.Step
+        while step():
             pkg = get_field('Package')
             ver = get_field('Version')
             # There may be multiple versions of the source package
@@ -459,9 +465,15 @@ class Britney:
 
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
-        Packages = apt_pkg.ParseTagFile(open(filename))
-        get_field = Packages.Section.get
-        while Packages.Step():
+        try:
+            Packages = apt_pkg.TagFile(open(filename))
+            get_field = Packages.section.get
+            step = Packages.step
+        except AttributeError, e:
+            Packages = apt_pkg.ParseTagFile(open(filename))
+            get_field = Packages.Section.get
+            step = Packages.Step
+        while step():
             pkg = get_field('Package')
             version = get_field('Version')
 
