@@ -2046,12 +2046,24 @@ class Britney:
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    for j in binaries[parch][0][binary][RDEPENDS]:
-                        key = (j, parch)
-                        if key not in affected: affected.append(key)
-                        for p in self.get_full_tree(j, parch, 'testing'):
-                            key = (p, parch)
-                            if key not in affected: affected.append(key)
+                    # recursively loop through the reverse dependencies
+                    rev_deps = set(binaries[parch][0][binary][RDEPENDS])
+                    seen = set()
+                    while len(rev_deps) > 0:
+                        # mark all of the current iteration of packages as affected
+                        affected.extend( [ (x, parch) for x in rev_deps ] )
+                        # and as processed
+                        seen |= rev_deps
+                        # generate the next iteration, which is the reverse-dependencies of
+                        # the current iteration
+                        new_rev_deps = [ binaries[parch][0][x][RDEPENDS] for x in rev_deps \
+                                         if x in binaries[parch][0] ]  
+                        # flatten the list-of-lists, filtering out already handled packages
+                        # in the process
+                        rev_deps = set([ package for sublist in new_rev_deps \
+                                         for package in sublist if package not in seen ])
+                    # remove duplicates from the list of affected packages
+                    affected = list(set(affected))
                     # remove the provided virtual packages
                     for j in binaries[parch][0][binary][PROVIDES]:
                         key = j + "/" + parch
