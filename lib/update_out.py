@@ -537,9 +537,9 @@ def should_upgrade_src(src, suite, orig, origpkgs, new, newpkgs, approvals,
 			oodtxt = ""
 			for v in oodbins.keys():
 				if oodtxt: oodtxt = oodtxt + "; "
-				oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
+				oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
 					(", ".join(oodbins[v]), arch, src, v, v)
-			text = "out of date on <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % (arch, src, srcv, arch, oodtxt)
+			text = "out of date on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % (arch, src, srcv, arch, oodtxt)
 
 			if arch in fuckedarches:
 				text = text + " (but %s isn't keeping up," % \
