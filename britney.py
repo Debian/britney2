@@ -1323,7 +1323,7 @@ class Britney:
                    (len([x for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch) and self.binaries[suite][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) > 0):
                     continue
 
-                text = "Not yet built on <a href=\"http://buildd.debian.org/build.php?arch=%s&pkg=%s&ver=%s&suite=testing\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch)
+                text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=testing\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch)
 
                 if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
@@ -1365,10 +1365,10 @@ class Britney:
                 oodtxt = ""
                 for v in oodbins.keys():
                     if oodtxt: oodtxt = oodtxt + "; "
-                    oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/build.php?" \
+                    oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
                         (", ".join(sorted(oodbins[v])), urllib.quote(arch), urllib.quote(src), urllib.quote(v), v)
-                text = "out of date on <a href=\"http://buildd.debian.org/build.php?" \
+                text = "out of date on <a href=\"http://buildd.debian.org/status/logs.php?" \
                     "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
                     (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
 
