@@ -1347,7 +1347,7 @@ int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
 
 /******************/
 
-HASH_IMPL(sourcetbl, char *, dpkg_source *, 14, strhash, strcmp,
+HASH_IMPL(sourcetbl, char *, dpkg_source *, SIZEOFHASHMAP, strhash, strcmp,
 	  KEEP(char*), free_source);
 
 static dpkg_sources *read_sources_file(char *filename, int n_arches) {
@@ -1561,7 +1561,7 @@ void write_directory(char *dir, dpkg_sources *srcs) {
 
 /*********************/
 
-HASH_IMPL(sourcenotetbl, char *, dpkg_source_note *, 14, strhash, strcmp,
+HASH_IMPL(sourcenotetbl, char *, dpkg_source_note *, SIZEOFHASHMAP, strhash, strcmp,
 	  KEEP(char*), free_source_note);
 
 dpkg_source_note *new_source_note(dpkg_source *src, int n_arches) {
