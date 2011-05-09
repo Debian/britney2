@@ -2091,9 +2091,9 @@ class Britney:
                     # save the old binary package
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    for j in binaries[parch][0][binary][RDEPENDS]:
-                        key = (j, parch)
-                        if key not in affected: affected.append(key)
+                    affected.extend( [ (x, parch) for x in \
+                                        self.get_reverse_tree(binary, parch, 'testing') ] )
+                    affected = list(set(affected))
                     # all the reverse conflicts and their dependency tree are affected by the change
                     for j in binaries[parch][0][binary][RCONFLICTS]:
                         key = (j, parch)
@@ -2116,9 +2116,9 @@ class Britney:
                         undo['virtual'][key] = binaries[parch][1][j][:]
                     binaries[parch][1][j].append(binary)
                 # all the reverse dependencies are affected by the change
-                for j in binaries[parch][0][binary][RDEPENDS]:
-                    key = (j, parch)
-                    if key not in affected: affected.append(key)
+                affected.extend( [ (x, parch) for x in \
+                                    self.get_reverse_tree(binary, parch, 'testing') ] )
+                affected = list(set(affected))
 
             # register reverse dependencies and conflicts for the new binary packages
             for p in source[BINARIES]:
