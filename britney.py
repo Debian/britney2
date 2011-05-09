@@ -2071,9 +2071,9 @@ class Britney:
         # single binary removal
         elif pkg_name in binaries[arch][0]:
             undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
-            for j in binaries[arch][0][pkg_name][RDEPENDS]:
-                key = (j, arch)
-                if key not in affected: affected.append(key)
+            affected.extend( [ (x, arch) for x in \
+               self.get_reverse_tree(pkg_name, arch, 'testing') ] )
+            affected = list(set(affected))
             del binaries[arch][0][pkg_name]
             self.systems[arch].remove_binary(pkg_name)
 
