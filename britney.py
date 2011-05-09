@@ -2046,23 +2046,8 @@ class Britney:
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    # recursively loop through the reverse dependencies
-                    rev_deps = set(binaries[parch][0][binary][RDEPENDS])
-                    seen = set()
-                    while len(rev_deps) > 0:
-                        # mark all of the current iteration of packages as affected
-                        affected.extend( [ (x, parch) for x in rev_deps ] )
-                        # and as processed
-                        seen |= rev_deps
-                        # generate the next iteration, which is the reverse-dependencies of
-                        # the current iteration
-                        new_rev_deps = [ binaries[parch][0][x][RDEPENDS] for x in rev_deps \
-                                         if x in binaries[parch][0] ]  
-                        # flatten the list-of-lists, filtering out already handled packages
-                        # in the process
-                        rev_deps = set([ package for sublist in new_rev_deps \
-                                         for package in sublist if package not in seen ])
-                    # remove duplicates from the list of affected packages
+                    affected.extend( [ (x, parch) for x in \
+                                       self.get_reverse_tree(binary, parch, 'testing') ] )
                     affected = list(set(affected))
                     # remove the provided virtual packages
                     for j in binaries[parch][0][binary][PROVIDES]:
@@ -2147,6 +2132,29 @@ class Britney:
 
         # return the package name, the suite, the list of affected packages and the undo dictionary
         return (pkg_name, suite, affected, undo)
+
+    def get_reverse_tree(self, pkg, arch, suite):
+        packages = []
+        binaries = self.binaries[suite][arch][0]
+
+        rev_deps = set(binaries[pkg][RDEPENDS])
+        seen = set()
+        while len(rev_deps) > 0:
+            # mark all of the current iteration of packages as affected
+            packages.extend( [ x for x in rev_deps ] )
+            # and as processed
+            seen |= rev_deps
+            # generate the next iteration, which is the reverse-dependencies of
+            # the current iteration
+            new_rev_deps = [ binaries[x][RDEPENDS] for x in rev_deps \
+                             if x in binaries ]
+            # flatten the list-of-lists, filtering out already handled packages
+            # in the process
+            rev_deps = set([ package for sublist in new_rev_deps \
+                             for package in sublist if package not in seen ])
+        # remove duplicates from the list of affected packages
+        packages = list(set(packages))
+        return packages
 
     def get_full_tree(self, pkg, arch, suite):
         """Calculate the full dependency tree for the given package
