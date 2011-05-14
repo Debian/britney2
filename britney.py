@@ -602,7 +602,6 @@ class Britney:
                 self.__log("Malformed line found in line %s" % (line), type='W')
                 continue
             pkg = l[0]
-            if pkg.startswith('src:'): pkg = pkg[4:]
             bugs.setdefault(pkg, [])
             bugs[pkg] += l[1].split(",")
         return bugs
@@ -654,6 +653,9 @@ class Britney:
                 self.bugs['testing'][pkg] = []
             elif pkg not in self.bugs['unstable']:
                 self.bugs['unstable'][pkg] = []
+
+            if pkg.startswith("src:"):
+                pkg = pkg[4:]
 
             # retrieve the maximum version of the package in testing:
             maxvert = self.__maxver(pkg, 'testing')
@@ -1390,13 +1392,21 @@ class Britney:
         # one,  the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
             for pkg in pkgs.keys():
-                if pkg not in self.bugs['testing']:
-                    self.bugs['testing'][pkg] = []
-                if pkg not in self.bugs['unstable']:
-                    self.bugs['unstable'][pkg] = []
-
-                new_bugs = sorted(set(self.bugs['unstable'][pkg]).difference(self.bugs['testing'][pkg]))
-                old_bugs = sorted(set(self.bugs['testing'][pkg]).difference(self.bugs['unstable'][pkg]))
+                bugs_t = []
+                bugs_u = []
+                if testingbugs.has_key(pkg):
+                    bugs_t.extend(testingbugs[pkg])
+                if unstablebugs.has_key(pkg):
+                    bugs_u.extend(unstablebugs[pkg])
+                if 'source' in pkgs[pkg]:
+                    spkg = "src:%s" % (pkg)
+                    if testingbugs.has_key(spkg):
+                        bugs_t.extend(testingbugs[spkg])
+                    if unstablebugs.has_key(spkg):
+                        bugs_u.extend(unstablebugs[spkg])
+ 
+                new_bugs = sorted(set(bugs_u).difference(bugs_t))
+                old_bugs = sorted(set(bugs_t).difference(bugs_u))
 
                 if len(new_bugs) > 0:
                     excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
