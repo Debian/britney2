@@ -1394,16 +1394,16 @@ class Britney:
             for pkg in pkgs.keys():
                 bugs_t = []
                 bugs_u = []
-                if testingbugs.has_key(pkg):
-                    bugs_t.extend(testingbugs[pkg])
-                if unstablebugs.has_key(pkg):
-                    bugs_u.extend(unstablebugs[pkg])
+                if self.bugs['testing'].has_key(pkg):
+                    bugs_t.extend(self.bugs['testing'][pkg])
+                if self.bugs['unstable'].has_key(pkg):
+                    bugs_u.extend(self.bugs['unstable'][pkg])
                 if 'source' in pkgs[pkg]:
                     spkg = "src:%s" % (pkg)
-                    if testingbugs.has_key(spkg):
-                        bugs_t.extend(testingbugs[spkg])
-                    if unstablebugs.has_key(spkg):
-                        bugs_u.extend(unstablebugs[spkg])
+                    if self.bugs['testing'].has_key(spkg):
+                        bugs_t.extend(self.bugs['testing'][spkg])
+                    if self.bugs['unstable'].has_key(spkg):
+                        bugs_u.extend(self.bugs['unstable'][spkg])
  
                 new_bugs = sorted(set(bugs_u).difference(bugs_t))
                 old_bugs = sorted(set(bugs_t).difference(bugs_u))
