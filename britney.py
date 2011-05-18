@@ -2523,7 +2523,12 @@ class Britney:
                     if binary[0] == "-":
                         del self.binaries['testing'][arch][0][binary[1:]]
                         self.systems[arch].remove_binary(binary[1:])
-                    else: self.binaries['testing'][arch][0][binary] = undo['binaries'][p]
+                    else:
+                        binaries = self.binaries['testing'][arch][0]
+                        binaries[binary] = undo['binaries'][p]
+                        self.systems[arch].remove_binary(binary)
+                        self.systems[arch].add_binary(binary, binaries[binary][:PROVIDES] + \
+                            [", ".join(binaries[binary][PROVIDES]) or None])
 
             for (undo, pkg, pkg_name, suite) in lundo:
                 # undo the changes (virtual packages)
