@@ -2277,14 +2277,17 @@ class Britney:
                 for p in [x[0] for x in affected if x[1] == arch]:
                     if p not in binaries[arch][0]: continue
                     r = systems[arch].is_installable(p)
-                    if not r and p not in broken:
-                        to_check.append(p)
-                        broken.add(p)
+                    if not r:
+                        if p not in broken:
+                            to_check.append(p)
+                            broken.add(p)
                         if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                            nuninst[arch].add(p)
-                    elif r and p in broken:
-                        to_check.append(p)
-                        broken.remove(p)
+                            if p not in nuninst[arch]:
+                                nuninst[arch].add(p)
+                    else:
+                        if p in broken:
+                            to_check.append(p)
+                            broken.remove(p)
                         if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
                             # if the package was previously arch:all and uninstallable
                             # and has moved to being architecture-dependent, becoming
@@ -2302,14 +2305,17 @@ class Britney:
                     for p in binaries[arch][0][j][RDEPENDS]:
                         if p in broken or p not in binaries[arch][0]: continue
                         r = systems[arch].is_installable(p)
-                        if not r and p not in broken:
-                            broken.add(p)
-                            to_check.append(p)
+                        if not r:
+                            if p not in broken:
+                                broken.add(p)
+                                to_check.append(p)
                             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                nuninst[arch].add(p)
-                        elif r and p in nuninst[arch + "+all"]:
-                            broken.remove(p)
-                            to_check.append(p)
+                                if p not in nuninst[arch]:
+                                    nuninst[arch].add(p)
+                        else:
+                            if p in broken:
+                                broken.remove(p)
+                                to_check.append(p)
                             if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
                                 # if the package was previously arch:all and uninstallable
                                 # and has moved to being architecture-dependent, becoming
