@@ -1348,7 +1348,7 @@ class Britney:
                 binary_u = self.binaries[suite][arch][0][pkg]
                 pkgsv = binary_u[SOURCEVER]
 
-                # if it wasn't builded by the same source, it is out-of-date
+                # if it wasn't built by the same source, it is out-of-date
                 if not self.same_source(source_u[VERSION], pkgsv):
                     if pkgsv not in oodbins:
                         oodbins[pkgsv] = []
