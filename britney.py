@@ -595,7 +595,7 @@ class Britney:
         """
         bugs = {}
         filename = os.path.join(basedir, "BugsV")
-        self.__log("Loading RC bugs count from %s" % filename)
+        self.__log("Loading RC bugs data from %s" % filename)
         for line in open(filename):
             l = line.split()
             if len(l) != 2:
@@ -613,7 +613,7 @@ class Britney:
         read_bugs.
         """
         filename = os.path.join(basedir, "BugsV")
-        self.__log("Writing RC bugs count to %s" % filename)
+        self.__log("Writing RC bugs data to %s" % filename)
         f = open(filename, 'w')
         for pkg in sorted(bugs.keys()):
             if not bugs[pkg]:
