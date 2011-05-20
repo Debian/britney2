@@ -251,7 +251,7 @@ class Britney:
         # if this or the population of self.binaries below takes a very
         # long time, try increasing SIZEOFHASHMAP in lib/dpkg.c and rebuilding
         if not self.options.nuninst_cache:
-            self.__log("Building the list of not installable packages for the full archive", type="I")
+            self.__log("Building the list of non-installable packages for the full archive", type="I")
             self.sources = {'testing': self.read_sources(self.options.testing)}
             nuninst = {}
             for arch in self.options.architectures:
@@ -266,7 +266,7 @@ class Britney:
             if not self.options.print_uninst:
                 self.write_nuninst(nuninst)
         else:
-            self.__log("Not building the list of not installable packages, as requested", type="I")
+            self.__log("Not building the list of non-installable packages, as requested", type="I")
 
         # if running in --print-uninst mode, quit here
         if self.options.print_uninst:
