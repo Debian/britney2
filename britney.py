@@ -1994,8 +1994,11 @@ class Britney:
         # check the package at the top of the tree
         return satisfy(pkg)
 
-    def doop_source(self, pkg):
+    def doop_source(self, pkg, hint_undo=[]):
         """Apply a change to the testing distribution as requested by `pkg`
+
+        An optional list of undo actions related to packages processed earlier
+        in a hint may be passed in `hint_undo`.
 
         This method applies the changes required by the action `pkg` tracking
         them so it will be possible to revert them.
@@ -2112,6 +2115,22 @@ class Britney:
                             key = (p, parch)
                             if key not in affected: affected.append(key)
                     self.systems[parch].remove_binary(binary)
+                else:
+                    # if the binary was previously built by a different
+                    # source package in testing, all of the reverse
+                    # dependencies of the old binary are affected.
+                    # reverse dependencies built from this source can be
+                    # ignored as their reverse trees are already handled
+                    # by this function
+                    # XXX: and the reverse conflict tree?
+                    for (tundo, tpkg, tpkg_name, tsuite) in hint_undo:
+                        if p in tundo['binaries']:
+                            for rdep in tundo['binaries'][p][RDEPENDS]:
+                                if rdep in binaries[parch][0] and rdep not in source[BINARIES]:
+                                    affected.append( (rdep, parch) )
+                                    affected.extend( [ (x, parch) for x in \
+                                                        self.get_reverse_tree(rdep, parch, 'testing') ] )
+                    affected = list(set(affected))
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[suite][parch][0][binary]
                 self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
@@ -2258,7 +2277,7 @@ class Britney:
             if pkg in pre_process:
                 pkg_name, suite, affected, undo = pre_process[pkg]
             else:
-                pkg_name, suite, affected, undo = self.doop_source(pkg)
+                pkg_name, suite, affected, undo = self.doop_source(pkg, lundo)
             if hint:
                 lundo.append((undo, pkg, pkg_name, suite))
 
