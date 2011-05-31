@@ -668,7 +668,7 @@ class Britney:
     def read_dates(self, basedir):
         """Read the upload date for the packages from the specified directory
         
-        The upload dates are read from the `Date' file within the directory
+        The upload dates are read from the `Dates' file within the directory
         specified as `basedir' parameter. The file contains rows with the
         format:
 
@@ -677,7 +677,7 @@ class Britney:
         The dates are expressed as days starting from the 1970-01-01.
 
         The method returns a dictionary where the key is the binary package
-        name and the value is tuple with two items, the version and the date.
+        name and the value is a tuple with two items, the version and the date.
         """
         dates = {}
         filename = os.path.join(basedir, "Dates")
@@ -832,7 +832,7 @@ class Britney:
         binary packages and the source packages in the form:
         
         <pkg-name> <pkg-version> <pkg-architecture> <pkg-section>
-        <src-name> <src-version> <src-section>
+        <src-name> <src-version> source <src-section>
         """
         self.__log("Writing Heidi results to %s" % filename)
         f = open(filename, 'w')
@@ -1208,7 +1208,7 @@ class Britney:
        
         It returns False if the given package doesn't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
-        the the object attribute excuses.
+        the object attribute excuses.
         """
 
         # retrieve the source packages for testing (if available) and suite
