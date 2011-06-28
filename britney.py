@@ -2574,6 +2574,8 @@ class Britney:
 
         self.__log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
+        # nuninst_orig may get updated during the upgrade process
+        self.nuninst_orig_save = self.get_nuninst()
 
         if not self.options.actions:
             # process `easy' hints
@@ -2609,6 +2611,7 @@ class Britney:
         self.upgrade_me = allpackages
 
         if self.options.actions:
+            self.print_uninstchange()
             return
 
         # process `hint' hints
@@ -2653,7 +2656,16 @@ class Britney:
             # write HeidiResult
             self.write_heidi(self.options.heidi_output)
 
+        self.printuninstchange()
         self.__log("Test completed!", type="I")
+
+    def printuninstchange(self):
+        self.__log("Checking for newly uninstallable packages", type="I")
+        text = self.eval_uninst(self.newlyuninst(
+            self.nuninst_orig_save, self.nuninst_orig))
+        if text != '':
+            self.output_write("\nNewly uninstallable packages in testing:\n%s" % \
+                (text))
 
     def hint_tester(self):
         """Run a command line interface to test hints
@@ -2663,6 +2675,7 @@ class Britney:
         """
         self.__log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
+        self.nuninst_orig_save = self.get_nuninst()
 
         import readline
         histfile = os.path.expanduser('~/.britney2_history')
@@ -2687,6 +2700,7 @@ class Britney:
                 try:
                     self.do_hint(input[0], 'hint-tester',
                         [k.rsplit("/", 1) for k in input[1:] if "/" in k])
+                    self.printuninstchange()
                 except KeyboardInterrupt:
                     continue
 
