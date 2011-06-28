@@ -2649,9 +2649,8 @@ class Britney:
             if self.options.control_files:
                 self.write_controlfiles(self.options.testing, 'testing')
 
-            # write bugs and dates
-            # XXX: disabled, we don't have write permission over there
-            # self.write_dates(self.options.testing, self.dates)
+            # write dates
+            self.write_dates(self.options.testing, self.dates)
 
             # write HeidiResult
             self.write_heidi(self.options.heidi_output)
