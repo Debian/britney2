@@ -2611,7 +2611,7 @@ class Britney:
         self.upgrade_me = allpackages
 
         if self.options.actions:
-            self.print_uninstchange()
+            self.printuninstchange()
             return
 
         # process `hint' hints
