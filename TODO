@@ -1,1 +1,7 @@
-# Add items here
+This file is obsolete.
+
+Bugs, feature requests, etc., should be filed the bugs.debian.org against
+release.debian.org psuedo-package, usertagged with:
+
+  - user release.debian.org@packages.debian.org
+  - usertag britney
