@@ -1,7 +1,7 @@
 This file is obsolete.
 
-Bugs, feature requests, etc., should be filed the bugs.debian.org against
-release.debian.org psuedo-package, usertagged with:
+Bugs, feature requests, etc., should be filed at bugs.debian.org against
+release.debian.org pseudo-package, usertagged with:
 
   - user release.debian.org@packages.debian.org
   - usertag britney
