@@ -516,7 +516,7 @@ class Britney:
                 sources[distribution][dpkg[SOURCE]][BINARIES].append(pkg + "/" + arch)
             # if the source package doesn't exist, create a fake one
             else:
-                sources[distribution][dpkg[SOURCE]] = [dpkg[SOURCEVER], None, [pkg + "/" + arch], None, True]
+                sources[distribution][dpkg[SOURCE]] = [dpkg[SOURCEVER], 'faux', [pkg + "/" + arch], None, True]
 
             # register virtual packages and real packages that provide them
             if dpkg[PROVIDES]:
@@ -854,7 +854,7 @@ class Britney:
         for src_name in sorted(sources):
             src = sources[src_name]
             srcv = src[VERSION]
-            srcsec = src[FAKESRC] and 'faux' or src[SECTION] or 'unknown'
+            srcsec = src[SECTION] or 'unknown'
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
 
         f.close()
