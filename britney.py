@@ -2031,9 +2031,7 @@ class Britney:
         # arch = "<source>/<arch>",
         elif "/" in pkg:
             pkg_name, arch = pkg.split("/")
-            if arch.endswith("_tpu"):
-                arch, suite = arch.split("_")
-            elif arch.endswith("_pu"):
+            if arch.endswith("_tpu") or arch.endswith("_pu"):
                 arch, suite = arch.split("_")
             else: suite = "unstable"
         # removal of source packages = "-<source>",
@@ -2041,13 +2039,9 @@ class Britney:
             pkg_name = pkg[1:]
             suite = "testing"
         # testing-proposed-updates = "<source>_tpu"
-        # XXXX: why don't these just use split("_") ?
-        elif pkg.endswith("_tpu"):
-            pkg_name = pkg[:-4]
-            suite = "tpu"
-        elif pkg.endswith("_pu"):
-            pkg_name = pkg[:-3]
-            suite = "pu"
+        # proposed-updates = "<source>_pu"
+        elif pkg.endswith("_tpu") or pkg.endswith("_pu"):
+            pkg_name, suite = pkg.rsplit("_")
         # normal update of source packages = "<source>"
         else:
             pkg_name = pkg
@@ -2741,19 +2735,12 @@ class Britney:
             # skip removal requests
             if pkg[0] == "-":
                 continue
-            # handle testing-proposed-updates
-            elif pkg.endswith("_tpu"):
-                pkg = pkg[:-4]
-                if pkg not in self.sources['tpu']: continue
-                if apt_pkg.VersionCompare(self.sources['tpu'][pkg][VERSION], v) != 0:
-                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['tpu'][pkg][VERSION]))
-                    ok = False
-            # handle proposed-updates
-            elif pkg.endswith("_pu"):
-                pkg = pkg[:-3]
-                if pkg not in self.sources['pu']: continue
-                if apt_pkg.VersionCompare(self.sources['pu'][pkg][VERSION], v) != 0:
-                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['pu'][pkg][VERSION]))
+            # handle *-proposed-updates
+            elif pkg.endswith("_tpu") or pkg.endswith("_pu"):
+                pkg, suite = pkg.rsplit("_")
+                if pkg not in self.sources[suite]: continue
+                if apt_pkg.VersionCompare(self.sources[suite][pkg][VERSION], v) != 0:
+                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources[suite][pkg][VERSION]))
                     ok = False
             # does the package exist in unstable?
             elif pkg not in self.sources['unstable']:
