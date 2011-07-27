@@ -2793,13 +2793,13 @@ class Britney:
         # consider only excuses which are valid candidates
         excuses = dict([(x.name, x) for x in self.excuses if x.name in self.upgrade_me])
 
-        def find_related(e, hint, first=False):
+        def find_related(e, hint, circular_first=False):
             if e not in excuses:
                 return False
             excuse = excuses[e]
             if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
                 return True
-            if not first:
+            if not circular_first:
                 hint[e] = excuse.ver[1]
             if len(excuse.deps) == 0:
                 return hint
