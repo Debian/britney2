@@ -279,12 +279,14 @@ class Britney:
         # lib/dpkg.c and rebuilding
         self.sources = {'testing': self.read_sources(self.options.testing),
                         'unstable': self.read_sources(self.options.unstable),
-                        'tpu': self.read_sources(self.options.tpu),}
-        self.binaries = {'testing': {}, 'unstable': {}, 'tpu': {}}
+                        'tpu': self.read_sources(self.options.tpu),
+                        'pu': self.read_sources(self.options.pu),}
+        self.binaries = {'testing': {}, 'unstable': {}, 'tpu': {}, 'pu': {}}
         for arch in self.options.architectures:
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
+            self.binaries['pu'][arch] = self.read_binaries(self.options.pu, "pu", arch)
             # build the testing system
             self.build_systems(arch)
 
@@ -819,7 +821,7 @@ class Britney:
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
             self.__log("WARNING: No block hints at all, not even udeb ones!", type="W")
 
-        # A t-p-u approval overrides an unstable block
+        # A (t-)p-u approval overrides an unstable block
         for p in hints["approve"]:
             hints["unblock"][p] = hints["approve"][p]
 
@@ -1311,13 +1313,13 @@ class Britney:
                 else:
                     update_candidate = False
 
-        if suite == 'tpu':
-            # o-o-d(ish) checks for t-p-u
+        if suite in ['pu', 'tpu']:
+            # o-o-d(ish) checks for (t-)p-u
             for arch in self.options.architectures:
                 # If the package isn't in testing or the testing
                 # package produces no packages on this architecture,
                 # then it can't be out-of-date.  We assume that if
-                # the t-p-u package has produced any binaries for
+                # the (t-)p-u package has produced any binaries for
                 # this architecture then it is ok
 
                 if not src in self.sources["testing"] or \
@@ -1325,7 +1327,11 @@ class Britney:
                    (len([x for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch) and self.binaries[suite][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) > 0):
                     continue
 
-                text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=testing\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch)
+                if suite == 'tpu':
+                    base = 'testing'
+                else:
+                    base = 'stable'
+                text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, base)
 
                 if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
@@ -1431,8 +1437,8 @@ class Britney:
             excuse.addhtml("Should ignore, but forced by %s" % (self.hints["force"][src][1]))
             update_candidate = True
 
-        # if the suite is testing-proposed-updates, the package needs an explicit approval in order to go in
-        if suite == "tpu":
+        # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
+        if suite in ['tpu', 'pu']:
             key = "%s_%s" % (src, source_u[VERSION])
             if src in self.hints["approve"] and \
                self.same_source(source_u[VERSION], self.hints["approve"][src][0]):
@@ -1546,18 +1552,19 @@ class Britney:
             if should_upgrade_src(pkg, 'unstable'):
                 upgrade_me.append(pkg)
 
-        # for every source package in testing-proposed-updates, check if it should be upgraded
-        for pkg in sources['tpu']:
-            # if the source package is already present in testing,
-            # check if it should be upgraded for every binary package
-            if pkg in sources['testing']:
-                for arch in architectures:
-                    if should_upgrade_srcarch(pkg, arch, 'tpu'):
-                        upgrade_me.append("%s/%s_tpu" % (pkg, arch))
+        # for every source package in *-proposed-updates, check if it should be upgraded
+        for suite in ['pu', 'tpu']:
+            for pkg in sources[suite]:
+                # if the source package is already present in testing,
+                # check if it should be upgraded for every binary package
+                if pkg in sources['testing']:
+                    for arch in architectures:
+                        if should_upgrade_srcarch(pkg, arch, suite):
+                            upgrade_me.append("%s/%s_%s" % (pkg, arch, suite))
 
-            # check if the source package should be upgraded
-            if should_upgrade_src(pkg, 'tpu'):
-                upgrade_me.append("%s_tpu" % pkg)
+                # check if the source package should be upgraded
+                if should_upgrade_src(pkg, suite):
+                    upgrade_me.append("%s_%s" % (pkg, suite))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for src in self.hints["remove"].keys():
@@ -2026,15 +2033,21 @@ class Britney:
             pkg_name, arch = pkg.split("/")
             if arch.endswith("_tpu"):
                 arch, suite = arch.split("_")
+            elif arch.endswith("_pu"):
+                arch, suite = arch.split("_")
             else: suite = "unstable"
         # removal of source packages = "-<source>",
         elif pkg[0] == "-":
             pkg_name = pkg[1:]
             suite = "testing"
         # testing-proposed-updates = "<source>_tpu"
+        # XXXX: why don't these just use split("_") ?
         elif pkg.endswith("_tpu"):
             pkg_name = pkg[:-4]
             suite = "tpu"
+        elif pkg.endswith("_pu"):
+            pkg_name = pkg[:-3]
+            suite = "pu"
         # normal update of source packages = "<source>"
         else:
             pkg_name = pkg
@@ -2394,7 +2407,7 @@ class Britney:
                 if pkg[0] != '-' and pkg_name in sources[suite]:
                     for p in sources[suite][pkg_name][BINARIES]:
                         binary, arch = p.split("/")
-                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)):
+                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)) or pkg.endswith("/%s_pu" % (arch)):
                             del binaries[arch][0][binary]
                             self.systems[arch].remove_binary(binary)
 
@@ -2531,7 +2544,7 @@ class Britney:
                 if pkg[0] != '-' and pkg_name in self.sources[suite]:
                     for p in self.sources[suite][pkg_name][BINARIES]:
                         binary, arch = p.split("/")
-                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)):
+                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)) or pkg.endswith("/%s_pu" % (arch)):
                             del self.binaries['testing'][arch][0][binary]
                             self.systems[arch].remove_binary(binary)
 
@@ -2594,7 +2607,7 @@ class Britney:
         normpackages = self.upgrade_me[:]
         archpackages = {}
         for a in self.options.break_arches.split():
-            archpackages[a] = [p for p in normpackages if p.endswith("/" + a) or p.endswith("/" + a + "_tpu")]
+            archpackages[a] = [p for p in normpackages if p.endswith("/" + a) or p.endswith("/" + a + "_tpu") or p.endswith("/" + a + "_pu")]
             normpackages = [p for p in normpackages if p not in archpackages[a]]
         self.upgrade_me = normpackages
         self.output_write("info: main run\n")
@@ -2734,6 +2747,13 @@ class Britney:
                 if pkg not in self.sources['tpu']: continue
                 if apt_pkg.VersionCompare(self.sources['tpu'][pkg][VERSION], v) != 0:
                     self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['tpu'][pkg][VERSION]))
+                    ok = False
+            # handle proposed-updates
+            elif pkg.endswith("_pu"):
+                pkg = pkg[:-3]
+                if pkg not in self.sources['pu']: continue
+                if apt_pkg.VersionCompare(self.sources['pu'][pkg][VERSION], v) != 0:
+                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['pu'][pkg][VERSION]))
                     ok = False
             # does the package exist in unstable?
             elif pkg not in self.sources['unstable']:
