@@ -2816,8 +2816,12 @@ class Britney:
             if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1] or \
                len(excuse.deps) == 0:
                 continue
+            hint = find_related(e, {})
+            if isinstance(hint, dict) and len(hint) and hint not in cache:
+                self.do_hint("easy", "autohinter", hint.items())
+                cache.append(hint)
             hint = find_related(e, {}, True)
-            if hint and e in hint and hint not in cache:
+            if isinstance(hint, dict) and e in hint and hint not in cache:
                 self.do_hint("easy", "autohinter", hint.items())
                 cache.append(hint)
 
