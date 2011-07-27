@@ -280,7 +280,7 @@ class Britney:
         self.sources = {'testing': self.read_sources(self.options.testing),
                         'unstable': self.read_sources(self.options.unstable),
                         'tpu': self.read_sources(self.options.tpu),}
-        if 'pu' in self.options:
+        if hasattr(self.options, 'pu'):
             self.sources['pu'] = self.read_sources(self.options.pu)
         else:
             self.sources['pu'] = {}
@@ -289,7 +289,7 @@ class Britney:
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
-            if 'pu' in self.options:
+            if hasattr(self.options, 'pu'):
                 self.binaries['pu'][arch] = self.read_binaries(self.options.pu, "pu", arch)
             # build the testing system
             self.build_systems(arch)
