@@ -173,8 +173,8 @@ does for the generation of the update excuses.
    (days-old) and by name.
 
  * A list of unconsidered excuses (for which the package is not upgraded)
-   is built. Using this list, all the excuses depending on them is marked
-   as invalid for "unpossible dependency".
+   is built. Using this list, all of the excuses depending on them are
+   marked as invalid "impossible dependencies".
 
  * The excuses are written in an HTML file.
 """
@@ -1598,7 +1598,7 @@ class Britney:
         for e in self.excuses:
             for d in e.deps:
                 if d not in upgrade_me and d not in unconsidered:
-                    e.addhtml("Unpossible dep: %s -> %s" % (e.name, d))
+                    e.addhtml("Impossible dependency: %s -> %s" % (e.name, d))
         self.invalidate_excuses(upgrade_me, unconsidered)
 
         # sort the list of candidates
