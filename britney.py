@@ -1596,8 +1596,20 @@ class Britney:
 
         # invalidate impossible excuses
         for e in self.excuses:
+            # parts[0] == package name
+            # parts[1] == optional architecture
+            parts = e.name.split('/')
             for d in e.deps:
-                if d not in upgrade_me and d not in unconsidered:
+                ok = False
+                if d in upgrade_me or d in unconsidered:
+                    ok = True
+                # if the excuse is for a binNMU, also consider d/$arch as a
+                # valid excuse
+                if len(parts) == 2:
+                    bd = '%s/%s' % (d, parts[1])
+                    if bd in upgrade_me or bd in unconsidered:
+                        ok = True
+                if not ok:
                     e.addhtml("Impossible dependency: %s -> %s" % (e.name, d))
         self.invalidate_excuses(upgrade_me, unconsidered)
 
