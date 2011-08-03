@@ -53,7 +53,7 @@ class Excuse:
         self.dontinvalidate = 0
 
         self.invalid_deps = []
-        self.deps = []
+        self.deps = {}
         self.sane_deps = []
         self.break_deps = []
         self.unsat_deps = {}
@@ -85,9 +85,10 @@ class Excuse:
         """Set the urgency of upload of the package"""
         self.urgency = date
 
-    def add_dep(self, name):
+    def add_dep(self, name, arch):
         """Add a dependency"""
-        if name not in self.deps: self.deps.append(name)
+        if name not in self.deps: self.deps[name]=[]
+        self.deps[name].append(arch)
 
     def add_sane_dep(self, name):
         """Add a sane dependency"""

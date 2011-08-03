@@ -1049,7 +1049,7 @@ class Britney:
                 # for the solving packages, update the excuse to add the dependencies
                 for p in packages:
                     if arch not in self.options.break_arches.split():
-                        excuse.add_dep(p)
+                        excuse.add_dep(p, arch)
                     else:
                         excuse.add_break_dep(p, arch)
 
@@ -1601,13 +1601,28 @@ class Britney:
             parts = e.name.split('/')
             for d in e.deps:
                 ok = False
+                # source -> source dependency; both packages must have
+                # valid excuses
                 if d in upgrade_me or d in unconsidered:
                     ok = True
                 # if the excuse is for a binNMU, also consider d/$arch as a
                 # valid excuse
-                if len(parts) == 2:
+                elif len(parts) == 2:
                     bd = '%s/%s' % (d, parts[1])
                     if bd in upgrade_me or bd in unconsidered:
+                        ok = True
+                # if the excuse is for a source package, check each of the
+                # architectures on which the excuse lists a dependency on d,
+                # and consider the excuse valid if it is possible on each
+                # architecture
+                else:
+                    arch_ok = True
+                    for arch in e.deps[d]:
+                        bd = '%s/%s' % (d, arch)
+                        if bd not in upgrade_me and bd not in unconsidered:
+                            arch_ok = False
+                            break
+                    if arch_ok:
                         ok = True
                 if not ok:
                     e.addhtml("Impossible dependency: %s -> %s" % (e.name, d))
