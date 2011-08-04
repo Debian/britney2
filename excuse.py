@@ -133,7 +133,7 @@ class Excuse:
                 (self.daysold, self.mindays))
         for x in self.htmlline:
             res = res + "<li>" + x + "\n"
-        for x in self.deps:
+        for x in sorted(self.deps):
             if x in self.invalid_deps:
                 res = res + "<li>Depends: %s <a href=\"#%s\">%s</a> (not considered)\n" % (self.name, x, x)
             else:
