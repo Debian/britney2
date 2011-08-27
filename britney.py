@@ -2848,20 +2848,37 @@ class Britney:
             return hint
 
         # loop on them
-        cache = []
+        candidates = []
         for e in excuses:
             excuse = excuses[e]
-            if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1] or \
-               len(excuse.deps) == 0:
-                continue
-            hint = find_related(e, {})
-            if isinstance(hint, dict) and len(hint) and hint not in cache:
-                self.do_hint("easy", "autohinter", hint.items())
-                cache.append(hint)
-            hint = find_related(e, {}, True)
-            if isinstance(hint, dict) and e in hint and hint not in cache:
-                self.do_hint("easy", "autohinter", hint.items())
-                cache.append(hint)
+            if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
+               continue
+            if len(excuse.deps) > 0:
+                hint = find_related(e, {}, True)
+                if isinstance(hint, dict) and e in hint and hint not in candidates:
+                    candidates.append(hint.items())
+            else:
+                items = [ (e, excuse.ver[1]) ]
+                for item, ver in items:
+                    # excuses which depend on "item" or are depended on by it
+                    items.extend( [ (x, excuses[x].ver[1]) for x in excuses if \
+                       (item in excuses[x].deps or x in excuses[item].deps) \
+                       and (x, excuses[x].ver[1]) not in items ] )
+                if len(items) > 1:
+                    candidates.append(items)
+
+        to_skip = []
+        for i in range(len(candidates)):
+            for j in range(i+1, len(candidates)):
+                if i in to_skip or j in to_skip:
+                    continue
+                elif frozenset(candidates[i]) >= frozenset(candidates[j]):
+                    to_skip.append(j)
+                elif frozenset(candidates[i]) <= frozenset(candidates[j]):
+                    to_skip.append(i)
+        for i in range(len(candidates)):
+            if i not in to_skip:
+                self.do_hint("easy", "autohinter", candidates[i])
 
     def old_libraries(self):
         """Detect old libraries left in testing for smooth transitions
