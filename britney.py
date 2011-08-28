@@ -2820,9 +2820,18 @@ class Britney:
         self.upgrade_me = upgrade_me
 
     def auto_hinter(self):
-        """Auto hint circular dependencies
+        """Auto-generate "easy" hints.
 
-        This method tries to auto hint circular dependencies analyzing the update
+        This method attempts to generate "easy" hints for sets of packages which    
+        must migrate together. Beginning with a package which does not depend on
+        any other package (in terms of excuses), a list of dependencies and
+        reverse dependencies is recursively created.
+
+        Once all such lists have been generated, any which are subsets of other
+        lists are ignored in favour of the larger lists. The remaining lists are
+        then attempted in turn as "easy" hints.
+
+        We also try to auto hint circular dependencies analyzing the update
         excuses relationships. If they build a circular dependency, which we already
         know as not-working with the standard do_all algorithm, try to `easy` them.
         """
@@ -2871,10 +2880,13 @@ class Britney:
         for i in range(len(candidates)):
             for j in range(i+1, len(candidates)):
                 if i in to_skip or j in to_skip:
+                    # we already know this list isn't interesting
                     continue
                 elif frozenset(candidates[i]) >= frozenset(candidates[j]):
+                    # j is a subset of i; ignore it
                     to_skip.append(j)
                 elif frozenset(candidates[i]) <= frozenset(candidates[j]):
+                    # i is a subset of j; ignore it
                     to_skip.append(i)
         for i in range(len(candidates)):
             if i not in to_skip:
