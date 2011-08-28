@@ -549,9 +549,9 @@ class Britney:
     def register_reverses(self, pkg, packages, provides, check_doubles=True, parse_depends=apt_pkg.ParseDepends):
         """Register reverse dependencies and conflicts for the specified package
 
-        This method register the reverse dependencies and conflicts for
-        a give package using `packages` as list of packages and `provides`
-        as list of virtual packages.
+        This method registers the reverse dependencies and conflicts for
+        a given package using `packages` as the list of packages and `provides`
+        as the list of virtual packages.
 
         The method has an optional parameter parse_depends which is there
         just for performance reasons and is not meant to be overwritten.
@@ -581,7 +581,7 @@ class Britney:
                     # register real packages
                     if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RCONFLICTS]):
                         packages[a[0]][RCONFLICTS].append(pkg)
-                    # register packages which provides a virtual package
+                    # register packages which provide a virtual package
                     elif a[0] in provides:
                         for i in provides[a[0]]:
                             if i not in packages: continue
@@ -592,7 +592,7 @@ class Britney:
         """Read the release critial bug summary from the specified directory
         
         The RC bug summaries are read from the `BugsV' file within the
-        directory specified as `basedir' parameter. The file contains
+        directory specified in the `basedir' parameter. The file contains
         rows with the format:
 
         <package-name> <bug number>[,<bug number>...]
@@ -814,7 +814,7 @@ class Britney:
                             # This hint is for a newer version, so discard the old one
                             self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
                         else:
-                            # This hint is for an older version, so ignore the new one
+                            # This hint is for an older version, so ignore it in favour of the new one
                             self.__log("Ignoring %s[%s] = %s, %s is higher or equal" % (x, a, b, z[a]), type="W")
                             continue
                     else:
