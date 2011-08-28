@@ -195,8 +195,8 @@ import apt_pkg
 from excuse import Excuse
 from britney import buildSystem
 
-__author__ = 'Fabio Tranchitella'
-__version__ = '2.0.alpha1'
+__author__ = 'Fabio Tranchitella and the Debian Release Team'
+__version__ = '2.0'
 
 # source package
 VERSION = 0
