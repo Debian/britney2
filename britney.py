@@ -4,6 +4,7 @@
 # Copyright (C) 2001-2008 Anthony Towns <ajt@debian.org>
 #                         Andreas Barth <aba@debian.org>
 #                         Fabio Tranchitella <kobold@debian.org>
+# Copyright (C) 2010-2011 Adam D. Barratt <adsb@debian.org>
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
