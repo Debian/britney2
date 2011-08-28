@@ -156,7 +156,7 @@ does for the generation of the update excuses.
    11. If there is a `force' hint for the source package, then it is
        updated even if it is marked as ignored from the previous steps.
 
-   12. If the suite is testing-proposed-updates, the source package can
+   12. If the suite is {testing-,}proposed-updates, the source package can
        be updated only if there is an explicit approval for it.  Unless
        a `force' hint exists, the new package must also be available
        on all of the architectures for which it has binary packages in
