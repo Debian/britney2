@@ -13,11 +13,12 @@
 # GNU General Public License for more details.
 
 class MigrationItem:
-    def __init__(self, name = None):
+    def __init__(self, name = None, versionned = False):
         self._name = None
         self._version = None
         self._architecture = None
         self._suite = None
+        self._versionned = versionned
 
         if name:
             self._set_name(name)
@@ -36,10 +37,17 @@ class MigrationItem:
             self._package, self._suite = package.split('_', 2)
         else:
             self._package, self._suite = (package, 'unstable')
-        if len(parts) == 2:
-            self._architecture = parts[1]
+        if self._versionned:
+            self._version = parts[1]
+            if len(parts) == 3:
+                self._architecture = parts[2]
+            else:
+                self._architecture = 'source'
         else:
-            self._architecture = 'source'
+            if len(parts) == 2:
+                self._architecture = parts[1]
+            else:
+                self._architecture = 'source'
 
         if '_' in self._architecture:
             self_architecture, self._suite = \
@@ -69,3 +77,7 @@ class MigrationItem:
     @property
     def version(self):
         return self._version
+
+class HintItem(MigrationItem):
+    def __init__(self, name = None):
+        MigrationItem.__init__(self, name = name, versionned = True)
