@@ -193,6 +193,7 @@ import urllib
 import apt_pkg
 
 from excuse import Excuse
+from migrationitem import MigrationItem
 from britney import buildSystem
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -2033,13 +2034,13 @@ class Britney:
         # check the package at the top of the tree
         return satisfy(pkg)
 
-    def doop_source(self, pkg, hint_undo=[]):
+    def doop_source(self, item, hint_undo=[]):
         """Apply a change to the testing distribution as requested by `pkg`
 
         An optional list of undo actions related to packages processed earlier
         in a hint may be passed in `hint_undo`.
 
-        This method applies the changes required by the action `pkg` tracking
+        This method applies the changes required by the action `item` tracking
         them so it will be possible to revert them.
 
         The method returns a list of the package name, the suite where the
@@ -2049,49 +2050,23 @@ class Britney:
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
         affected = []
-        arch = None
 
         # local copies for better performances
         sources = self.sources
         binaries = self.binaries['testing']
-
-        # removal of single-arch binary package = "-<package>/<arch>"
-        if pkg[0] == "-" and "/" in pkg:
-            pkg_name, arch = pkg.split("/")
-            pkg_name = pkg_name[1:]
-            suite = "testing"
-        # arch = "<source>/<arch>",
-        elif "/" in pkg:
-            pkg_name, arch = pkg.split("/")
-            if arch.endswith("_tpu") or arch.endswith("_pu"):
-                arch, suite = arch.split("_")
-            else: suite = "unstable"
-        # removal of source packages = "-<source>",
-        elif pkg[0] == "-":
-            pkg_name = pkg[1:]
-            suite = "testing"
-        # testing-proposed-updates = "<source>_tpu"
-        # proposed-updates = "<source>_pu"
-        elif pkg.endswith("_tpu") or pkg.endswith("_pu"):
-            pkg_name, suite = pkg.rsplit("_")
-        # normal update of source packages = "<source>"
-        else:
-            pkg_name = pkg
-            suite = "unstable"
-
         # remove all binary packages (if the source already exists)
-        if not (arch and pkg[0] == '-'):
-            if pkg_name in sources['testing']:
-                source = sources['testing'][pkg_name]
+        if item.architecture == 'source' or item.is_removal:
+            if item.package in sources['testing']:
+                source = sources['testing'][item.package]
                 # remove all the binaries
                 for p in source[BINARIES]:
                     binary, parch = p.split("/")
-                    if arch and parch != arch: continue
+                    if item.architecture != 'source' and parch != item.architecture: continue
                     # do not remove binaries which have been hijacked by other sources
-                    if binaries[parch][0][binary][SOURCE] != pkg_name: continue
+                    if binaries[parch][0][binary][SOURCE] != item.package: continue
                     # if a smooth update is possible for the package, skip it
-                    if not self.options.compatible and suite == 'unstable' and \
-                       binary not in self.binaries[suite][parch][0] and \
+                    if not self.options.compatible and item.suite == 'unstable' and \
+                       binary not in self.binaries[item.suite][parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
                         continue
@@ -2113,28 +2088,28 @@ class Britney:
                     del binaries[parch][0][binary]
                     self.systems[parch].remove_binary(binary)
                 # remove the source package
-                if not arch:
-                    undo['sources'][pkg_name] = source
-                    del sources['testing'][pkg_name]
+                if item.architecture == 'source':
+                    undo['sources'][item.package] = source
+                    del sources['testing'][item.package]
             else:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
-                undo['sources']['-' + pkg_name] = True
+                undo['sources']['-' + item.package] = True
 
         # single binary removal
-        elif pkg_name in binaries[arch][0]:
-            undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
-            affected.extend( [ (x, arch) for x in \
-               self.get_reverse_tree(pkg_name, arch, 'testing') ] )
+        elif item.package in binaries[item.architecture][0]:
+            undo['binaries'][item.package + "/" + item.architecture] = binaries[item.architecture][0][item.package]
+            affected.extend( [ (x, item.architecture) for x in \
+               self.get_reverse_tree(item.package, item.architecture, 'testing') ] )
             affected = list(set(affected))
-            del binaries[arch][0][pkg_name]
-            self.systems[arch].remove_binary(pkg_name)
+            del binaries[item.architecture][0][item.package]
+            self.systems[item.architecture].remove_binary(item.package)
 
         # add the new binary packages (if we are not removing)
-        if pkg[0] != "-":
-            source = sources[suite][pkg_name]
+        if not item.is_removal:
+            source = sources[item.suite][item.package]
             for p in source[BINARIES]:
                 binary, parch = p.split("/")
-                if arch and parch != arch: continue
+                if item.architecture not in ['source', parch]: continue
                 key = (binary, parch)
                 # obviously, added/modified packages are affected
                 if key not in affected: affected.append(key)
@@ -2162,7 +2137,7 @@ class Britney:
                     # ignored as their reverse trees are already handled
                     # by this function
                     # XXX: and the reverse conflict tree?
-                    for (tundo, tpkg, tpkg_name, tsuite) in hint_undo:
+                    for (tundo, tpkg) in hint_undo:
                         if p in tundo['binaries']:
                             for rdep in tundo['binaries'][p][RDEPENDS]:
                                 if rdep in binaries[parch][0] and rdep not in source[BINARIES]:
@@ -2171,7 +2146,7 @@ class Britney:
                                                         self.get_reverse_tree(rdep, parch, 'testing') ] )
                     affected = list(set(affected))
                 # add/update the binary package
-                binaries[parch][0][binary] = self.binaries[suite][parch][0][binary]
+                binaries[parch][0][binary] = self.binaries[item.suite][parch][0][binary]
                 self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
                     [", ".join(binaries[parch][0][binary][PROVIDES]) or None])
                 # register new provided packages
@@ -2191,15 +2166,15 @@ class Britney:
             # register reverse dependencies and conflicts for the new binary packages
             for p in source[BINARIES]:
                 binary, parch = p.split("/")
-                if arch and parch != arch: continue
+                if item.architecture not in ['source', parch]: continue
                 self.register_reverses(binary, binaries[parch][0] , binaries[parch][1])
 
             # add/update the source package
-            if not arch:
-                sources['testing'][pkg_name] = sources[suite][pkg_name]
+            if item.architecture == 'source':
+                sources['testing'][item.package] = sources[item.suite][item.package]
 
         # return the package name, the suite, the list of affected packages and the undo dictionary
-        return (pkg_name, suite, affected, undo)
+        return (item, affected, undo)
 
     def get_reverse_tree(self, pkg, arch, suite):
         packages = []
@@ -2276,9 +2251,9 @@ class Britney:
         # pre-process a hint batch
         pre_process = {}
         if selected and hint:
-            for pkg in selected:
-                pkg_name, suite, affected, undo = self.doop_source(pkg)
-                pre_process[pkg] = (pkg_name, suite, affected, undo)
+            for package in selected:
+                pkg, affected, undo = self.doop_source(MigrationItem(package))
+                pre_process[package] = (pkg, affected, undo)
 
         lundo = []
         if not hint:
@@ -2314,14 +2289,14 @@ class Britney:
 
             # apply the changes
             if pkg in pre_process:
-                pkg_name, suite, affected, undo = pre_process[pkg]
+                item, affected, undo = pre_process[pkg]
             else:
-                pkg_name, suite, affected, undo = self.doop_source(pkg, lundo)
+                item, affected, undo = self.doop_source(MigrationItem(pkg), lundo)
             if hint:
-                lundo.append((undo, pkg, pkg_name, suite))
+                lundo.append((undo, item))
 
             # check the affected packages on all the architectures
-            for arch in ("/" in pkg and (pkg.split("/")[1].split("_")[0],) or architectures):
+            for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
                 if arch not in nobreakall_arches:
                     skip_archall = True
                 else: skip_archall = False
@@ -2390,17 +2365,17 @@ class Britney:
                     continue
 
                 # if the uninstallability counter is worse than before, break the loop
-                if (("/" in pkg and arch not in new_arches) or \
+                if ((item.architecture != 'source' and arch not in new_arches) or \
                     (arch not in break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
             # if we are processing hints or the package is already accepted, go ahead
-            if hint or pkg in selected: continue
+            if hint or item.name in selected: continue
 
             # check if the action improved the uninstallability counters
             if better:
-                lundo.append((undo, pkg, pkg_name, suite))
+                lundo.append((undo, item))
                 selected.append(pkg)
                 packages.extend(extra)
                 extra = []
@@ -2430,10 +2405,10 @@ class Britney:
                     else: sources['testing'][k] = undo['sources'][k]
 
                 # undo the changes (new binaries)
-                if pkg[0] != '-' and pkg_name in sources[suite]:
-                    for p in sources[suite][pkg_name][BINARIES]:
+                if not item.is_removal and item.package in sources[item.suite]:
+                    for p in sources[item.suite][item.package][BINARIES]:
                         binary, arch = p.split("/")
-                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)) or pkg.endswith("/%s_pu" % (arch)):
+                        if item.architecture in ['source', arch]:
                             del binaries[arch][0][binary]
                             self.systems[arch].remove_binary(binary)
 
@@ -2558,23 +2533,23 @@ class Britney:
             if not undo: return
 
             # undo all the changes
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (source)
                 for k in undo['sources'].keys():
                     if k[0] == '-':
                         del self.sources['testing'][k[1:]]
                     else: self.sources['testing'][k] = undo['sources'][k]
 
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (new binaries)
-                if pkg[0] != '-' and pkg_name in self.sources[suite]:
-                    for p in self.sources[suite][pkg_name][BINARIES]:
+                if not item.is_removal and item.package in self.sources[item.suite]:
+                    for p in self.sources[item.suite][item.package][BINARIES]:
                         binary, arch = p.split("/")
-                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)) or pkg.endswith("/%s_pu" % (arch)):
+                        if item.architecture in ['source', arch]:
                             del self.binaries['testing'][arch][0][binary]
                             self.systems[arch].remove_binary(binary)
 
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
@@ -2588,7 +2563,7 @@ class Britney:
                         self.systems[arch].add_binary(binary, binaries[binary][:PROVIDES] + \
                             [", ".join(binaries[binary][PROVIDES]) or None])
 
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (virtual packages)
                 for p in undo['nvirtual']:
                     j, arch = p.split("/")
