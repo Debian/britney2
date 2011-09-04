@@ -56,6 +56,15 @@ class MigrationItem:
         if self.is_removal:
             self._suite = 'testing'
 	    
+        if self._versionned:
+            parts = self._name.split('/', 3)
+            if len(parts) == 1 or self._architecture == 'source':
+                self._uvname = parts[0]
+            else:
+                self._uvname = "%s/%s" % (parts[0], parts[1])
+        else:
+            self._uvname = self._name
+
     name = property(_get_name, _set_name)
 
     @property
@@ -77,6 +86,10 @@ class MigrationItem:
     @property
     def version(self):
         return self._version
+
+    @property
+    def uvname(self):
+        return self._uvname
 
 class HintItem(MigrationItem):
     def __init__(self, name = None):
