@@ -29,6 +29,19 @@ class MigrationItem:
         else:
             return self.uvname
 
+    def __eq__(self, other):
+        isequal = False
+        if self.uvname == other.uvname:
+            if self.version is None or other.version is None:
+                isequal = True
+            else:
+                isequal = self.version == other.version
+
+        return isequal            
+
+    def __hash__(self):
+        return hash((self.uvname, self.version))
+
     def _get_name(self):
         return self._name
 
