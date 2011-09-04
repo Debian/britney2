@@ -1084,7 +1084,7 @@ class Britney:
         src[SECTION] and excuse.set_section(src[SECTION].strip())
 
         # if the package is blocked, skip it
-        for hint in self.hints.hints('block', package=pkg, removal=True):
+        for hint in self.hints.search('block', package=pkg, removal=True):
             excuse.addhtml("Not touching package, as requested by %s (contact debian-release "
                 "if update is needed)" % hint.user)
             excuse.addhtml("Not considered")
@@ -1121,7 +1121,7 @@ class Britney:
         
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        for hint in [ x for x in self.hints.hints('remove', package=src) if self.same_source(source_t[VERSION], x.version) ]:
+        for hint in [ x for x in self.hints.search('remove', package=src) if self.same_source(source_t[VERSION], x.version) ]:
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
@@ -1259,7 +1259,7 @@ class Britney:
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        for item in self.hints.hints('remove', package=src):
+        for item in self.hints.search('remove', package=src):
             if source_t and self.same_source(source_t[VERSION], item.version) or \
                self.same_source(source_u[VERSION], item.version):
                 excuse.addhtml("Removal request by %s" % (item.user))
@@ -1268,7 +1268,7 @@ class Britney:
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
-        for hint in self.hints.hints(package=src):
+        for hint in self.hints.search(package=src):
             if hint.type == 'block' or (hint.type == 'block-all' and hint.package == 'source' and hint not in blocked['block']):
                 blocked['block'] = hint
             if hint.type == 'block-udeb':
@@ -1279,7 +1279,7 @@ class Britney:
         # by `block-udeb', then `unblock-udeb' must be present to cancel it.
         for block_cmd in blocked:
             unblock_cmd = "un" + block_cmd
-            unblocks = self.hints.hints(unblock_cmd, package=src)
+            unblocks = self.hints.search(unblock_cmd, package=src)
          
             if unblocks and self.same_source(unblocks[0].version, source_u[VERSION]):
                 excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
@@ -1305,7 +1305,7 @@ class Britney:
             days_old = self.date_now - self.dates[src][1]
             min_days = self.MINDAYS[urgency]
 
-            for age_days_hint in [ x for x in self.hints.hints('age-days', package=src) if \
+            for age_days_hint in [ x for x in self.hints.search('age-days', package=src) if \
                self.same_source(source_u[VERSION], x.version) ]:
                 excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
                     int(age_days_hint.days), age_days_hint.user))
@@ -1313,7 +1313,7 @@ class Britney:
 
             excuse.setdaysold(days_old, min_days)
             if days_old < min_days:
-                urgent_hints = [ x for x in self.hints.hints('urgent', package=src) if \
+                urgent_hints = [ x for x in self.hints.search('urgent', package=src) if \
                    self.same_source(source_u[VERSION], x.version) ]
                 if urgent_hints:
                     excuse.addhtml("Too young, but urgency pushed by %s" % (urgent_hints[0].user))
@@ -1437,7 +1437,7 @@ class Britney:
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
-        forces = [ x for x in self.hints.hints('force', package=src) if self.same_source(source_u[VERSION], x.version) ]
+        forces = [ x for x in self.hints.search('force', package=src) if self.same_source(source_u[VERSION], x.version) ]
         if forces:
             excuse.dontinvalidate = 1
         if not update_candidate and forces:
@@ -1447,7 +1447,7 @@ class Britney:
         # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
         if suite in ['tpu', 'pu']:
             key = "%s_%s" % (src, source_u[VERSION])
-            approves = [ x for x in self.hints.hints('approve', package=src) if self.same_source(source_u[VERSION], x.version) ]
+            approves = [ x for x in self.hints.search('approve', package=src) if self.same_source(source_u[VERSION], x.version) ]
             if approves:
                 excuse.addhtml("Approved by %s" % approves[0].user)
             else:

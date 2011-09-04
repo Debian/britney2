@@ -19,9 +19,9 @@ class HintCollection:
         self._hints = []
 
     def __getitem__(self, type=None):
-        return self.hints(type)
+        return self.search(type)
 
-    def hints(self, type=None, onlyactive=True, package=None, \
+    def search(self, type=None, onlyactive=True, package=None, \
        version=None, days=None, removal=None):
 
         return [ hint for hint in self._hints if
