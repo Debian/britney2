@@ -84,3 +84,18 @@ class Hint:
     @property
     def days(self):
         return self._days
+
+    @property
+    def package(self):
+        if self.packages:
+            return self.packages[0].package
+        else:
+            return None
+
+    @property
+    def version(self):
+        if self.packages:
+            return self.packages[0].version
+        else:
+            return None
+
