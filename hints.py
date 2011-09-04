@@ -44,14 +44,14 @@ class Hint:
             self._type = hint[0]
             self._packages = hint[1:]
         else:
-            self._type, self._packages = hint.split(' ', 2)
+            self._type, self._packages = hint.split(' ', 1)
 
         if self._type == 'age-days':
             if isinstance(hint, list):
                 self._days = self._packages[0]
                 self._packages = self._packages[1:]
             else:
-                self._days, self._packages = self._packages.split(' ', 2)
+                self._days, self._packages = self._packages.split(' ', 1)
 
         self._packages = [HintItem(x) for x in self._packages]
 
