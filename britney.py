@@ -1289,7 +1289,7 @@ class Britney:
             else:
                 if unblocks:
                     excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
-                                   (unblock_cmd.capitalize(), blocked[block_cmd].user, unblocks[0].version))
+                                   (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
                 excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
                                (block_cmd, blocked[block_cmd].user))
                 update_candidate = False
