@@ -37,6 +37,7 @@ class HintCollection:
 
 class Hint:
     def __init__(self, hint, user):
+        self._hint = hint
         self._user = user
         self._active = True
         self._days = None
@@ -57,6 +58,9 @@ class Hint:
 
     def set_active(self, active):
         self._active = active
+
+    def __str__(self):
+        return self._hint
 
     @property
     def type(self):
