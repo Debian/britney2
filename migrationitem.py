@@ -37,12 +37,13 @@ class MigrationItem:
             self._package, self._suite = package.split('_', 2)
         else:
             self._package, self._suite = (package, 'unstable')
-        if self._versionned:
-            self._version = parts[1]
+        if self._versionned and len(parts) > 1:
             if len(parts) == 3:
-                self._architecture = parts[2]
+                self._architecture = parts[1]
+                self._version = parts[2]
             else:
                 self._architecture = 'source'
+                self._version = parts[1]
         else:
             if len(parts) == 2:
                 self._architecture = parts[1]
