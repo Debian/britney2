@@ -23,6 +23,12 @@ class MigrationItem:
         if name:
             self._set_name(name)
 
+    def __str__(self):
+        if self._versionned and not self.version is None:
+            return self.name
+        else:
+            return self.uvname
+
     def _get_name(self):
         return self._name
 
