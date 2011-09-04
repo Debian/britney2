@@ -806,25 +806,24 @@ class Britney:
         for x in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
             z = {}
             for hint in hints[x]:
-                item = hint.packages[0]
-                package = item.package
-                if z.has_key(package) and z[package] != item.version:
+                package = hint.package
+                if z.has_key(package) and z[package] != hint.version:
                     if x in ['unblock', 'unblock-udeb']:
-                        if apt_pkg.VersionCompare(z[package], item.version) < 0:
+                        if apt_pkg.VersionCompare(z[package], hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
-                            self.__log("Overriding %s[%s] = %s with %s" % (x, package, z[package], item.version), type="W")
+                            self.__log("Overriding %s[%s] = %s with %s" % (x, package, z[package], hint.version), type="W")
                             for other in [y for y in hints[x] if y.package==package and y.version==z[package]]:
                                 other.set_active(False)
                         else:
                             # This hint is for an older version, so ignore it in favour of the new one
-                            self.__log("Ignoring %s[%s] = %s, %s is higher or equal" % (x, package, item.version, z[package]), type="W")
+                            self.__log("Ignoring %s[%s] = %s, %s is higher or equal" % (x, package, hint.version, z[package]), type="W")
                             hint.set_active(False)
                     else:
-                        self.__log("Overriding %s[%s] = %s with %s" % (x, package, z[package], item.version), type="W")
+                        self.__log("Overriding %s[%s] = %s with %s" % (x, package, z[package], hint.version), type="W")
                         for other in [y for y in hints[x] if y.package==package and y.version==z[package]]:
                             other.set_active(False)
                         
-                z[package] = item.version
+                z[package] = hint.version
 
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
@@ -1122,7 +1121,7 @@ class Britney:
         
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        for hint in [ x for x in self.hints.hints('remove', package=src) if self.same_source(source_t[VERSION], x.packages[0].version) ]:
+        for hint in [ x for x in self.hints.hints('remove', package=src) if self.same_source(source_t[VERSION], x.version) ]:
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
@@ -1261,9 +1260,8 @@ class Britney:
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
         for item in self.hints.hints('remove', package=src):
-            package = item.packages[0]
-            if source_t and self.same_source(source_t[VERSION], package.version) or \
-               self.same_source(source_u[VERSION], package.version):
+            if source_t and self.same_source(source_t[VERSION], item.version) or \
+               self.same_source(source_u[VERSION], item.version):
                 excuse.addhtml("Removal request by %s" % (item.user))
                 excuse.addhtml("Trying to remove package, not update it")
                 update_candidate = False
@@ -1271,7 +1269,7 @@ class Britney:
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
         for hint in self.hints.hints(package=src):
-            if hint.type == 'block' or (hint.type == 'block-all' and hint.packages[0] == 'source' and hint not in blocked['block']):
+            if hint.type == 'block' or (hint.type == 'block-all' and hint.package == 'source' and hint not in blocked['block']):
                 blocked['block'] = hint
             if hint.type == 'block-udeb':
                 blocked['block-udeb'] = hint
@@ -1308,7 +1306,7 @@ class Britney:
             min_days = self.MINDAYS[urgency]
 
             for age_days_hint in [ x for x in self.hints.hints('age-days', package=src) if \
-               self.same_source(source_u[VERSION], x.packages[0].version) ]:
+               self.same_source(source_u[VERSION], x.version) ]:
                 excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
                     int(age_days_hint.days), age_days_hint.user))
                 min_days = int(age_days_hint.days)
@@ -1316,7 +1314,7 @@ class Britney:
             excuse.setdaysold(days_old, min_days)
             if days_old < min_days:
                 urgent_hints = [ x for x in self.hints.hints('urgent', package=src) if \
-                   self.same_source(source_u[VERSION], x.packages[0].version) ]
+                   self.same_source(source_u[VERSION], x.version) ]
                 if urgent_hints:
                     excuse.addhtml("Too young, but urgency pushed by %s" % (urgent_hints[0].user))
                 else:
@@ -1439,7 +1437,7 @@ class Britney:
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
-        forces = [ x for x in self.hints.hints('force', package=src) if self.same_source(source_u[VERSION], x.packages[0].version) ]
+        forces = [ x for x in self.hints.hints('force', package=src) if self.same_source(source_u[VERSION], x.version) ]
         if forces:
             excuse.dontinvalidate = 1
         if not update_candidate and forces:
@@ -1449,7 +1447,7 @@ class Britney:
         # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
         if suite in ['tpu', 'pu']:
             key = "%s_%s" % (src, source_u[VERSION])
-            approves = [ x for x in self.hints.hints('approve', package=src) if self.same_source(source_u[VERSION], x.packages[0].version) ]
+            approves = [ x for x in self.hints.hints('approve', package=src) if self.same_source(source_u[VERSION], x.version) ]
             if approves:
                 excuse.addhtml("Approved by %s" % approves[0].user)
             else:
@@ -1577,14 +1575,14 @@ class Britney:
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for item in self.hints['remove']:
-            src = item.packages[0].package
+            src = item.package
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
             if src not in sources['testing']: continue
 
             # check if the version specified in the hint is the same as the considered package
             tsrcv = sources['testing'][src][VERSION]
-            if not self.same_source(tsrcv, item.packages[0].version): continue
+            if not self.same_source(tsrcv, item.version): continue
 
             # add the removal of the package to upgrade_me and build a new excuse
             upgrade_me.append("-%s" % (src))
