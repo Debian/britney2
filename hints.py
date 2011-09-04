@@ -64,3 +64,7 @@ class Hint:
     @property
     def active(self):
         return self._active
+
+    @property
+    def user(self):
+        return self._user
