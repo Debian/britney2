@@ -18,14 +18,19 @@ class HintCollection:
     def __init__(self):
         self._hints = []
 
-    def __getitem__(self, type=None, onlyactive=True):
-        return self.hints(type, onlyactive)
+    def __getitem__(self, type=None):
+        return self.hints(type)
 
-    def hints(self, type=None, onlyactive=True):
-        if type:
-            return [ hint for hint in self._hints if hint.type == type and (hint.active or onlyactive)]
-        else:
-            return self._hints[:]
+    def hints(self, type=None, onlyactive=True, package=None, \
+       version=None, days=None, removal=None):
+
+        return [ hint for hint in self._hints if
+                 (type is None or type == hint.type) and
+                 (onlyactive or hint.active) and
+                 (package is None or package == hint.packages[0].package) and
+                 (version is None or version == hint.packages[0].version) and
+                 (removal is None or removal == hint.packages[0].is_removal)
+               ]
 
     def add_hint(self, hint, user):
         self._hints.append(Hint(hint, user))
