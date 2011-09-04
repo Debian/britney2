@@ -796,7 +796,7 @@ class Britney:
                     continue
                 elif l[0] in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove"]:
                     for package in l[1:]:
-                        hints.add_hint('%s %s"' % (l[0], package), who)
+                        hints.add_hint('%s %s' % (l[0], package), who)
                 elif l[0] in ["age-days"]:
                     for package in l[2:]:
                         hints.add_hint('%s %s %s' % (l[0], l[1], package), who)
@@ -1590,7 +1590,7 @@ class Britney:
             upgrade_me.append("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
-            excuse.addhtml("Removal request by %s" % (item.packages[0].user))
+            excuse.addhtml("Removal request by %s" % (item.user))
             excuse.addhtml("Package is broken, will try to remove")
             self.excuses.append(excuse)
 

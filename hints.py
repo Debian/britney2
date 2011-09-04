@@ -54,6 +54,9 @@ class Hint:
             else:
                 self._days, self._packages = self._packages.split(' ', 1)
 
+        if isinstance(self._packages, str):
+            self._packages = self._packages.split(' ')
+
         self._packages = [HintItem(x) for x in self._packages]
 
     def set_active(self, active):
@@ -77,3 +80,7 @@ class Hint:
     @property
     def user(self):
         return self._user
+
+    @property
+    def days(self):
+        return self._days
