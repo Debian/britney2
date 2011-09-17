@@ -2711,7 +2711,7 @@ class Britney:
         """Run a command line interface to test hints
 
         This method provides a command line interface for the release team to
-        try hints and evaulate the results.
+        try hints and evaluate the results.
         """
         self.__log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
