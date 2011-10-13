@@ -2089,9 +2089,11 @@ class Britney:
                     if arch and parch != arch: continue
                     # do not remove binaries which have been hijacked by other sources
                     if binaries[parch][0][binary][SOURCE] != pkg_name: continue
+                    rdeps = binaries[parch][0][binary][RDEPENDS]
                     # if a smooth update is possible for the package, skip it
                     if not self.options.compatible and suite == 'unstable' and \
                        binary not in self.binaries[suite][parch][0] and \
+                       len([x for x in rdeps if x not in [y.split("/")[0] for y in source[BINARIES]]]) > 0 and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
                         continue
