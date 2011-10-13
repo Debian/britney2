@@ -1805,6 +1805,7 @@ class Britney:
                     # if a smooth update is possible for the package, skip it
                     if not self.options.compatible and item.suite == 'unstable' and \
                        binary not in self.binaries[item.suite][parch][0] and \
+                       len([x for x in rdeps if x not in [y.split("/")[0] for y in source[BINARIES]]]) > 0 and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
                         continue
