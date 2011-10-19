@@ -315,31 +315,31 @@ class Britney:
         in a suitable form for the other methods of the class.
         """
         # initialize the parser
-        self.parser = optparse.OptionParser(version="%prog")
-        self.parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
-        self.parser.add_option("-c", "--config", action="store", dest="config", default="/etc/britney.conf",
+        parser = optparse.OptionParser(version="%prog")
+        parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
+        parser.add_option("-c", "--config", action="store", dest="config", default="/etc/britney.conf",
                                help="path for the configuration file")
-        self.parser.add_option("", "--architectures", action="store", dest="architectures", default=None,
+        parser.add_option("", "--architectures", action="store", dest="architectures", default=None,
                                help="override architectures from configuration file")
-        self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
+        parser.add_option("", "--actions", action="store", dest="actions", default=None,
                                help="override the list of actions to be performed")
-        self.parser.add_option("", "--hints", action="store", dest="hints", default=None,
+        parser.add_option("", "--hints", action="store", dest="hints", default=None,
                                help="additional hints, separated by semicolons")
-        self.parser.add_option("", "--hint-tester", action="store_true", dest="hint_tester", default=None,
+        parser.add_option("", "--hint-tester", action="store_true", dest="hint_tester", default=None,
                                help="provide a command line interface to test hints")
-        self.parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
+        parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
                                help="disable all outputs to the testing directory")
-        self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
+        parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
                                help="enable full compatibility with old britney's output")
-        self.parser.add_option("", "--auto-hinter", action="store_true", dest="autohinter", default=False,
+        parser.add_option("", "--auto-hinter", action="store_true", dest="autohinter", default=False,
                                help="enable use of auto-hinter")
-        self.parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
+        parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
                                help="enable control files generation")
-        self.parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
+        parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
                                help="do not build the non-installability status, use the cache from file")
-        self.parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
+        parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
                                help="just print a summary of uninstallable packages")
-        (self.options, self.args) = self.parser.parse_args()
+        (self.options, self.args) = parser.parse_args()
         
         # integrity checks
         if self.options.nuninst_cache and self.options.print_uninst:
