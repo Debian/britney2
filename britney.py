@@ -2573,6 +2573,7 @@ class Britney:
 
         # loop on them
         candidates = []
+        mincands = []
         for e in excuses:
             excuse = excuses[e]
             if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
@@ -2583,29 +2584,34 @@ class Britney:
                     candidates.append(hint.items())
             else:
                 items = [ (e, excuse.ver[1]) ]
+                looped = False
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
                     items.extend( [ (x, excuses[x].ver[1]) for x in excuses if \
                        (item in excuses[x].deps or x in excuses[item].deps) \
                        and (x, excuses[x].ver[1]) not in items ] )
+                    if not looped and len(items) > 1:
+                        mincands.append(items[:])
+                    looped = True
                 if len(items) > 1:
                     candidates.append(items)
 
-        to_skip = []
-        for i in range(len(candidates)):
-            for j in range(i+1, len(candidates)):
-                if i in to_skip or j in to_skip:
-                    # we already know this list isn't interesting
-                    continue
-                elif frozenset(candidates[i]) >= frozenset(candidates[j]):
-                    # j is a subset of i; ignore it
-                    to_skip.append(j)
-                elif frozenset(candidates[i]) <= frozenset(candidates[j]):
-                    # i is a subset of j; ignore it
-                    to_skip.append(i)
-        for i in range(len(candidates)):
-            if i not in to_skip:
-                self.do_hint("easy", "autohinter", [ HintItem("%s/%s" % (x[0], x[1])) for x in candidates[i] ])
+        for l in [ candidates, mincands ]:
+            to_skip = []
+            for i in range(len(l)):
+                for j in range(i+1, len(l)):
+                    if i in to_skip or j in to_skip:
+                        # we already know this list isn't interesting
+                        continue
+                    elif frozenset(l[i]) >= frozenset(l[j]):
+                        # j is a subset of i; ignore it
+                        to_skip.append(j)
+                    elif frozenset(l[i]) <= frozenset(l[j]):
+                        # i is a subset of j; ignore it
+                        to_skip.append(i)
+            for i in range(len(l)):
+                if i not in to_skip:
+                    self.do_hint("easy", "autohinter", [ HintItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
 
     def old_libraries(self):
         """Detect old libraries left in testing for smooth transitions
