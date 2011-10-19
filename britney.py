@@ -413,14 +413,13 @@ class Britney:
         package as a dictionary.
         """
         sources = {}
-        package = None
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
         try:
             Packages = apt_pkg.TagFile(open(filename))
             get_field = Packages.section.get
             step = Packages.step
-        except AttributeError, e:
+        except AttributeError:
             Packages = apt_pkg.ParseTagFile(open(filename))
             get_field = Packages.Section.get
             step = Packages.Step
@@ -468,7 +467,6 @@ class Britney:
         packages = {}
         provides = {}
         sources = self.sources
-        package = None
 
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
@@ -476,7 +474,7 @@ class Britney:
             Packages = apt_pkg.TagFile(open(filename))
             get_field = Packages.section.get
             step = Packages.step
-        except AttributeError, e:
+        except AttributeError:
             Packages = apt_pkg.ParseTagFile(open(filename))
             get_field = Packages.Section.get
             step = Packages.Step
@@ -998,7 +996,7 @@ class Britney:
 
         return (len(packages) > 0, packages)
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, excluded=[], conflicts=False):
+    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, excluded=[]):
         """Find unsatisfied dependencies for a binary package
 
         This method analyzes the dependencies of the binary package specified
@@ -1444,7 +1442,6 @@ class Britney:
 
         # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
         if suite in ['tpu', 'pu']:
-            key = "%s_%s" % (src, source_u[VERSION])
             if src in self.hints["approve"] and \
                self.same_source(source_u[VERSION], self.hints["approve"][src][0]):
                 excuse.addhtml("Approved by %s" % self.hints["approve"][src][1])
