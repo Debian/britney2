@@ -2596,7 +2596,7 @@ class Britney:
         for e in excuses:
             excuse = excuses[e]
             if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
-               continue
+                continue
             if len(excuse.deps) > 0:
                 hint = find_related(e, {}, True)
                 if isinstance(hint, dict) and e in hint and hint not in candidates:
@@ -2654,9 +2654,9 @@ class Britney:
             pkg, arch = i.split("/")
             pkg = pkg[1:]
             if pkg in libraries:
-                    libraries[pkg].append(arch)
+                libraries[pkg].append(arch)
             else:
-                    libraries[pkg] = [arch]
+                libraries[pkg] = [arch]
         return "\n".join(["  " + k + ": " + " ".join(libraries[k]) for k in libraries]) + "\n"
 
     def nuninst_arch_report(self, nuninst, arch):
