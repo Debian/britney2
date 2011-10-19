@@ -933,7 +933,7 @@ class Britney:
         return nuninst
 
 
-    # Utility methods for package analisys
+    # Utility methods for package analysis
     # ------------------------------------
 
     def same_source(self, sv1, sv2):
