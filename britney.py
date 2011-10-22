@@ -1800,6 +1800,7 @@ class Britney:
                     if item.architecture != 'source' and parch != item.architecture: continue
                     # do not remove binaries which have been hijacked by other sources
                     if binaries[parch][0][binary][SOURCE] != item.package: continue
+                    rdeps = binaries[parch][0][binary][RDEPENDS]
                     # if a smooth update is possible for the package, skip it
                     if not self.options.compatible and item.suite == 'unstable' and \
                        binary not in self.binaries[item.suite][parch][0] and \
