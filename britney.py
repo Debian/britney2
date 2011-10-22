@@ -2733,7 +2733,7 @@ class Britney:
                     "hint": 0,
                     "force-hint": -1,}
 
-        if isinstance(pkgvers[0], tuple):
+        if isinstance(pkgvers[0], tuple) or isinstance(pkgvers[0], list):
             _pkgvers = [ HintItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
         else:
             _pkgvers = pkgvers
