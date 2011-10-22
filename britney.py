@@ -317,31 +317,31 @@ class Britney:
         in a suitable form for the other methods of the class.
         """
         # initialize the parser
-        self.parser = optparse.OptionParser(version="%prog")
-        self.parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
-        self.parser.add_option("-c", "--config", action="store", dest="config", default="/etc/britney.conf",
+        parser = optparse.OptionParser(version="%prog")
+        parser.add_option("-v", "", action="count", dest="verbose", help="enable verbose output")
+        parser.add_option("-c", "--config", action="store", dest="config", default="/etc/britney.conf",
                                help="path for the configuration file")
-        self.parser.add_option("", "--architectures", action="store", dest="architectures", default=None,
+        parser.add_option("", "--architectures", action="store", dest="architectures", default=None,
                                help="override architectures from configuration file")
-        self.parser.add_option("", "--actions", action="store", dest="actions", default=None,
+        parser.add_option("", "--actions", action="store", dest="actions", default=None,
                                help="override the list of actions to be performed")
-        self.parser.add_option("", "--hints", action="store", dest="hints", default=None,
+        parser.add_option("", "--hints", action="store", dest="hints", default=None,
                                help="additional hints, separated by semicolons")
-        self.parser.add_option("", "--hint-tester", action="store_true", dest="hint_tester", default=None,
+        parser.add_option("", "--hint-tester", action="store_true", dest="hint_tester", default=None,
                                help="provide a command line interface to test hints")
-        self.parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
+        parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
                                help="disable all outputs to the testing directory")
-        self.parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
+        parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
                                help="enable full compatibility with old britney's output")
-        self.parser.add_option("", "--auto-hinter", action="store_true", dest="autohinter", default=False,
+        parser.add_option("", "--auto-hinter", action="store_true", dest="autohinter", default=False,
                                help="enable use of auto-hinter")
-        self.parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
+        parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
                                help="enable control files generation")
-        self.parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
+        parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
                                help="do not build the non-installability status, use the cache from file")
-        self.parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
+        parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
                                help="just print a summary of uninstallable packages")
-        (self.options, self.args) = self.parser.parse_args()
+        (self.options, self.args) = parser.parse_args()
         
         # integrity checks
         if self.options.nuninst_cache and self.options.print_uninst:
@@ -415,14 +415,13 @@ class Britney:
         package as a dictionary.
         """
         sources = {}
-        package = None
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
         try:
             Packages = apt_pkg.TagFile(open(filename))
             get_field = Packages.section.get
             step = Packages.step
-        except AttributeError, e:
+        except AttributeError:
             Packages = apt_pkg.ParseTagFile(open(filename))
             get_field = Packages.Section.get
             step = Packages.Step
@@ -470,7 +469,6 @@ class Britney:
         packages = {}
         provides = {}
         sources = self.sources
-        package = None
 
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
@@ -478,7 +476,7 @@ class Britney:
             Packages = apt_pkg.TagFile(open(filename))
             get_field = Packages.section.get
             step = Packages.step
-        except AttributeError, e:
+        except AttributeError:
             Packages = apt_pkg.ParseTagFile(open(filename))
             get_field = Packages.Section.get
             step = Packages.Step
@@ -940,7 +938,7 @@ class Britney:
         return nuninst
 
 
-    # Utility methods for package analisys
+    # Utility methods for package analysis
     # ------------------------------------
 
     def same_source(self, sv1, sv2):
@@ -1003,7 +1001,7 @@ class Britney:
 
         return (len(packages) > 0, packages)
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, excluded=[], conflicts=False):
+    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, excluded=[]):
         """Find unsatisfied dependencies for a binary package
 
         This method analyzes the dependencies of the binary package specified
@@ -2419,20 +2417,75 @@ class Britney:
             self.output_write("\nNewly uninstallable packages in testing:\n%s" % \
                 (text))
 
+    def generate_package_list(self):
+        # list of local methods and variables (for better performance)
+        sources = self.sources
+        architectures = self.options.architectures
+        should_remove_source = self.should_remove_source
+        should_upgrade_srcarch = self.should_upgrade_srcarch
+        should_upgrade_src = self.should_upgrade_src
+
+        # this list will contain the packages which are valid candidates;
+        # if a package is going to be removed, it will have a "-" prefix
+        upgrade_me = []
+
+        # for every source package in testing, check if it should be removed
+        for pkg in sources['testing']:
+            if should_remove_source(pkg):
+                upgrade_me.append("-" + pkg)
+
+        # for every source package in unstable check if it should be upgraded
+        for pkg in sources['unstable']:
+            if sources['unstable'][pkg][FAKESRC]: continue
+            # if the source package is already present in testing,
+            # check if it should be upgraded for every binary package
+            if pkg in sources['testing'] and not sources['testing'][pkg][FAKESRC]:
+                for arch in architectures:
+                    if should_upgrade_srcarch(pkg, arch, 'unstable'):
+                        upgrade_me.append("%s/%s/%s" % (pkg, arch, sources['unstable'][pkg][VERSION]))
+
+            # check if the source package should be upgraded
+            if should_upgrade_src(pkg, 'unstable'):
+                upgrade_me.append("%s/%s" % (pkg, sources['unstable'][pkg][VERSION]))
+
+        # for every source package in *-proposed-updates, check if it should be upgraded
+        for suite in ['pu', 'tpu']:
+            for pkg in sources[suite]:
+                # if the source package is already present in testing,
+                # check if it should be upgraded for every binary package
+                if pkg in sources['testing']:
+                    for arch in architectures:
+                        if should_upgrade_srcarch(pkg, arch, suite):
+                            upgrade_me.append("%s/%s_%s" % (pkg, arch, suite))
+
+                # check if the source package should be upgraded
+                if should_upgrade_src(pkg, suite):
+                    upgrade_me.append("%s_%s" % (pkg, suite))
+
+        return upgrade_me
+
     def hint_tester(self):
         """Run a command line interface to test hints
 
         This method provides a command line interface for the release team to
-        try hints and evaulate the results.
+        try hints and evaluate the results.
         """
         self.__log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
         self.nuninst_orig_save = self.get_nuninst()
 
         import readline
+        from completer import Completer
+
         histfile = os.path.expanduser('~/.britney2_history')
         if os.path.exists(histfile):
             readline.read_history_file(histfile)
+
+        readline.parse_and_bind('tab: complete')
+        readline.set_completer(Completer(self).completer)
+        # Package names can contain "-" and we use "/" in our presentation of them as well,
+        # so ensure readline does not split on these characters.
+        readline.set_completer_delims(readline.get_completer_delims().replace('-', '').replace('/', ''))
 
         while True:
             # read the command from the command line
@@ -2455,8 +2508,10 @@ class Britney:
                     self.printuninstchange()
                 except KeyboardInterrupt:
                     continue
-
-        readline.write_history_file(histfile)
+        try:
+            readline.write_history_file(histfile)
+        except IOError, e:
+            self.__log("Could not write %s: %s" % (histfile, e), type="W")
 
     def do_hint(self, type, who, pkgvers):
         """Process hints
@@ -2577,7 +2632,7 @@ class Britney:
         for e in excuses:
             excuse = excuses[e]
             if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
-               continue
+                continue
             if len(excuse.deps) > 0:
                 hint = find_related(e, {}, True)
                 if isinstance(hint, dict) and e in hint and hint not in candidates:
@@ -2640,9 +2695,9 @@ class Britney:
             pkg, arch = i.split("/")
             pkg = pkg[1:]
             if pkg in libraries:
-                    libraries[pkg].append(arch)
+                libraries[pkg].append(arch)
             else:
-                    libraries[pkg] = [arch]
+                libraries[pkg] = [arch]
         return "\n".join(["  " + k + ": " + " ".join(libraries[k]) for k in libraries]) + "\n"
 
     def nuninst_arch_report(self, nuninst, arch):
