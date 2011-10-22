@@ -56,6 +56,3 @@ class Completer:
             return self.matches[state]
         return None
 
-    
-
-        
