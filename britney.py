@@ -2505,6 +2505,9 @@ class Britney:
 
         readline.parse_and_bind('tab: complete')
         readline.set_completer(Completer(self).completer)
+        # Package names can contain "-" and we use "/" in our presentation of them as well,
+        # so ensure readline does not split on these characters.
+        readline.set_completer_delims(readline.get_completer_delims().replace('-', '').replace('/', ''))
 
         while True:
             # read the command from the command line

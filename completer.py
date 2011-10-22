@@ -45,11 +45,15 @@ class Completer:
                 self.matches = [x for x in self.cmds if x.startswith(text)]
             else:
                 # complete pkg/[arch/]version
+                prefix = ''
+                if len(text) > 0 and text[0] == '-':
+                    text = text[1:]
+                    prefix = '-'
                 start = bisect.bisect_left(self.packages, text)
                 while start < len(self.packages):
                     if not self.packages[start].startswith(text):
                         break
-                    self.matches.append(self.packages[start])
+                    self.matches.append(prefix + self.packages[start])
                     start += 1
 
         if len(self.matches) > state:
