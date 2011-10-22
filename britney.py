@@ -2775,7 +2775,7 @@ class Britney:
         so the ones with most reverse dependencies are at the end of the loop.
         If an action depends on another one, it is put after it.
         """
-        upgrade_me = [x.name for x in self.excuses if x.name in self.upgrade_me]
+        upgrade_me = [x.name for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me]]
         for e in self.excuses:
             if e.name not in upgrade_me: continue
             # try removes at the end of the loop
@@ -2797,7 +2797,7 @@ class Britney:
                 self.dependencies[e.name] = e.deps
 
         # replace the list of actions with the new one
-        self.upgrade_me = upgrade_me
+        self.upgrade_me = [ MigrationItem(x) for x in upgrade_me ]
 
     def auto_hinter(self):
         """Auto-generate "easy" hints.
