@@ -2652,7 +2652,7 @@ class Britney:
             if len(removals) > 0:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
                     (len(removals), self.old_libraries_format(removals)))
-                self.do_all(actions=removals)
+                self.do_all(actions=[ MigrationItem(x) for x in removals ])
                 removals = self.old_libraries()
         else:
             removals = ()
