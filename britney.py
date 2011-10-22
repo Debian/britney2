@@ -2059,7 +2059,7 @@ class Britney:
         sources = self.sources
         binaries = self.binaries['testing']
         # remove all binary packages (if the source already exists)
-        if item.architecture == 'source' or item.is_removal:
+        if item.architecture == 'source' or not item.is_removal:
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
                 # remove all the binaries
