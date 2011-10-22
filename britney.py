@@ -2475,8 +2475,10 @@ class Britney:
                     self.printuninstchange()
                 except KeyboardInterrupt:
                     continue
-
-        readline.write_history_file(histfile)
+        try:
+            readline.write_history_file(histfile)
+        except IOError, e:
+            self.__log("Could not write %s: %s" % (histfile, e), type="W")
 
     def do_hint(self, type, who, pkgvers):
         """Process hints
