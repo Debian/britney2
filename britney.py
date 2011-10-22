@@ -1448,7 +1448,6 @@ class Britney:
 
         # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
         if suite in ['tpu', 'pu']:
-            key = "%s_%s" % (src, source_u[VERSION])
             approves = [ x for x in self.hints.search('approve', package=src) if self.same_source(source_u[VERSION], x.version) ]
             if approves:
                 excuse.addhtml("Approved by %s" % approves[0].user)
