@@ -831,7 +831,9 @@ class Britney:
 
         # A (t-)p-u approval overrides an unstable block
         for p in hints["approve"]:
-            hints["unblock"][p] = hints["approve"][p]
+            for o in hints.search('unblock', package=p.package):
+                o.set_active(False)
+            hints.add_hint('unblock %s/%s' % (p.package, p.version), p.user)
 
         return hints
 
