@@ -185,7 +185,6 @@ import re
 import sys
 import string
 import time
-import copy
 import optparse
 import operator
 import urllib
