@@ -185,7 +185,6 @@ import re
 import sys
 import string
 import time
-import copy
 import optparse
 import operator
 import urllib
@@ -345,7 +344,7 @@ class Britney:
         
         # integrity checks
         if self.options.nuninst_cache and self.options.print_uninst:
-            exit.__log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
+            self.__log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
             sys.exit(1)
         # if the configuration file exists, than read it and set the additional options
         elif not os.path.isfile(self.options.config):
