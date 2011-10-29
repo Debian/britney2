@@ -186,14 +186,13 @@ import sys
 import string
 import time
 import optparse
-import operator
 import urllib
 
 import apt_pkg
 
 from excuse import Excuse
 from migrationitem import MigrationItem, HintItem
-from hints import Hint, HintCollection
+from hints import HintCollection
 from britney import buildSystem
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
