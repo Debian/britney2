@@ -93,7 +93,7 @@ class MigrationItem:
 
     @property
     def architecture(self):
-       return self._architecture
+        return self._architecture
 
     @property
     def package(self):
