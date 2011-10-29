@@ -70,7 +70,7 @@ class MigrationItem:
                 self._architecture = 'source'
 
         if '_' in self._architecture:
-            self_architecture, self._suite = \
+            self._architecture, self._suite = \
                self._architecture.split('_', 2)
 
         if self.is_removal:
