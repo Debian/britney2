@@ -2540,7 +2540,7 @@ class Britney:
             elif pkg.suite in ['pu', 'tpu']:
                 if pkg.package not in self.sources[pkg.suite]: continue
                 if apt_pkg.VersionCompare(self.sources[pkg.suite][pkg.package][VERSION], pkg.version) != 0:
-                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources[suite][pkg.package][VERSION]))
+                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources[pkg.suite][pkg.package][VERSION]))
                     ok = False
             # does the package exist in unstable?
             elif pkg.package not in self.sources['unstable']:
