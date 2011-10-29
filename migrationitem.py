@@ -15,6 +15,8 @@
 class MigrationItem:
     def __init__(self, name = None, versionned = False):
         self._name = None
+        self._uvname = None
+        self._package = None
         self._version = None
         self._architecture = None
         self._suite = None
