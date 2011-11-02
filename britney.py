@@ -1792,20 +1792,54 @@ class Britney:
         if item.architecture == 'source' or not item.is_removal:
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
+
+                bins = []
+                check = []
+                smoothbins = []
+
                 # remove all the binaries
+
+                # first, build a list of eligible binaries
                 for p in source[BINARIES]:
                     binary, parch = p.split("/")
                     if item.architecture != 'source' and parch != item.architecture: continue
                     # do not remove binaries which have been hijacked by other sources
                     if binaries[parch][0][binary][SOURCE] != item.package: continue
-                    rdeps = binaries[parch][0][binary][RDEPENDS]
+                    bins.append(p)
+
+                for p in bins:
+                    binary, parch = p.split("/")
                     # if a smooth update is possible for the package, skip it
                     if not self.options.compatible and item.suite == 'unstable' and \
                        binary not in self.binaries[item.suite][parch][0] and \
-                       len([x for x in rdeps if x not in [y.split("/")[0] for y in source[BINARIES]]]) > 0 and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
-                        continue
+
+                        # if the package has reverse-dependencies which are
+                        # built from other sources, it's a valid candidate for
+                        # a smooth update.  if not, it may still be a valid
+                        # candidate if one if its r-deps is itself a candidate,
+                        # so note it for checking later
+                        rdeps = binaries[parch][0][binary][RDEPENDS]
+
+                        if len([x for x in rdeps if x not in [y.split("/")[0] for y in bins]]) > 0:
+                            smoothbins.append(p)
+                        else:
+                            check.append(p)
+
+                # check whether we should perform a smooth update for
+                # packages which are candidates but do not have r-deps
+                # outside of the current source
+                for p in check:
+                    binary, parch = p.split("/")
+                    rdeps = [ bin for bin in binaries[parch][0][binary][RDEPENDS] \
+                              if bin in [y.split("/")[0] for y in smoothbins] ]
+                    if len(rdeps) > 0:
+                        smoothbins.append(p)
+
+                # remove all the binaries which aren't being smooth updated
+                for p in [ bin for bin in bins if bin not in smoothbins ]:
+                    binary, parch = p.split("/")
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
