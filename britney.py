@@ -2681,7 +2681,7 @@ class Britney:
                     if not looped and len(items) > 1:
                         mincands.append(items[:])
                     looped = True
-                if len(items) > 1:
+                if len(items) > 1 and frozenset(items) != frozenset(mincands[-1]):
                     candidates.append(items)
 
         for l in [ candidates, mincands ]:
