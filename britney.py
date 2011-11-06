@@ -1787,6 +1787,7 @@ class Britney:
         binaries = self.binaries['testing']
 
         # removal of single-arch binary package = "-<package>/<arch>"
+        # only used for cleaning up after smooth-updates
         if pkg[0] == "-" and "/" in pkg:
             pkg_name, arch = pkg.split("/")
             pkg_name = pkg_name[1:]
@@ -1887,7 +1888,8 @@ class Britney:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + pkg_name] = True
 
-        # single binary removal
+        # single binary removal; used for clearing up after smooth
+        # updates but not supported as a manual hint
         elif pkg_name in binaries[arch][0]:
             undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
             affected.extend( [ (x, arch) for x in \
