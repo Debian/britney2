@@ -1865,7 +1865,8 @@ class Britney:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + item.package] = True
 
-        # single binary removal
+        # single binary removal; used for clearing up after smooth
+        # updates but not supported as a manual hint
         elif item.package in binaries[item.architecture][0]:
             undo['binaries'][item.package + "/" + item.architecture] = binaries[item.architecture][0][item.package]
             affected.extend( [ (x, item.architecture) for x in \
