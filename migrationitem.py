@@ -66,7 +66,7 @@ class MigrationItem:
                 self._architecture = 'source'
                 self._version = parts[1]
         else:
-            if len(parts) == 2:
+            if len(parts) >= 2:
                 self._architecture = parts[1]
             else:
                 self._architecture = 'source'
