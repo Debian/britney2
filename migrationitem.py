@@ -78,14 +78,17 @@ class MigrationItem:
         if self.is_removal:
             self._suite = 'testing'
 	    
-        if self._versionned:
-            parts = self._name.split('/', 3)
-            if len(parts) == 1 or self._architecture == 'source':
-                self._uvname = parts[0]
-            else:
-                self._uvname = "%s/%s" % (parts[0], parts[1])
+        parts = self._name.split('/', 3)
+        if len(parts) == 1 or self._architecture == 'source':
+            self._uvname = self._package
         else:
-            self._uvname = self._name
+            self._uvname = "%s/%s" % (self._package, self._architecture)
+        if self._suite not in ('testing', 'unstable'):
+            self._uvname = '%s_%s' % (self._uvname, self._suite)
+        if self._versionned:
+            self._name = '%s/%s' % (self._uvname, self._version)
+        else:
+            self._name = self._uvname
 
     name = property(_get_name, _set_name)
 
