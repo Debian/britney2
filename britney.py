@@ -2379,7 +2379,7 @@ class Britney:
         normpackages = self.upgrade_me[:]
         archpackages = {}
         for a in self.options.break_arches.split():
-            archpackages[a] = [p for p in normpackages if p.endswith("/" + a) or p.endswith("/" + a + "_tpu") or p.endswith("/" + a + "_pu")]
+            archpackages[a] = [p for p in normpackages if p.architecture == a]
             normpackages = [p for p in normpackages if p not in archpackages[a]]
         self.upgrade_me = normpackages
         self.output_write("info: main run\n")
