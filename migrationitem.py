@@ -39,7 +39,7 @@ class MigrationItem:
             else:
                 isequal = self.version == other.version
 
-        return isequal            
+        return isequal
 
     def __hash__(self):
         return hash((self.uvname, self.version))
@@ -77,7 +77,7 @@ class MigrationItem:
 
         if self.is_removal:
             self._suite = 'testing'
-	    
+
         parts = self._name.split('/', 3)
         is_removal = self.is_removal
         if len(parts) == 1 or self._architecture == 'source':

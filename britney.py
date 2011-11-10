@@ -818,7 +818,7 @@ class Britney:
                         self.__log("Overriding %s[%s] = %s with %s" % (x, package, z[package], hint.version), type="W")
                         for other in [y for y in hints[x] if y.package==package and y.version==z[package]]:
                             other.set_active(False)
-                        
+
                 z[package] = hint.version
 
         # Sanity check the hints hash
@@ -1278,7 +1278,7 @@ class Britney:
         for block_cmd in blocked:
             unblock_cmd = "un" + block_cmd
             unblocks = self.hints.search(unblock_cmd, package=src)
-         
+
             if unblocks and self.same_source(unblocks[0].version, source_u[VERSION]):
                 excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
                                (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
