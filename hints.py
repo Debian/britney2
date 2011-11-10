@@ -26,7 +26,7 @@ class HintCollection:
 
         return [ hint for hint in self._hints if
                  (type is None or type == hint.type) and
-                 (onlyactive or hint.active) and
+                 (hint.active or not onlyactive) and
                  (package is None or package == hint.packages[0].package) and
                  (version is None or version == hint.packages[0].version) and
                  (removal is None or removal == hint.packages[0].is_removal)
