@@ -243,6 +243,7 @@ class Britney:
 
         # parse the command line arguments
         self.__parse_arguments()
+        MigrationItem.set_architectures(self.options.architectures)
 
         # initialize the apt_pkg back-end
         apt_pkg.init()
