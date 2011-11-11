@@ -13,6 +13,16 @@
 # GNU General Public License for more details.
 
 class MigrationItem:
+    _architectures = []
+
+    @classmethod
+    def set_architectures(cls, architectures = None):
+        cls._architectures = architectures or []
+
+    @classmethod
+    def get_architectures(cls):
+        return cls._architectures
+
     def __init__(self, name = None, versionned = False):
         self._name = None
         self._uvname = None
@@ -70,6 +80,10 @@ class MigrationItem:
                 self._architecture = parts[1]
             else:
                 self._architecture = 'source'
+
+        if self._version in self.__class__.get_architectures():
+            (self._architecture, self._version) = \
+            (self._version, self._architecture)
 
         if '_' in self._architecture:
             self._architecture, self._suite = \
