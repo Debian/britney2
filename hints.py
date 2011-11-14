@@ -88,6 +88,7 @@ class Hint:
     @property
     def package(self):
         if self.packages:
+            assert len(self.packages) == 1, self.packages
             return self.packages[0].package
         else:
             return None
@@ -95,6 +96,7 @@ class Hint:
     @property
     def version(self):
         if self.packages:
+            assert len(self.packages) == 1, self.packages
             return self.packages[0].version
         else:
             return None
