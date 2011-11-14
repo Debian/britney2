@@ -186,12 +186,13 @@ import sys
 import string
 import time
 import optparse
-import operator
 import urllib
 
 import apt_pkg
 
 from excuse import Excuse
+from migrationitem import MigrationItem, HintItem
+from hints import HintCollection
 from britney import buildSystem
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -242,6 +243,7 @@ class Britney:
 
         # parse the command line arguments
         self.__parse_arguments()
+        MigrationItem.set_architectures(self.options.architectures)
 
         # initialize the apt_pkg back-end
         apt_pkg.init()
@@ -769,7 +771,7 @@ class Britney:
         The method returns a dictionary where the key is the command, and
         the value is the list of affected packages.
         """
-        hints = dict([(k,[]) for k in self.HINTS_ALL])
+        hints = HintCollection()
 
         for who in self.HINTS.keys():
             if who == 'command-line':
@@ -789,35 +791,40 @@ class Britney:
                     break
                 elif l[0] not in self.HINTS[who]:
                     continue
-                elif l[0] in ["easy", "hint", "force-hint"]:
-                    hints[l[0]].append((who, [k.rsplit("/", 1) for k in l if "/" in k]))
-                elif l[0] in ["block-all"]:
-                    hints[l[0]].extend([(y, who) for y in l[1:]])
-                elif l[0] in ["block", "block-udeb"]:
-                    hints[l[0]].extend([(y, who) for y in l[1:]])
-                elif l[0] in ["age-days"] and len(l) >= 3 and l[1].isdigit():
-                    days = l[1]
-                    tmp = [tuple([who] + k.rsplit("/", 1)) for k in l[2:] if "/" in k]
-                    hints[l[0]].extend([(p, (v, h, days)) for h, p, v in tmp])
-                elif l[0] in ["remove", "approve", "unblock", "unblock-udeb", "force", "urgent"]:
-                    hints[l[0]].extend([(k.rsplit("/", 1)[0], (k.rsplit("/", 1)[1], who)) for k in l if "/" in k])
+                elif l[0] in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove"]:
+                    for package in l[1:]:
+                        hints.add_hint('%s %s' % (l[0], package), who)
+                elif l[0] in ["age-days"]:
+                    for package in l[2:]:
+                        hints.add_hint('%s %s %s' % (l[0], l[1], package), who)
+                else:
+                    hints.add_hint(l, who)
 
         for x in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
             z = {}
-            for a, b in hints[x]:
-                if z.has_key(a) and z[a] != b:
+            for hint in hints[x]:
+                package = hint.package
+                key = (hint, hint.user)
+                if z.has_key(package) and z[package] != key:
+                    hint2 = z[package][0]
                     if x in ['unblock', 'unblock-udeb']:
-                        if apt_pkg.VersionCompare(z[a][0], b[0]) < 0:
+                        if apt_pkg.VersionCompare(hint2.version, hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
-                            self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
+                            self.__log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
+                               (x, package, hint2.version, hint2.user, hint.version, hint.user), type="W")
+                            hint2.set_active(False)
                         else:
                             # This hint is for an older version, so ignore it in favour of the new one
-                            self.__log("Ignoring %s[%s] = %s, %s is higher or equal" % (x, a, b, z[a]), type="W")
-                            continue
+                            self.__log("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal" %
+                               (x, package, hint.version, hint.user, hint2.version, hint2.user), type="W")
+                            hint.set_active(False)
                     else:
-                        self.__log("Overriding %s[%s] = %s with %s" % (x, a, z[a], b), type="W")
-                z[a] = b
-            hints[x] = z
+                        self.__log("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s', '%s', '%s')" %
+                           (x, package, hint2.version, hint2.user, hint2.days,
+                            hint.version, hint.user, hint.days), type="W")
+                        hint2.set_active(False)
+
+                z[package] = key
 
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
@@ -825,7 +832,9 @@ class Britney:
 
         # A (t-)p-u approval overrides an unstable block
         for p in hints["approve"]:
-            hints["unblock"][p] = hints["approve"][p]
+            for o in hints.search('unblock', package=p.package):
+                o.set_active(False)
+            hints.add_hint('unblock %s/%s' % (p.package, p.version), p.user)
 
         return hints
 
@@ -1078,9 +1087,9 @@ class Britney:
         src[SECTION] and excuse.set_section(src[SECTION].strip())
 
         # if the package is blocked, skip it
-        if self.hints['block'].has_key('-' + pkg):
+        for hint in self.hints.search('block', package=pkg, removal=True):
             excuse.addhtml("Not touching package, as requested by %s (contact debian-release "
-                "if update is needed)" % self.hints['block']['-' + pkg])
+                "if update is needed)" % hint.user)
             excuse.addhtml("Not considered")
             self.excuses.append(excuse)
             return False
@@ -1115,9 +1124,8 @@ class Britney:
         
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        if src in self.hints["remove"] and \
-           self.same_source(source_t[VERSION], self.hints["remove"][src][0]):
-            excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
+        for hint in [ x for x in self.hints.search('remove', package=src) if self.same_source(source_t[VERSION], x.version) ]:
+            excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
             self.excuses.append(excuse)
@@ -1254,38 +1262,37 @@ class Britney:
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        if src in self.hints["remove"]:
-            if source_t and self.same_source(source_t[VERSION], self.hints['remove'][src][0]) or \
-               self.same_source(source_u[VERSION], self.hints['remove'][src][0]):
-                excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
+        for item in self.hints.search('remove', package=src):
+            if source_t and self.same_source(source_t[VERSION], item.version) or \
+               self.same_source(source_u[VERSION], item.version):
+                excuse.addhtml("Removal request by %s" % (item.user))
                 excuse.addhtml("Trying to remove package, not update it")
                 update_candidate = False
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
-        if src in self.hints["block"]:
-            blocked["block"] = self.hints["block"][src]
-        elif 'source' in self.hints["block-all"]:
-            blocked["block"] = self.hints["block-all"]["source"]
-
-        if src in self.hints["block-udeb"]:
-            blocked["block-udeb"] = self.hints["block-udeb"][src]
+        for hint in self.hints.search(package=src):
+            if hint.type == 'block' or (hint.type == 'block-all' and hint.package == 'source' and hint not in blocked['block']):
+                blocked['block'] = hint
+            if hint.type == 'block-udeb':
+                blocked['block-udeb'] = hint
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
         # is processed only if the specified version is correct. If a package is blocked
         # by `block-udeb', then `unblock-udeb' must be present to cancel it.
         for block_cmd in blocked:
             unblock_cmd = "un" + block_cmd
-            unblock = self.hints[unblock_cmd].get(src,(None,None))
-            if unblock[0] != None and self.same_source(unblock[0], source_u[VERSION]):
+            unblocks = self.hints.search(unblock_cmd, package=src)
+
+            if unblocks and self.same_source(unblocks[0].version, source_u[VERSION]):
                 excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
-                               (block_cmd, blocked[block_cmd], unblock_cmd, self.hints[unblock_cmd][src][1]))
+                               (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
             else:
-                if unblock[0] != None:
+                if unblocks:
                     excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
-                                   (unblock_cmd.capitalize(), self.hints[unblock_cmd][src][1], self.hints[unblock_cmd][src][0]))
+                                   (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
                 excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
-                               (block_cmd, blocked[block_cmd]))
+                               (block_cmd, blocked[block_cmd].user))
                 update_candidate = False
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
@@ -1301,17 +1308,18 @@ class Britney:
             days_old = self.date_now - self.dates[src][1]
             min_days = self.MINDAYS[urgency]
 
-            age_days_hint = self.hints["age-days"].get(src)
-            if age_days_hint is not None and (age_days_hint[0] == "-" or \
-               self.same_source(source_u[VERSION], age_days_hint[0])):
+            for age_days_hint in [ x for x in self.hints.search('age-days', package=src) if \
+               self.same_source(source_u[VERSION], x.version) ]:
                 excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
-                    int(self.hints["age-days"][src][2]), self.hints["age-days"][src][1]))
-                min_days = int(self.hints["age-days"][src][2])
+                    int(age_days_hint.days), age_days_hint.user))
+                min_days = int(age_days_hint.days)
 
             excuse.setdaysold(days_old, min_days)
             if days_old < min_days:
-                if src in self.hints["urgent"] and self.same_source(source_u[VERSION], self.hints["urgent"][src][0]):
-                    excuse.addhtml("Too young, but urgency pushed by %s" % (self.hints["urgent"][src][1]))
+                urgent_hints = [ x for x in self.hints.search('urgent', package=src) if \
+                   self.same_source(source_u[VERSION], x.version) ]
+                if urgent_hints:
+                    excuse.addhtml("Too young, but urgency pushed by %s" % (urgent_hints[0].user))
                 else:
                     update_candidate = False
 
@@ -1432,18 +1440,18 @@ class Britney:
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
-        if src in self.hints["force"] and self.same_source(source_u[VERSION], self.hints["force"][src][0]):
+        forces = [ x for x in self.hints.search('force', package=src) if self.same_source(source_u[VERSION], x.version) ]
+        if forces:
             excuse.dontinvalidate = 1
-        if not update_candidate and src in self.hints["force"] and \
-           self.same_source(source_u[VERSION], self.hints["force"][src][0]):
-            excuse.addhtml("Should ignore, but forced by %s" % (self.hints["force"][src][1]))
+        if not update_candidate and forces:
+            excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
             update_candidate = True
 
         # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
         if suite in ['tpu', 'pu']:
-            if src in self.hints["approve"] and \
-               self.same_source(source_u[VERSION], self.hints["approve"][src][0]):
-                excuse.addhtml("Approved by %s" % self.hints["approve"][src][1])
+            approves = [ x for x in self.hints.search('approve', package=src) if self.same_source(source_u[VERSION], x.version) ]
+            if approves:
+                excuse.addhtml("Approved by %s" % approves[0].user)
             else:
                 excuse.addhtml("NEEDS APPROVAL BY RM")
                 update_candidate = False
@@ -1568,20 +1576,21 @@ class Britney:
                     upgrade_me.append("%s_%s" % (pkg, suite))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
-        for src in self.hints["remove"].keys():
+        for item in self.hints['remove']:
+            src = item.package
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
             if src not in sources['testing']: continue
 
             # check if the version specified in the hint is the same as the considered package
             tsrcv = sources['testing'][src][VERSION]
-            if not self.same_source(tsrcv, self.hints["remove"][src][0]): continue
+            if not self.same_source(tsrcv, item.version): continue
 
             # add the removal of the package to upgrade_me and build a new excuse
             upgrade_me.append("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
-            excuse.addhtml("Removal request by %s" % (self.hints["remove"][src][1]))
+            excuse.addhtml("Removal request by %s" % (item.user))
             excuse.addhtml("Package is broken, will try to remove")
             self.excuses.append(excuse)
 
@@ -1626,7 +1635,7 @@ class Britney:
         self.invalidate_excuses(upgrade_me, unconsidered)
 
         # sort the list of candidates
-        self.upgrade_me = sorted(upgrade_me)
+        self.upgrade_me = sorted([ MigrationItem(x) for x in upgrade_me ])
 
         # write excuses to the output file
         if not self.options.dry_run:
@@ -1764,13 +1773,13 @@ class Britney:
         return diff <= 0
 
 
-    def doop_source(self, pkg, hint_undo=[]):
+    def doop_source(self, item, hint_undo=[]):
         """Apply a change to the testing distribution as requested by `pkg`
 
         An optional list of undo actions related to packages processed earlier
         in a hint may be passed in `hint_undo`.
 
-        This method applies the changes required by the action `pkg` tracking
+        This method applies the changes required by the action `item` tracking
         them so it will be possible to revert them.
 
         The method returns a list of the package name, the suite where the
@@ -1780,41 +1789,14 @@ class Britney:
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
         affected = []
-        arch = None
 
         # local copies for better performances
         sources = self.sources
         binaries = self.binaries['testing']
-
-        # removal of single-arch binary package = "-<package>/<arch>"
-        # only used for cleaning up after smooth-updates
-        if pkg[0] == "-" and "/" in pkg:
-            pkg_name, arch = pkg.split("/")
-            pkg_name = pkg_name[1:]
-            suite = "testing"
-        # arch = "<source>/<arch>",
-        elif "/" in pkg:
-            pkg_name, arch = pkg.split("/")
-            if arch.endswith("_tpu") or arch.endswith("_pu"):
-                arch, suite = arch.split("_")
-            else: suite = "unstable"
-        # removal of source packages = "-<source>",
-        elif pkg[0] == "-":
-            pkg_name = pkg[1:]
-            suite = "testing"
-        # testing-proposed-updates = "<source>_tpu"
-        # proposed-updates = "<source>_pu"
-        elif pkg.endswith("_tpu") or pkg.endswith("_pu"):
-            pkg_name, suite = pkg.rsplit("_")
-        # normal update of source packages = "<source>"
-        else:
-            pkg_name = pkg
-            suite = "unstable"
-
         # remove all binary packages (if the source already exists)
-        if not (arch and pkg[0] == '-'):
-            if pkg_name in sources['testing']:
-                source = sources['testing'][pkg_name]
+        if item.architecture == 'source' or not item.is_removal:
+            if item.package in sources['testing']:
+                source = sources['testing'][item.package]
 
                 bins = []
                 check = []
@@ -1825,16 +1807,16 @@ class Britney:
                 # first, build a list of eligible binaries
                 for p in source[BINARIES]:
                     binary, parch = p.split("/")
-                    if arch and parch != arch: continue
+                    if item.architecture != 'source' and parch != item.architecture: continue
                     # do not remove binaries which have been hijacked by other sources
-                    if binaries[parch][0][binary][SOURCE] != pkg_name: continue
+                    if binaries[parch][0][binary][SOURCE] != item.package: continue
                     bins.append(p)
 
                 for p in bins:
                     binary, parch = p.split("/")
                     # if a smooth update is possible for the package, skip it
-                    if not self.options.compatible and suite == 'unstable' and \
-                       binary not in self.binaries[suite][parch][0] and \
+                    if not self.options.compatible and item.suite == 'unstable' and \
+                       binary not in self.binaries[item.suite][parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
 
@@ -1881,29 +1863,29 @@ class Britney:
                     del binaries[parch][0][binary]
                     self.systems[parch].remove_binary(binary)
                 # remove the source package
-                if not arch:
-                    undo['sources'][pkg_name] = source
-                    del sources['testing'][pkg_name]
+                if item.architecture == 'source':
+                    undo['sources'][item.package] = source
+                    del sources['testing'][item.package]
             else:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
-                undo['sources']['-' + pkg_name] = True
+                undo['sources']['-' + item.package] = True
 
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
-        elif pkg_name in binaries[arch][0]:
-            undo['binaries'][pkg_name + "/" + arch] = binaries[arch][0][pkg_name]
-            affected.extend( [ (x, arch) for x in \
-               self.get_reverse_tree(pkg_name, arch, 'testing') ] )
+        elif item.package in binaries[item.architecture][0]:
+            undo['binaries'][item.package + "/" + item.architecture] = binaries[item.architecture][0][item.package]
+            affected.extend( [ (x, item.architecture) for x in \
+               self.get_reverse_tree(item.package, item.architecture, 'testing') ] )
             affected = list(set(affected))
-            del binaries[arch][0][pkg_name]
-            self.systems[arch].remove_binary(pkg_name)
+            del binaries[item.architecture][0][item.package]
+            self.systems[item.architecture].remove_binary(item.package)
 
         # add the new binary packages (if we are not removing)
-        if pkg[0] != "-":
-            source = sources[suite][pkg_name]
+        if not item.is_removal:
+            source = sources[item.suite][item.package]
             for p in source[BINARIES]:
                 binary, parch = p.split("/")
-                if arch and parch != arch: continue
+                if item.architecture not in ['source', parch]: continue
                 key = (binary, parch)
                 # obviously, added/modified packages are affected
                 if key not in affected: affected.append(key)
@@ -1931,7 +1913,7 @@ class Britney:
                     # ignored as their reverse trees are already handled
                     # by this function
                     # XXX: and the reverse conflict tree?
-                    for (tundo, tpkg, tpkg_name, tsuite) in hint_undo:
+                    for (tundo, tpkg) in hint_undo:
                         if p in tundo['binaries']:
                             for rdep in tundo['binaries'][p][RDEPENDS]:
                                 if rdep in binaries[parch][0] and rdep not in source[BINARIES]:
@@ -1940,7 +1922,7 @@ class Britney:
                                                         self.get_reverse_tree(rdep, parch, 'testing') ] )
                     affected = list(set(affected))
                 # add/update the binary package
-                binaries[parch][0][binary] = self.binaries[suite][parch][0][binary]
+                binaries[parch][0][binary] = self.binaries[item.suite][parch][0][binary]
                 self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
                     [", ".join(binaries[parch][0][binary][PROVIDES]) or None])
                 # register new provided packages
@@ -1960,15 +1942,15 @@ class Britney:
             # register reverse dependencies and conflicts for the new binary packages
             for p in source[BINARIES]:
                 binary, parch = p.split("/")
-                if arch and parch != arch: continue
+                if item.architecture not in ['source', parch]: continue
                 self.register_reverses(binary, binaries[parch][0] , binaries[parch][1])
 
             # add/update the source package
-            if not arch:
-                sources['testing'][pkg_name] = sources[suite][pkg_name]
+            if item.architecture == 'source':
+                sources['testing'][item.package] = sources[item.suite][item.package]
 
         # return the package name, the suite, the list of affected packages and the undo dictionary
-        return (pkg_name, suite, affected, undo)
+        return (item, affected, undo)
 
     def get_reverse_tree(self, pkg, arch, suite):
         packages = []
@@ -2045,9 +2027,9 @@ class Britney:
         # pre-process a hint batch
         pre_process = {}
         if selected and hint:
-            for pkg in selected:
-                pkg_name, suite, affected, undo = self.doop_source(pkg)
-                pre_process[pkg] = (pkg_name, suite, affected, undo)
+            for package in selected:
+                pkg, affected, undo = self.doop_source(package)
+                pre_process[package] = (pkg, affected, undo)
 
         lundo = []
         if not hint:
@@ -2083,14 +2065,14 @@ class Britney:
 
             # apply the changes
             if pkg in pre_process:
-                pkg_name, suite, affected, undo = pre_process[pkg]
+                item, affected, undo = pre_process[pkg]
             else:
-                pkg_name, suite, affected, undo = self.doop_source(pkg, lundo)
+                item, affected, undo = self.doop_source(pkg, lundo)
             if hint:
-                lundo.append((undo, pkg, pkg_name, suite))
+                lundo.append((undo, item))
 
             # check the affected packages on all the architectures
-            for arch in ("/" in pkg and (pkg.split("/")[1].split("_")[0],) or architectures):
+            for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
                 if arch not in nobreakall_arches:
                     skip_archall = True
                 else: skip_archall = False
@@ -2159,17 +2141,17 @@ class Britney:
                     continue
 
                 # if the uninstallability counter is worse than before, break the loop
-                if (("/" in pkg and arch not in new_arches) or \
+                if ((item.architecture != 'source' and arch not in new_arches) or \
                     (arch not in break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
                     better = False
                     break
 
             # if we are processing hints or the package is already accepted, go ahead
-            if hint or pkg in selected: continue
+            if hint or item in selected: continue
 
             # check if the action improved the uninstallability counters
             if better:
-                lundo.append((undo, pkg, pkg_name, suite))
+                lundo.append((undo, item))
                 selected.append(pkg)
                 packages.extend(extra)
                 extra = []
@@ -2178,14 +2160,14 @@ class Britney:
                 self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
                 self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
                 if len(selected) <= 20:
-                    self.output_write("   all: %s\n" % (" ".join(selected)))
+                    self.output_write("   all: %s\n" % (" ".join([ str(x) for x in selected ])))
                 else:
-                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(selected[-20:])))
+                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join([str(x) for x in selected][-20:])))
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
                 self.output_write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
-                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, "/" in pkg and nuninst_comp or None)))
+                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, pkg.architecture != 'source' and nuninst_comp or None)))
                 self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in nuninst[arch] if b not in nuninst_comp[arch]]))))
 
                 extra.append(pkg)
@@ -2199,10 +2181,10 @@ class Britney:
                     else: sources['testing'][k] = undo['sources'][k]
 
                 # undo the changes (new binaries)
-                if pkg[0] != '-' and pkg_name in sources[suite]:
-                    for p in sources[suite][pkg_name][BINARIES]:
+                if not item.is_removal and item.package in sources[item.suite]:
+                    for p in sources[item.suite][item.package][BINARIES]:
                         binary, arch = p.split("/")
-                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)) or pkg.endswith("/%s_pu" % (arch)):
+                        if item.architecture in ['source', arch]:
                             del binaries[arch][0][binary]
                             self.systems[arch].remove_binary(binary)
 
@@ -2232,7 +2214,7 @@ class Britney:
         if hint:
             return (nuninst_comp, [], lundo)
 
-        self.output_write(" finish: [%s]\n" % ",".join(selected))
+        self.output_write(" finish: [%s]\n" % ",".join([ str(x) for x in selected ]))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
         self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
@@ -2265,10 +2247,10 @@ class Britney:
 
         # if we have a list of initial packages, check them
         if init:
-            self.output_write("leading: %s\n" % (",".join(init)))
+            self.output_write("leading: %s\n" % (",".join([ str(x) for x in init ])))
             for x in init:
                 if x not in upgrade_me:
-                    self.output_write("failed: %s\n" % (x))
+                    self.output_write("failed: %s\n" % (x.uvname))
                     return None
                 selected.append(x)
                 upgrade_me.remove(x)
@@ -2303,7 +2285,7 @@ class Britney:
         if nuninst_end:
             if not force and not earlyabort:
                 self.output_write("Apparently successful\n")
-            self.output_write("final: %s\n" % ",".join(sorted(selected)))
+            self.output_write("final: %s\n" % ",".join(sorted([ str(x) for x in selected ])))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             if not force:
                 self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
@@ -2327,23 +2309,23 @@ class Britney:
             if not undo: return
 
             # undo all the changes
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (source)
                 for k in undo['sources'].keys():
                     if k[0] == '-':
                         del self.sources['testing'][k[1:]]
                     else: self.sources['testing'][k] = undo['sources'][k]
 
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (new binaries)
-                if pkg[0] != '-' and pkg_name in self.sources[suite]:
-                    for p in self.sources[suite][pkg_name][BINARIES]:
+                if not item.is_removal and item.package in self.sources[item.suite]:
+                    for p in self.sources[item.suite][item.package][BINARIES]:
                         binary, arch = p.split("/")
-                        if '/' not in pkg or pkg.endswith("/%s" % (arch)) or pkg.endswith("/%s_tpu" % (arch)) or pkg.endswith("/%s_pu" % (arch)):
+                        if item.architecture in ['source', arch]:
                             del self.binaries['testing'][arch][0][binary]
                             self.systems[arch].remove_binary(binary)
 
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (binaries)
                 for p in undo['binaries'].keys():
                     binary, arch = p.split("/")
@@ -2357,7 +2339,7 @@ class Britney:
                         self.systems[arch].add_binary(binary, binaries[binary][:PROVIDES] + \
                             [", ".join(binaries[binary][PROVIDES]) or None])
 
-            for (undo, pkg, pkg_name, suite) in lundo:
+            for (undo, item) in lundo:
                 # undo the changes (virtual packages)
                 for p in undo['nvirtual']:
                     j, arch = p.split("/")
@@ -2388,11 +2370,11 @@ class Britney:
         if not self.options.actions:
             # process `easy' hints
             for x in self.hints['easy']:
-                self.do_hint("easy", x[0], x[1])
+                self.do_hint("easy", x.user, x.packages)
 
             # process `force-hint' hints
             for x in self.hints["force-hint"]:
-                self.do_hint("force-hint", x[0], x[1])
+                self.do_hint("force-hint", x.user, x.packages)
 
         # run the first round of the upgrade
         self.__log("> First loop on the packages with depth = 0", type="I")
@@ -2402,7 +2384,7 @@ class Britney:
         normpackages = self.upgrade_me[:]
         archpackages = {}
         for a in self.options.break_arches.split():
-            archpackages[a] = [p for p in normpackages if p.endswith("/" + a) or p.endswith("/" + a + "_tpu") or p.endswith("/" + a + "_pu")]
+            archpackages[a] = [p for p in normpackages if p.architecture == a]
             normpackages = [p for p in normpackages if p not in archpackages[a]]
         self.upgrade_me = normpackages
         self.output_write("info: main run\n")
@@ -2428,7 +2410,7 @@ class Britney:
             if hintcnt > 50:
                 self.output_write("Skipping remaining hints...")
                 break
-            if self.do_hint("hint", x[0], x[1]):
+            if self.do_hint("hint", x.user, x.packages):
                 hintcnt += 1
 
         # run the auto hinter
@@ -2442,7 +2424,7 @@ class Britney:
             if len(removals) > 0:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
                     (len(removals), self.old_libraries_format(removals)))
-                self.do_all(actions=removals)
+                self.do_all(actions=[ MigrationItem(x) for x in removals ])
                 removals = self.old_libraries()
         else:
             removals = ()
@@ -2580,38 +2562,38 @@ class Britney:
                     "hint": 0,
                     "force-hint": -1,}
 
+        if isinstance(pkgvers[0], tuple) or isinstance(pkgvers[0], list):
+            _pkgvers = [ HintItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
+        else:
+            _pkgvers = pkgvers
+
         self.__log("> Processing '%s' hint from %s" % (type, who), type="I")
-        self.output_write("Trying %s from %s: %s\n" % (type, who, " ".join( ["%s/%s" % (p,v) for (p,v) in pkgvers])))
+        self.output_write("Trying %s from %s: %s\n" % (type, who, " ".join( ["%s/%s" % (x.uvname, x.version) for x in _pkgvers])))
 
         ok = True
         # loop on the requested packages and versions
-        for pkg, v in pkgvers:
-            # remove architecture
-            if "/" in pkg:
-                pkg = pkg[:pkg.find("/")]
-
+        for pkg in _pkgvers:
             # skip removal requests
-            if pkg[0] == "-":
+            if pkg.is_removal:
                 continue
             # handle *-proposed-updates
-            elif pkg.endswith("_tpu") or pkg.endswith("_pu"):
-                pkg, suite = pkg.rsplit("_")
-                if pkg not in self.sources[suite]: continue
-                if apt_pkg.VersionCompare(self.sources[suite][pkg][VERSION], v) != 0:
-                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources[suite][pkg][VERSION]))
+            elif pkg.suite in ['pu', 'tpu']:
+                if pkg.package not in self.sources[pkg.suite]: continue
+                if apt_pkg.VersionCompare(self.sources[pkg.suite][pkg.package][VERSION], pkg.version) != 0:
+                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources[pkg.suite][pkg.package][VERSION]))
                     ok = False
             # does the package exist in unstable?
-            elif pkg not in self.sources['unstable']:
-                self.output_write(" Source %s has no version in unstable\n" % pkg)
+            elif pkg.package not in self.sources['unstable']:
+                self.output_write(" Source %s has no version in unstable\n" % pkg.package)
                 ok = False
-            elif apt_pkg.VersionCompare(self.sources['unstable'][pkg][VERSION], v) != 0:
-                self.output_write(" Version mismatch, %s %s != %s\n" % (pkg, v, self.sources['unstable'][pkg][VERSION]))
+            elif apt_pkg.VersionCompare(self.sources['unstable'][pkg.package][VERSION], pkg.version) != 0:
+                self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources['unstable'][pkg.package][VERSION]))
                 ok = False
         if not ok:
             self.output_write("Not using hint\n")
             return False
 
-        self.do_all(hintinfo[type], map(operator.itemgetter(0), pkgvers))
+        self.do_all(hintinfo[type], _pkgvers)
         return True
 
     def sort_actions(self):
@@ -2622,7 +2604,7 @@ class Britney:
         so the ones with most reverse dependencies are at the end of the loop.
         If an action depends on another one, it is put after it.
         """
-        upgrade_me = [x.name for x in self.excuses if x.name in self.upgrade_me]
+        upgrade_me = [x.name for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me]]
         for e in self.excuses:
             if e.name not in upgrade_me: continue
             # try removes at the end of the loop
@@ -2644,7 +2626,7 @@ class Britney:
                 self.dependencies[e.name] = e.deps
 
         # replace the list of actions with the new one
-        self.upgrade_me = upgrade_me
+        self.upgrade_me = [ MigrationItem(x) for x in upgrade_me ]
 
     def auto_hinter(self):
         """Auto-generate "easy" hints.
@@ -2665,7 +2647,7 @@ class Britney:
         self.__log("> Processing hints from the auto hinter", type="I")
 
         # consider only excuses which are valid candidates
-        excuses = dict([(x.name, x) for x in self.excuses if x.name in self.upgrade_me])
+        excuses = dict([(x.name, x) for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me]])
 
         def find_related(e, hint, circular_first=False):
             if e not in excuses:
@@ -2723,7 +2705,7 @@ class Britney:
                         to_skip.append(i)
             for i in range(len(l)):
                 if i not in to_skip:
-                    self.do_hint("easy", "autohinter", l[i])
+                    self.do_hint("easy", "autohinter", [ HintItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
 
     def old_libraries(self):
         """Detect old libraries left in testing for smooth transitions
