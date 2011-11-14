@@ -804,27 +804,27 @@ class Britney:
             z = {}
             for hint in hints[x]:
                 package = hint.package
-                if z.has_key(package) and z[package] != hint:
+                key = (hint, hint.user)
+                if z.has_key(package) and z[package] != key:
+                    hint2 = z[package][0]
                     if x in ['unblock', 'unblock-udeb']:
-                        if apt_pkg.VersionCompare(z[package].version, hint.version) < 0:
+                        if apt_pkg.VersionCompare(hint2.version, hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
                             self.__log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
-                               (x, package, z[package].version, z[package].user, hint.version, hint.user), type="W")
-                            for other in [y for y in hints[x] if y.package==package and y.version==z[package]]:
-                                other.set_active(False)
+                               (x, package, hint2.version, hint2.user, hint.version, hint.user), type="W")
+                            hint2.set_active(False)
                         else:
                             # This hint is for an older version, so ignore it in favour of the new one
                             self.__log("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal" %
-                               (x, package, hint.version, hint.user, z[package].version, z[package].user), type="W")
+                               (x, package, hint.version, hint.user, hint2.version, hint2.user), type="W")
                             hint.set_active(False)
                     else:
-                        self.__log("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s, '%s, '%s')" %
-                           (x, package, z[package].version, z[package].user, z[package].days,
+                        self.__log("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s', '%s', '%s')" %
+                           (x, package, hint2.version, hint2.user, hint2.days,
                             hint.version, hint.user, hint.days), type="W")
-                        for other in [y for y in hints[x] if y.package==package and y.version==z[package].version]:
-                            other.set_active(False)
+                        hint2.set_active(False)
 
-                z[package] = hint
+                z[package] = key
 
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
