@@ -65,6 +65,9 @@ class Hint:
     def __str__(self):
         return self._hint
 
+    def __eq__(self, other):
+        return str(self) == str(other)
+
     @property
     def type(self):
         return self._type
