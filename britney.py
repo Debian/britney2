@@ -2572,21 +2572,32 @@ class Britney:
 
         ok = True
         # loop on the requested packages and versions
-        for pkg in _pkgvers:
+        for idx in range(len(_pkgvers)):
+            pkg = _pkgvers[idx]
             # skip removal requests
             if pkg.is_removal:
                 continue
+
+            inunstable = pkg.package in self.sources['unstable']
+            rightversion = inunstable and (apt_pkg.VersionCompare(self.sources['unstable'][pkg.package][VERSION], pkg.version) == 0)
+            if pkg.suite == 'unstable' and not rightversion:
+                for suite in ['pu', 'tpu']:
+                    if pkg.package in self.sources[suite] and apt_pkg.VersionCompare(self.sources[suite][pkg.package][VERSION], pkg.version) == 0:
+                        pkg.suite = suite
+                        _pkgvers[idx] = pkg
+                        break
+
             # handle *-proposed-updates
-            elif pkg.suite in ['pu', 'tpu']:
+            if pkg.suite in ['pu', 'tpu']:
                 if pkg.package not in self.sources[pkg.suite]: continue
                 if apt_pkg.VersionCompare(self.sources[pkg.suite][pkg.package][VERSION], pkg.version) != 0:
                     self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources[pkg.suite][pkg.package][VERSION]))
                     ok = False
             # does the package exist in unstable?
-            elif pkg.package not in self.sources['unstable']:
+            elif not inunstable:
                 self.output_write(" Source %s has no version in unstable\n" % pkg.package)
                 ok = False
-            elif apt_pkg.VersionCompare(self.sources['unstable'][pkg.package][VERSION], pkg.version) != 0:
+            elif not rightversion:
                 self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources['unstable'][pkg.package][VERSION]))
                 ok = False
         if not ok:
