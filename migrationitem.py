@@ -12,7 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-class MigrationItem:
+class MigrationItem(object):
     _architectures = []
 
     @classmethod
@@ -124,9 +124,14 @@ class MigrationItem:
     def package(self):
         return self._package
 
-    @property
-    def suite(self):
+    def _get_suite(self):
         return self._suite
+
+    def _set_suite(self, value):
+        self._suite = value
+        self._canonicalise_name()
+
+    suite = property(_get_suite, _set_suite)    
 
     @property
     def version(self):
