@@ -92,6 +92,9 @@ class MigrationItem:
         if self.is_removal:
             self._suite = 'testing'
 
+        self._build_name()
+
+    def _build_name(self):
         parts = self._name.split('/', 3)
         is_removal = self.is_removal
         if len(parts) == 1 or self._architecture == 'source':
