@@ -1,4 +1,4 @@
-#include <python2.5/Python.h>
+#include <python2.6/Python.h>
 
 #include "dpkg.h"
 

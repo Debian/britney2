@@ -1,4 +1,4 @@
-#!/usr/bin/python2.5 -u
+#!/usr/bin/python2.6 -u
 # -*- coding: utf-8 -*-
 
 # Copyright (C) 2001-2008 Anthony Towns <ajt@debian.org>
