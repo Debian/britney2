@@ -33,7 +33,7 @@ class MigrationItem(object):
         self._versionned = versionned
 
         if name:
-            self._set_name(name)
+            self.name = name
 
     def __str__(self):
         if self._versionned and self.version is not None:
@@ -54,10 +54,12 @@ class MigrationItem(object):
     def __hash__(self):
         return hash((self.uvname, self.version))
 
-    def _get_name(self):
+    @property
+    def name(self):
         return self._name
 
-    def _set_name(self, value):
+    @name.setter
+    def name(self, value):
         self._version = None
         self._name = value
         if value.startswith('-'):
@@ -110,8 +112,6 @@ class MigrationItem(object):
         else:
             self._name = self._uvname
 
-    name = property(_get_name, _set_name)
-
     @property
     def is_removal(self):
         return self._name.startswith('-')
@@ -124,14 +124,14 @@ class MigrationItem(object):
     def package(self):
         return self._package
 
-    def _get_suite(self):
+    @property
+    def suite(self):
         return self._suite
 
-    def _set_suite(self, value):
+    @suite.setter
+    def suite(self, value):
         self._suite = value
         self._canonicalise_name()
-
-    suite = property(_get_suite, _set_suite)    
 
     @property
     def version(self):
