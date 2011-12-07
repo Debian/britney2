@@ -2033,7 +2033,7 @@ class Britney:
 
         lundo = []
         if not hint:
-            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(selected), len(packages), len(extra)))
+            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join([str(x) for x in selected]), len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
