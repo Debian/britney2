@@ -1952,15 +1952,12 @@ class Britney:
         return (item, affected, undo)
 
     def get_reverse_tree(self, pkg, arch, suite):
-        packages = []
         binaries = self.binaries[suite][arch][0]
 
         rev_deps = set(binaries[pkg][RDEPENDS])
         seen = set()
         while len(rev_deps) > 0:
             # mark all of the current iteration of packages as affected
-            packages.extend( [ x for x in rev_deps ] )
-            # and as processed
             seen |= rev_deps
             # generate the next iteration, which is the reverse-dependencies of
             # the current iteration
@@ -1970,9 +1967,7 @@ class Britney:
             # in the process
             rev_deps = set([ package for sublist in new_rev_deps \
                              for package in sublist if package not in seen ])
-        # remove duplicates from the list of affected packages
-        packages = list(set(packages))
-        return packages
+        return list(seen)
 
     def get_full_tree(self, pkg, arch, suite):
         """Calculate the full dependency tree for the given package
