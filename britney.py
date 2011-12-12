@@ -2027,7 +2027,7 @@ class Britney:
 
         lundo = []
         if not hint:
-            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join([str(x) for x in selected]), len(packages), len(extra)))
+            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join([x.uvname for x in selected]), len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
@@ -2154,9 +2154,9 @@ class Britney:
                 self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
                 self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
                 if len(selected) <= 20:
-                    self.output_write("   all: %s\n" % (" ".join([ str(x) for x in selected ])))
+                    self.output_write("   all: %s\n" % (" ".join([ x.uvname for x in selected ])))
                 else:
-                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join([str(x) for x in selected][-20:])))
+                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join([x.uvname for x in selected][-20:])))
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
@@ -2208,7 +2208,7 @@ class Britney:
         if hint:
             return (nuninst_comp, [], lundo)
 
-        self.output_write(" finish: [%s]\n" % ",".join([ str(x) for x in selected ]))
+        self.output_write(" finish: [%s]\n" % ",".join([ x.uvname for x in selected ]))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
         self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
@@ -2241,7 +2241,7 @@ class Britney:
 
         # if we have a list of initial packages, check them
         if init:
-            self.output_write("leading: %s\n" % (",".join([ str(x) for x in init ])))
+            self.output_write("leading: %s\n" % (",".join([ x.uvname for x in init ])))
             for x in init:
                 if x not in upgrade_me:
                     self.output_write("failed: %s\n" % (x.uvname))
@@ -2279,7 +2279,7 @@ class Britney:
         if nuninst_end:
             if not force and not earlyabort:
                 self.output_write("Apparently successful\n")
-            self.output_write("final: %s\n" % ",".join(sorted([ str(x) for x in selected ])))
+            self.output_write("final: %s\n" % ",".join(sorted([ x.uvname for x in selected ])))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             if not force:
                 self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
