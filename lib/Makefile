@@ -4,7 +4,7 @@ CXX = g++
 CFLAGS = -Wall -W -O2 -DNDEBUG -DMDEBUG0 -g -p -fPIC
 CXXFLAGS += -fPIC
 
-all : checklib aptvercmp freelist britneymodule.so # libajdpkg.a 
+all : britneymodule.so # checklib aptvercmp freelist libajdpkg.a
 
 clean :
 	rm -f *.so *.o *~ Makefile.dep gmon.out 
