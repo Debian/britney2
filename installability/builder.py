@@ -1,0 +1,308 @@
+# -*- coding: utf-8 -*-
+
+# Copyright (C) 2012 Niels Thykier <niels@thykier.net>
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+from contextlib import contextmanager
+
+from britney_util import ifilter_except, iter_except
+from installability.tester import InstallabilityTester
+
+class _RelationBuilder(object):
+    """Private helper class to "build" relations"""
+
+    def __init__(self, itbuilder, binary):
+        self._itbuilder = itbuilder
+        self._binary = binary
+        binary_data = itbuilder._package_table[binary]
+        self._new_deps = set(binary_data[0])
+        self._new_breaks = set(binary_data[1])
+
+
+    def add_dependency_clause(self, or_clause):
+        """Add a dependency clause
+
+        The clause must be a sequence of (name, version, architecture)
+        tuples.  The clause is an OR clause, i.e. any tuple in the
+        sequence can satisfy the relation.  It is irrelevant if the
+        dependency is from the "Depends" or the "Pre-Depends" field.
+
+        Note that is the sequence is empty, the dependency is assumed
+        to be unsatisfiable.
+
+        The binaries in the clause are not required to have been added
+        to the InstallabilityTesterBuilder when this method is called.
+        However, they must be added before the "build()" method is
+        called.
+        """
+        clause = self._itbuilder._intern_set(or_clause)
+        binary = self._binary
+        itbuilder = self._itbuilder
+        package_table = itbuilder._package_table
+        reverse_package_table = itbuilder._reverse_package_table
+        okay = False
+        for dep_tuple in clause:
+            okay = True
+            reverse_relations = itbuilder._reverse_relations(dep_tuple)
+            reverse_relations[0].add(binary)
+
+        self._new_deps.add(clause)
+        if not okay:
+            self._itbuilder._broken.add(binary)
+
+
+    def add_breaks(self, broken_binary):
+        """Add a Breaks-clause
+
+        Marks the given binary as being broken by the current
+        package.  That is, the given package satisfies a relation
+        in either the "Breaks" or the "Conflicts" field.  The binary
+        given must be a (name, version, architecture)-tuple.
+
+        The binary is not required to have been added to the
+        InstallabilityTesterBuilder when this method is called.  However,
+        it must be added before the "build()" method is called.
+        """
+        itbuilder = self._itbuilder
+        self._new_breaks.add(broken_binary)
+        reverse_relations = itbuilder._reverse_relations(broken_binary)
+        reverse_relations[1].add(self._binary)
+
+
+    def _commit(self):
+        itbuilder = self._itbuilder
+        data = (itbuilder._intern_set(self._new_deps),
+                itbuilder._intern_set(self._new_breaks))
+        itbuilder._package_table[self._binary] = data
+
+
+class InstallabilityTesterBuilder(object):
+    """Builder to create instances of InstallabilityTester"""
+
+    def __init__(self):
+        self._package_table = {}
+        self._reverse_package_table = {}
+        self._essentials = set()
+        self._testing = set()
+        self._internmap = {}
+        self._broken = set()
+
+
+    def add_binary(self, binary, essential=False, in_testing=False,
+                   frozenset=frozenset):
+        """Add a new binary package
+
+        Adds a new binary package.  The binary must be given as a
+        (name, version, architecture)-tuple.  Returns True if this
+        binary is new (i.e. has never been added before) or False
+        otherwise.
+
+        Keyword arguments:
+        * essential  - Whether this package is "Essential: yes".
+        * in_testing - Whether this package is in testing.
+
+        The frozenset argument is a private optimisation.
+
+        Cave-at: arch:all packages should be "re-mapped" to given
+        architecture.  That is, (pkg, version, "all") should be
+        added as:
+
+            for arch in architectures:
+                binary = (pkg, version, arch)
+                it.add_binary(binary)
+
+        The resulting InstallabilityTester relies on this for
+        correctness!
+        """
+        # Note, even with a dup, we need to do these
+        if in_testing:
+            self._testing.add(binary)
+        if essential:
+            self._essentials.add(binary)
+
+        if binary not in self._package_table:
+            # Allow binaries to be added multiple times (happens
+            # when sid and testing have the same version)
+            self._package_table[binary] = (frozenset(), frozenset())
+            return True
+        return False
+
+
+    @contextmanager
+    def relation_builder(self, binary):
+        """Returns a _RelationBuilder for a given binary [context]
+
+        This method returns a context-managed _RelationBuilder for a
+        given binary.  So it should be used in a "with"-statment,
+        like:
+
+            with it.relation_builder(binary) as rel:
+                rel.add_dependency_clause(dependency_clause)
+                rel.add_breaks(pkgtuple)
+                ...
+
+        The binary given must be a (name, version, architecture)-tuple.
+
+        Note, this method is optimised to be called at most once per
+        binary.
+        """
+        if binary not in self._package_table:
+            raise ValueError("Binary %s/%s/%s does not exist" % binary)
+        rel = _RelationBuilder(self, binary)
+        yield rel
+        rel._commit()
+
+
+    def _intern_set(self, s, frozenset=frozenset):
+        """Freeze and intern a given sequence (set variant of intern())
+
+        Given a sequence, create a frozenset copy (if it is not
+        already a frozenset) and intern that frozen set.  Returns the
+        interned set.
+
+        At first glance, interning sets may seem absurd.  However,
+        it does enable memory savings of up to 600MB when applied
+        to the "inner" sets of the dependency clauses and all the
+        conflicts relations as well.
+        """
+        if type(s) == frozenset:
+            fset = s
+        else:
+            fset = frozenset(s)
+        if fset in self._internmap:
+            return self._internmap[fset]
+        self._internmap[fset] = fset
+        return fset
+
+
+    def _reverse_relations(self, binary, set=set):
+        """Return the reverse relations for a binary
+
+        Fetch the reverse relations for a given binary, which are
+        created lazily.
+        """
+
+        if binary in self._reverse_package_table:
+            return self._reverse_package_table[binary]
+        rel = [set(), set()]
+        self._reverse_package_table[binary] = rel
+        return rel
+
+    def build(self):
+        # Merge reverse conflicts with conflicts - this saves some
+        # operations in _check_loop since we only have to check one
+        # set (instead of two) and we remove a few duplicates here
+        # and there.
+        package_table = self._package_table
+        reverse_package_table = self._reverse_package_table
+        intern_set = self._intern_set
+        safe_set = set()
+        broken = self._broken
+        not_broken = ifilter_except(broken)
+        check = set(broken)
+
+        def safe_set_satisfies(t):
+            """Check if t's dependencies can be satisfied by the safe set"""
+            if not package_table[t][0]:
+                # If it has no dependencies at all, then it is safe.  :)
+                return True
+            for depgroup in package_table[t][0]:
+                if not any(dep for dep in depgroup if dep in safe_set):
+                    return False
+            return True
+
+        for pkg in reverse_package_table:
+            if pkg not in package_table:
+                raise RuntimeError("%s/%s/%s referenced but not added!" % pkg)
+            if not reverse_package_table[pkg][1]:
+                # no rconflicts - ignore
+                continue
+            deps, con = package_table[pkg]
+            if not con:
+                con = intern_set(reverse_package_table[pkg][1])
+            else:
+                con = intern_set(con | reverse_package_table[pkg][1])
+            package_table[pkg] = (deps, con)
+
+        # Check if we can expand broken.
+        for t in not_broken(iter_except(check.pop, KeyError)):
+            # This package is not known to be broken... but it might be now
+            isb = False
+            for depgroup in package_table[t][0]:
+                if not any(not_broken(depgroup)):
+                    # A single clause is unsatisfiable, the
+                    # package can never be installed - add it to
+                    # broken.
+                    isb = True
+                    break
+
+            if not isb:
+                continue
+
+            broken.add(t)
+
+            if t not in reverse_package_table:
+                continue
+            check.update(reverse_package_table[t][0] - broken)
+
+        if broken:
+            # Since a broken package will never be installable, nothing that depends on it
+            # will ever be installable.  Thus, there is no point in keeping relations on
+            # the broken package.
+            seen = set()
+            empty_set = frozenset()
+            null_data = (frozenset([empty_set]), empty_set)
+            for b in (x for x in broken if x in reverse_package_table):
+                for rdep in (r for r in not_broken(reverse_package_table[b][0])
+                             if r not in seen):
+                    ndep = intern_set((x - broken) for x in package_table[rdep][0])
+                    package_table[rdep] = (ndep, package_table[rdep][1] - broken)
+                    seen.add(rdep)
+
+            # Since they won't affect the installability of any other package, we might as
+            # as well null their data.  This memory for these packages, but likely there
+            # will only be a handful of these "at best" (fsvo of "best")
+            for b in broken:
+                package_table[b] = null_data
+                if b in reverse_package_table:
+                    del reverse_package_table[b]
+
+        # Now find an initial safe set (if any)
+        check = set()
+        for pkg in package_table:
+
+            if package_table[pkg][1]:
+                # has (reverse) conflicts - not safe
+                continue
+            if not safe_set_satisfies(pkg):
+                continue
+            safe_set.add(pkg)
+            if pkg in reverse_package_table:
+                # add all rdeps (except those already in the safe_set)
+                check.update(reverse_package_table[pkg][0] - safe_set)
+
+        # Check if we can expand the initial safe set
+        for pkg in iter_except(check.pop, KeyError):
+            if package_table[pkg][1]:
+                # has (reverse) conflicts - not safe
+                continue
+            if safe_set_satisfies(pkg):
+                safe_set.add(pkg)
+                if pkg in reverse_package_table:
+                    # add all rdeps (except those already in the safe_set)
+                    check.update(reverse_package_table[pkg][0] - safe_set)
+
+
+        return InstallabilityTester(package_table,
+                                    frozenset(reverse_package_table),
+                                    self._testing, self._broken,
+                                    self._essentials, safe_set)

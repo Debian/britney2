@@ -82,12 +82,38 @@ def ifilter_only(container, iterable=None):
     return partial(ifilter, container.__contains__)
 
 
-def undo_changes(lundo, systems, sources, binaries,
+# iter_except is from the "itertools" recipe
+def iter_except(func, exception, first=None):
+    """ Call a function repeatedly until an exception is raised.
+
+    Converts a call-until-exception interface to an iterator interface.
+    Like __builtin__.iter(func, sentinel) but uses an exception instead
+    of a sentinel to end the loop.
+
+    Examples:
+        bsddbiter = iter_except(db.next, bsddb.error, db.first)
+        heapiter = iter_except(functools.partial(heappop, h), IndexError)
+        dictiter = iter_except(d.popitem, KeyError)
+        dequeiter = iter_except(d.popleft, IndexError)
+        queueiter = iter_except(q.get_nowait, Queue.Empty)
+        setiter = iter_except(s.pop, KeyError)
+
+    """
+    try:
+        if first is not None:
+            yield first()
+        while 1:
+            yield func()
+    except exception:
+        pass
+
+
+def undo_changes(lundo, inst_tester, sources, binaries,
                  BINARIES=BINARIES, PROVIDES=PROVIDES):
     """Undoes one or more changes to testing
 
     * lundo is a list of (undo, item)-tuples
-    * systems is the britney-py.c system
+    * inst_tester is an InstallabilityTester
     * sources is the table of all source packages for all suites
     * binaries is the table of all binary packages for all suites
       and architectures
@@ -120,8 +146,9 @@ def undo_changes(lundo, systems, sources, binaries,
             for p in sources[item.suite][item.package][BINARIES]:
                 binary, arch = p.split("/")
                 if item.architecture in ['source', arch]:
+                    version = binaries["testing"][arch][0][binary][VERSION]
                     del binaries["testing"][arch][0][binary]
-                    systems[arch].remove_binary(binary)
+                    inst_tester.remove_testing_binary(binary, version, arch)
 
 
     # STEP 3
@@ -130,14 +157,17 @@ def undo_changes(lundo, systems, sources, binaries,
         for p in undo['binaries']:
             binary, arch = p.split("/")
             if binary[0] == "-":
+                version = binaries["testing"][arch][0][binary][VERSION]
                 del binaries['testing'][arch][0][binary[1:]]
-                systems[arch].remove_binary(binary[1:])
+                inst_tester.remove_testing_binary(binary, version, arch)
             else:
                 binaries_t_a = binaries['testing'][arch][0]
-                binaries_t_a[binary] = undo['binaries'][p]
-                systems[arch].remove_binary(binary)
-                systems[arch].add_binary(binary, binaries_t_a[binary][:PROVIDES] + \
-                     [", ".join(binaries_t_a[binary][PROVIDES]) or None])
+                if p in binaries_t_a:
+                    rmpkgdata = binaries_t_a[p]
+                    inst_tester.remove_testing_binary(binary, rmpkgdata[VERSION], arch)
+                pkgdata = undo['binaries'][p]
+                binaries_t_a[binary] = pkgdata
+                inst_tester.add_testing_binary(binary, pkgdata[VERSION], arch)
 
     # STEP 4
     # undo all changes to virtual packages

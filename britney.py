@@ -190,7 +190,7 @@ import urllib
 import apt_pkg
 
 from functools import reduce, partial
-from itertools import chain, ifilter
+from itertools import chain, ifilter, product
 from operator import attrgetter
 
 if __name__ == '__main__':
@@ -208,6 +208,7 @@ if __name__ == '__main__':
         # it useless).
         sys.path.insert(0, idir)
 
+from installability.builder import InstallabilityTesterBuilder
 from excuse import Excuse
 from migrationitem import MigrationItem
 from hints import HintCollection
@@ -218,7 +219,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           eval_uninst, newly_uninst, make_migrationitem)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
-                   PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH)
+                   PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -254,7 +255,6 @@ class Britney(object):
 
         # initialize the apt_pkg back-end
         apt_pkg.init()
-        self.systems = {}
         self.sources = {}
         self.binaries = {}
 
@@ -291,12 +291,17 @@ class Britney(object):
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
             if hasattr(self.options, 'pu'):
                 self.binaries['pu'][arch] = self.read_binaries(self.options.pu, "pu", arch)
-            # build the testing system
-            self.build_systems(arch)
+            else:
+                # _build_installability_tester relies it being
+                # properly initialised, so insert two empty dicts
+                # here.
+                self.binaries['pu'][arch] = ({}, {})
+        self._build_installability_tester(self.options.architectures)
 
         if not self.options.nuninst_cache:
             self.__log("Building the list of non-installable packages for the full archive", type="I")
             nuninst = {}
+            self._inst_tester.compute_testing_installability()
             for arch in self.options.architectures:
                 self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
                 result = self.get_nuninst(arch, build=True)
@@ -384,7 +389,7 @@ class Britney(object):
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches.split()]
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches.split()]
         arches += [x for x in allarches if x not in arches]
-        self.options.architectures = arches
+        self.options.architectures = map(intern, arches)
         self.options.smooth_updates = self.options.smooth_updates.split()
 
     def __log(self, msg, type="I"):
@@ -399,22 +404,64 @@ class Britney(object):
         if self.options.verbose or type in ("E", "W"):
             print "%s: [%s] - %s" % (type, time.asctime(), msg)
 
+    def _build_installability_tester(self, archs):
+        """Create the installability tester"""
+
+        solvers = self.get_dependency_solvers
+        binaries = self.binaries
+        builder = InstallabilityTesterBuilder()
+
+        for (dist, arch) in product(binaries, archs):
+            testing = (dist == 'testing')
+            for pkgname in binaries[dist][arch][0]:
+                pkgdata = binaries[dist][arch][0][pkgname]
+                version = pkgdata[VERSION]
+                t = (pkgname, version, arch)
+                essential = pkgdata[ESSENTIAL]
+                if not builder.add_binary(t, essential=essential,
+                                          in_testing=testing):
+                    continue
+
+                depends = []
+                conflicts = []
+
+                # We do not differ between depends and pre-depends
+                if pkgdata[DEPENDS]:
+                    depends.extend(apt_pkg.parse_depends(pkgdata[DEPENDS], False))
+                if pkgdata[CONFLICTS]:
+                    conflicts = apt_pkg.parse_depends(pkgdata[CONFLICTS], False)
+
+                with builder.relation_builder(t) as relations:
+
+                    for (al, dep) in [(depends, True), \
+                                      (conflicts, False)]:
+                        for block in al:
+                            sat = set()
+                            for dep_dist in binaries:
+                                (_, pkgs) = solvers(block, arch, dep_dist)
+                                for p in pkgs:
+                                    # version and arch is already interned, but solvers use
+                                    # the package name extracted from the field and is therefore
+                                    # not interned.
+                                    pdata = binaries[dep_dist][arch][0][p]
+                                    pt = (intern(p), pdata[VERSION], arch)
+                                    if dep:
+                                        sat.add(pt)
+                                    elif t != pt:
+                                        # if t satisfies its own
+                                        # conflicts relation, then it
+                                        # is using §7.6.2
+                                        relations.add_breaks(pt)
+                            if dep:
+                                relations.add_dependency_clause(sat)
+
+        self._inst_tester = builder.build()
+
+
     # Data reading/writing methods
     # ----------------------------
 
-    def build_systems(self, arch=None):
-        for a in self.options.architectures:
-            if arch and a != arch: continue
-            packages = {}
-            binaries = self.binaries['testing'][arch][0].copy()
-            for k in binaries:
-                packages[k] = binaries[k][:]
-                if packages[k][PROVIDES]:
-                    packages[k][PROVIDES] = ", ".join(packages[k][PROVIDES])
-                else: packages[k][PROVIDES] = None
-            self.systems[a] = buildSystem(a, packages)
-
-    def read_sources(self, basedir):
+    def read_sources(self, basedir, intern=intern):
         """Read the list of source packages from the specified directory
         
         The source packages are read from the `Sources' file within the
@@ -445,15 +492,15 @@ class Britney(object):
             # largest version for migration.
             if pkg in sources and apt_pkg.version_compare(sources[pkg][0], ver) > 0:
                 continue
-            sources[pkg] = [ver,
-                            get_field('Section'),
+            sources[intern(pkg)] = [intern(ver),
+                            intern(get_field('Section')),
                             [],
                             get_field('Maintainer'),
                             False,
                            ]
         return sources
 
-    def read_binaries(self, basedir, distribution, arch):
+    def read_binaries(self, basedir, distribution, arch, intern=intern):
         """Read the list of binary packages from the specified directory
         
         The binary packages are read from the `Packages_${arch}' files
@@ -498,6 +545,8 @@ class Britney(object):
             # largest version for migration.
             if pkg in packages and apt_pkg.version_compare(packages[pkg][0], version) > 0:
                 continue
+            pkg = intern(pkg)
+            version = intern(version)
 
             # Merge Pre-Depends with Depends and Conflicts with
             # Breaks. Britney is not interested in the "finer
@@ -509,6 +558,10 @@ class Britney(object):
             elif pdeps:
                 deps = pdeps
 
+            ess = False
+            if get_field('Essential', 'no') == 'yes':
+                ess = True
+
             final_conflicts_list = []
             conflicts = get_field('Conflicts')
             if conflicts:
@@ -517,24 +570,25 @@ class Britney(object):
             if breaks:
                 final_conflicts_list.append(breaks)
             dpkg = [version,
-                    get_field('Section'),
-                    pkg, 
+                    intern(get_field('Section')),
+                    pkg,
                     version,
-                    get_field('Architecture'),
+                    intern(get_field('Architecture')),
                     get_field('Multi-Arch'),
                     deps,
                     ', '.join(final_conflicts_list) or None,
                     get_field('Provides'),
                     [],
                     [],
+                    ess,
                    ]
 
             # retrieve the name and the version of the source package
             source = get_field('Source')
             if source:
-                dpkg[SOURCE] = source.split(" ")[0]
+                dpkg[SOURCE] = intern(source.split(" ")[0])
                 if "(" in source:
-                    dpkg[SOURCEVER] = source[source.find("(")+1:source.find(")")]
+                    dpkg[SOURCEVER] = intern(source[source.find("(")+1:source.find(")")])
 
             pkgarch = "%s/%s" % (pkg,arch)
             # if the source package is available in the distribution, then register this binary package
@@ -822,7 +876,7 @@ class Britney(object):
             for pkg in binaries:
                 output = "Package: %s\n" % pkg
                 for key, k in ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'), (MULTIARCH, 'Multi-Arch'), (SOURCE, 'Source'), (VERSION, 'Version'), 
-                          (DEPENDS, 'Depends'), (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts')):
+                          (DEPENDS, 'Depends'), (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts'), (ESSENTIAL, 'Essential')):
                     if not binaries[pkg][key]: continue
                     if key == SOURCE:
                         if binaries[pkg][SOURCE] == pkg:
@@ -840,6 +894,9 @@ class Britney(object):
                     elif key == PROVIDES:
                         if len(binaries[pkg][key]) > 0:
                             output += (k + ": " + ", ".join(binaries[pkg][key]) + "\n")
+                    elif key == ESSENTIAL:
+                        if binaries[pkg][key]:
+                            output += (k + ": " + " yes\n")
                     else:
                         output += (k + ": " + binaries[pkg][key] + "\n")
                 f.write(output + "\n")
@@ -1624,7 +1681,7 @@ class Britney(object):
 
         # local copies for better performance
         binaries = self.binaries['testing']
-        systems = self.systems
+        inst_tester = self._inst_tester
 
         # for all the architectures
         for arch in self.options.architectures:
@@ -1638,7 +1695,8 @@ class Britney(object):
             # uninstallable package is found
             nuninst[arch] = set()
             for pkg_name in binaries[arch][0]:
-                r = systems[arch].is_installable(pkg_name)
+                pkgdata = binaries[arch][0][pkg_name]
+                r = inst_tester.is_installable(pkg_name, pkgdata[VERSION], arch)
                 if not r:
                     nuninst[arch].add(pkg_name)
 
@@ -1844,8 +1902,9 @@ class Britney(object):
                         if len(binaries[parch][1][j]) == 0:
                             del binaries[parch][1][j]
                     # finally, remove the binary package
+                    version = binaries[parch][0][binary][VERSION]
                     del binaries[parch][0][binary]
-                    self.systems[parch].remove_binary(binary)
+                    self._inst_tester.remove_testing_binary(binary, version, parch)
                 # remove the source package
                 if item.architecture == 'source':
                     undo['sources'][item.package] = source
@@ -1859,8 +1918,10 @@ class Britney(object):
         elif item.package in binaries[item.architecture][0]:
             undo['binaries'][item.package + "/" + item.architecture] = binaries[item.architecture][0][item.package]
             affected.update(get_reverse_tree(item.package, item.architecture))
+            version = binaries[item.architecture][0][item.package][VERSION]
             del binaries[item.architecture][0][item.package]
-            self.systems[item.architecture].remove_binary(item.package)
+            self._inst_tester.remove_testing_binary(item.package, version, item.architecture)
+
 
         # add the new binary packages (if we are not removing)
         if not item.is_removal:
@@ -1883,7 +1944,8 @@ class Britney(object):
                     # all the reverse conflicts and their dependency tree are affected by the change
                     for j in binaries[parch][0][binary][RCONFLICTS]:
                         affected.update(get_reverse_tree(j, parch))
-                    self.systems[parch].remove_binary(binary)
+                    version = binaries[parch][0][binary][VERSION]
+                    self._inst_tester.remove_testing_binary(binary, version, parch)
                 else:
                     # the binary isn't in testing, but it may have been at
                     # the start of the current hint and have been removed
@@ -1903,8 +1965,8 @@ class Britney(object):
                                     affected.update(get_reverse_tree(rdep, parch))
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[item.suite][parch][0][binary]
-                self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
-                    [", ".join(binaries[parch][0][binary][PROVIDES]) or None])
+                version = binaries[parch][0][binary][VERSION]
+                self._inst_tester.add_testing_binary(binary, version, parch)
                 # register new provided packages
                 for j in binaries[parch][0][binary][PROVIDES]:
                     key = j + "/" + parch
@@ -1933,7 +1995,7 @@ class Britney(object):
         return (item, affected, undo)
 
 
-    def _check_packages(self, binaries, systems, arch, affected, skip_archall, nuninst, pkg):
+    def _check_packages(self, binaries, arch, affected, skip_archall, nuninst):
         broken = nuninst[arch + "+all"]
         to_check = []
 
@@ -1941,10 +2003,13 @@ class Britney(object):
         for p in (x[0] for x in affected if x[1] == arch):
             if p not in binaries[arch][0]:
                 continue
+            pkgdata = binaries[arch][0][p]
+            version = pkgdata[VERSION]
+            parch = pkgdata[ARCHITECTURE]
             nuninst_arch = None
-            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+            if not (skip_archall and parch == 'all'):
                 nuninst_arch = nuninst[arch]
-            self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
+            self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
         # broken packages (second round, reverse dependencies of the first round)
         while to_check:
@@ -1953,10 +2018,13 @@ class Britney(object):
             for p in binaries[arch][0][j][RDEPENDS]:
                 if p in broken or p not in binaries[arch][0]:
                     continue
+                pkgdata = binaries[arch][0][p]
+                version = pkgdata[VERSION]
+                parch = pkgdata[ARCHITECTURE]
                 nuninst_arch = None
-                if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                if not (skip_archall and parch == 'all'):
                     nuninst_arch = nuninst[arch]
-                self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
+                self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
 
     def iter_packages(self, packages, selected, hint=False, nuninst=None, lundo=None):
@@ -1981,13 +2049,12 @@ class Britney(object):
         # local copies for better performance
         binaries = self.binaries['testing']
         sources = self.sources
-        systems = self.systems
         architectures = self.options.architectures
         nobreakall_arches = self.options.nobreakall_arches.split()
         new_arches = self.options.new_arches.split()
         break_arches = self.options.break_arches.split()
         dependencies = self.dependencies
-        check_packages = partial(self._check_packages, binaries, systems)
+        check_packages = partial(self._check_packages, binaries)
 
         # pre-process a hint batch
         pre_process = {}
@@ -2046,7 +2113,7 @@ class Britney(object):
                 nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
                 nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
 
-                check_packages(arch, affected, skip_archall, nuninst, pkg.uvname)
+                check_packages(arch, affected, skip_archall, nuninst)
 
                 # if we are processing hints, go ahead
                 if hint:
@@ -2089,7 +2156,7 @@ class Britney(object):
                     skipped.append(item)
                 single_undo = [(undo, item)]
                 # (local-scope) binaries is actually self.binaries["testing"] so we cannot use it here.
-                undo_changes(single_undo, systems, sources, self.binaries)
+                undo_changes(single_undo, self._inst_tester, sources, self.binaries)
 
         # if we are processing hints, return now
         if hint:
@@ -2193,7 +2260,7 @@ class Britney(object):
             if not lundo: return
             lundo.reverse()
 
-            undo_changes(lundo, self.systems, self.sources, self.binaries)
+            undo_changes(lundo, self._inst_tester, self.sources, self.binaries)
 
 
     def upgrade_testing(self):
@@ -2606,10 +2673,10 @@ class Britney(object):
 
         self.__output.close()
 
-    def _installability_test(self, system, p, broken, to_check, nuninst_arch, current_pkg):
+    def _installability_test(self, pkg_name, pkg_version, pkg_arch, broken, to_check, nuninst_arch):
         """Test for installability of a package on an architecture
 
-        p is the package to check and system does the actual check.
+        (pkg_name, pkg_version, pkg_arch) is the package to check.
 
         broken is the set of broken packages.  If p changes
         installability (e.g. goes from uninstallable to installable),
@@ -2622,23 +2689,20 @@ class Britney(object):
         current_pkg is the package currently being tried, mainly used
         to print where an AIEEE is coming from.
         """
-        r = system.is_installable(p)
-        if r <= 0:
-            # AIEEE: print who's responsible for it
-            if r == -1:
-                sys.stderr.write("AIEEE triggered by: %s\n" % current_pkg)
+        r = self._inst_tester.is_installable(pkg_name, pkg_version, pkg_arch)
+        if not r:
             # not installable
-            if p not in broken:
-                broken.add(p)
-                to_check.append(p)
-            if nuninst_arch is not None and p not in nuninst_arch:
-                nuninst_arch.add(p)
+            if pkg_name not in broken:
+                broken.add(pkg_name)
+                to_check.append(pkg_name)
+            if nuninst_arch is not None and pkg_name not in nuninst_arch:
+                nuninst_arch.add(pkg_name)
         else:
-            if p in broken:
-                to_check.append(p)
-                broken.remove(p)
-            if nuninst_arch is not None and p in nuninst_arch:
-                nuninst_arch.remove(p)
+            if pkg_name in broken:
+                to_check.append(pkg_name)
+                broken.remove(pkg_name)
+            if nuninst_arch is not None and pkg_name in nuninst_arch:
+                nuninst_arch.remove(pkg_name)
 
 
 if __name__ == '__main__':
