@@ -2408,6 +2408,17 @@ class Britney:
         if not self.options.compatible or self.options.autohinter:
             self.auto_hinter()
 
+        # obsolete source packages  
+        if not self.options.compatible:
+            self.__log("> Removing obsolete source packages from testing", type="I")
+            removals = []
+            sources = self.sources['testing']
+            removals = [ HintItem("-%s/%s" % (source, sources[source][VERSION])) for \
+                         source in sources if len(sources[source][BINARIES]) == 0 ]
+            if len(removals) > 0:
+                self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
+                self.do_all(actions=removals)
+                                                                                                                                     
         # smooth updates
         if not self.options.compatible and len(self.options.smooth_updates) > 0:
             self.__log("> Removing old packages left in testing from smooth updates", type="I")
