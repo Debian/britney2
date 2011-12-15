@@ -1215,7 +1215,7 @@ class Britney:
 
         This method checks if a source package should be upgraded. The analysis
         is performed for the source package specified by the `src' parameter, 
-        checking the architecture `arch' for the distribution `suite'.
+        for the distribution `suite'.
        
         It returns False if the given package doesn't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
