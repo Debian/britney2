@@ -195,6 +195,7 @@ from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
 from functools import reduce
+from operator import attrgetter
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -1595,7 +1596,7 @@ class Britney:
             self.excuses.append(excuse)
 
         # sort the excuses by daysold and name
-        self.excuses.sort(lambda x, y: cmp(x.daysold, y.daysold) or cmp(x.name, y.name))
+        self.excuses.sort(key=attrgetter('daysold', 'name'))
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me
         unconsidered = [e.name for e in self.excuses if e.name not in upgrade_me]
