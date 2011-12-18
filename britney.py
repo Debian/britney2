@@ -418,14 +418,11 @@ class Britney:
         sources = {}
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
-        try:
-            Packages = apt_pkg.TagFile(open(filename))
-            get_field = Packages.section.get
-            step = Packages.step
-        except AttributeError:
-            Packages = apt_pkg.ParseTagFile(open(filename))
-            get_field = Packages.Section.get
-            step = Packages.Step
+
+        Packages = apt_pkg.TagFile(open(filename))
+        get_field = Packages.section.get
+        step = Packages.step
+
         while step():
             pkg = get_field('Package')
             ver = get_field('Version')
@@ -433,7 +430,7 @@ class Britney:
             # (in unstable) if some architectures have out-of-date
             # binaries.  We only ever consider the source with the
             # largest version for migration.
-            if pkg in sources and apt_pkg.VersionCompare(sources[pkg][0], ver) > 0:
+            if pkg in sources and apt_pkg.version_compare(sources[pkg][0], ver) > 0:
                 continue
             sources[pkg] = [ver,
                             get_field('Section'),
@@ -473,14 +470,11 @@ class Britney:
 
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
-        try:
-            Packages = apt_pkg.TagFile(open(filename))
-            get_field = Packages.section.get
-            step = Packages.step
-        except AttributeError:
-            Packages = apt_pkg.ParseTagFile(open(filename))
-            get_field = Packages.Section.get
-            step = Packages.Step
+
+        Packages = apt_pkg.TagFile(open(filename))
+        get_field = Packages.section.get
+        step = Packages.step
+
         while step():
             pkg = get_field('Package')
             version = get_field('Version')
@@ -489,7 +483,7 @@ class Britney:
             # (in unstable) if some architectures have out-of-date
             # binaries.  We only ever consider the package with the
             # largest version for migration.
-            if pkg in packages and apt_pkg.VersionCompare(packages[pkg][0], version) > 0:
+            if pkg in packages and apt_pkg.version_compare(packages[pkg][0], version) > 0:
                 continue
 
             final_conflicts_list = []
@@ -547,7 +541,7 @@ class Britney:
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
 
-    def register_reverses(self, pkg, packages, provides, check_doubles=True, parse_depends=apt_pkg.ParseDepends):
+    def register_reverses(self, pkg, packages, provides, check_doubles=True, parse_depends=apt_pkg.parse_depends):
         """Register reverse dependencies and conflicts for the specified package
 
         This method registers the reverse dependencies and conflicts for
@@ -643,7 +637,7 @@ class Britney:
         for arch in self.options.architectures:
             if pkg not in self.binaries[dist][arch][0]: continue
             pkgv = self.binaries[dist][arch][0][pkg][VERSION]
-            if maxver == None or apt_pkg.VersionCompare(pkgv, maxver) > 0:
+            if maxver == None or apt_pkg.version_compare(pkgv, maxver) > 0:
                 maxver = pkgv
         return maxver
 
@@ -745,12 +739,12 @@ class Britney:
 
             # if the package exists in testing and it is more recent, do nothing
             tsrcv = self.sources['testing'].get(l[0], None)
-            if tsrcv and apt_pkg.VersionCompare(tsrcv[VERSION], l[1]) >= 0:
+            if tsrcv and apt_pkg.version_compare(tsrcv[VERSION], l[1]) >= 0:
                 continue
 
             # if the package doesn't exist in unstable or it is older, do nothing
             usrcv = self.sources['unstable'].get(l[0], None)
-            if not usrcv or apt_pkg.VersionCompare(usrcv[VERSION], l[1]) < 0:
+            if not usrcv or apt_pkg.version_compare(usrcv[VERSION], l[1]) < 0:
                 continue
 
             # update the urgency for the package
@@ -810,7 +804,7 @@ class Britney:
                 if package in z and z[package] != key:
                     hint2 = z[package][0]
                     if x in ['unblock', 'unblock-udeb']:
-                        if apt_pkg.VersionCompare(hint2.version, hint.version) < 0:
+                        if apt_pkg.version_compare(hint2.version, hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
                             self.__log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
                                (x, package, hint2.version, hint2.user, hint.version, hint.user), type="W")
@@ -970,7 +964,7 @@ class Britney:
         """Find the packages which satisfy a dependency block
 
         This method returns the list of packages which satisfy a dependency
-        block (as returned by apt_pkg.ParseDepends) for the given architecture
+        block (as returned by apt_pkg.parse_depends) for the given architecture
         and distribution.
 
         It returns a tuple with two items: the first is a boolean which is
@@ -989,7 +983,7 @@ class Britney:
             if name in binaries[0]:
                 package = binaries[0][name]
                 # check the versioned dependency (if present)
-                if op == '' and version == '' or apt_pkg.CheckDep(package[VERSION], op, version):
+                if op == '' and version == '' or apt_pkg.check_dep(package[VERSION], op, version):
                     packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
@@ -1000,7 +994,7 @@ class Britney:
                 # TODO: this is forbidden by the debian policy, which says that versioned
                 #       dependencies on virtual packages are never satisfied. The old britney
                 #       does it and we have to go with it, but at least a warning should be raised.
-                if op == '' and version == '' or not strict and apt_pkg.CheckDep(package[VERSION], op, version):
+                if op == '' and version == '' or not strict and apt_pkg.check_dep(package[VERSION], op, version):
                     packages.append(prov)
 
         return (len(packages) > 0, packages)
@@ -1020,7 +1014,7 @@ class Britney:
         binary_u = self.binaries[suite][arch][0][pkg]
 
         # local copies for better performances
-        parse_depends = apt_pkg.ParseDepends
+        parse_depends = apt_pkg.parse_depends
         get_dependency_solvers = self.get_dependency_solvers
         strict = True # not self.options.compatible
 
@@ -1170,7 +1164,7 @@ class Britney:
 
             # at this point, the binary package is present in testing, so we can compare
             # the versions of the packages ...
-            vcompare = apt_pkg.VersionCompare(binary_t[VERSION], binary_u[VERSION])
+            vcompare = apt_pkg.version_compare(binary_t[VERSION], binary_u[VERSION])
 
             # ... if updating would mean downgrading, then stop here: there is something wrong
             if vcompare > 0:
@@ -1229,7 +1223,7 @@ class Britney:
         if src in self.sources['testing']:
             source_t = self.sources['testing'][src]
             # if testing and unstable have the same version, then this is a candidate for binary-NMUs only
-            if apt_pkg.VersionCompare(source_t[VERSION], source_u[VERSION]) == 0:
+            if apt_pkg.version_compare(source_t[VERSION], source_u[VERSION]) == 0:
                 return False
         else:
             source_t = None
@@ -1245,7 +1239,7 @@ class Britney:
         update_candidate = True
         
         # if the version in unstable is older, then stop here with a warning in the excuse and return False
-        if source_t and apt_pkg.VersionCompare(source_u[VERSION], source_t[VERSION]) < 0:
+        if source_t and apt_pkg.version_compare(source_u[VERSION], source_t[VERSION]) < 0:
             excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t[VERSION], source_u[VERSION]))
             self.excuses.append(excuse)
             return False
@@ -2583,10 +2577,10 @@ class Britney:
                 continue
 
             inunstable = pkg.package in self.sources['unstable']
-            rightversion = inunstable and (apt_pkg.VersionCompare(self.sources['unstable'][pkg.package][VERSION], pkg.version) == 0)
+            rightversion = inunstable and (apt_pkg.version_compare(self.sources['unstable'][pkg.package][VERSION], pkg.version) == 0)
             if pkg.suite == 'unstable' and not rightversion:
                 for suite in ['pu', 'tpu']:
-                    if pkg.package in self.sources[suite] and apt_pkg.VersionCompare(self.sources[suite][pkg.package][VERSION], pkg.version) == 0:
+                    if pkg.package in self.sources[suite] and apt_pkg.version_compare(self.sources[suite][pkg.package][VERSION], pkg.version) == 0:
                         pkg.suite = suite
                         _pkgvers[idx] = pkg
                         break
@@ -2594,7 +2588,7 @@ class Britney:
             # handle *-proposed-updates
             if pkg.suite in ['pu', 'tpu']:
                 if pkg.package not in self.sources[pkg.suite]: continue
-                if apt_pkg.VersionCompare(self.sources[pkg.suite][pkg.package][VERSION], pkg.version) != 0:
+                if apt_pkg.version_compare(self.sources[pkg.suite][pkg.package][VERSION], pkg.version) != 0:
                     self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources[pkg.suite][pkg.package][VERSION]))
                     ok = False
             # does the package exist in unstable?
