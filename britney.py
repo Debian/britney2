@@ -194,6 +194,7 @@ from excuse import Excuse
 from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
+from functools import reduce
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
