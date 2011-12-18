@@ -805,7 +805,7 @@ class Britney:
             for hint in hints[x]:
                 package = hint.package
                 key = (hint, hint.user)
-                if z.has_key(package) and z[package] != key:
+                if package in z and z[package] != key:
                     hint2 = z[package][0]
                     if x in ['unblock', 'unblock-udeb']:
                         if apt_pkg.VersionCompare(hint2.version, hint.version) < 0:
@@ -1409,15 +1409,15 @@ class Britney:
             for pkg in pkgs.keys():
                 bugs_t = []
                 bugs_u = []
-                if self.bugs['testing'].has_key(pkg):
+                if pkg in self.bugs['testing']:
                     bugs_t.extend(self.bugs['testing'][pkg])
-                if self.bugs['unstable'].has_key(pkg):
+                if pkg in self.bugs['unstable']:
                     bugs_u.extend(self.bugs['unstable'][pkg])
                 if 'source' in pkgs[pkg]:
                     spkg = "src:%s" % (pkg)
-                    if self.bugs['testing'].has_key(spkg):
+                    if spkg in self.bugs['testing']:
                         bugs_t.extend(self.bugs['testing'][spkg])
-                    if self.bugs['unstable'].has_key(spkg):
+                    if spkg in self.bugs['unstable']:
                         bugs_u.extend(self.bugs['unstable'][spkg])
  
                 new_bugs = sorted(set(bugs_u).difference(bugs_t))
