@@ -960,7 +960,7 @@ class Britney:
 
         return 0
 
-    def get_dependency_solvers(self, block, arch, distribution, strict=False):
+    def get_dependency_solvers(self, block, arch, distribution):
         """Find the packages which satisfy a dependency block
 
         This method returns the list of packages which satisfy a dependency
@@ -990,11 +990,9 @@ class Britney:
             for prov in binaries[1].get(name, []):
                 if prov not in binaries[0]: continue
                 package = binaries[0][prov]
-                # check the versioned dependency (if present)
-                # TODO: this is forbidden by the debian policy, which says that versioned
-                #       dependencies on virtual packages are never satisfied. The old britney
-                #       does it and we have to go with it, but at least a warning should be raised.
-                if op == '' and version == '' or not strict and apt_pkg.check_dep(package[VERSION], op, version):
+                # A provides only satisfies an unversioned dependency
+                # (per Policy Manual §7.5)
+                if op == '' and version == '':
                     packages.append(prov)
 
         return (len(packages) > 0, packages)
@@ -1016,7 +1014,6 @@ class Britney:
         # local copies for better performances
         parse_depends = apt_pkg.parse_depends
         get_dependency_solvers = self.get_dependency_solvers
-        strict = True # not self.options.compatible
 
         # analyze the dependency fields (if present)
         for type_key, type in ((PREDEPENDS, 'Pre-Depends'), (DEPENDS, 'Depends')):
@@ -1026,7 +1023,7 @@ class Britney:
             # for every block of dependency (which is formed as conjunction of disconjunction)
             for block, block_txt in zip(parse_depends(binary_u[type_key]), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
-                solved, packages = get_dependency_solvers(block, arch, 'testing', strict=strict)
+                solved, packages = get_dependency_solvers(block, arch, 'testing')
                 if solved:
                     for p in packages:
                         if p not in self.binaries[suite][arch][0]: continue
@@ -1034,7 +1031,7 @@ class Britney:
                     continue
 
                 # check if the block can be satisfied in unstable, and list the solving packages
-                solved, packages = get_dependency_solvers(block, arch, suite, strict=strict)
+                solved, packages = get_dependency_solvers(block, arch, suite)
                 packages = [self.binaries[suite][arch][0][p][SOURCE] for p in packages]
 
                 # if the dependency can be satisfied by the same source package, skip the block:
