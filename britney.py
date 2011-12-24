@@ -1771,12 +1771,12 @@ class Britney:
         them so it will be possible to revert them.
 
         The method returns a list of the package name, the suite where the
-        package comes from, the list of packages affected by the change and
+        package comes from, the set of packages affected by the change and
         the dictionary undo which can be used to rollback the changes.
         """
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
-        affected = []
+        affected = set()
 
         # local copies for better performances
         sources = self.sources
@@ -1836,9 +1836,8 @@ class Britney:
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    affected.extend( [ (x, parch) for x in \
+                    affected.update( [ (x, parch) for x in \
                                        self.get_reverse_tree(binary, parch, 'testing') ] )
-                    affected = list(set(affected))
                     # remove the provided virtual packages
                     for j in binaries[parch][0][binary][PROVIDES]:
                         key = j + "/" + parch
@@ -1862,9 +1861,8 @@ class Britney:
         # updates but not supported as a manual hint
         elif item.package in binaries[item.architecture][0]:
             undo['binaries'][item.package + "/" + item.architecture] = binaries[item.architecture][0][item.package]
-            affected.extend( [ (x, item.architecture) for x in \
+            affected.update( [ (x, item.architecture) for x in \
                self.get_reverse_tree(item.package, item.architecture, 'testing') ] )
-            affected = list(set(affected))
             del binaries[item.architecture][0][item.package]
             self.systems[item.architecture].remove_binary(item.package)
 
@@ -1876,22 +1874,21 @@ class Britney:
                 if item.architecture not in ['source', parch]: continue
                 key = (binary, parch)
                 # obviously, added/modified packages are affected
-                if key not in affected: affected.append(key)
+                if key not in affected: affected.add(key)
                 # if the binary already exists (built from another source)
                 if binary in binaries[parch][0]:
                     # save the old binary package
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    affected.extend( [ (x, parch) for x in \
+                    affected.update( [ (x, parch) for x in \
                                         self.get_reverse_tree(binary, parch, 'testing') ] )
-                    affected = list(set(affected))
                     # all the reverse conflicts and their dependency tree are affected by the change
                     for j in binaries[parch][0][binary][RCONFLICTS]:
                         key = (j, parch)
-                        if key not in affected: affected.append(key)
+                        if key not in affected: affected.add(key)
                         for p in self.get_full_tree(j, parch, 'testing'):
                             key = (p, parch)
-                            if key not in affected: affected.append(key)
+                            if key not in affected: affected.add(key)
                     self.systems[parch].remove_binary(binary)
                 else:
                     # if the binary was previously built by a different
@@ -1905,10 +1902,9 @@ class Britney:
                         if p in tundo['binaries']:
                             for rdep in tundo['binaries'][p][RDEPENDS]:
                                 if rdep in binaries[parch][0] and rdep not in source[BINARIES]:
-                                    affected.append( (rdep, parch) )
-                                    affected.extend( [ (x, parch) for x in \
+                                    affected.add( (rdep, parch) )
+                                    affected.update( [ (x, parch) for x in \
                                                         self.get_reverse_tree(rdep, parch, 'testing') ] )
-                    affected = list(set(affected))
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[item.suite][parch][0][binary]
                 self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
@@ -1923,9 +1919,8 @@ class Britney:
                         undo['virtual'][key] = binaries[parch][1][j][:]
                     binaries[parch][1][j].append(binary)
                 # all the reverse dependencies are affected by the change
-                affected.extend( [ (x, parch) for x in \
+                affected.update( [ (x, parch) for x in \
                                     self.get_reverse_tree(binary, parch, 'testing') ] )
-                affected = list(set(affected))
 
             # register reverse dependencies and conflicts for the new binary packages
             for p in source[BINARIES]:
@@ -1956,7 +1951,7 @@ class Britney:
             # in the process
             rev_deps = set([ package for sublist in new_rev_deps \
                              for package in sublist if package not in seen ])
-        return list(seen)
+        return seen
 
     def get_full_tree(self, pkg, arch, suite):
         """Calculate the full dependency tree for the given package
