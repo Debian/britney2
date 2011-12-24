@@ -332,10 +332,6 @@ class Britney:
                                help="provide a command line interface to test hints")
         parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
                                help="disable all outputs to the testing directory")
-        parser.add_option("", "--compatible", action="store_true", dest="compatible", default=False,
-                               help="enable full compatibility with old britney's output")
-        parser.add_option("", "--auto-hinter", action="store_true", dest="autohinter", default=False,
-                               help="enable use of auto-hinter")
         parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
                                help="enable control files generation")
         parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
@@ -1807,7 +1803,7 @@ class Britney:
                 for p in bins:
                     binary, parch = p.split("/")
                     # if a smooth update is possible for the package, skip it
-                    if not self.options.compatible and item.suite == 'unstable' and \
+                    if item.suite == 'unstable' and \
                        binary not in self.binaries[item.suite][parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
@@ -2009,7 +2005,6 @@ class Britney:
         new_arches = self.options.new_arches.split()
         break_arches = self.options.break_arches.split()
         dependencies = self.dependencies
-        compatible = self.options.compatible
 
         # pre-process a hint batch
         pre_process = {}
@@ -2027,14 +2022,14 @@ class Britney:
             pkg = packages.pop(0)
 
             # this is the marker for the first loop
-            if not compatible and not mark_passed and position < 0:
+            if not mark_passed and position < 0:
                 mark_passed = True
                 packages.extend(deferred)
                 del deferred
             else: position -= 1
 
             # defer packages if their dependency has been already skipped
-            if not compatible and not mark_passed:
+            if not mark_passed:
                 defer = False
                 for p in dependencies.get(pkg, []):
                     if p in skipped:
@@ -2256,8 +2251,7 @@ class Britney:
                     self.upgrade_me = sorted(extra)
                 else:
                     self.upgrade_me = [x for x in self.upgrade_me if x not in selected]
-                if not self.options.compatible:
-                    self.sort_actions()
+                self.sort_actions()
         else:
             self.output_write("FAILED\n")
             if not undo: return
@@ -2398,22 +2392,20 @@ class Britney:
                 hintcnt += 1
 
         # run the auto hinter
-        if not self.options.compatible or self.options.autohinter:
-            self.auto_hinter()
+        self.auto_hinter()
 
         # obsolete source packages  
-        if not self.options.compatible:
-            self.__log("> Removing obsolete source packages from testing", type="I")
-            removals = []
-            sources = self.sources['testing']
-            removals = [ HintItem("-%s/%s" % (source, sources[source][VERSION])) for \
-                         source in sources if len(sources[source][BINARIES]) == 0 ]
-            if len(removals) > 0:
-                self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
-                self.do_all(actions=removals)
+        self.__log("> Removing obsolete source packages from testing", type="I")
+        removals = []
+        sources = self.sources['testing']
+        removals = [ HintItem("-%s/%s" % (source, sources[source][VERSION])) for \
+                     source in sources if len(sources[source][BINARIES]) == 0 ]
+        if len(removals) > 0:
+            self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
+            self.do_all(actions=removals)
                                                                                                                                      
         # smooth updates
-        if not self.options.compatible and len(self.options.smooth_updates) > 0:
+        if len(self.options.smooth_updates) > 0:
             self.__log("> Removing old packages left in testing from smooth updates", type="I")
             removals = self.old_libraries()
             if len(removals) > 0:
@@ -2424,9 +2416,8 @@ class Britney:
         else:
             removals = ()
 
-        if not self.options.compatible:
-            self.output_write("List of old libraries in testing (%d):\n%s" % \
-                (len(removals), self.old_libraries_format(removals)))
+        self.output_write("List of old libraries in testing (%d):\n%s" % \
+             (len(removals), self.old_libraries_format(removals)))
 
         # output files
         if not self.options.dry_run:
@@ -2776,8 +2767,7 @@ class Britney:
         # if no actions are provided, build the excuses and sort them
         elif not self.options.actions:
             self.write_excuses()
-            if not self.options.compatible:
-                self.sort_actions()
+            self.sort_actions()
         # otherwise, use the actions provided by the command line
         else:
             self.upgrade_me = self.options.actions.split()
