@@ -2061,55 +2061,24 @@ class Britney:
 
                 # broken packages (first round)
                 for p in [x[0] for x in affected if x[1] == arch]:
-                    if p not in binaries[arch][0]: continue
-                    r = systems[arch].is_installable(p)
-                    if not r:
-                        if p not in broken:
-                            to_check.append(p)
-                            broken.add(p)
-                        if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                            if p not in nuninst[arch]:
-                                nuninst[arch].add(p)
-                    else:
-                        if p in broken:
-                            to_check.append(p)
-                            broken.remove(p)
-                        if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                            # if the package was previously arch:all and uninstallable
-                            # and has moved to being architecture-dependent, becoming
-                            # installable in the process then it will not be in the
-                            # architecture-dependent uninstallability set; therefore,
-                            # don't try removing it
-                            if p in nuninst[arch]:
-                                nuninst[arch].remove(p)
-                                 
+                    if p not in binaries[arch][0]:
+                        continue
+                    nuninst_arch = None
+                    if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                        nuninst_arch = nuninst[arch]
+                    self._installability_test(systems[arch], p, broken, to_check, nuninst_arch)
 
                 # broken packages (second round, reverse dependencies of the first round)
                 while to_check:
                     j = to_check.pop(0)
                     if j not in binaries[arch][0]: continue
                     for p in binaries[arch][0][j][RDEPENDS]:
-                        if p in broken or p not in binaries[arch][0]: continue
-                        r = systems[arch].is_installable(p)
-                        if not r:
-                            if p not in broken:
-                                broken.add(p)
-                                to_check.append(p)
-                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                if p not in nuninst[arch]:
-                                    nuninst[arch].add(p)
-                        else:
-                            if p in broken:
-                                broken.remove(p)
-                                to_check.append(p)
-                            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                                # if the package was previously arch:all and uninstallable
-                                # and has moved to being architecture-dependent, becoming
-                                # installable in the process then it will not be in the
-                                # architecture-dependent uninstallability set; therefore,
-                                # don't try removing it
-                                if p in nuninst[arch]:
-                                    nuninst[arch].remove(p)
+                        if p in broken or p not in binaries[arch][0]:
+                            continue
+                        nuninst_arch = None
+                        if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                            nuninst_arch = nuninst[arch]
+                        self._installability_test(systems[arch], p, broken, to_check, nuninst_arch)
 
                 # if we are processing hints, go ahead
                 if hint:
@@ -2777,6 +2746,35 @@ class Britney:
             self.upgrade_testing()
 
         self.__output.close()
+
+    def _installability_test(self, system, p, broken, to_check, nuninst_arch):
+        """Test for installability of a package on an architecture
+
+        p is the package to check and system does the actual check.
+
+        broken is the set of broken packages.  If p changes
+        installability (e.g. goes from uninstallable to installable),
+        broken will be updated accordingly.  Furthermore, p will be
+        added to "to_check" for futher processing.
+
+        If nuninst_arch is not None then it also updated in the same
+        way as broken is.
+        """
+        r = system.is_installable(p)
+        if not r:
+            # not installable
+            if p not in broken:
+                broken.add(p)
+                to_check.append(p)
+            if nuninst_arch is not None and p not in nuninst_arch:
+                nuninst_arch.add(p)
+        else:
+            if p in broken:
+                to_check.append(p)
+                broken.remove(p)
+            if nuninst_arch is not None and p in nuninst_arch:
+                nuninst_arch.remove(p)
+
 
 if __name__ == '__main__':
     Britney().main()
