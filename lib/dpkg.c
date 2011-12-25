@@ -18,17 +18,12 @@
 static void free_dependency(dependency *dep);
 static void free_package(dpkg_package *pkg);
 static void free_collected_package(dpkg_collected_package *pkg);
-static dpkg_paragraph *read_paragraph( FILE *f );
-static dpkg_package *read_package( FILE *f );
 static collpackagelist **get_matching_low(collpackagelist **addto, 
 		                          dpkg_packages *pkgs, dependency *dep, int line);
 static collpackagelist *get_matching(dpkg_packages *pkgs, deplist *depopts, int line);
 deplist *read_dep_and(char *buf);
 deplistlist *read_dep_andor(char *buf);
 ownedpackagenamelist *read_packagenames(char *buf);
-static dpkg_sources *read_sources_file(char *filename, int n_arches);
-static dpkg_source *new_source(dpkg_sources *owner);
-static dpkg_source *read_source(FILE *f, dpkg_sources *owner);
 static deplist *read_deplist(char **buf, char sep, char end);
 static dependency *read_dependency(char **buf, char *end);
 static void add_virtualpackage(virtualpkgtbl *vpkgs, char *package, 
@@ -50,19 +45,6 @@ static inline void bf(void *p, size_t s, int n) { block_free(p,s); fprintf(stder
 #endif
 
 #define block_malloc(s) block_malloc2(s, __LINE__)
-
-static char *priorities[] = {
-    "required",
-    "important",
-    "standard",
-    "optional",
-    "extra",
-    NULL
-};
-
-static char *dependency_title[] = {
-    "Pre-Depends", "Depends", "Recommends", "Suggests", NULL
-};
 
 static int dependency_counts[] = { 1, 1, 0, 0 };
 
@@ -140,115 +122,6 @@ static void die(char *orig_msg) {
         abort();
 }
 
-/*************************************************************************
- * Dpkg Control/Packages/etc Operations
- */
-
-static dpkg_paragraph *read_paragraph( FILE *f ) {
-    dpkg_paragraph *result;
-    static int line_size = 0;
-    static char *line = NULL;
-    char *pch;
-   
-    dpkg_entry *c_entry = NULL;
-    char *c_value = NULL;
-   
-    if (line == NULL) {
-        line_size = 10;
-	line = malloc(line_size);
-	if (line == NULL) die("read_paragraph alloc 0:");
-    }
- 
-    result = block_malloc( sizeof(dpkg_paragraph) );
-    if (result == NULL) die("read_paragraph alloc 1:");
-    
-    result->n_entries = 0;
-    result->entry = NULL;
-    result->n_allocated = 0;
-    
-    while(fgets(line, line_size, f)) {
-	while (!feof(f) && *line && line[strlen(line)-1] != '\n') {
-	    line = realloc(line, line_size * 2);
-	    if (!line) die("read_paragraph realloc:");
-	    fgets(line + strlen(line), line_size, f);
-	    line_size *= 2;
-        }
-
-	if (line[0] == '\n') break;
-	
-	if (isspace(line[0])) {
-	    if (c_value == NULL)
-		die("read_paragraph early spaces");
-
-	    if (c_entry == NULL) {
-		/* no need to bother */
-	    } else {
-	        /* extend the line */
-	        c_value = realloc(c_value, strlen(c_value) + strlen(line) + 1);
-	        if (c_value == NULL)
-		    die("read_paragraph realloc c_value:");
-	    
-	        strcat(c_value, line);
-	    }
-	} else {
-	    if (c_entry) {
-		    c_entry->value = my_strdup(c_value);
-		    c_value[0] = '\0';
-		    free(c_value); 
-		    c_value = NULL;
-	    } else if (c_value) {
-		    free(c_value);
-		    c_value = NULL;
-	    }
-	    pch = strchr(line, ':');
-	    if (pch == NULL) {
-                fprintf(stderr, "the line was: \"%s\"\n", line);
-		die("read_paragraph: no colon");
-            }
-	    
-	    *pch = '\0';
-	    while(isspace(*++pch));
-
-	    if (strcmp(line, "Description") == 0) {
-		c_value = strdup(pch);
-		c_entry = NULL;
-	    } else {
-	        assert(result->n_entries <= result->n_allocated);
-	        if (result->n_entries >= result->n_allocated) {
-		    result->n_allocated += 10;
-		    result->entry = realloc( result->entry,
-					     sizeof(dpkg_entry)
-					     * result->n_allocated);
-		    if (result->entry == NULL)
-		        die("read_paragraph realloc entry:");
-	        }
-
-	        c_entry = &result->entry[result->n_entries++];
-	        c_entry->name = my_rep_strdup(line);
-	        c_value = strdup(pch);
-	    }
-	}
-    }
-
-    if (c_entry) {
-	c_entry->value = my_strdup(c_value);
-	c_value[0] = '\0';
-	free(c_value);
-	c_value = NULL;
-    }
-
-    if (result->n_entries == 0) {
-	if (result->entry) free(result->entry);
-	block_free(result, sizeof(dpkg_paragraph));
-	return NULL;
-    } else {
-        result->entry = realloc(result->entry, 
-	    sizeof(result->entry[0]) * result->n_entries);
-	result->n_allocated = result->n_entries;
-    }
-
-    return result;
-}
 
 static void write_paragraph(FILE *f, dpkg_paragraph *p) {
     int i;
@@ -276,34 +149,6 @@ static void free_paragraph(dpkg_paragraph *p) {
 /*************************************************************************
  * Basic Package Operations
  */
-
-static dpkg_package *new_package(void) {
-    dpkg_package *result;
-    
-    result = block_malloc(sizeof(dpkg_package));
-    if (result == NULL) die("new_package alloc:");
-    
-    result->package    = NULL;
-    result->version    = NULL;
-
-    result->priority   = 0;
-    result->arch_all   = 0;
-    
-    result->source     = NULL;
-    result->source_ver = NULL;
-    
-    result->depends[0] = NULL;
-    result->depends[1] = NULL;
-    result->depends[2] = NULL;
-    result->depends[3] = NULL;
-    
-    result->conflicts  = NULL;
-    
-    result->provides   = NULL;
-    result->details    = NULL;
-    
-    return result;
-}
 
 static dpkg_collected_package *new_collected_package(dpkg_package *pkg) {
     dpkg_collected_package *result;
@@ -348,99 +193,6 @@ static void free_package(dpkg_package *pkg) {
     free_paragraph(pkg->details);
     
     block_free(pkg, sizeof(dpkg_package));
-}
-
-static dpkg_package *read_package( FILE *f ) {
-    dpkg_package *result;
-    dpkg_paragraph *para;
-    dpkg_entry *e;
-    int i;
-
-    para = read_paragraph(f);
-    if (para == NULL) return NULL;
-    
-    result = new_package();
-    result->details = para;
-    
-    for (e = &para->entry[0]; e < &para->entry[para->n_entries]; e++) {
-	if (strcasecmp("Package", e->name) == 0) {
-	    result->package = my_strdup(e->value);
-	    if (result->package == NULL)
-		die("read_package my_strdup:");
-	    result->package[strlen(result->package)-1] = '\0';
-	}
-	
-	if (strcasecmp("Version", e->name) == 0) {
-	    result->version = my_strdup(e->value);
-	    if (result->version == NULL)
-		die("read_package my_strdup:");
-	    result->version[strlen(result->version)-1] = '\0';
-	}
-	
-	if (strcasecmp("Priority", e->name) == 0) {
-	    int i;
-	    for (i = 0; priorities[i] != NULL; i++) {
-		if (strcasecmp(priorities[i], e->value))
-		    break;
-	    }
-	    result->priority = i;
-	    if (priorities[i] == NULL) {
-		die("read_package: unknown priority");
-	    }
-	}
-
-	if (strcasecmp("Architecture", e->name) == 0) {
-	    if (strncasecmp(e->value, "all", 3) == 0) {
-		if (!e->value[3] || isspace(e->value[3])) {
-	            result->arch_all = 1;
-		}
-	    }
-	}
-	
-	for (i = 0; dependency_title[i] != NULL; i++) {
-	    if (strcasecmp(dependency_title[i], e->name) == 0) {
-		result->depends[i] = read_dep_andor(e->value);
-	    }
-	}
-	
-	if (strcasecmp("Conflicts", e->name) == 0)
-	    result->conflicts = read_dep_and(e->value);
-	
-	if (strcasecmp("Provides", e->name) == 0)
-	    result->provides = read_packagenames(e->value);
-	
-	if (strcasecmp("source", e->name) == 0) {
-	    char *pch = e->value;
-	    
-	    assert(result->source == NULL);
-	    assert(result->source_ver == NULL);
-	    
-	    result->source = my_strdup(read_packagename(&pch, "("));
-	    if (result->source == NULL)
-		die("read_package: bad source header");
-	    
-	    while(isspace(*pch)) pch++;
-	    if (*pch == '(') {
-		pch++;
-		result->source_ver = my_strdup(read_until_char(&pch, ")"));
-		if (result->source_ver == NULL)
-		    die("read_package: bad source version");
-		while(isspace(*pch)) pch++;
-		if (*pch != ')')
-		    die("read_package: unterminated ver");
-	    }
-	}
-    }
-
-    if (result->source == NULL) {
-	assert(result->source_ver == NULL);
-	result->source = my_strdup(result->package);
-    }
-    if (result->source_ver == NULL) {
-	result->source_ver = my_strdup(result->version);
-    }
-    
-    return result;
 }
 
 static void freesize(void *p, size_t s) { (void)s; free(p); }
@@ -1350,124 +1102,6 @@ int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
 HASH_IMPL(sourcetbl, char *, dpkg_source *, SIZEOFHASHMAP, strhash, strcmp,
 	  KEEP(char*), free_source);
 
-static dpkg_sources *read_sources_file(char *filename, int n_arches) {
-    FILE *f; 
-    dpkg_sources *result;
-    dpkg_source *src;
-    int i;
-
-    f = fopen(filename, "r");
-    if (f == NULL && errno != ENOENT) {
-	die("read_sources_file: couldn't open file:");
-    }
-
-    result = block_malloc(sizeof(dpkg_sources));
-    if (result == NULL) die("read_sources_file alloc 1:");
-
-    result->n_arches = n_arches;
-    result->archname = block_malloc(sizeof(char*) * n_arches);
-    if (result->archname == NULL) die("read_sources_file alloc 2:");
-    for (i = 0; i < n_arches; i++) result->archname[i] = NULL;
-    result->unclaimedpackages = block_malloc(sizeof(ownedpackagelist*) 
-					     * n_arches);
-    if (result->unclaimedpackages == NULL) die("read_sources_file alloc 3:");
-    for (i = 0; i < n_arches; i++) result->unclaimedpackages[i] = NULL;
-
-    result->sources = new_sourcetbl();
-
-    if (f != NULL) {
-        while ((src = read_source(f, result))) {
-	    dpkg_source *old = lookup_sourcetbl(result->sources, src->package);
-	    if (old == NULL) {
-	        add_sourcetbl(result->sources, src->package, src);
-            } else {
-                if (versioncmp(old->version, src->version) || 1) {
-                    int i;
-		    old = replace_sourcetbl(result->sources, src->package, src);
-                    for (i = 0; i < old->owner->n_arches; i++) {
-	                assert(old->packages[i] == NULL);
-                    }
-		    free_source(old);
-		} else {
-                    int i;
-                    for (i = 0; i < src->owner->n_arches; i++) {
-	                assert(src->packages[i] == NULL);
-                    }
-		    free_source(src);
-		}
-	    }
-        }
-        fclose(f);
-    }
-    
-    return result;    
-}
-
-void free_sources(dpkg_sources *s) {
-    int i;
-    if (s == NULL) return;
-    free_sourcetbl(s->sources);
-    for (i = 0; i < s->n_arches; i++) {
-	/* block_free(s->archname[i]); */
-	free_ownedpackagelist(s->unclaimedpackages[i]);
-    }
-    block_free(s->archname, s->n_arches * sizeof(char*));
-    block_free(s->unclaimedpackages, s->n_arches * sizeof(ownedpackagelist*));
-    block_free(s, sizeof(dpkg_sources));
-}
-
-static dpkg_source *new_source(dpkg_sources *owner) {
-    dpkg_source *result;
-    int i;
-    
-    result = block_malloc(sizeof(dpkg_source));
-    if (result == NULL) die("new_source alloc 1:");
-    
-    result->package = NULL;
-    result->version = NULL;
-    result->details = NULL;
-    result->fake = 0;
-
-    result->owner = owner;
-    result->packages = block_malloc(sizeof(packagelist*) * owner->n_arches);
-    if (result->packages == NULL) die("new_source alloc 2:");
-    for (i = 0; i < owner->n_arches; i++) {
-	result->packages[i] = NULL;
-    }
-
-    return result;
-}
-
-static dpkg_source *read_source(FILE *f, dpkg_sources *owner) {
-    dpkg_source *result;
-    dpkg_paragraph *para;
-    dpkg_entry *e;
-
-    para = read_paragraph(f);
-    if (para == NULL) return NULL;
-    
-    result = new_source(owner);
-    result->details = para;
-    
-    for (e = &para->entry[0]; e < &para->entry[para->n_entries]; e++) {
-	if (strcmp("Package", e->name) == 0) {
-	    result->package = my_strdup(e->value);
-	    if (result->package == NULL)
-		die("read_source strdup:");
-	    result->package[strlen(result->package)-1] = '\0';
-	}
-	
-	if (strcmp("Version", e->name) == 0) {
-	    result->version = my_strdup(e->value);
-	    if (result->version == NULL)
-		die("read_source strdup:");
-	    result->version[strlen(result->version)-1] = '\0';
-	}
-    }
-
-    return result;
-}
-
 void free_source(dpkg_source *s) {
     int i;
     if (s == NULL) return;
@@ -1483,83 +1117,6 @@ void free_source(dpkg_source *s) {
 }
 
 /******************************/
-
-dpkg_sources *read_directory(char *dir, int n_arches, char *archname[]) {
-    char buf[1000];
-    dpkg_sources *srcs;
-    int i;
-    
-    snprintf(buf, 1000, "%s/Sources", dir);
-    srcs = read_sources_file(buf, n_arches);
-
-    for (i = 0; i < n_arches; i++) {
-	FILE *f;
-	dpkg_package *pkg;
-
-	srcs->archname[i] = my_strdup(archname[i]);
-
-	snprintf(buf, 1000, "%s/Packages_%s", dir, archname[i]);
-	f = fopen(buf, "r");
-	if (f == NULL && errno != ENOENT) die("load_dirctory fopen:");
-        if (f != NULL) {
-	    while ((pkg = read_package(f))) {
-	        dpkg_source *src = lookup_sourcetbl(srcs->sources, pkg->source);
-	        if (src == NULL) {
-		    src = new_source(srcs);
-		    src->fake = 1;
-		    src->package = my_strdup(pkg->source);
-		    src->version = my_strdup(pkg->source_ver);
-		    add_sourcetbl(srcs->sources, src->package, src);
-		} 
-                insert_ownedpackagelist(&src->packages[i], pkg);
-	    }
-	    fclose(f);
-	}
-    }	
-
-    return srcs;
-}
-
-void write_directory(char *dir, dpkg_sources *srcs) {
-    FILE *src;
-    FILE *archfile[100];
-    char buf[1000];
-    int i;
-    sourcetbl_iter srciter;
-
-    snprintf(buf, 1000, "%s/Sources", dir);
-    src = fopen(buf, "w");
-    if (!src) die("write_directory: Couldn't open Sources file for output");
-
-    for (i = 0; i < srcs->n_arches; i++) {
-	snprintf(buf, 1000, "%s/Packages_%s", dir, srcs->archname[i]);
-	archfile[i] = fopen(buf, "w");
-    }
-
-    for (srciter = first_sourcetbl(srcs->sources);
-	 !done_sourcetbl(srciter);
-	 srciter = next_sourcetbl(srciter))
-    {
-	ownedpackagelist *p;
-	int i;
-
-	if (!srciter.v->fake) 
-		write_paragraph(src, srciter.v->details);
-	
-	for (i = 0; i < srcs->n_arches; i++) {
-	    for (p = srciter.v->packages[i]; p != NULL; p = p->next) {
-		write_paragraph(archfile[i], p->value->details);
-	    }
-	}
-    }
-    
-    fclose(src);
-    for (i = 0; i < srcs->n_arches; i++) {
-	fclose(archfile[i]);
-    }
-}
-
-/*********************/
 
 HASH_IMPL(sourcenotetbl, char *, dpkg_source_note *, SIZEOFHASHMAP, strhash, strcmp,
 	  KEEP(char*), free_source_note);
@@ -1665,28 +1222,6 @@ static void save_source_note(dpkg_sources_note *srcsn, dpkg_source_note *srcn) {
 
     insert_source_note_list(where, copy_source_note(srcn));
 }
-static void save_empty_source_note(dpkg_sources_note *srcsn, dpkg_source *src) {
-    dpkg_source_note *srcn;
-    source_note_list **where;
-
-    for (where = &srcsn->undo->value; 
-	 *where != NULL; 
-	 where = &(*where)->next)
-    {
-        if ((*where)->value->source == src) 
-	    return; 	/* already saved */
-    }
-
-    srcn = block_malloc(sizeof(dpkg_source_note));
-    if (srcn == NULL) die("save_empty_source_note alloc:");
-    assert(is_sources_note(srcsn));
-
-    srcn->source = src;
-    srcn->n_arches = 0;
-    srcn->binaries = NULL;
-
-    insert_source_note_list(where, srcn);
-}
 
 typedef enum { DO_ARCHALL = 0, SKIP_ARCHALL = 1 } do_this;
 static void remove_binaries_by_arch(dpkg_sources_note *srcsn,
@@ -1722,114 +1257,6 @@ static void remove_binaries_by_arch(dpkg_sources_note *srcsn,
 }
 
 typedef enum { NOTUNDOABLE = 0, UNDOABLE = 1 } undoable;
-static void add_binaries_by_arch(dpkg_sources_note *srcsn,
-				 dpkg_source_note *srcn, dpkg_source *src,
-				 int archnum, undoable undoop, do_this arch_all) 
-{
-    ownedpackagelist *p;
-    const char *archname = srcsn->archname[archnum];
-    int origarchnum = -1;
-    int i;
-
-    assert(is_sources_note(srcsn));
-    assert(srcn == lookup_sourcenotetbl(srcsn->sources,srcn->source->package));
-    for (i = 0; i < src->owner->n_arches; i++) {
-	if (strcmp(archname, src->owner->archname[i]) == 0) {
-	    origarchnum = i;
-	    break;
-	}
-    }
-    if (origarchnum == -1) return; /* nothing to add, no biggie */
-
-    for (p = src->packages[origarchnum]; p != NULL; p = p->next) {
-	dpkg_collected_package *cpkg;
-
-	if (arch_all == SKIP_ARCHALL && p->value->arch_all) continue;
-
-	if ((cpkg = lookup_packagetbl(srcsn->pkgs[archnum]->packages, 
-				      p->value->package)))
-        {
-	    dpkg_source_note *srcnB;
-	    packagelist **p;
-
-	    if (!undoop) {
-		printf("conflict w/o undo: binary %s, owned by %s, replaced by %s\n", cpkg->pkg->package, cpkg->pkg->source, src->package);
-                fflush(stdout);
-            }
-	    srcnB = lookup_sourcenotetbl(srcsn->sources, cpkg->pkg->source);
-            assert(srcnB != NULL);
-                
-            for (p = &srcnB->binaries[archnum]; *p != NULL; p = &(*p)->next) {
-                if ((*p)->value == cpkg->pkg) break;
-            }
-            assert(*p != NULL); /* binary should be from source */
-
-	    assert(undoop);
-            save_source_note(srcsn, srcnB);
-	    remove_package(srcsn->pkgs[archnum], cpkg);
-            remove_packagelist(p);
-	}
-
-	add_package(srcsn->pkgs[archnum], p->value);
-	insert_packagelist(&srcn->binaries[archnum], p->value);
-    }
-}    
-
-void upgrade_source(dpkg_sources_note *srcsn, dpkg_source *src) {
-    dpkg_source_note *srcn;
-    int i;
-   
-    new_op(srcsn);
- 
-    assert(is_sources_note(srcsn));
-    /* first, find the old source, if it exists */
-    srcn = remove_sourcenotetbl(srcsn->sources, src->package);
-    if (srcn != NULL) {
-        save_source_note(srcsn, srcn);
-	for (i = 0; i < srcn->n_arches; i++) {
-	    remove_binaries_by_arch(srcsn, srcn, i, DO_ARCHALL);
-	}
-	free_source_note(srcn);
-    } else {
-        save_empty_source_note(srcsn, src);
-    }
-    
-    /* then add the new one */    
-    srcn = new_source_note(src, srcsn->n_arches);   
-    add_sourcenotetbl(srcsn->sources, src->package, srcn);
-    for (i = 0; i < srcsn->n_arches; i++) {
-	add_binaries_by_arch(srcsn, srcn, src, i, UNDOABLE, DO_ARCHALL);
-    }
-    assert(is_sources_note(srcsn));
-}
-
-void upgrade_arch(dpkg_sources_note *srcsn, dpkg_source *src, char *arch) {
-    dpkg_source_note *srcn;
-    int archnum = -1;
-    int i;
-
-    assert(is_sources_note(srcsn));
-    /* first, find the old source */
-    srcn = lookup_sourcenotetbl(srcsn->sources, src->package);
-
-    assert(srcn != NULL);
-    new_op(srcsn);
-    save_source_note(srcsn, srcn);
-
-    /* then lookup the archnum */
-    for (i = 0; i < srcsn->n_arches; i++) {
-	if (strcmp(arch, srcsn->archname[i]) == 0) {
-	    archnum = i;
-	    break;
-	}
-    }
-    if (archnum == -1) die("upgrade_arch: unknown arch");
-    
-    /* then remove the old stuff and add the new */    
-    remove_binaries_by_arch(srcsn, srcn, archnum, SKIP_ARCHALL);
-    add_binaries_by_arch(srcsn, srcn, src, archnum, UNDOABLE, SKIP_ARCHALL);
-    assert(is_sources_note(srcsn));
-}
 
 void remove_source(dpkg_sources_note *srcsn, char *name) {
     dpkg_source_note *srcn;

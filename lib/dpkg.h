@@ -174,26 +174,18 @@ struct dpkg_sources_note {
 };
 
 void free_packages(dpkg_packages *pkgs);
-void free_sources(dpkg_sources *s);
 
 dpkg_packages *get_architecture(dpkg_sources *srcs, char *arch);
 
 /* parsing things */
-int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof);
-int checkinstallable2(dpkg_packages *pkgs, char *pkgname);
 satisfieddeplist *checkunsatisfiabledeps(dpkg_packages *pkgs, 
 					    deplistlist *deps);
-
-dpkg_sources *read_directory(char *dir, int n_arches, char *archname[]);
-void write_directory(char *dir, dpkg_sources *srcs);
 
 void free_source(dpkg_source *s);
 
 /* adding and deleting and stuff */
 dpkg_sources_note *new_sources_note(int n_arches, char **archname);
 void remove_source(dpkg_sources_note *srcsn, char *name);
-void upgrade_source(dpkg_sources_note *srcsn, dpkg_source *src);
-void upgrade_arch(dpkg_sources_note *srcsn, dpkg_source *src, char *arch);
 void write_notes(char *dir, dpkg_sources_note *srcsn);
 void free_sources_note(dpkg_sources_note *srcsn);
 void free_source_note(dpkg_source_note *srcn);
@@ -204,11 +196,22 @@ void commit_changes(dpkg_sources_note *srcsn);
 int versioncmp(char *left, char *right);
 int cmpversions(char *left, int op, char *right);
 
+
+// Used by britney-py.c
+
 void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
 void remove_package(dpkg_packages *pkgs, dpkg_collected_package *pkg);
-deplist *read_dep_and(char *buf);
-deplistlist *read_dep_andor(char *buf);
-ownedpackagenamelist *read_packagenames(char *buf);
 dpkg_packages *new_packages(char *arch);
+
+deplistlist *read_dep_andor(char *buf);
+deplist *read_dep_and(char *buf);
+ownedpackagenamelist *read_packagenames(char *buf);
+
+int checkinstallable2(dpkg_packages *pkgs, char *pkgname);
+
+// used by the above
+
+int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof);
+
 
 #endif
