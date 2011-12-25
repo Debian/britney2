@@ -81,28 +81,6 @@ LIST(satisfieddeplist, satisfieddep *);
  * entity, owning a bunch of binary packages 
  */
 
-typedef struct dpkg_source dpkg_source;
-struct dpkg_source {
-    char *package;
-    char *version;
-
-    int fake;
-
-    struct dpkg_sources *owner;
-    ownedpackagelist **packages; /* one for each architecture */
-
-    dpkg_paragraph *details;
-};
-
-HASH(sourcetbl,char *,dpkg_source *);
-
-typedef struct dpkg_sources dpkg_sources;
-struct dpkg_sources {
-    int n_arches;
-    char **archname;
-    sourcetbl *sources;
-    ownedpackagelist **unclaimedpackages; /* one for each arch */
-};
 
 /**************************************************************************
  */
@@ -149,49 +127,6 @@ struct dpkg_packages {
     virtualpkgtbl *virtualpkgs;
 };
 
-typedef struct dpkg_source_note dpkg_source_note;
-struct dpkg_source_note {
-    dpkg_source *source;   /* unowned */
-    int n_arches;
-    packagelist **binaries; /* one for each arch */
-};
-HASH(sourcenotetbl, char *, dpkg_source_note *);
-
-LIST(source_note_list, dpkg_source_note *);
-	/* contains a copy of the previous source_note */
-LIST(source_note_listlist, source_note_list *);
-	/* contains a copy of all the source_notes modified by the last op */
-
-typedef struct dpkg_sources_note dpkg_sources_note;
-struct dpkg_sources_note {
-    unsigned long magic;
-    sourcenotetbl *sources;
-    int n_arches;
-    dpkg_packages **pkgs;
-    char **archname;
-
-    source_note_listlist *undo;
-};
-
-void free_packages(dpkg_packages *pkgs);
-
-dpkg_packages *get_architecture(dpkg_sources *srcs, char *arch);
-
-/* parsing things */
-satisfieddeplist *checkunsatisfiabledeps(dpkg_packages *pkgs, 
-					    deplistlist *deps);
-
-void free_source(dpkg_source *s);
-
-/* adding and deleting and stuff */
-dpkg_sources_note *new_sources_note(int n_arches, char **archname);
-void remove_source(dpkg_sources_note *srcsn, char *name);
-void write_notes(char *dir, dpkg_sources_note *srcsn);
-void free_sources_note(dpkg_sources_note *srcsn);
-void free_source_note(dpkg_source_note *srcn);
-void undo_change(dpkg_sources_note *srcsn);
-int can_undo(dpkg_sources_note *srcsn);
-void commit_changes(dpkg_sources_note *srcsn);
 
 int versioncmp(char *left, char *right);
 int cmpversions(char *left, int op, char *right);
@@ -202,6 +137,7 @@ int cmpversions(char *left, int op, char *right);
 void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
 void remove_package(dpkg_packages *pkgs, dpkg_collected_package *pkg);
 dpkg_packages *new_packages(char *arch);
+void free_packages(dpkg_packages *pkgs);
 
 deplistlist *read_dep_andor(char *buf);
 deplist *read_dep_and(char *buf);
