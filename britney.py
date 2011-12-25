@@ -1048,8 +1048,6 @@ class Britney:
                     else:
                         excuse.add_break_dep(p, arch)
 
-        return True
-
     # Package analysis methods
     # ------------------------
 
