@@ -118,9 +118,6 @@ struct dpkg_packages {
 };
 
 
-int cmpversions(char *left, int op, char *right);
-
-
 // Used by britney-py.c
 
 void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
@@ -134,9 +131,6 @@ ownedpackagenamelist *read_packagenames(char *buf);
 
 int checkinstallable2(dpkg_packages *pkgs, char *pkgname);
 
-// used by the above
-
-int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof);
 
 
 #endif

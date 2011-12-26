@@ -16,14 +16,11 @@
 #define insert_packagenamelist(x,y) insert_l_packagenamelist(x,y,__LINE__)
 
 static void free_dependency(dependency *dep);
-static void free_package(dpkg_package *pkg);
 static void free_collected_package(dpkg_collected_package *pkg);
 static collpackagelist **get_matching_low(collpackagelist **addto, 
 		                          dpkg_packages *pkgs, dependency *dep, int line);
 static collpackagelist *get_matching(dpkg_packages *pkgs, deplist *depopts, int line);
-deplist *read_dep_and(char *buf);
-deplistlist *read_dep_andor(char *buf);
-ownedpackagenamelist *read_packagenames(char *buf);
+
 static deplist *read_deplist(char **buf, char sep, char end);
 static dependency *read_dependency(char **buf, char *end);
 static void add_virtualpackage(virtualpkgtbl *vpkgs, char *package, 
@@ -32,22 +29,15 @@ static void remove_virtualpackage(virtualpkgtbl *vpkgs, char *pkgname,
 			          dpkg_collected_package *cpkg);
 static char *read_packagename(char **buf, char *end);
 static char *read_until_char(char **buf, char *end);
-void add_package(dpkg_packages *pkgs, dpkg_package *pkg);
-void remove_package(dpkg_packages *pkgs, dpkg_collected_package *pkg);
+static int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof);
 
-#if 0
-static inline void *bm(size_t s, int n) { void *res = block_malloc(s); fprintf(stderr, "ALLOCED: %d %p %lu\n", n, res, s); return res; }
-static inline void bf(void *p, size_t s, int n) { block_free(p,s); fprintf(stderr, "FREED: %d %p %lu\n", n, p, s); }
+// implemented in dpkg-lib.c
+int cmpversions(char *left, int op, char *right);
 
-#define block_malloc(s) bm(s,__LINE__)
-#define block_free(p,s) bf(p,s,__LINE__)
-#endif
 
 #define block_malloc(s) block_malloc2(s, __LINE__)
 
 static int dependency_counts[] = { 1, 1, 0, 0 };
-
-char *dependency_relation_sym[] = {"*", "<<", "<=", "=", ">=", ">>"};
 
 #define SMB_SIZE (1<<22)
 struct stringmemblock {
@@ -59,7 +49,7 @@ static struct stringmemblock *stringmemory = NULL;
 static int stringmemorycount = 0;
 static const unsigned long stringmemblocksizekib = (unsigned long) sizeof(struct stringmemblock) / 1024;
 
-char *my_strdup(char *foo) {
+static char *my_strdup(char *foo) {
 	struct stringmemblock *which;
 	size_t len;
 
@@ -93,21 +83,6 @@ char *my_strdup(char *foo) {
 	return foo;
 }
 
-char *my_rep_strdup(char *foo) {
-    static char *repeats[1000] = {0};
-    int i;
-
-    for (i = 0; i < 1000; i++) {
-	if (repeats[i] == NULL) {
-	    DEBUG_ONLY(fprintf(stderr, "REPEAT NR %d\n", i+1); )
-	    return repeats[i] = my_strdup(foo);
-	}
-	if (strcmp(repeats[i], foo) == 0) return repeats[i];
-    }
-
-    return my_strdup(foo);
-}
-
 /* DIE **/
 
 static void die(char *orig_msg) {
@@ -121,19 +96,6 @@ static void die(char *orig_msg) {
         abort();
 }
 
-
-static void free_paragraph(dpkg_paragraph *p) {
-    int i;
-    
-    if (p == NULL) return;
-    
-    for (i = 0; i < p->n_entries; i++) {
-	/* block_free(p->entry[i].name); */
-	/* block_free(p->entry[i].value); */
-    }
-    free(p->entry);
-    block_free(p, sizeof(dpkg_paragraph));
-}
 
 /*************************************************************************
  * Basic Package Operations
@@ -164,26 +126,6 @@ static void free_collected_package(dpkg_collected_package *cpkg) {
     block_free(cpkg, sizeof(dpkg_collected_package));
 }   
 
-static void free_package(dpkg_package *pkg) {
-    int i;
-    if (pkg == NULL) return;
-    
-    /* block_free(pkg->package);
-     * block_free(pkg->version);
-     * block_free(pkg->source);
-     * block_free(pkg->source_ver); */
-
-    for (i = 0; i < 4; i++)
-	free_deplistlist(pkg->depends[i]);
-
-    free_deplist(pkg->conflicts);
-    free_ownedpackagenamelist(pkg->provides);
-    
-    free_paragraph(pkg->details);
-    
-    block_free(pkg, sizeof(dpkg_package));
-}
-
 LIST_IMPL(deplist, dependency*, free_dependency, block_malloc, block_free);
 LIST_IMPL(deplistlist, deplist*, free_deplist, block_malloc, block_free);
 
@@ -197,10 +139,6 @@ static int packagecmp(dpkg_package *l, dpkg_package *r) {
     if (l->priority > r->priority) return +1;
     return strcmp(l->package, r->package);
 }
-
-/* container for owned pkgs */
-LIST_IMPL(ownedpackagelist, dpkg_package *, free_package, 
-		block_malloc, block_free);
 
 /* container for existing pkgs */
 LIST_IMPL(packagelist, dpkg_package *, KEEP(dpkg_package *), block_malloc, block_free);
@@ -701,18 +639,6 @@ static void uninstall(dpkg_packages *pkgs, dpkg_collected_package *cpkg) {
     }
 }
 
-packagelist *collpkglist2pkglist(collpackagelist *l) {
-	packagelist *r = NULL;
-	packagelist **addto = &r;
-
-	for (; l != NULL; l = l->next) {
-		insert_packagelist(addto, l->value->pkg);
-		addto = &(*addto)->next;
-	}
-
-	return r;
-}
-
 
 int checkinstallable2(dpkg_packages *pkgs, char *pkgname) {
     dpkg_collected_package *cpkg = lookup_packagetbl(pkgs->packages, pkgname);
@@ -764,7 +690,7 @@ static void debug_checkinstallable(FILE *out, instonelist *list,
     fflush(out);
 }    
 
-int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
+static int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
     /* We use pkg->installed, pkg->conflicted to note how many
      * times we've used this pkg to satisfy a dependency or installed
      * a package that conflicts with it.
