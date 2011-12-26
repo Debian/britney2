@@ -701,20 +701,6 @@ static void uninstall(dpkg_packages *pkgs, dpkg_collected_package *cpkg) {
     }
 }
 
-satisfieddep *new_satisfieddep(void) {
-	satisfieddep *sd = block_malloc(sizeof(satisfieddep));
-	if (!sd) die("new_satisfieddep alloc:");
-	return sd;
-}
-
-void free_satisfieddep(satisfieddep *sd) {
-	if (!sd) return;
-	free_packagelist(sd->pkgs);
-	block_free(sd, sizeof(satisfieddep));
-}
-
-LIST_IMPL(satisfieddeplist, satisfieddep *, free_satisfieddep, block_malloc, block_free);
-
 packagelist *collpkglist2pkglist(collpackagelist *l) {
 	packagelist *r = NULL;
 	packagelist **addto = &r;
@@ -727,33 +713,6 @@ packagelist *collpkglist2pkglist(collpackagelist *l) {
 	return r;
 }
 
-satisfieddeplist *checkunsatisfiabledeps(dpkg_packages *pkgs, 
-					 deplistlist *deps) {
-	satisfieddeplist *unsatisfiable = NULL;
-	satisfieddeplist **addto = &unsatisfiable;
-	satisfieddep *sd;
-	collpackagelist *deppkgs;
-
-	for (; deps != NULL; deps = deps->next) {
-		/* deplist *dep; */
-		/* for (dep = deps->value; dep != NULL; dep = dep->next) { */
-			sd = new_satisfieddep();
-			/* sd->dep = dep->value; */
-			sd->depl = deps->value;
-
-			deppkgs = NULL;
-			/* get_matching_low(&deppkgs, pkgs, dep->value); */
-			deppkgs = get_matching(pkgs, deps->value, __LINE__);
-			sd->pkgs = collpkglist2pkglist(deppkgs);
-			free_collpackagelist(deppkgs);
-
-			insert_satisfieddeplist(addto, sd);
-			addto = &(*addto)->next;
-		/* } */
-	}
-
-	return unsatisfiable;
-}
 
 int checkinstallable2(dpkg_packages *pkgs, char *pkgname) {
     dpkg_collected_package *cpkg = lookup_packagetbl(pkgs->packages, pkgname);

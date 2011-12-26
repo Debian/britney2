@@ -5,10 +5,6 @@ extern "C" {
 
 #include "dpkg.h"
 
-int versioncmp(char *left, char *right) { 
-	return debVS.CmpVersion(left, right);
-}
-
 int cmpversions(char *left, int op, char *right) {
 	int i = debVS.CmpVersion(left, right);
 

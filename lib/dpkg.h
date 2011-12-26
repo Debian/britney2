@@ -66,16 +66,6 @@ struct dpkg_package {
 LIST(packagelist, dpkg_package *);
 LIST(ownedpackagelist, dpkg_package *);
 
-typedef struct satisfieddep satisfieddep;
-
-struct satisfieddep {
-    /* dependency *dep; */
-    deplist *depl;
-    packagelist *pkgs;
-};
-
-LIST(satisfieddeplist, satisfieddep *);
-
 /**************************************************************************
  * Coping with a source package (and collections thereof) as an abstract 
  * entity, owning a bunch of binary packages 
@@ -128,7 +118,6 @@ struct dpkg_packages {
 };
 
 
-int versioncmp(char *left, char *right);
 int cmpversions(char *left, int op, char *right);
 
 
