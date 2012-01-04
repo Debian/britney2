@@ -34,16 +34,16 @@ class Completer:
         # - it might contain too many items, but meh
         complete = []
         for e in britney.excuses:
-            if e.name[0] == '-':
-                # do_hint does not work with removals anyway
-                continue
-            else:
-                ver = None
-                pkg = e.name
-                if "/" in pkg:
-                    pkg = pkg.split("/")[0]
-                name = "%s/%s" % (e.name, britney.sources['unstable'][pkg][0]) # 0 == VERSION
-                complete.append(name)
+            ver = None
+            pkg = e.name
+            suite = 'unstable'
+            if pkg[0] == '-':
+                suite = 'testing'
+                pkg = pkg[1:]
+            if "/" in pkg:
+                pkg = pkg.split("/")[0]
+            name = "%s/%s" % (e.name, britney.sources[suite][pkg][0]) # 0 == VERSION
+            complete.append(name)
         self.packages = sorted(complete)
 
     def completer(self, text, state):
