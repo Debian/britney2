@@ -2151,7 +2151,7 @@ class Britney:
 
         return (nuninst_comp, extra, lundo)
 
-    def do_all(self, maxdepth=0, init=None, actions=None):
+    def do_all(self, hinttype=None, init=None, actions=None):
         """Testing update runner
 
         This method tries to update testing checking the uninstallability
@@ -2169,10 +2169,9 @@ class Britney:
         undo = False
         force = False
         earlyabort = False
-        if maxdepth == "easy" or maxdepth < 0:
-            force = maxdepth < 0
+        if hinttype == "easy" or hinttype == "force-hint":
+            force = hinttype == "force-hint"
             earlyabort = True
-            maxdepth = 0
 
         # if we have a list of initial packages, check them
         if init:
@@ -2335,9 +2334,7 @@ class Britney:
                 self.do_hint("force-hint", x.user, x.packages)
 
         # run the first round of the upgrade
-        self.__log("> First loop on the packages with depth = 0", type="I")
-
-        # separate runs for break arches
+        # - do separate runs for break arches
         allpackages = []
         normpackages = self.upgrade_me[:]
         archpackages = {}
@@ -2518,23 +2515,20 @@ class Britney:
         except IOError, e:
             self.__log("Could not write %s: %s" % (histfile, e), type="W")
 
-    def do_hint(self, type, who, pkgvers):
+    def do_hint(self, hinttype, who, pkgvers):
         """Process hints
 
         This method process `easy`, `hint` and `force-hint` hints. If the
         requested version is not in unstable, then the hint is skipped.
         """
-        hintinfo = {"easy": "easy",
-                    "hint": 0,
-                    "force-hint": -1,}
 
         if isinstance(pkgvers[0], tuple) or isinstance(pkgvers[0], list):
             _pkgvers = [ HintItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
         else:
             _pkgvers = pkgvers
 
-        self.__log("> Processing '%s' hint from %s" % (type, who), type="I")
-        self.output_write("Trying %s from %s: %s\n" % (type, who, " ".join( ["%s/%s" % (x.uvname, x.version) for x in _pkgvers])))
+        self.__log("> Processing '%s' hint from %s" % (hinttype, who), type="I")
+        self.output_write("Trying %s from %s: %s\n" % (hinttype, who, " ".join( ["%s/%s" % (x.uvname, x.version) for x in _pkgvers])))
 
         ok = True
         # loop on the requested packages and versions
@@ -2570,7 +2564,7 @@ class Britney:
             self.output_write("Not using hint\n")
             return False
 
-        self.do_all(hintinfo[type], _pkgvers)
+        self.do_all(hinttype, _pkgvers)
         return True
 
     def sort_actions(self):
