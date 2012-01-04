@@ -30,8 +30,21 @@ class Completer:
         self.matches = []
         self.cmds = ['easy', 'hint', 'force-hint', 'exit', 'quit']
         self.britney = britney
-        # copy upgrade_me
-        self.packages = britney.upgrade_me[:]
+        # generate a completion list from excuses.
+        # - it might contain too many items, but meh
+        complete = []
+        for e in britney.excuses:
+            if e.name[0] == '-':
+                # do_hint does not work with removals anyway
+                continue
+            else:
+                ver = None
+                pkg = e.name
+                if "/" in pkg:
+                    pkg = pkg.split("/")[0]
+                name = "%s/%s" % (e.name, britney.sources['unstable'][pkg][0]) # 0 == VERSION
+                complete.append(name)
+        self.packages = sorted(complete)
 
     def completer(self, text, state):
         """readline completer (see the readline API)"""
@@ -46,15 +59,11 @@ class Completer:
                 self.matches = [x for x in self.cmds if x.startswith(text)]
             else:
                 # complete pkg/[arch/]version
-                prefix = ''
-                if len(text) > 0 and text[0] == '-':
-                    text = text[1:]
-                    prefix = '-'
                 start = bisect.bisect_left(self.packages, text)
                 while start < len(self.packages):
                     if not self.packages[start].startswith(text):
                         break
-                    self.matches.append(prefix + self.packages[start])
+                    self.matches.append(self.packages[start])
                     start += 1
 
         if len(self.matches) > state:
