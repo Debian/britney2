@@ -30,7 +30,8 @@ class Completer:
         self.matches = []
         self.cmds = ['easy', 'hint', 'force-hint', 'exit', 'quit']
         self.britney = britney
-        self.packages = sorted(britney.generate_package_list())
+        # copy upgrade_me
+        self.packages = britney.upgrade_me[:]
 
     def completer(self, text, state):
         """readline completer (see the readline API)"""

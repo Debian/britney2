@@ -2419,53 +2419,6 @@ class Britney:
             self.output_write("\nNewly uninstallable packages in testing:\n%s" % \
                 (text))
 
-    def generate_package_list(self):
-        # list of local methods and variables (for better performance)
-        sources = self.sources
-        architectures = self.options.architectures
-        should_remove_source = self.should_remove_source
-        should_upgrade_srcarch = self.should_upgrade_srcarch
-        should_upgrade_src = self.should_upgrade_src
-
-        # this list will contain the packages which are valid candidates;
-        # if a package is going to be removed, it will have a "-" prefix
-        upgrade_me = []
-
-        # for every source package in testing, check if it should be removed
-        for pkg in sources['testing']:
-            if should_remove_source(pkg):
-                upgrade_me.append("-" + pkg)
-
-        # for every source package in unstable check if it should be upgraded
-        for pkg in sources['unstable']:
-            if sources['unstable'][pkg][FAKESRC]: continue
-            # if the source package is already present in testing,
-            # check if it should be upgraded for every binary package
-            if pkg in sources['testing'] and not sources['testing'][pkg][FAKESRC]:
-                for arch in architectures:
-                    if should_upgrade_srcarch(pkg, arch, 'unstable'):
-                        upgrade_me.append("%s/%s/%s" % (pkg, arch, sources['unstable'][pkg][VERSION]))
-
-            # check if the source package should be upgraded
-            if should_upgrade_src(pkg, 'unstable'):
-                upgrade_me.append("%s/%s" % (pkg, sources['unstable'][pkg][VERSION]))
-
-        # for every source package in *-proposed-updates, check if it should be upgraded
-        for suite in ['pu', 'tpu']:
-            for pkg in sources[suite]:
-                # if the source package is already present in testing,
-                # check if it should be upgraded for every binary package
-                if pkg in sources['testing']:
-                    for arch in architectures:
-                        if should_upgrade_srcarch(pkg, arch, suite):
-                            upgrade_me.append("%s/%s_%s" % (pkg, arch, suite))
-
-                # check if the source package should be upgraded
-                if should_upgrade_src(pkg, suite):
-                    upgrade_me.append("%s_%s" % (pkg, suite))
-
-        return upgrade_me
-
     def hint_tester(self):
         """Run a command line interface to test hints
 
