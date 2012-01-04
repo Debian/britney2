@@ -268,16 +268,19 @@ class Britney:
         # initialize the apt_pkg back-end
         apt_pkg.init()
         self.systems = {}
+        self.sources = {}
+        self.binaries = {}
 
         # if requested, build the non-installable status and save it
         # if this or the population of self.binaries below takes a very
         # long time, try increasing SIZEOFHASHMAP in lib/dpkg.c and rebuilding
         if not self.options.nuninst_cache:
             self.__log("Building the list of non-installable packages for the full archive", type="I")
-            self.sources = {'testing': self.read_sources(self.options.testing)}
+            self.sources['testing'] = self.read_sources(self.options.testing)
+            self.binaries['testing'] = {}
             nuninst = {}
             for arch in self.options.architectures:
-                self.binaries = {'testing': {arch: self.read_binaries(self.options.testing, "testing", arch)}}
+                self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
                 self.build_systems(arch)
                 self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
                 result = self.get_nuninst(arch, build=True)
@@ -299,16 +302,25 @@ class Britney:
         # read the source and binary packages for the involved distributions
         # if this takes a very long time, try increasing SIZEOFHASHMAP in
         # lib/dpkg.c and rebuilding
-        self.sources = {'testing': self.read_sources(self.options.testing),
-                        'unstable': self.read_sources(self.options.unstable),
-                        'tpu': self.read_sources(self.options.tpu),}
+        if 'testing' not in self.sources:
+            self.sources['testing'] = self.read_sources(self.options.testing)
+        self.sources['unstable'] = self.read_sources(self.options.unstable)
+        self.sources['tpu'] = self.read_sources(self.options.tpu)
+
         if hasattr(self.options, 'pu'):
             self.sources['pu'] = self.read_sources(self.options.pu)
         else:
             self.sources['pu'] = {}
-        self.binaries = {'testing': {}, 'unstable': {}, 'tpu': {}, 'pu': {}}
+
+        if 'testing' not in self.binaries:
+            self.binaries['testing'] = {}
+        self.binaries['unstable'] = {}
+        self.binaries['tpu'] = {}
+        self.binaries['pu'] = {}
+
         for arch in self.options.architectures:
-            self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
+            if arch not in self.binaries['testing']:
+                self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
             if hasattr(self.options, 'pu'):
