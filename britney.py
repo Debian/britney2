@@ -237,7 +237,7 @@ RDEPENDS = 9
 RCONFLICTS = 10
 
 
-class Britney:
+class Britney(object):
     """Britney, the Debian testing updater script
     
     This is the script that updates the testing distribution. It is executed

@@ -14,7 +14,7 @@
 
 from migrationitem import HintItem
 
-class HintCollection:
+class HintCollection(object):
     def __init__(self):
         self._hints = []
 
@@ -35,7 +35,7 @@ class HintCollection:
     def add_hint(self, hint, user):
         self._hints.append(Hint(hint, user))
 
-class Hint:
+class Hint(object):
     def __init__(self, hint, user):
         self._hint = hint
         self._user = user
