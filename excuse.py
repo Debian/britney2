@@ -18,7 +18,7 @@ import re
 import string
 
 
-class Excuse:
+class Excuse(object):
     """Excuse class
     
     This class represents an update excuse, which is a detailed explanation
