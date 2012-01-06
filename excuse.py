@@ -44,8 +44,6 @@ class Excuse(object):
         self.name = name
         self.ver = ("-", "-")
         self.maint = None
-        self.pri = None
-        self.date = None
         self.urgency = None
         self.daysold = None
         self.mindays = None
@@ -57,7 +55,6 @@ class Excuse(object):
         self.deps = {}
         self.sane_deps = []
         self.break_deps = []
-        self.unsat_deps = {}
         self.bugs = []
         self.htmlline = []
 
@@ -90,14 +87,6 @@ class Excuse(object):
         """Set the section of the package"""
         self.section = section
 
-    def set_priority(self, pri):
-        """Set the priority of the package"""
-        self.pri = pri
-
-    def set_date(self, date):
-        """Set the date of upload of the package"""
-        self.date = date
-
     def set_urgency(self, date):
         """Set the urgency of upload of the package"""
         self.urgency = date
@@ -115,10 +104,6 @@ class Excuse(object):
         """Add a break dependency"""
         if (name, arch) not in self.break_deps:
             self.break_deps.append( (name, arch) )
-
-    def add_unsat_dep(self, arch):
-        """Add a flag for unsatisfied dependencies"""
-        self.unsat_deps[arch] = True
 
     def invalidate_dep(self, name):
         """Invalidate dependency"""

@@ -1067,8 +1067,6 @@ class Britney(object):
                 # if no package can satisfy the dependency, add this information to the excuse
                 if len(packages) == 0:
                     excuse.addhtml("%s/%s unsatisfiable %s: %s" % (pkg, arch, type, block_txt.strip()))
-                    if arch not in self.options.break_arches.split():
-                        excuse.add_unsat_dep(arch)
                     continue
 
                 # for the solving packages, update the excuse to add the dependencies
