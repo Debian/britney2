@@ -1110,7 +1110,7 @@ class Britney:
             self.excuses.append(excuse)
             return False
 
-        excuse.addhtml("Valid candidate")
+        excuse.is_valid = True
         self.excuses.append(excuse)
         return True
 
@@ -1216,7 +1216,7 @@ class Britney:
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
-            excuse.addhtml("Valid candidate")
+            excuse.is_valid = True
             self.excuses.append(excuse)
             return True
         # else if there is something worth doing (but something wrong, too) this package won't be considered
@@ -1458,7 +1458,7 @@ class Britney:
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
         forces = [ x for x in self.hints.search('force', package=src) if self.same_source(source_u[VERSION], x.version) ]
         if forces:
-            excuse.dontinvalidate = 1
+            excuse.dontinvalidate = True
         if not update_candidate and forces:
             excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
             update_candidate = True
@@ -1474,7 +1474,7 @@ class Britney:
 
         # if the package can be updated, it is a valid candidate
         if update_candidate:
-            excuse.addhtml("Valid candidate")
+            excuse.is_valid = True
         # else it won't be considered
         else:
             excuse.addhtml("Not considered")
@@ -1535,6 +1535,7 @@ class Britney:
                     invalid.append(valid.pop(p))
                     exclookup[x].addhtml("Invalidated by dependency")
                     exclookup[x].addhtml("Not considered")
+                    exclookup[x].is_valid = False
             i = i + 1
  
     def write_excuses(self):

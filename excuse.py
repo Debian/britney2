@@ -50,7 +50,8 @@ class Excuse:
         self.daysold = None
         self.mindays = None
         self.section = None
-        self.dontinvalidate = 0
+        self._is_valid = False
+        self._dontinvalidate = False
 
         self.invalid_deps = []
         self.deps = {}
@@ -59,6 +60,22 @@ class Excuse:
         self.unsat_deps = {}
         self.bugs = []
         self.htmlline = []
+
+    @property
+    def is_valid(self):
+        return self._is_valid
+
+    @is_valid.setter
+    def is_valid(self, value):
+        self._is_valid = value
+
+    @property
+    def dontinvalidate(self):
+        return self._dontinvalidate
+
+    @dontinvalidate.setter
+    def dontinvalidate(self, value):
+        self._dontinvalidate = value
 
     def set_vers(self, tver, uver):
         """Set the testing and unstable versions"""
@@ -141,5 +158,7 @@ class Excuse:
         for (n,a) in self.break_deps:
             if n not in self.deps:
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)
+        if self.is_valid:
+            res += "<li>Valid candidate</li>\n"
         res = res + "</ul>\n"
         return res
