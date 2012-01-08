@@ -15,7 +15,7 @@
 import readline
 import bisect
 
-class Completer:
+class Completer(object):
     """Completer class
 
     This class provides a readline completer for the britney hint-tester
