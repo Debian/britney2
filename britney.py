@@ -580,9 +580,9 @@ class Britney(object):
         # register the list of the dependencies for the depending packages
         dependencies = []
         if packages[pkg][DEPENDS]:
-            dependencies.extend(parse_depends(packages[pkg][DEPENDS]))
+            dependencies.extend(parse_depends(packages[pkg][DEPENDS], False))
         if packages[pkg][PREDEPENDS]:
-            dependencies.extend(parse_depends(packages[pkg][PREDEPENDS]))
+            dependencies.extend(parse_depends(packages[pkg][PREDEPENDS], False))
         # go through the list
         for p in dependencies:
             for a in p:
@@ -597,7 +597,7 @@ class Britney(object):
                             packages[i][RDEPENDS].append(pkg)
         # register the list of the conflicts for the conflicting packages
         if packages[pkg][CONFLICTS]:
-            for p in parse_depends(packages[pkg][CONFLICTS]):
+            for p in parse_depends(packages[pkg][CONFLICTS], False):
                 for a in p:
                     # register real packages
                     if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RCONFLICTS]):
@@ -1047,7 +1047,7 @@ class Britney(object):
                 continue
 
             # for every block of dependency (which is formed as conjunction of disconjunction)
-            for block, block_txt in zip(parse_depends(binary_u[type_key]), binary_u[type_key].split(',')):
+            for block, block_txt in zip(parse_depends(binary_u[type_key], False), binary_u[type_key].split(',')):
                 # if the block is satisfied in testing, then skip the block
                 solved, packages = get_dependency_solvers(block, arch, 'testing')
                 if solved:
