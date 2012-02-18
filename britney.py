@@ -258,33 +258,12 @@ class Britney(object):
         self.sources = {}
         self.binaries = {}
 
-        # if requested, build the non-installable status and save it
-        # if this or the population of self.binaries below takes a very
-        # long time, try increasing SIZEOFHASHMAP in lib/dpkg.c and rebuilding
-        if not self.options.nuninst_cache:
-            self.__log("Building the list of non-installable packages for the full archive", type="I")
-            self.sources['testing'] = self.read_sources(self.options.testing)
-            self.binaries['testing'] = {}
-            nuninst = {}
-            for arch in self.options.architectures:
-                self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
-                self.build_systems(arch)
-                self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
-                result = self.get_nuninst(arch, build=True)
-                nuninst.update(result)
-                self.__log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
-                if self.options.print_uninst:
-                    self.nuninst_arch_report(nuninst, arch)
-            if not self.options.print_uninst:
-                write_nuninst(self.options.noninst_status, nuninst)
-        else:
+        if self.options.nuninst_cache:
             self.__log("Not building the list of non-installable packages, as requested", type="I")
-
-        # if running in --print-uninst mode, quit here
-        if self.options.print_uninst:
-            print '* summary'
-            print '\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures))
-            return
+            if self.options.print_uninst:
+                print '* summary'
+                print '\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures))
+                return
 
         # read the source and binary packages for the involved distributions
         # if this takes a very long time, try increasing SIZEOFHASHMAP in
@@ -314,6 +293,24 @@ class Britney(object):
                 self.binaries['pu'][arch] = self.read_binaries(self.options.pu, "pu", arch)
             # build the testing system
             self.build_systems(arch)
+
+        if not self.options.nuninst_cache:
+            self.__log("Building the list of non-installable packages for the full archive", type="I")
+            nuninst = {}
+            for arch in self.options.architectures:
+                self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
+                result = self.get_nuninst(arch, build=True)
+                nuninst.update(result)
+                self.__log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
+                if self.options.print_uninst:
+                    self.nuninst_arch_report(nuninst, arch)
+
+            if self.options.print_uninst:
+                print '* summary'
+                print '\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures))
+                return
+            else:
+                write_nuninst(self.options.noninst_status, nuninst)
 
         # read the release-critical bug summaries for testing and unstable
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
@@ -2197,7 +2194,6 @@ class Britney(object):
             lundo.reverse()
 
             undo_changes(lundo, self.systems, self.sources, self.binaries)
-
 
 
     def upgrade_testing(self):
