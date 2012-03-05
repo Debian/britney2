@@ -2093,7 +2093,7 @@ class Britney(object):
                     nuninst_arch = None
                     if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
                         nuninst_arch = nuninst[arch]
-                    self._installability_test(systems[arch], p, broken, to_check, nuninst_arch)
+                    self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
 
                 # broken packages (second round, reverse dependencies of the first round)
                 while to_check:
@@ -2105,7 +2105,7 @@ class Britney(object):
                         nuninst_arch = None
                         if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
                             nuninst_arch = nuninst[arch]
-                        self._installability_test(systems[arch], p, broken, to_check, nuninst_arch)
+                        self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
 
                 # if we are processing hints, go ahead
                 if hint:
@@ -2721,7 +2721,7 @@ class Britney(object):
 
         self.__output.close()
 
-    def _installability_test(self, system, p, broken, to_check, nuninst_arch):
+    def _installability_test(self, system, p, broken, to_check, nuninst_arch, current_pkg):
         """Test for installability of a package on an architecture
 
         p is the package to check and system does the actual check.
@@ -2733,9 +2733,15 @@ class Britney(object):
 
         If nuninst_arch is not None then it also updated in the same
         way as broken is.
+
+        current_pkg is the package currently being tried, mainly used
+        to print where an AIEEE is coming from.
         """
         r = system.is_installable(p)
-        if not r:
+        if r <= 0:
+            # AIEEE: print who's responsible for it
+            if r == -1:
+                sys.stderr.write("AIEEE triggered by: %s\n" % current_pkg)
             # not installable
             if p not in broken:
                 broken.add(p)

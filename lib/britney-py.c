@@ -46,9 +46,10 @@ static void dpkgpackages_dealloc(dpkgpackages *self) {
 static PyObject *dpkgpackages_isinstallable(dpkgpackages *self, PyObject *args)
 {
 	char *pkgname;
+	int r;
 	if (!PyArg_ParseTuple(args, "s", &pkgname)) return NULL;
-	if (checkinstallable2(self->pkgs, pkgname)) {
-		return Py_BuildValue("i", 1);
+	if ((r=checkinstallable2(self->pkgs, pkgname))) {
+		return Py_BuildValue("i", r);
 	} else {
 		return Py_BuildValue("");
 	}

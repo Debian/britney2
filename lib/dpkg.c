@@ -909,7 +909,8 @@ static int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
 	}	
 	fprintf(stderr, ".\n");
 	free_instonelist(list);
-	return 0;
+	/* let the caller know we hit a bad failure */
+	return -1;
     }
 
     if (pointer == NULL) {
