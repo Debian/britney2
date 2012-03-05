@@ -885,6 +885,7 @@ static int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
     }
 
     if (counter == 0) {
+	unsigned int package_count = 0;
 	fprintf(stderr, "AIEEE: counter overflow:");
 	assert(pointer != NULL);
 	if (I1CUR(pointer) == NULL || I1CUR(pointer)->value == NULL) {
@@ -902,12 +903,17 @@ static int checkinstallable(dpkg_packages *pkgs, collpackagelist *instoneof) {
 		fprintf(stderr, " >> eep, no package selected <<");
 		continue;
 	    }
+	    /* the full list is no as interesting as the "guilty" package,
+	     * display the number of involved packages instead */
+#if 0
 	    fprintf(stderr, " %s%s", 
 		(I1INSTONE(pointer)->next == NULL ? "" : "|"),
 		I1CUR(pointer)->value->pkg->package);
+#endif
+	    package_count++;
 	    uninstall(pkgs, I1CUR(pointer)->value);
 	}	
-	fprintf(stderr, ".\n");
+	fprintf(stderr, " %u involved packages.\n", package_count);
 	free_instonelist(list);
 	/* let the caller know we hit a bad failure */
 	return -1;
