@@ -813,6 +813,9 @@ class Britney(object):
                     break
                 elif l[0] not in self.HINTS[who]:
                     continue
+                elif len(l) == 1:
+                    # All current hints require at least one argument
+                    self.__log("Malformed hint found in %s: '%s'" % (filename, line), type="W")
                 elif l[0] in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove"]:
                     for package in l[1:]:
                         hints.add_hint('%s %s' % (l[0], package), who)
