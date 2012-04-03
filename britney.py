@@ -4,7 +4,7 @@
 # Copyright (C) 2001-2008 Anthony Towns <ajt@debian.org>
 #                         Andreas Barth <aba@debian.org>
 #                         Fabio Tranchitella <kobold@debian.org>
-# Copyright (C) 2010-2011 Adam D. Barratt <adsb@debian.org>
+# Copyright (C) 2010-2012 Adam D. Barratt <adsb@debian.org>
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -1289,10 +1289,12 @@ class Britney(object):
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
         for hint in self.hints.search(package=src):
-            if hint.type == 'block' or (hint.type == 'block-all' and hint.package == 'source' and hint not in blocked['block']):
+            if hint.type == 'block':
                 blocked['block'] = hint
             if hint.type == 'block-udeb':
                 blocked['block-udeb'] = hint
+        for hint in self.hints.search(type='block-all', package='source'):
+            blocked.setdefault('block', hint)
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
         # is processed only if the specified version is correct. If a package is blocked
