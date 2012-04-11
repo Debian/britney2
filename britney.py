@@ -1847,8 +1847,25 @@ class Britney(object):
                         # so note it for checking later
                         rdeps = binaries[parch][0][binary][RDEPENDS]
 
-                        if len([x for x in rdeps if x not in [y.split("/")[0] for y in bins]]) > 0:
-                            smoothbins.append(p)
+                        # the list of reverse-dependencies may be outdated
+                        # if, for example, we're processing a hint and
+                        # a new version of one of the apparent reverse-dependencies
+                        # migrated earlier in the hint.  walk the list to make
+                        # sure that at least one of the entries is still
+                        # valid
+                        rdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
+                        if len(rrdeps) > 0:
+                            for dep in rrdeps:
+                                if dep in binaries[parch][0]:
+                                    bin = binaries[parch][0][dep]
+                                    deps = []
+                                    if bin[DEPENDS] is not None:
+                                        deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
+                                    if bin[PREDEPENDS] is not None:
+                                        deps.extend(apt_pkg.parse_depends(bin[PREDEPENDS], False))
+                                    if any(binary == entry[0] for deplist in deps for entry in deplist):
+                                        smoothbins.append(p)
+                                        break
                         else:
                             check.append(p)
 
