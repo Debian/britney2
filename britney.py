@@ -196,7 +196,6 @@ from operator import attrgetter
 if __name__ == '__main__':
     # Check if there is a python-search dir for this version of
     # python.  If so, use the britney module for that.
-    import os
     mdir = os.path.dirname(sys.argv[0])
     if sys.version_info[0] == 3:
         python_dir = "python3"
