@@ -228,7 +228,9 @@ FAKESRC = 4
 SOURCE = 2
 SOURCEVER = 3
 ARCHITECTURE = 4
-PREDEPENDS = 5
+# PREDEPENDS = 5 - No longer used by the python code
+#  - The C-code needs it for alignment reasons and still check it
+#    but ignore it if it is None (so keep it None).
 DEPENDS = 6
 CONFLICTS = 7
 PROVIDES = 8
@@ -511,6 +513,16 @@ class Britney(object):
             if pkg in packages and apt_pkg.version_compare(packages[pkg][0], version) > 0:
                 continue
 
+            # Merge Pre-Depends with Depends and Conflicts with
+            # Breaks. Britney is not interested in the "finer
+            # semantical differences" of these fields anyway.
+            pdeps = get_field('Pre-Depends')
+            deps = get_field('Depends')
+            if deps and pdeps:
+                deps = pdeps + ', ' + deps
+            elif pdeps:
+                deps = pdeps
+
             final_conflicts_list = []
             conflicts = get_field('Conflicts')
             if conflicts:
@@ -523,8 +535,8 @@ class Britney(object):
                     pkg, 
                     version,
                     get_field('Architecture'),
-                    get_field('Pre-Depends'),
-                    get_field('Depends'),
+                    None, # Pre-depends - leave as None for the C-code
+                    deps,
                     ', '.join(final_conflicts_list) or None,
                     get_field('Provides'),
                     [],
@@ -580,8 +592,6 @@ class Britney(object):
         dependencies = []
         if packages[pkg][DEPENDS]:
             dependencies.extend(parse_depends(packages[pkg][DEPENDS], False))
-        if packages[pkg][PREDEPENDS]:
-            dependencies.extend(parse_depends(packages[pkg][PREDEPENDS], False))
         # go through the list
         for p in dependencies:
             for a in p:
@@ -912,7 +922,7 @@ class Britney(object):
             for pkg in binaries:
                 output = "Package: %s\n" % pkg
                 for key, k in ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'), (SOURCE, 'Source'), (VERSION, 'Version'), 
-                          (PREDEPENDS, 'Pre-Depends'), (DEPENDS, 'Depends'), (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts')):
+                          (DEPENDS, 'Depends'), (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts')):
                     if not binaries[pkg][key]: continue
                     if key == SOURCE:
                         if binaries[pkg][SOURCE] == pkg:
@@ -1033,8 +1043,6 @@ class Britney(object):
         architecture `arch' within the suite `suite'. If the dependency can't
         be satisfied in testing and/or unstable, it updates the excuse passed
         as parameter.
-
-        The dependency fields checked are Pre-Depends and Depends.
         """
         # retrieve the binary package from the specified suite and arch
         binary_u = self.binaries[suite][arch][0][pkg]
@@ -1044,39 +1052,39 @@ class Britney(object):
         get_dependency_solvers = self.get_dependency_solvers
 
         # analyze the dependency fields (if present)
-        for type_key, type in ((PREDEPENDS, 'Pre-Depends'), (DEPENDS, 'Depends')):
-            if not binary_u[type_key]:
+        if not binary_u[DEPENDS]:
+            return
+        deps = binary_u[DEPENDS]
+
+        # for every block of dependency (which is formed as conjunction of disconjunction)
+        for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
+            # if the block is satisfied in testing, then skip the block
+            solved, packages = get_dependency_solvers(block, arch, 'testing')
+            if solved:
+                for p in packages:
+                    if p not in self.binaries[suite][arch][0]: continue
+                    excuse.add_sane_dep(self.binaries[suite][arch][0][p][SOURCE])
                 continue
 
-            # for every block of dependency (which is formed as conjunction of disconjunction)
-            for block, block_txt in zip(parse_depends(binary_u[type_key], False), binary_u[type_key].split(',')):
-                # if the block is satisfied in testing, then skip the block
-                solved, packages = get_dependency_solvers(block, arch, 'testing')
-                if solved:
-                    for p in packages:
-                        if p not in self.binaries[suite][arch][0]: continue
-                        excuse.add_sane_dep(self.binaries[suite][arch][0][p][SOURCE])
-                    continue
+            # check if the block can be satisfied in unstable, and list the solving packages
+            solved, packages = get_dependency_solvers(block, arch, suite)
+            packages = [self.binaries[suite][arch][0][p][SOURCE] for p in packages]
 
-                # check if the block can be satisfied in unstable, and list the solving packages
-                solved, packages = get_dependency_solvers(block, arch, suite)
-                packages = [self.binaries[suite][arch][0][p][SOURCE] for p in packages]
+            # if the dependency can be satisfied by the same source package, skip the block:
+            # obviously both binary packages will enter testing together
+            if src in packages: continue
 
-                # if the dependency can be satisfied by the same source package, skip the block:
-                # obviously both binary packages will enter testing together
-                if src in packages: continue
+            # if no package can satisfy the dependency, add this information to the excuse
+            if len(packages) == 0:
+                excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
+                continue
 
-                # if no package can satisfy the dependency, add this information to the excuse
-                if len(packages) == 0:
-                    excuse.addhtml("%s/%s unsatisfiable %s: %s" % (pkg, arch, type, block_txt.strip()))
-                    continue
-
-                # for the solving packages, update the excuse to add the dependencies
-                for p in packages:
-                    if arch not in self.options.break_arches.split():
-                        excuse.add_dep(p, arch)
-                    else:
-                        excuse.add_break_dep(p, arch)
+            # for the solving packages, update the excuse to add the dependencies
+            for p in packages:
+                if arch not in self.options.break_arches.split():
+                    excuse.add_dep(p, arch)
+                else:
+                    excuse.add_break_dep(p, arch)
 
     # Package analysis methods
     # ------------------------
@@ -1860,8 +1868,6 @@ class Britney(object):
                                     deps = []
                                     if bin[DEPENDS] is not None:
                                         deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
-                                    if bin[PREDEPENDS] is not None:
-                                        deps.extend(apt_pkg.parse_depends(bin[PREDEPENDS], False))
                                     if any(binary == entry[0] for deplist in deps for entry in deplist):
                                         smoothbins.append(p)
                                         break
