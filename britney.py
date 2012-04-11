@@ -1852,7 +1852,7 @@ class Britney(object):
                         # migrated earlier in the hint.  walk the list to make
                         # sure that at least one of the entries is still
                         # valid
-                        rdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
+                        rrdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
                         if len(rrdeps) > 0:
                             for dep in rrdeps:
                                 if dep in binaries[parch][0]:
