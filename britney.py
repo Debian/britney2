@@ -479,7 +479,7 @@ class Britney(object):
         and saved in the `rdepends' keys, and the `Provides' field is
         used to populate the virtual packages list.
 
-        The dependencies are parsed with the apt.pkg.ParseDepends method,
+        The dependencies are parsed with the apt_pkg.parse_depends method,
         and they are stored both as the format of its return value and
         text.
 
