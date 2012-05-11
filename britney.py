@@ -2604,10 +2604,34 @@ class Britney(object):
         excuses relationships. If they build a circular dependency, which we already
         know as not-working with the standard do_all algorithm, try to `easy` them.
         """
-        self.__log("> Processing hints from the auto hinter", type="I")
+        self.__log("> Processing hints from the auto hinter [Partial-ordering]",
+                   type="I")
 
         # consider only excuses which are valid candidates
         excuses = dict((x.name, x) for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me])
+        sources_t = self.sources['testing']
+
+        groups = set()
+        for y in sorted((y for y in self.upgrade_me if y.uvname in excuses), key=attrgetter('uvname')):
+            if y.is_removal and y.uvname not in sources_t:
+                # Already removed
+                continue
+            if not y.is_removal:
+                excuse = excuses[y.uvname]
+                if y.architecture == 'source' and y.uvname in sources_t and sources_t[y.uvname][VERSION] == excuse.ver[1]:
+                    # Already migrated
+                    continue
+            adds, rms, _ = self._compute_groups(y.package, y.suite,
+                                                y.architecture, y.is_removal,
+                                                include_hijacked=True)
+            groups.add((y, frozenset(adds), frozenset(rms)))
+
+        for comp in self._inst_tester.solve_groups(groups):
+            if len(comp) > 1:
+                self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x.uvname, excuses[x.uvname].ver[1])) for x in comp])
+
+        self.__log("> Processing hints from the auto hinter [Original]",
+                   type="I")
 
         def find_related(e, hint, circular_first=False):
             if e not in excuses:

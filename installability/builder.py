@@ -15,7 +15,7 @@
 from contextlib import contextmanager
 
 from britney_util import ifilter_except, iter_except
-from installability.tester import InstallabilityTester
+from installability.solver import InstallabilitySolver
 
 class _RelationBuilder(object):
     """Private helper class to "build" relations"""
@@ -302,7 +302,7 @@ class InstallabilityTesterBuilder(object):
                     check.update(reverse_package_table[pkg][0] - safe_set)
 
 
-        return InstallabilityTester(package_table,
-                                    frozenset(reverse_package_table),
+        return InstallabilitySolver(package_table,
+                                    reverse_package_table,
                                     self._testing, self._broken,
                                     self._essentials, safe_set)
