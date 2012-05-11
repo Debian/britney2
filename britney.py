@@ -2233,7 +2233,7 @@ class Britney(object):
         if len(actions) == 1:
             item = actions[0]
             # apply the changes
-            affected, undo = self.doop_source(item, lundo)
+            affected, undo = self.doop_source(item, hint_undo=lundo)
             undo_list = [(undo, item)]
             if item.architecture == 'source':
                 affected_architectures = set(self.options.architectures)
@@ -2256,6 +2256,7 @@ class Britney(object):
 
             for item in actions:
                 item_affected, undo = self.doop_source(item,
+                                                       hint_undo=lundo,
                                                        removals=removals)
                 affected.update(item_affected)
                 undo_list.append((undo, item))
@@ -2301,82 +2302,66 @@ class Britney(object):
         final result is successful, otherwise (None, None).
         """
         extra = []
-        deferred = []
-        skipped = []
-        mark_passed = False
-        position = len(packages)
+        groups = set()
+        for y in sorted((y for y in packages), key=attrgetter('uvname')):
+            updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
+            groups.add((y, frozenset(updates), frozenset(rms)))
 
+        if selected is None:
+            selected = []
         if nuninst:
-            nuninst_comp = nuninst
+            nuninst_orig = nuninst
         else:
-            nuninst_comp = self.nuninst_orig
-
-        # local copies for better performance
-        dependencies = self.dependencies
-
+            nuninst_orig = self.nuninst_orig
+        nuninst_last_accepted = nuninst_orig
+        maybe_reschuled = []
+        worklist = self._inst_tester.solve_groups(groups)
+        worklist.reverse()
         self.output_write("recur: [] %s %d/%d\n" % (",".join(x.uvname for x in selected), len(packages), len(extra)))
 
-        # loop on the packages (or better, actions)
-        while packages:
-            item = packages.pop(0)
-
-            # this is the marker for the first loop
-            if not mark_passed and position < 0:
-                mark_passed = True
-                packages.extend(deferred)
-                del deferred
-            else: position -= 1
-
-            # defer packages if their dependency has been already skipped
-            if not mark_passed:
-                defer = False
-                for p in dependencies.get(item, []):
-                    if p in skipped:
-                        deferred.append(item)
-                        skipped.append(item)
-                        defer = True
-                        break
-                if defer: continue
-
-            self.output_write("trying: %s\n" % (item.uvname))
-
-            (better, nuninst, undo_list, arch) = self.try_migration([item], nuninst_comp, lundo=lundo)
-
-            # check if the action improved the uninstallability counters
-            if better:
+        while worklist:
+            comp = worklist.pop()
+            comp_name = ' '.join(item.uvname for item in comp)
+            self.output_write("trying: %s\n" % comp_name)
+            accepted, nuninst_after, comp_undo, failed_arch = self.try_migration(comp, nuninst_last_accepted, lundo)
+            if accepted:
+                nuninst_last_accepted = nuninst_after
+                selected.extend(comp)
                 if lundo is not None:
-                    lundo.extend(undo_list)
-                selected.append(item)
-                packages.extend(extra)
-                extra = []
-                self.output_write("accepted: %s\n" % (item.uvname))
-                self.output_write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
-                self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
-                self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
+                    lundo.extend(comp_undo)
+                self.output_write("accepted: %s\n" % comp_name)
+                self.output_write("   ori: %s\n" % (self.eval_nuninst(nuninst_orig)))
+                self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_last_accepted)))
+                self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst_after)))
                 if len(selected) <= 20:
-                    self.output_write("   all: %s\n" % (" ".join( x.uvname for x in selected )))
+                    self.output_write("   all: %s\n" % (" ".join(x.uvname for x in selected)))
                 else:
                     self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
-                nuninst_comp = nuninst
             else:
+                broken = sorted(b for b in nuninst_after[failed_arch]
+                                if b not in nuninst_last_accepted[failed_arch])
+                compare_nuninst = None
+                if any(item for item in comp if item.architecture != 'source'):
+                    compare_nuninst = nuninst_last_accepted
                 # NB: try_migration already reverted this for us, so just print the results and move on
-                self.output_write("skipped: %s (%d <- %d)\n" % (item.uvname, len(extra), len(packages)))
-                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, item.architecture != 'source' and nuninst_comp or None)))
-                self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted(b for b in nuninst[arch] if b not in nuninst_comp[arch]))))
+                self.output_write("skipped: %s (%d, %d)\n" % (comp_name, len(maybe_reschuled), len(worklist)))
+                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst_after, compare_nuninst)))
+                self.output_write("    * %s: %s\n" % (failed_arch, ", ".join(broken)))
 
-                extra.append(item)
-                if not mark_passed:
-                    skipped.append(item)
-
+                if len(comp) > 1:
+                    self.output_write("    - splitting the component into single items and retrying them\n")
+                    worklist.extend([item] for item in comp)
+                else:
+                    extra.extend(comp)
 
         self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
-        self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
+        self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_last_accepted)))
         self.output_write(eval_uninst(self.options.architectures,
-                                      newly_uninst(self.nuninst_orig, nuninst_comp)))
+                                      newly_uninst(self.nuninst_orig, nuninst_last_accepted)))
         self.output_write("\n")
 
-        return (nuninst_comp, extra)
+        return (nuninst_last_accepted, extra)
 
 
     def do_all(self, hinttype=None, init=None, actions=None):
@@ -2807,11 +2792,10 @@ class Britney(object):
         self.upgrade_me = [ make_migrationitem(x, self.sources) for x in upgrade_me ]
         self.upgrade_me.extend(make_migrationitem(x, self.sources) for x in removals)
 
-
     def auto_hinter(self):
         """Auto-generate "easy" hints.
 
-        This method attempts to generate "easy" hints for sets of packages which    
+        This method attempts to generate "easy" hints for sets of packages which
         must migrate together. Beginning with a package which does not depend on
         any other package (in terms of excuses), a list of dependencies and
         reverse dependencies is recursively created.
@@ -2824,7 +2808,7 @@ class Britney(object):
         excuses relationships. If they build a circular dependency, which we already
         know as not-working with the standard do_all algorithm, try to `easy` them.
         """
-        self.__log("> Processing hints from the auto hinter [Partial-ordering]",
+        self.__log("> Processing hints from the auto hinter",
                    type="I")
 
         # consider only excuses which are valid candidates
@@ -2832,28 +2816,6 @@ class Britney(object):
         excuses = dict((x.name, x) for x in self.excuses if x.name in valid_excuses)
         excuses_deps = dict((name, set(excuse.deps)) for name, excuse in excuses.items())
         sources_t = self.sources['testing']
-
-        groups = set()
-        for y in sorted((y for y in self.upgrade_me if y.uvname in excuses), key=attrgetter('uvname')):
-            if y.is_removal and y.package not in sources_t:
-                # Already removed
-                continue
-            if not y.is_removal:
-                excuse = excuses[y.uvname]
-                if y.architecture == 'source' and y.uvname in sources_t and sources_t[y.uvname][VERSION] == excuse.ver[1]:
-                    # Already migrated
-                    continue
-            adds, rms, _ = self._compute_groups(y.package, y.suite,
-                                                y.architecture, y.is_removal,
-                                                include_hijacked=True)
-            groups.add((y, frozenset(adds), frozenset(rms)))
-
-        for comp in self._inst_tester.solve_groups(groups):
-            if len(comp) > 1:
-                self.do_hint("easy", "autohinter", comp)
-
-        self.__log("> Processing hints from the auto hinter [Original]",
-                   type="I")
 
         def find_related(e, hint, circular_first=False):
             if e not in excuses:
