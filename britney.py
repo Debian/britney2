@@ -2214,19 +2214,19 @@ class Britney(object):
         nuninst_start = self.nuninst_orig
 
         # these are special parameters for hints processing
-        undo = False
         force = False
         earlyabort = False
+        lundo = None
+        nuninst_end = None
+
         if hinttype == "easy" or hinttype == "force-hint":
             force = hinttype == "force-hint"
             earlyabort = True
 
         # if we have a list of initial packages, check them
         if init:
-            # Strictly speaking, we do not undo with a force-hint, but
-            # force takes a different code path do it doesn't really
-            # matter.
-            undo = True
+            if not force:
+                lundo = []
             self.output_write("leading: %s\n" % (",".join([ x.uvname for x in init ])))
             for x in init:
                 if x not in upgrade_me:
@@ -2239,8 +2239,7 @@ class Britney(object):
         if not force:
             self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
-        lundo = []
-        nuninst_end = None
+
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
             (nuninst_end, extra) = self.iter_packages(init, selected, hint=True, lundo=lundo)
@@ -2284,7 +2283,7 @@ class Britney(object):
                 self.sort_actions()
         else:
             self.output_write("FAILED\n")
-            if not undo: return
+            if not lundo: return
 
             self.undo_changes(lundo, self.systems, self.sources, self.binaries)
 
