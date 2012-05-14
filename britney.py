@@ -190,7 +190,7 @@ import urllib
 
 import apt_pkg
 
-from functools import reduce
+from functools import reduce, partial
 from operator import attrgetter
 
 if __name__ == '__main__':
@@ -2027,6 +2027,32 @@ class Britney(object):
         else:
             return []
 
+    def _check_packages(self, binaries, systems, arch, affected, skip_archall, nuninst, pkg):
+        broken = nuninst[arch + "+all"]
+        to_check = []
+
+        # broken packages (first round)
+        for p in [x[0] for x in affected if x[1] == arch]:
+            if p not in binaries[arch][0]:
+                continue
+            nuninst_arch = None
+            if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                nuninst_arch = nuninst[arch]
+            self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
+
+        # broken packages (second round, reverse dependencies of the first round)
+        while to_check:
+            j = to_check.pop(0)
+            if j not in binaries[arch][0]: continue
+            for p in binaries[arch][0][j][RDEPENDS]:
+                if p in broken or p not in binaries[arch][0]:
+                    continue
+                nuninst_arch = None
+                if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
+                    nuninst_arch = nuninst[arch]
+                self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
+
+
     def iter_packages(self, packages, selected, hint=False, nuninst=None):
         """Iter on the list of actions and apply them one-by-one
 
@@ -2055,6 +2081,7 @@ class Britney(object):
         new_arches = self.options.new_arches.split()
         break_arches = self.options.break_arches.split()
         dependencies = self.dependencies
+        check_packages = partial(self._check_packages, binaries, systems)
 
         # pre-process a hint batch
         pre_process = {}
@@ -2114,26 +2141,7 @@ class Britney(object):
                 broken = nuninst[arch + "+all"]
                 to_check = []
 
-                # broken packages (first round)
-                for p in [x[0] for x in affected if x[1] == arch]:
-                    if p not in binaries[arch][0]:
-                        continue
-                    nuninst_arch = None
-                    if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                        nuninst_arch = nuninst[arch]
-                    self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
-
-                # broken packages (second round, reverse dependencies of the first round)
-                while to_check:
-                    j = to_check.pop(0)
-                    if j not in binaries[arch][0]: continue
-                    for p in binaries[arch][0][j][RDEPENDS]:
-                        if p in broken or p not in binaries[arch][0]:
-                            continue
-                        nuninst_arch = None
-                        if not (skip_archall and binaries[arch][0][p][ARCHITECTURE] == 'all'):
-                            nuninst_arch = nuninst[arch]
-                        self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
+                check_packages(arch, affected, skip_archall, nuninst, pkg)
 
                 # if we are processing hints, go ahead
                 if hint:
