@@ -2053,7 +2053,7 @@ class Britney(object):
                 self._installability_test(systems[arch], p, broken, to_check, nuninst_arch, pkg)
 
 
-    def iter_packages(self, packages, selected, hint=False, nuninst=None):
+    def iter_packages(self, packages, selected, hint=False, nuninst=None, lundo=None):
         """Iter on the list of actions and apply them one-by-one
 
         This method applies the changes from `packages` to testing, checking the uninstallability
@@ -2090,7 +2090,8 @@ class Britney(object):
                 pkg, affected, undo = self.doop_source(package)
                 pre_process[package] = (pkg, affected, undo)
 
-        lundo = []
+        if lundo is None:
+            lundo = []
         if not hint:
             self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join([x.uvname for x in selected]), len(packages), len(extra)))
 
@@ -2188,7 +2189,7 @@ class Britney(object):
 
         # if we are processing hints, return now
         if hint:
-            return (nuninst_comp, [], lundo)
+            return (nuninst_comp, [])
 
         self.output_write(" finish: [%s]\n" % ",".join([ x.uvname for x in selected ]))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
@@ -2196,7 +2197,7 @@ class Britney(object):
         self.output_write(self.eval_uninst(self.newlyuninst(self.nuninst_orig, nuninst_comp)))
         self.output_write("\n")
 
-        return (nuninst_comp, extra, lundo)
+        return (nuninst_comp, extra)
 
     def do_all(self, hinttype=None, init=None, actions=None):
         """Testing update runner
@@ -2222,6 +2223,10 @@ class Britney(object):
 
         # if we have a list of initial packages, check them
         if init:
+            # Strictly speaking, we do not undo with a force-hint, but
+            # force takes a different code path do it doesn't really
+            # matter.
+            undo = True
             self.output_write("leading: %s\n" % (",".join([ x.uvname for x in init ])))
             for x in init:
                 if x not in upgrade_me:
@@ -2234,30 +2239,29 @@ class Britney(object):
         if not force:
             self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
+        lundo = []
+        nuninst_end = None
+        if init:
+            # init => a hint (e.g. "easy") - so do the hint run
+            (nuninst_end, extra) = self.iter_packages(init, selected, hint=True, lundo=lundo)
+
+        if not earlyabort:
+            # Either normal (i.e. "not a hint") run or the "second run" of a "hint"-hint.
+            (nuninst_end, extra) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end, lundo=lundo)
+
+        nuninst_end_str = self.eval_nuninst(nuninst_end)
+
         if earlyabort:
-            extra = upgrade_me[:]
-            (nuninst_end, extra, lundo) = self.iter_packages(init, selected, hint=True)
-            undo = True
+            # easy or force-hint
             if force:
-                self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_end))
-            self.output_write("easy: %s\n" % (self.eval_nuninst(nuninst_end)))
+                self.output_write("orig: %s\n" %  nuninst_end_str)
+            self.output_write("easy: %s\n" %  nuninst_end_str)
+
             if not force:
                 self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
-            if not force and not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
-                nuninst_end, extra = None, None
-        else:
-            lundo = []
-            if init:
-                (nuninst_end, extra, tundo) = self.iter_packages(init, selected, hint=True)
-                lundo.extend(tundo)
-                undo = True
-            else: nuninst_end = None
-            (nuninst_end, extra, tundo) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end)
-            lundo.extend(tundo)
-            if not self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
-                nuninst_end, extra = None, None
 
-        if nuninst_end:
+        if force or self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
+            # Result accepted either by force or by being better than the original result.
             if not force and not earlyabort:
                 self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted([ x.uvname for x in selected ])))
@@ -2265,8 +2269,8 @@ class Britney(object):
             if not force:
                 self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
             else:
-                self.output_write(" orig: %s\n" % self.eval_nuninst(nuninst_end))
-            self.output_write("  end: %s\n" % self.eval_nuninst(nuninst_end))
+                self.output_write(" orig: %s\n" % nuninst_end_str)
+            self.output_write("  end: %s\n" % nuninst_end_str)
             if force:
                 self.output_write("force breaks:\n")
                 self.output_write(self.eval_uninst(self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
