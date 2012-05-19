@@ -260,6 +260,7 @@ class Britney(object):
         This method initializes and populates the data lists, which contain all
         the information needed by the other methods of the class.
         """
+        # britney's "day" begins at 3pm
         self.date_now = int(((time.time() / (60*60)) - 15) / 24)
 
         # parse the command line arguments
