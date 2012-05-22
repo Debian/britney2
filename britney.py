@@ -2211,13 +2211,13 @@ class Britney(object):
 
         # these are special parameters for hints processing
         force = False
-        earlyabort = False
+        recurse = True
         lundo = None
         nuninst_end = None
 
         if hinttype == "easy" or hinttype == "force-hint":
             force = hinttype == "force-hint"
-            earlyabort = True
+            recurse = False
 
         # if we have a list of initial packages, check them
         if init:
@@ -2240,13 +2240,13 @@ class Britney(object):
             # init => a hint (e.g. "easy") - so do the hint run
             (nuninst_end, extra) = self.iter_packages(init, selected, hint=True, lundo=lundo)
 
-        if not earlyabort:
-            # Either normal (i.e. "not a hint") run or the "second run" of a "hint"-hint.
+        if recurse:
+            # Either the main run or the recursive run of a "hint"-hint.
             (nuninst_end, extra) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end, lundo=lundo)
 
         nuninst_end_str = self.eval_nuninst(nuninst_end)
 
-        if earlyabort:
+        if not recurse:
             # easy or force-hint
             if force:
                 self.output_write("orig: %s\n" %  nuninst_end_str)
@@ -2257,7 +2257,7 @@ class Britney(object):
 
         if force or self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
             # Result accepted either by force or by being better than the original result.
-            if not force and not earlyabort:
+            if not force:
                 self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted([ x.uvname for x in selected ])))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
@@ -2272,7 +2272,7 @@ class Britney(object):
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
             if not actions:
-                if not earlyabort:
+                if recurse:
                     self.upgrade_me = sorted(extra)
                 else:
                     self.upgrade_me = [x for x in self.upgrade_me if x not in selected]
