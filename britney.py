@@ -190,7 +190,7 @@ import urllib
 import apt_pkg
 
 from functools import reduce, partial
-from itertools import chain, repeat
+from itertools import chain, repeat, izip
 from operator import attrgetter
 
 if __name__ == '__main__':
@@ -1991,11 +1991,7 @@ class Britney(object):
                     affected.update(self.get_reverse_tree(binary, parch, 'testing'))
                     # all the reverse conflicts and their dependency tree are affected by the change
                     for j in binaries[parch][0][binary][RCONFLICTS]:
-                        key = (j, parch)
-                        if key not in affected: affected.add(key)
-                        for p in self.get_full_tree(j, parch, 'testing'):
-                            key = (p, parch)
-                            if key not in affected: affected.add(key)
+                        affected.update(self.get_reverse_tree(j, parch, 'testing'))
                     self.systems[parch].remove_binary(binary)
                 else:
                     # the binary isn't in testing, but it may have been at
@@ -2013,7 +2009,6 @@ class Britney(object):
                         if p in tundo['binaries']:
                             for rdep in tundo['binaries'][p][RDEPENDS]:
                                 if rdep in binaries[parch][0] and rdep not in source[BINARIES]:
-                                    affected.add( (rdep, parch) )
                                     affected.update(self.get_reverse_tree(rdep, parch, 'testing'))
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[item.suite][parch][0][binary]
@@ -2045,10 +2040,27 @@ class Britney(object):
         return (item, affected, undo)
 
     def get_reverse_tree(self, pkg, arch, suite):
-        binaries = self.binaries[suite][arch][0]
+        """Calculate the full dependency tree for the given package
 
+        This method returns the full dependency tree for the package
+        `pkg`, inside the `arch` architecture for the suite `suite`
+        flatterned as an iterable.
+
+        The tree is returned as an iterable of (package, arch) tuples
+        and the iterable will contain (`pkg`, `arch`) if it is
+        available on that architecture.
+
+        If `pkg` is not available on that architecture in that suite,
+        this returns an empty iterable.
+
+        The method does not promise any ordering of the returned
+        elements and the iterable is not reusable nor mutable.
+        """
+        binaries = self.binaries[suite][arch][0]
+        if pkg not in binaries:
+            return frozenset()
         rev_deps = set(binaries[pkg][RDEPENDS])
-        seen = set()
+        seen = set([pkg])
         while len(rev_deps) > 0:
             # mark all of the current iteration of packages as affected
             seen |= rev_deps
@@ -2060,26 +2072,7 @@ class Britney(object):
             # in the process
             rev_deps = set([package for package in chain.from_iterable(new_rev_deps) \
                                  if package not in seen ])
-        return zip(seen, repeat(arch))
-
-    def get_full_tree(self, pkg, arch, suite):
-        """Calculate the full dependency tree for the given package
-
-        This method returns the full dependency tree for the package `pkg`,
-        inside the `arch` architecture for the suite `suite`.
-        """
-        packages = [pkg]
-        binaries = self.binaries[suite][arch][0]
-        if pkg in binaries:
-            l = n = 0
-            while len(packages) > l:
-                l = len(packages)
-                for p in packages[n:]:
-                    packages.extend([x for x in binaries[p][RDEPENDS] if x not in packages and x in binaries])
-                n = l
-            return packages
-        else:
-            return []
+        return izip(seen, repeat(arch))
 
     def _check_packages(self, binaries, systems, arch, affected, skip_archall, nuninst, pkg):
         broken = nuninst[arch + "+all"]
