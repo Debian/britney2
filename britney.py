@@ -453,6 +453,9 @@ class Britney(object):
         step = Packages.step
 
         while step():
+            if get_field('Extra-Source-Only', 'no') == 'yes':
+                # Ignore sources only referenced by Built-Using
+                continue
             pkg = get_field('Package')
             ver = get_field('Version')
             # There may be multiple versions of the source package
