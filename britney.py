@@ -600,8 +600,8 @@ class Britney(object):
                 # register real packages
                 if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RDEPENDS]):
                     packages[a[0]][RDEPENDS].append(pkg)
-                # register packages which provide a virtual package
-                elif a[0] in provides:
+                # also register packages which provide the package (if any)
+                if a[0] in provides:
                     for i in provides.get(a[0]):
                         if i not in packages: continue
                         if not check_doubles or pkg not in packages[i][RDEPENDS]:
@@ -613,8 +613,8 @@ class Britney(object):
                     # register real packages
                     if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RCONFLICTS]):
                         packages[a[0]][RCONFLICTS].append(pkg)
-                    # register packages which provide a virtual package
-                    elif a[0] in provides:
+                    # also register packages which provide the package (if any)
+                    if a[0] in provides:
                         for i in provides[a[0]]:
                             if i not in packages: continue
                             if not check_doubles or pkg not in packages[i][RCONFLICTS]:
