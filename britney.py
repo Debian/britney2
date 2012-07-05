@@ -190,6 +190,7 @@ import urllib
 import apt_pkg
 
 from functools import reduce, partial
+from itertools import chain, ifilter
 from operator import attrgetter
 
 if __name__ == '__main__':
@@ -623,7 +624,7 @@ class Britney(object):
         object attribute `bugs'.
         """
         # loop on all the package names from testing and unstable bug summaries
-        for pkg in set(self.bugs['testing'].keys() + self.bugs['unstable'].keys()):
+        for pkg in set(chain(self.bugs['testing'], self.bugs['unstable'])):
 
             # make sure that the key is present in both dictionaries
             if pkg not in self.bugs['testing']:
@@ -677,7 +678,7 @@ class Britney(object):
         filename = os.path.join(basedir, "Dates")
         self.__log("Writing upload data to %s" % filename)
         f = open(filename, 'w')
-        for pkg in sorted(dates.keys()):
+        for pkg in sorted(dates):
             f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
         f.close()
 
@@ -857,7 +858,6 @@ class Britney(object):
             f.write(output + "\n")
         f.close()
 
-
     # Utility methods for package analysis
     # ------------------------------------
 
@@ -1028,7 +1028,7 @@ class Britney(object):
         anyworthdoing = False
 
         # for every binary package produced by this source in unstable for this architecture
-        for pkg in sorted(filter(lambda x: x.endswith("/" + arch), source_u[BINARIES]), key=lambda x: x.split("/")[0]):
+        for pkg in sorted(ifilter(lambda x: x.endswith("/" + arch), source_u[BINARIES]), key=lambda x: x.split("/")[0]):
             pkg_name = pkg.split("/")[0]
 
             # retrieve the testing (if present) and unstable corresponding binary packages
@@ -1096,7 +1096,7 @@ class Britney(object):
                                                             arch,
                                                             suite)
 
-                for pkg in sorted([x.split("/")[0] for x in source_data[BINARIES] if x.endswith("/"+arch)]):
+                for pkg in sorted(x.split("/")[0] for x in source_data[BINARIES] if x.endswith("/"+arch)):
                     # if the package is architecture-independent, then ignore it
                     tpkg_data = self.binaries['testing'][arch][0][pkg]
                     if tpkg_data[ARCHITECTURE] == 'all':
@@ -1298,7 +1298,7 @@ class Britney(object):
         for arch in self.options.architectures:
             oodbins = {}
             # for every binary package produced by this source in the suite for this architecture
-            for pkg in sorted([x.split("/")[0] for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch)]):
+            for pkg in sorted(x.split("/")[0] for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch)):
                 if pkg not in pkgs: pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
@@ -1349,7 +1349,7 @@ class Britney(object):
         # updating testing; if the unstable package has RC bugs that do not apply to the testing
         # one,  the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
-            for pkg in pkgs.keys():
+            for pkg in pkgs:
                 bugs_t = []
                 bugs_u = []
                 if pkg in self.bugs['testing']:
@@ -1573,7 +1573,7 @@ class Britney(object):
         self.invalidate_excuses(upgrade_me, unconsidered)
 
         # sort the list of candidates
-        self.upgrade_me = sorted([ MigrationItem(x) for x in upgrade_me ])
+        self.upgrade_me = sorted( MigrationItem(x) for x in upgrade_me )
 
         # write excuses to the output file
         if not self.options.dry_run:
@@ -1932,7 +1932,7 @@ class Britney(object):
         to_check = []
 
         # broken packages (first round)
-        for p in [x[0] for x in affected if x[1] == arch]:
+        for p in (x[0] for x in affected if x[1] == arch):
             if p not in binaries[arch][0]:
                 continue
             nuninst_arch = None
@@ -1993,7 +1993,7 @@ class Britney(object):
         if lundo is None:
             lundo = []
         if not hint:
-            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join([x.uvname for x in selected]), len(packages), len(extra)))
+            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(x.uvname for x in selected), len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
@@ -2037,8 +2037,8 @@ class Britney(object):
                     skip_archall = True
                 else: skip_archall = False
 
-                nuninst[arch] = set([x for x in nuninst_comp[arch] if x in binaries[arch][0]])
-                nuninst[arch + "+all"] = set([x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]])
+                nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
+                nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
 
                 check_packages(arch, affected, skip_archall, nuninst, pkg)
 
@@ -2068,15 +2068,15 @@ class Britney(object):
                 self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
                 self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
                 if len(selected) <= 20:
-                    self.output_write("   all: %s\n" % (" ".join([ x.uvname for x in selected ])))
+                    self.output_write("   all: %s\n" % (" ".join( x.uvname for x in selected )))
                 else:
-                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join([x.uvname for x in selected][-20:])))
+                    self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
                 self.output_write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
                 self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, pkg.architecture != 'source' and nuninst_comp or None)))
-                self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted([b for b in nuninst[arch] if b not in nuninst_comp[arch]]))))
+                self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted(b for b in nuninst[arch] if b not in nuninst_comp[arch]))))
 
                 extra.append(pkg)
                 if not mark_passed:
@@ -2089,7 +2089,7 @@ class Britney(object):
         if hint:
             return (nuninst_comp, [])
 
-        self.output_write(" finish: [%s]\n" % ",".join([ x.uvname for x in selected ]))
+        self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
         self.output_write(eval_uninst(self.options.architectures,
@@ -2126,7 +2126,7 @@ class Britney(object):
         if init:
             if not force:
                 lundo = []
-            self.output_write("leading: %s\n" % (",".join([ x.uvname for x in init ])))
+            self.output_write("leading: %s\n" % (",".join( x.uvname for x in init )))
             for x in init:
                 if x not in upgrade_me:
                     self.output_write("failed: %s\n" % (x.uvname))
@@ -2163,7 +2163,7 @@ class Britney(object):
             # Result accepted either by force or by being better than the original result.
             if recurse:
                 self.output_write("Apparently successful\n")
-            self.output_write("final: %s\n" % ",".join(sorted([ x.uvname for x in selected ])))
+            self.output_write("final: %s\n" % ",".join(sorted( x.uvname for x in selected )))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             if not force:
                 self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
@@ -2231,7 +2231,7 @@ class Britney(object):
         allpackages += self.upgrade_me
         for a in self.options.break_arches.split():
             backup = self.options.break_arches
-            self.options.break_arches = " ".join([x for x in self.options.break_arches.split() if x != a])
+            self.options.break_arches = " ".join(x for x in self.options.break_arches.split() if x != a)
             self.upgrade_me = archpackages[a]
             self.output_write("info: broken arch run for %s\n" % (a))
             self.do_all()
@@ -2472,7 +2472,7 @@ class Britney(object):
         self.__log("> Processing hints from the auto hinter", type="I")
 
         # consider only excuses which are valid candidates
-        excuses = dict([(x.name, x) for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me]])
+        excuses = dict((x.name, x) for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me])
 
         def find_related(e, hint, circular_first=False):
             if e not in excuses:
@@ -2506,9 +2506,9 @@ class Britney(object):
                 looped = False
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
-                    items.extend( [ (x, excuses[x].ver[1]) for x in excuses if \
+                    items.extend( (x, excuses[x].ver[1]) for x in excuses if \
                        (item in excuses[x].deps or x in excuses[item].deps) \
-                       and (x, excuses[x].ver[1]) not in items ] )
+                       and (x, excuses[x].ver[1]) not in items )
                     if not looped and len(items) > 1:
                         mincands.append(items[:])
                     looped = True
@@ -2563,7 +2563,7 @@ class Britney(object):
 
         print '* %s' % (arch,)
 
-        for (src, ver), pkgs in sorted(all.items()):
+        for (src, ver), pkgs in sorted(all.iteritems()):
             print '  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs)))
 
         print

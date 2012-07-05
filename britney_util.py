@@ -273,7 +273,8 @@ def write_nuninst(filename, nuninst):
         # redundant.
         f.write("Built on: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n")
         f.write("Last update: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n\n")
-        f.write("".join([k + ": " + " ".join(nuninst[k]) + "\n" for k in nuninst]))
+        for k in nuninst:
+            f.write("%s: %s\n" % (k, " ".join(nuninst[k])))
 
 
 def read_nuninst(filename, architectures):
