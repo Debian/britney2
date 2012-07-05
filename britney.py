@@ -212,7 +212,8 @@ from excuse import Excuse
 from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
-from britney_util import old_libraries_format, same_source, undo_changes
+from britney_util import (old_libraries_format, same_source, undo_changes,
+                          ifilter_except, ifilter_only)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -2061,17 +2062,16 @@ class Britney(object):
             return frozenset()
         rev_deps = set(binaries[pkg][RDEPENDS])
         seen = set([pkg])
-        while len(rev_deps) > 0:
+
+        binfilt = ifilter_only(binaries)
+        revfilt = ifilter_except(seen)
+        flatten = chain.from_iterable
+        while rev_deps:
             # mark all of the current iteration of packages as affected
             seen |= rev_deps
             # generate the next iteration, which is the reverse-dependencies of
             # the current iteration
-            new_rev_deps = [ binaries[x][RDEPENDS] for x in rev_deps \
-                             if x in binaries ]
-            # flatten the list-of-lists, filtering out already handled packages
-            # in the process
-            rev_deps = set([package for package in chain.from_iterable(new_rev_deps) \
-                                 if package not in seen ])
+            rev_deps = set(revfilt(flatten( binaries[x][RDEPENDS] for x in binfilt(rev_deps) )))
         return izip(seen, repeat(arch))
 
     def _check_packages(self, binaries, systems, arch, affected, skip_archall, nuninst, pkg):

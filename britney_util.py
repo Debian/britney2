@@ -5,6 +5,7 @@
 #                         Andreas Barth <aba@debian.org>
 #                         Fabio Tranchitella <kobold@debian.org>
 # Copyright (C) 2010-2012 Adam D. Barratt <adsb@debian.org>
+# Copyright (C) 2012 Niels Thykier <niels@thykier.net>
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,6 +17,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+
+from functools import partial
+from itertools import ifilter, ifilterfalse
 import re
 from consts import BINARIES, PROVIDES
 
@@ -42,6 +46,32 @@ def same_source(sv1, sv2, binnmu_re=binnmu_re):
         return 1
 
     return 0
+
+
+def ifilter_except(container, iterable=None):
+    """Filter out elements in container
+
+    If given an iterable it returns a filtered iterator, otherwise it
+    returns a function to generate filtered iterators.  The latter is
+    useful if the same filter has to be (re-)used on multiple
+    iterators that are not known on beforehand.
+    """
+    if iterable is not None:
+        return ifilterfalse(container.__contains__, iterable)
+    return partial(ifilterfalse, container.__contains__)
+
+
+def ifilter_only(container, iterable=None):
+    """Filter out elements in which are not in container
+
+    If given an iterable it returns a filtered iterator, otherwise it
+    returns a function to generate filtered iterators.  The latter is
+    useful if the same filter has to be (re-)used on multiple
+    iterators that are not known on beforehand.
+    """
+    if iterable is not None:
+        return ifilter(container.__contains__, iterable)
+    return partial(ifilter, container.__contains__)
 
 
 def undo_changes(lundo, systems, sources, binaries,
