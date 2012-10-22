@@ -2733,23 +2733,24 @@ class Britney(object):
         # run the auto hinter
         self.auto_hinter()
 
-        # obsolete source packages
-        # a package is obsolete if none of the binary packages in testing
-        # are built by it
-        self.log("> Removing obsolete source packages from testing", type="I")
-        # local copies for performance
-        sources = self.sources['testing']
-        binaries = self.binaries['testing']
-        used = set(binaries[arch][0][binary].source
-                     for arch in binaries
-                     for binary in binaries[arch][0]
-                  )
-        removals = [ MigrationItem("-%s/%s" % (source, sources[source].version))
-                     for source in sources if source not in used
-                   ]
-        if len(removals) > 0:
-            self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
-            self.do_all(actions=removals)
+        if getattr(self.options, "remove_obsolete", "yes") == "yes":
+            # obsolete source packages
+            # a package is obsolete if none of the binary packages in testing
+            # are built by it
+            self.log("> Removing obsolete source packages from testing", type="I")
+            # local copies for performance
+            sources = self.sources['testing']
+            binaries = self.binaries['testing']
+            used = set(binaries[arch][0][binary].source
+                         for arch in binaries
+                         for binary in binaries[arch][0]
+                      )
+            removals = [ MigrationItem("-%s/%s" % (source, sources[source].version))
+                         for source in sources if source not in used
+                       ]
+            if removals:
+                self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
+                self.do_all(actions=removals)
 
         # smooth updates
         removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
