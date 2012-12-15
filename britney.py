@@ -2417,12 +2417,21 @@ class Britney(object):
         # run the auto hinter
         self.auto_hinter()
 
-        # obsolete source packages  
+        # obsolete source packages
+        # a package is obsolete if none of the binary packages in testing
+        # are built by it
         self.__log("> Removing obsolete source packages from testing", type="I")
         removals = []
+        # local copies for performance
         sources = self.sources['testing']
-        removals = [ HintItem("-%s/%s" % (source, sources[source][VERSION])) for \
-                     source in sources if len(sources[source][BINARIES]) == 0 ]
+        binaries = self.binaries['testing']
+        used = set(binaries[arch][0][binary][SOURCE]
+                     for arch in binaries
+                     for binary in binaries[arch][0]
+                  )
+        removals = [ HintItem("-%s/%s" % (source, sources[source][VERSION]))
+                     for source in sources if source not in used
+                   ]
         if len(removals) > 0:
             self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
             self.do_all(actions=removals)
