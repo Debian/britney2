@@ -2135,8 +2135,6 @@ class Britney(object):
 
                 nuninst[arch] = set([x for x in nuninst_comp[arch] if x in binaries[arch][0]])
                 nuninst[arch + "+all"] = set([x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0]])
-                broken = nuninst[arch + "+all"]
-                to_check = []
 
                 check_packages(arch, affected, skip_archall, nuninst, pkg)
 
