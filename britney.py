@@ -1932,7 +1932,10 @@ class Britney(object):
                 key = (binary, parch)
                 # obviously, added/modified packages are affected
                 if key not in affected: affected.add(key)
-                # if the binary already exists (built from another source)
+                # if the binary already exists in testing, it is currently
+                # built by another source package. we therefore remove the
+                # version built by the other source package, after marking
+                # all of its reverse dependencies as affected
                 if binary in binaries[parch][0]:
                     # save the old binary package
                     undo['binaries'][p] = binaries[parch][0][binary]
@@ -1947,9 +1950,13 @@ class Britney(object):
                             if key not in affected: affected.add(key)
                     self.systems[parch].remove_binary(binary)
                 else:
-                    # if the binary was previously built by a different
-                    # source package in testing, all of the reverse
-                    # dependencies of the old binary are affected.
+                    # the binary isn't in testing, but it may have been at
+                    # the start of the current hint and have been removed
+                    # by an earlier migration. if that's the case then we
+                    # will have a record of the older instance of the binary
+                    # in the undo information. we can use that to ensure
+                    # that the reverse dependencies of the older binary
+                    # package are also checked.
                     # reverse dependencies built from this source can be
                     # ignored as their reverse trees are already handled
                     # by this function
