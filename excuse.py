@@ -135,11 +135,15 @@ class Excuse(object):
                 (self.daysold, self.mindays))
         for x in self.htmlline:
             res = res + "<li>" + x + "\n"
-        for x in sorted(self.deps):
+        lastdep = ""
+        for x in sorted(self.deps, lambda x,y: cmp(x.split('/')[0], y.split('/')[0])):
+            dep = x.split('/')[0]
+            if dep == lastdep: continue
+            lastdep = dep
             if x in self.invalid_deps:
-                res = res + "<li>Depends: %s <a href=\"#%s\">%s</a> (not considered)\n" % (self.name, x, x)
+                res = res + "<li>Depends: %s <a href=\"#%s\">%s</a> (not considered)\n" % (self.name, dep, dep)
             else:
-                res = res + "<li>Depends: %s <a href=\"#%s\">%s</a>\n" % (self.name, x, x)
+                res = res + "<li>Depends: %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
         for (n,a) in self.break_deps:
             if n not in self.deps:
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)

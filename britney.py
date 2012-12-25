@@ -1084,7 +1084,10 @@ class Britney(object):
             # for the solving packages, update the excuse to add the dependencies
             for p in packages:
                 if arch not in self.options.break_arches.split():
-                    excuse.add_dep(p, arch)
+                    if p in self.sources['testing'] and self.sources['testing'][p][VERSION] == self.sources[suite][p][VERSION]:
+                        excuse.add_dep("%s/%s" % (p, arch), arch)
+                    else:
+                        excuse.add_dep(p, arch)
                 else:
                     excuse.add_break_dep(p, arch)
 
