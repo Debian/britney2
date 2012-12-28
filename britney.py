@@ -213,30 +213,12 @@ from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
 from britney_util import same_source
+from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
+                   SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
+                   PROVIDES, RDEPENDS, RCONFLICTS)
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
-
-# source package
-VERSION = 0
-SECTION = 1
-BINARIES = 2
-MAINTAINER = 3
-FAKESRC = 4
-
-# binary package
-SOURCE = 2
-SOURCEVER = 3
-ARCHITECTURE = 4
-# PREDEPENDS = 5 - No longer used by the python code
-#  - The C-code needs it for alignment reasons and still check it
-#    but ignore it if it is None (so keep it None).
-DEPENDS = 6
-CONFLICTS = 7
-PROVIDES = 8
-RDEPENDS = 9
-RCONFLICTS = 10
-
 
 class Britney(object):
     """Britney, the Debian testing updater script
