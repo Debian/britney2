@@ -17,6 +17,7 @@
 # GNU General Public License for more details.
 
 import re
+from consts import BINARIES, PROVIDES
 
 binnmu_re = re.compile(r'^(.*)\+b\d+$')
 
@@ -41,3 +42,74 @@ def same_source(sv1, sv2, binnmu_re=binnmu_re):
         return 1
 
     return 0
+
+
+def undo_changes(lundo, systems, sources, binaries,
+                 BINARIES=BINARIES, PROVIDES=PROVIDES):
+    """Undoes one or more changes to testing
+
+    * lundo is a list of (undo, item)-tuples
+    * systems is the britney-py.c system
+    * sources is the table of all source packages for all suites
+    * binaries is the table of all binary packages for all suites
+      and architectures
+
+    The "X=X" parameters are optimizations to avoid "load global"
+    in loops.
+    """
+
+    # We do the undo process in "4 steps" and each step must be
+    # fully completed for each undo-item before starting on the
+    # next.
+    #
+    # see commit:ef71f0e33a7c3d8ef223ec9ad5e9843777e68133 and
+    # #624716 for the issues we had when we did not do this.
+
+
+    # STEP 1
+    # undo all the changes for sources
+    for (undo, item) in lundo:
+        for k in undo['sources']:
+            if k[0] == '-':
+                del sources["testing"][k[1:]]
+            else:
+                sources["testing"][k] = undo['sources'][k]
+
+    # STEP 2
+    # undo all new binaries (consequence of the above)
+    for (undo, item) in lundo:
+        if not item.is_removal and item.package in sources[item.suite]:
+            for p in sources[item.suite][item.package][BINARIES]:
+                binary, arch = p.split("/")
+                if item.architecture in ['source', arch]:
+                    del binaries["testing"][arch][0][binary]
+                    systems[arch].remove_binary(binary)
+
+
+    # STEP 3
+    # undo all other binary package changes (except virtual packages)
+    for (undo, item) in lundo:
+        for p in undo['binaries']:
+            binary, arch = p.split("/")
+            if binary[0] == "-":
+                del binaries['testing'][arch][0][binary[1:]]
+                systems[arch].remove_binary(binary[1:])
+            else:
+                binaries_t_a = binaries['testing'][arch][0]
+                binaries_t_a[binary] = undo['binaries'][p]
+                systems[arch].remove_binary(binary)
+                systems[arch].add_binary(binary, binaries_t_a[binary][:PROVIDES] + \
+                     [", ".join(binaries_t_a[binary][PROVIDES]) or None])
+
+    # STEP 4
+    # undo all changes to virtual packages
+    for (undo, item) in lundo:
+        for p in undo['nvirtual']:
+            j, arch = p.split("/")
+            del binaries['testing'][arch][1][j]
+        for p in undo['virtual']:
+            j, arch = p.split("/")
+            if j[0] == '-':
+                del binaries['testing'][arch][1][j[1:]]
+            else:
+                binaries['testing'][arch][1][j] = undo['virtual'][p]

@@ -212,7 +212,7 @@ from excuse import Excuse
 from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
-from britney_util import same_source
+from britney_util import same_source, undo_changes
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -2237,7 +2237,7 @@ class Britney(object):
                     skipped.append(pkg)
                 single_undo = [(undo, item)]
                 # (local-scope) binaries is actually self.binaries["testing"] so we cannot use it here.
-                self.undo_changes(single_undo, systems, sources, self.binaries)
+                undo_changes(single_undo, systems, sources, self.binaries)
 
         # if we are processing hints, return now
         if hint:
@@ -2338,75 +2338,7 @@ class Britney(object):
             if not lundo: return
             lundo.reverse()
 
-            self.undo_changes(lundo, self.systems, self.sources, self.binaries)
-
-
-    def undo_changes(self, lundo, systems, sources, binaries):
-        """Undoes one or more changes to testing
-
-        * lundo is a list of (undo, item)-tuples
-        * systems is the britney-py.c system
-        * sources is the table of all source packages for all suites
-        * binaries is the table of all binary packages for all suites
-          and architectures
-        """
-
-        # We do the undo process in "4 steps" and each step must be
-        # fully completed for each undo-item before starting on the
-        # next.
-        #
-        # see commit:ef71f0e33a7c3d8ef223ec9ad5e9843777e68133 and
-        # #624716 for the issues we had when we did not do this.
-
-
-        # STEP 1
-        # undo all the changes for sources
-        for (undo, item) in lundo:
-            for k in undo['sources'].keys():
-                if k[0] == '-':
-                    del sources["testing"][k[1:]]
-                else:
-                    sources["testing"][k] = undo['sources'][k]
-
-        # STEP 2
-        # undo all new binaries (consequence of the above)
-        for (undo, item) in lundo:
-            if not item.is_removal and item.package in sources[item.suite]:
-                for p in sources[item.suite][item.package][BINARIES]:
-                    binary, arch = p.split("/")
-                    if item.architecture in ['source', arch]:
-                        del binaries["testing"][arch][0][binary]
-                        systems[arch].remove_binary(binary)
-
-
-        # STEP 3
-        # undo all other binary package changes (except virtual packages)
-        for (undo, item) in lundo:
-            for p in undo['binaries'].keys():
-                binary, arch = p.split("/")
-                if binary[0] == "-":
-                    del binaries['testing'][arch][0][binary[1:]]
-                    systems[arch].remove_binary(binary[1:])
-                else:
-                    binaries_t_a = binaries['testing'][arch][0]
-                    binaries_t_a[binary] = undo['binaries'][p]
-                    systems[arch].remove_binary(binary)
-                    systems[arch].add_binary(binary, binaries_t_a[binary][:PROVIDES] + \
-                         [", ".join(binaries_t_a[binary][PROVIDES]) or None])
-
-        # STEP 4
-        # undo all changes to virtual packages
-        for (undo, item) in lundo:
-            for p in undo['nvirtual']:
-                j, arch = p.split("/")
-                del binaries['testing'][arch][1][j]
-            for p in undo['virtual']:
-                j, arch = p.split("/")
-                if j[0] == '-':
-                    del binaries['testing'][arch][1][j[1:]]
-                else:
-                    binaries['testing'][arch][1][j] = undo['virtual'][p]
-
+            undo_changes(lundo, self.systems, self.sources, self.binaries)
 
 
 
