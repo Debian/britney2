@@ -212,7 +212,7 @@ from excuse import Excuse
 from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
-from britney_util import same_source, undo_changes
+from britney_util import old_libraries_format, same_source, undo_changes
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -2431,14 +2431,14 @@ class Britney(object):
             removals = self.old_libraries()
             if len(removals) > 0:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
-                    (len(removals), self.old_libraries_format(removals)))
+                    (len(removals), old_libraries_format(removals)))
                 self.do_all(actions=[ MigrationItem(x) for x in removals ])
                 removals = self.old_libraries()
         else:
             removals = ()
 
         self.output_write("List of old libraries in testing (%d):\n%s" % \
-             (len(removals), self.old_libraries_format(removals)))
+             (len(removals), old_libraries_format(removals)))
 
         # output files
         if not self.options.dry_run:
@@ -2701,18 +2701,6 @@ class Britney(object):
                    not same_source(sources[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
                     removals.append("-" + pkg_name + "/" + arch)
         return removals
-
-    def old_libraries_format(self, libs):
-        """Format old libraries in a smart table"""
-        libraries = {}
-        for i in libs:
-            pkg, arch = i.split("/")
-            pkg = pkg[1:]
-            if pkg in libraries:
-                libraries[pkg].append(arch)
-            else:
-                libraries[pkg] = [arch]
-        return "\n".join(["  " + k + ": " + " ".join(libraries[k]) for k in libraries]) + "\n"
 
     def nuninst_arch_report(self, nuninst, arch):
         """Print a report of uninstallable packages for one architecture."""

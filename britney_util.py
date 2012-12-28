@@ -113,3 +113,17 @@ def undo_changes(lundo, systems, sources, binaries,
                 del binaries['testing'][arch][1][j[1:]]
             else:
                 binaries['testing'][arch][1][j] = undo['virtual'][p]
+
+
+def old_libraries_format(libs):
+    """Format old libraries in a smart table"""
+    libraries = {}
+    for i in libs:
+        pkg, arch = i.split("/")
+        pkg = pkg[1:]
+        if pkg in libraries:
+            libraries[pkg].append(arch)
+        else:
+            libraries[pkg] = [arch]
+    return "\n".join("  " + k + ": " + " ".join(libraries[k]) for k in libraries) + "\n"
+
