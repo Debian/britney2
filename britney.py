@@ -566,8 +566,7 @@ class Britney(object):
             packages[pkg] = dpkg
 
         # loop again on the list of packages to register reverse dependencies and conflicts
-        for pkg in packages:
-            register_reverses(pkg, packages, provides, check_doubles=False)
+        register_reverses(packages, provides, check_doubles=False)
 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
@@ -1988,10 +1987,12 @@ class Britney(object):
                 affected.update(self.get_reverse_tree(binary, parch, 'testing'))
 
             # register reverse dependencies and conflicts for the new binary packages
-            for p in source[BINARIES]:
-                binary, parch = p.split("/")
-                if item.architecture not in ['source', parch]: continue
-                register_reverses(binary, binaries[parch][0] , binaries[parch][1])
+            if item.architecture == 'source':
+                pkg_iter = (p.split("/")[0] for p in source[BINARIES])
+            else:
+                ext = "/" + item.architecture
+                pkg_iter = (p.split("/")[0] for p in source[BINARIES] if p.endswith(ext))
+            register_reverses(binaries[parch][0], binaries[parch][1], iterator=pkg_iter)
 
             # add/update the source package
             if item.architecture == 'source':

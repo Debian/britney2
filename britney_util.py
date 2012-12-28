@@ -163,44 +163,55 @@ def old_libraries_format(libs):
 
 
 
-def register_reverses(pkg, packages, provides, check_doubles=True,
+def register_reverses(packages, provides, check_doubles=True, iterator=None,
                       parse_depends=apt_pkg.parse_depends,
+                      DEPENDS=DEPENDS, CONFLICTS=CONFLICTS,
                       RDEPENDS=RDEPENDS, RCONFLICTS=RCONFLICTS):
-    """Register reverse dependencies and conflicts for the specified package
+    """Register reverse dependencies and conflicts for a given
+    sequence of packages
 
-    This method registers the reverse dependencies and conflicts for
-    a given package using `packages` as the list of packages and `provides`
-    as the list of virtual packages.
+    This method registers the reverse dependencies and conflicts for a
+    given sequence of packages.  "packages" is a table of real
+    packages and "provides" is a table of virtual packages.
+
+    iterator is the sequence of packages for which the reverse
+    relations should be updated.
 
     The "X=X" parameters are optimizations to avoid "load global" in
     the loops.
     """
-    # register the list of the dependencies for the depending packages
-    dependencies = []
-    if packages[pkg][DEPENDS]:
-        dependencies.extend(parse_depends(packages[pkg][DEPENDS], False))
-    # go through the list
-    for p in dependencies:
-        for a in p:
-                # register real packages
-            if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RDEPENDS]):
-                packages[a[0]][RDEPENDS].append(pkg)
-            # also register packages which provide the package (if any)
-            if a[0] in provides:
-                for i in provides.get(a[0]):
-                    if i not in packages: continue
-                    if not check_doubles or pkg not in packages[i][RDEPENDS]:
-                        packages[i][RDEPENDS].append(pkg)
-    # register the list of the conflicts for the conflicting packages
-    if packages[pkg][CONFLICTS]:
-        for p in parse_depends(packages[pkg][CONFLICTS], False):
+    if iterator is None:
+        iterator = packages.iterkeys()
+    else:
+        iterator = ifilter_only(packages, iterator)
+
+    for pkg in iterator:
+        # register the list of the dependencies for the depending packages
+        dependencies = []
+        if packages[pkg][DEPENDS]:
+            dependencies.extend(parse_depends(packages[pkg][DEPENDS], False))
+        # go through the list
+        for p in dependencies:
             for a in p:
                 # register real packages
-                if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RCONFLICTS]):
-                    packages[a[0]][RCONFLICTS].append(pkg)
+                if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RDEPENDS]):
+                    packages[a[0]][RDEPENDS].append(pkg)
                 # also register packages which provide the package (if any)
                 if a[0] in provides:
                     for i in provides[a[0]]:
                         if i not in packages: continue
-                        if not check_doubles or pkg not in packages[i][RCONFLICTS]:
-                            packages[i][RCONFLICTS].append(pkg)
+                        if not check_doubles or pkg not in packages[i][RDEPENDS]:
+                            packages[i][RDEPENDS].append(pkg)
+        # register the list of the conflicts for the conflicting packages
+        if packages[pkg][CONFLICTS]:
+            for p in parse_depends(packages[pkg][CONFLICTS], False):
+                for a in p:
+                    # register real packages
+                    if a[0] in packages and (not check_doubles or pkg not in packages[a[0]][RCONFLICTS]):
+                        packages[a[0]][RCONFLICTS].append(pkg)
+                    # also register packages which provide the package (if any)
+                    if a[0] in provides:
+                        for i in provides[a[0]]:
+                            if i not in packages: continue
+                            if not check_doubles or pkg not in packages[i][RCONFLICTS]:
+                                packages[i][RCONFLICTS].append(pkg)
