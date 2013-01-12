@@ -20,7 +20,7 @@
 
 import apt_pkg
 from functools import partial
-from itertools import ifilter, ifilterfalse
+from itertools import chain, ifilter, ifilterfalse, izip, repeat
 import re
 
 
@@ -218,3 +218,44 @@ def register_reverses(packages, provides, check_doubles=True, iterator=None,
                             if i not in packages: continue
                             if not check_doubles or pkg not in packages[i][RCONFLICTS]:
                                 packages[i][RCONFLICTS].append(pkg)
+
+
+def compute_reverse_tree(packages_s, pkg, arch,
+                     set=set, flatten=chain.from_iterable,
+                     RDEPENDS=RDEPENDS):
+    """Calculate the full dependency tree for the given package
+
+    This method returns the full dependency tree for the package
+    "pkg", inside the "arch" architecture for a given suite flattened
+    as an iterable.  The first argument "packages_s" is the binary
+    package table for that given suite (e.g. Britney().binaries["testing"]).
+
+    The tree (or graph) is returned as an iterable of (package, arch)
+    tuples and the iterable will contain ("pkg", "arch") if it is
+    available on that architecture.
+
+    If "pkg" is not available on that architecture in that suite,
+    this returns an empty iterable.
+
+    The method does not promise any ordering of the returned
+    elements and the iterable is not reusable.
+
+    The flatten=... and the "X=X" parameters are optimizations to
+    avoid "load global" in the loops.
+    """
+    binaries = packages_s[arch][0]
+    if pkg not in binaries:
+        return frozenset()
+    rev_deps = set(binaries[pkg][RDEPENDS])
+    seen = set([pkg])
+
+    binfilt = ifilter_only(binaries)
+    revfilt = ifilter_except(seen)
+
+    while rev_deps:
+        # mark all of the current iteration of packages as affected
+        seen |= rev_deps
+        # generate the next iteration, which is the reverse-dependencies of
+        # the current iteration
+        rev_deps = set(revfilt(flatten( binaries[x][RDEPENDS] for x in binfilt(rev_deps) )))
+    return izip(seen, repeat(arch))

@@ -190,7 +190,6 @@ import urllib
 import apt_pkg
 
 from functools import reduce, partial
-from itertools import chain, repeat, izip
 from operator import attrgetter
 
 if __name__ == '__main__':
@@ -213,7 +212,7 @@ from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
-                          register_reverses)
+                          register_reverses, compute_reverse_tree)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -1887,6 +1886,7 @@ class Britney(object):
         # local copies for better performances
         sources = self.sources
         binaries = self.binaries['testing']
+        get_reverse_tree = partial(compute_reverse_tree, self.binaries["testing"])
         # remove all binary packages (if the source already exists)
         if item.architecture == 'source' or not item.is_removal:
             if item.package in sources['testing']:
@@ -1903,7 +1903,7 @@ class Britney(object):
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    affected.update(self.get_reverse_tree(binary, parch, 'testing'))
+                    affected.update(get_reverse_tree(binary, parch))
                     # remove the provided virtual packages
                     for j in binaries[parch][0][binary][PROVIDES]:
                         key = j + "/" + parch
@@ -1927,7 +1927,7 @@ class Britney(object):
         # updates but not supported as a manual hint
         elif item.package in binaries[item.architecture][0]:
             undo['binaries'][item.package + "/" + item.architecture] = binaries[item.architecture][0][item.package]
-            affected.update(self.get_reverse_tree(item.package, item.architecture, 'testing'))
+            affected.update(get_reverse_tree(item.package, item.architecture))
             del binaries[item.architecture][0][item.package]
             self.systems[item.architecture].remove_binary(item.package)
 
@@ -1948,10 +1948,10 @@ class Britney(object):
                     # save the old binary package
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
-                    affected.update(self.get_reverse_tree(binary, parch, 'testing'))
+                    affected.update(get_reverse_tree(binary, parch))
                     # all the reverse conflicts and their dependency tree are affected by the change
                     for j in binaries[parch][0][binary][RCONFLICTS]:
-                        affected.update(self.get_reverse_tree(j, parch, 'testing'))
+                        affected.update(get_reverse_tree(j, parch))
                     self.systems[parch].remove_binary(binary)
                 else:
                     # the binary isn't in testing, but it may have been at
@@ -1969,7 +1969,7 @@ class Britney(object):
                         if p in tundo['binaries']:
                             for rdep in tundo['binaries'][p][RDEPENDS]:
                                 if rdep in binaries[parch][0] and rdep not in source[BINARIES]:
-                                    affected.update(self.get_reverse_tree(rdep, parch, 'testing'))
+                                    affected.update(get_reverse_tree(rdep, parch))
                 # add/update the binary package
                 binaries[parch][0][binary] = self.binaries[item.suite][parch][0][binary]
                 self.systems[parch].add_binary(binary, binaries[parch][0][binary][:PROVIDES] + \
@@ -1984,7 +1984,7 @@ class Britney(object):
                         undo['virtual'][key] = binaries[parch][1][j][:]
                     binaries[parch][1][j].append(binary)
                 # all the reverse dependencies are affected by the change
-                affected.update(self.get_reverse_tree(binary, parch, 'testing'))
+                affected.update(get_reverse_tree(binary, parch))
 
             # register reverse dependencies and conflicts for the new binary packages
             if item.architecture == 'source':
@@ -2001,39 +2001,6 @@ class Britney(object):
         # return the package name, the suite, the list of affected packages and the undo dictionary
         return (item, affected, undo)
 
-    def get_reverse_tree(self, pkg, arch, suite):
-        """Calculate the full dependency tree for the given package
-
-        This method returns the full dependency tree for the package
-        `pkg`, inside the `arch` architecture for the suite `suite`
-        flatterned as an iterable.
-
-        The tree is returned as an iterable of (package, arch) tuples
-        and the iterable will contain (`pkg`, `arch`) if it is
-        available on that architecture.
-
-        If `pkg` is not available on that architecture in that suite,
-        this returns an empty iterable.
-
-        The method does not promise any ordering of the returned
-        elements and the iterable is not reusable nor mutable.
-        """
-        binaries = self.binaries[suite][arch][0]
-        if pkg not in binaries:
-            return frozenset()
-        rev_deps = set(binaries[pkg][RDEPENDS])
-        seen = set([pkg])
-
-        binfilt = ifilter_only(binaries)
-        revfilt = ifilter_except(seen)
-        flatten = chain.from_iterable
-        while rev_deps:
-            # mark all of the current iteration of packages as affected
-            seen |= rev_deps
-            # generate the next iteration, which is the reverse-dependencies of
-            # the current iteration
-            rev_deps = set(revfilt(flatten( binaries[x][RDEPENDS] for x in binfilt(rev_deps) )))
-        return izip(seen, repeat(arch))
 
     def _check_packages(self, binaries, systems, arch, affected, skip_archall, nuninst, pkg):
         broken = nuninst[arch + "+all"]
