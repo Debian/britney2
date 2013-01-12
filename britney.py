@@ -656,21 +656,6 @@ class Britney(object):
             bugs[pkg] += l[1].split(",")
         return bugs
 
-    def write_bugs(self, basedir, bugs):
-        """Write the release critical bug summary to the specified directory
-
-        For a more detailed explanation of the format, please check the method
-        read_bugs.
-        """
-        filename = os.path.join(basedir, "BugsV")
-        self.__log("Writing RC bugs data to %s" % filename)
-        f = open(filename, 'w')
-        for pkg in sorted(bugs.keys()):
-            if not bugs[pkg]:
-                continue
-            f.write("%s %s\n" % (pkg, ','.join(bugs[pkg])))
-        f.close()
-
     def __maxver(self, pkg, dist):
         """Return the maximum version for a given package name
         
