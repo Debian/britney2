@@ -213,7 +213,7 @@ from hints import HintCollection
 from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
-                          read_nuninst, write_nuninst)
+                          read_nuninst, write_nuninst, write_heidi)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -806,39 +806,6 @@ class Britney(object):
 
         return hints
 
-    def write_heidi(self, filename):
-        """Write the output HeidiResult
-
-        This method write the output for Heidi, which contains all the
-        binary packages and the source packages in the form:
-        
-        <pkg-name> <pkg-version> <pkg-architecture> <pkg-section>
-        <src-name> <src-version> source <src-section>
-        """
-        self.__log("Writing Heidi results to %s" % filename)
-        f = open(filename, 'w')
-
-        # local copies
-        sources = self.sources['testing']
-
-        # write binary packages
-        for arch in sorted(self.options.architectures):
-            binaries = self.binaries['testing'][arch][0]
-            for pkg_name in sorted(binaries):
-                pkg = binaries[pkg_name]
-                pkgv = pkg[VERSION]
-                pkgarch = pkg[ARCHITECTURE] or 'all'
-                pkgsec = pkg[SECTION] or 'faux'
-                f.write('%s %s %s %s\n' % (pkg_name, pkgv, pkgarch, pkgsec))
-
-        # write sources
-        for src_name in sorted(sources):
-            src = sources[src_name]
-            srcv = src[VERSION]
-            srcsec = src[SECTION] or 'unknown'
-            f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
-
-        f.close()
 
     def write_controlfiles(self, basedir, suite):
         """Write the control files
@@ -2356,7 +2323,9 @@ class Britney(object):
             self.write_dates(self.options.testing, self.dates)
 
             # write HeidiResult
-            self.write_heidi(self.options.heidi_output)
+            self.__log("Writing Heidi results to %s" % self.options.heidi_output)
+            write_heidi(self.options.heidi_output, self.sources["testing"],
+                        self.binaries["testing"])
 
         self.printuninstchange()
         self.__log("Test completed!", type="I")

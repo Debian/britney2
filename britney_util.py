@@ -25,8 +25,8 @@ import re
 import time
 
 
-from consts import (BINARIES, PROVIDES, DEPENDS, CONFLICTS,
-                    RDEPENDS, RCONFLICTS)
+from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
+                    RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION)
 
 binnmu_re = re.compile(r'^(.*)\+b\d+$')
 
@@ -292,3 +292,40 @@ def read_nuninst(filename, architectures):
                 nuninst[arch] = set(packages.split())
     return nuninst
 
+
+def write_heidi(filename, sources_t, packages_t,
+                VERSION=VERSION, SECTION=SECTION,
+                ARCHITECTURE=ARCHITECTURE, sorted=sorted):
+    """Write the output HeidiResult
+
+    This method write the output for Heidi, which contains all the
+    binary packages and the source packages in the form:
+
+    <pkg-name> <pkg-version> <pkg-architecture> <pkg-section>
+    <src-name> <src-version> source <src-section>
+
+    The file is written as "filename", it assumes all sources and
+    packages in "sources_t" and "packages_t" to be the packages in
+    "testing".
+
+    The "X=X" parameters are optimizations to avoid "load global" in
+    the loops.
+    """
+    with open(filename, 'w') as f:
+
+        # write binary packages
+        for arch in sorted(packages_t):
+            binaries = packages_t[arch][0]
+            for pkg_name in sorted(binaries):
+                pkg = binaries[pkg_name]
+                pkgv = pkg[VERSION]
+                pkgarch = pkg[ARCHITECTURE] or 'all'
+                pkgsec = pkg[SECTION] or 'faux'
+                f.write('%s %s %s %s\n' % (pkg_name, pkgv, pkgarch, pkgsec))
+
+        # write sources
+        for src_name in sorted(sources_t):
+            src = sources_t[src_name]
+            srcv = src[VERSION]
+            srcsec = src[SECTION] or 'unknown'
+            f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
