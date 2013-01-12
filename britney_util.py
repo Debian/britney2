@@ -293,6 +293,21 @@ def read_nuninst(filename, architectures):
     return nuninst
 
 
+def newly_uninst(nuold, nunew):
+    """Return a nuninst statstic with only new uninstallable packages
+
+    This method subtracts the uninstallable packages of the statistic
+    "nunew" from the statistic "nuold".
+
+    It returns a dictionary with the architectures as keys and the list
+    of uninstallable packages as values.
+    """
+    res = {}
+    for arch in ifilter_only(nunew, nuold):
+        res[arch] = [x for x in nunew[arch] if x not in nuold[arch]]
+    return res
+
+
 def eval_uninst(architectures, nuninst):
     """Return a string which represents the uninstallable packages
 

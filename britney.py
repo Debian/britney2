@@ -214,7 +214,7 @@ from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
-                          eval_uninst)
+                          eval_uninst, newly_uninst)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -1594,20 +1594,6 @@ class Britney(object):
     # Upgrade run
     # -----------
 
-    def newlyuninst(self, nuold, nunew):
-        """Return a nuninst statstic with only new uninstallable packages
-
-        This method subtracts the uninstallable packages of the statistic
-        `nunew` from the statistic `nuold`.
-
-        It returns a dictionary with the architectures as keys and the list
-        of uninstallable packages as values.
-        """
-        res = {}
-        for arch in nuold:
-            if arch not in nunew: continue
-            res[arch] = [x for x in nunew[arch] if x not in nuold[arch]]
-        return res
 
     def get_nuninst(self, requested_arch=None, build=False):
         """Return the uninstallability statistic for all the architectures
@@ -2107,7 +2093,7 @@ class Britney(object):
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_comp)))
         self.output_write(eval_uninst(self.options.architectures,
-                                      self.newlyuninst(self.nuninst_orig, nuninst_comp)))
+                                      newly_uninst(self.nuninst_orig, nuninst_comp)))
         self.output_write("\n")
 
         return (nuninst_comp, extra)
@@ -2171,7 +2157,7 @@ class Britney(object):
 
             if not force:
                 self.output_write(eval_uninst(self.options.architectures,
-                                              self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
+                                              newly_uninst(nuninst_start, nuninst_end)) + "\n")
 
         if force or self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
             # Result accepted either by force or by being better than the original result.
@@ -2187,7 +2173,7 @@ class Britney(object):
             if force:
                 self.output_write("force breaks:\n")
                 self.output_write(eval_uninst(self.options.architectures,
-                                              self.newlyuninst(nuninst_start, nuninst_end)) + "\n")
+                                              newly_uninst(nuninst_start, nuninst_end)) + "\n")
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
             if not actions:
@@ -2322,7 +2308,7 @@ class Britney(object):
 
     def printuninstchange(self):
         self.__log("Checking for newly uninstallable packages", type="I")
-        text = eval_uninst(self.options.architectures, self.newlyuninst(
+        text = eval_uninst(self.options.architectures, newly_uninst(
                         self.nuninst_orig_save, self.nuninst_orig))
 
         if text != '':
