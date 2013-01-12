@@ -212,7 +212,8 @@ from migrationitem import MigrationItem, HintItem
 from hints import HintCollection
 from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
-                          register_reverses, compute_reverse_tree)
+                          register_reverses, compute_reverse_tree,
+                          read_nuninst, write_nuninst)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -273,7 +274,7 @@ class Britney(object):
                 if self.options.print_uninst:
                     self.nuninst_arch_report(nuninst, arch)
             if not self.options.print_uninst:
-                self.write_nuninst(nuninst)
+                write_nuninst(self.options.noninst_status, nuninst)
         else:
             self.__log("Not building the list of non-installable packages, as requested", type="I")
 
@@ -887,25 +888,6 @@ class Britney(object):
                 output += (k + ": " + sources[src][key] + "\n")
             f.write(output + "\n")
         f.close()
-
-    def write_nuninst(self, nuninst):
-        """Write the non-installable report"""
-        f = open(self.options.noninst_status, 'w')
-        f.write("Built on: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n")
-        f.write("Last update: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n\n")
-        f.write("".join([k + ": " + " ".join(nuninst[k]) + "\n" for k in nuninst]))
-        f.close()
-
-    def read_nuninst(self):
-        """Read the non-installable report"""
-        f = open(self.options.noninst_status)
-        nuninst = {}
-        for r in f:
-            if ":" not in r: continue
-            arch, packages = r.strip().split(":", 1)
-            if arch.split("+", 1)[0] in self.options.architectures:
-                nuninst[arch] = set(packages.split())
-        return nuninst
 
 
     # Utility methods for package analysis
@@ -1670,10 +1652,13 @@ class Britney(object):
 
         It returns a dictionary with the architectures as keys and the list
         of uninstallable packages as values.
+
+        NB: If build is False, requested_arch is ignored.
         """
         # if we are not asked to build the nuninst, read it from the cache
         if not build:
-            return self.read_nuninst()
+            return read_nuninst(self.options.noninst_status,
+                                self.options.architectures)
 
         nuninst = {}
 

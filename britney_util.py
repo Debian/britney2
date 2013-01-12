@@ -22,6 +22,7 @@ import apt_pkg
 from functools import partial
 from itertools import chain, ifilter, ifilterfalse, izip, repeat
 import re
+import time
 
 
 from consts import (BINARIES, PROVIDES, DEPENDS, CONFLICTS,
@@ -259,3 +260,35 @@ def compute_reverse_tree(packages_s, pkg, arch,
         # the current iteration
         rev_deps = set(revfilt(flatten( binaries[x][RDEPENDS] for x in binfilt(rev_deps) )))
     return izip(seen, repeat(arch))
+
+
+def write_nuninst(filename, nuninst):
+    """Write the non-installable report
+
+    Write the non-installable report derived from "nuninst" to the
+    file denoted by "filename".
+    """
+    with open(filename, 'w') as f:
+        # Having two fields with (almost) identical dates seems a bit
+        # redundant.
+        f.write("Built on: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n")
+        f.write("Last update: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n\n")
+        f.write("".join([k + ": " + " ".join(nuninst[k]) + "\n" for k in nuninst]))
+
+
+def read_nuninst(filename, architectures):
+    """Read the non-installable report
+
+    Read the non-installable report from the file denoted by
+    "filename" and return it.  Only architectures in "architectures"
+    will be included in the report.
+    """
+    nuninst = {}
+    with open(filename) as f:
+        for r in f:
+            if ":" not in r: continue
+            arch, packages = r.strip().split(":", 1)
+            if arch.split("+", 1)[0] in architectures:
+                nuninst[arch] = set(packages.split())
+    return nuninst
+
