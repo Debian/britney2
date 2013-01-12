@@ -293,6 +293,22 @@ def read_nuninst(filename, architectures):
     return nuninst
 
 
+def eval_uninst(architectures, nuninst):
+    """Return a string which represents the uninstallable packages
+
+    This method returns a string which represents the uninstallable
+    packages reading the uninstallability statistics "nuninst".
+
+    An example of the output string is:
+      * i386: broken-pkg1, broken-pkg2
+    """
+    parts = []
+    for arch in architectures:
+        if arch in nuninst and nuninst[arch]:
+            parts.append("    * %s: %s\n" % (arch,", ".join(sorted(nuninst[arch]))))
+    return "".join(parts)
+
+
 def write_heidi(filename, sources_t, packages_t,
                 VERSION=VERSION, SECTION=SECTION,
                 ARCHITECTURE=ARCHITECTURE, sorted=sorted):
