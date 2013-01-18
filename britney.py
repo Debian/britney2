@@ -1305,6 +1305,8 @@ class Britney(object):
                 blocked['block-udeb'] = hint
         for hint in self.hints.search(type='block-all', package='source'):
             blocked.setdefault('block', hint)
+        if suite in ['pu', 'tpu']:
+            blocked['block'] = '%s-block' % (suite)
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
         # is processed only if the specified version is correct. If a package is blocked
@@ -1314,14 +1316,20 @@ class Britney(object):
             unblocks = self.hints.search(unblock_cmd, package=src)
 
             if unblocks and self.same_source(unblocks[0].version, source_u[VERSION]):
-                excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
-                               (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
+                if suite == 'unstable' or block_cmd == 'block-udeb':
+                    excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
+                                   (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
+                else:
+                    excuse.addhtml("Approved by %s" % (unblocks[0].user))
             else:
                 if unblocks:
                     excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
                                    (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
-                excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
-                               (block_cmd, blocked[block_cmd].user))
+                if suite == 'unstable' or block_cmd == 'block-udeb':
+                    excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
+                                   (block_cmd, blocked[block_cmd].user))
+                else:
+                    excuse.addhtml("NEEDS APPROVAL BY RM")
                 update_candidate = False
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
@@ -1475,15 +1483,6 @@ class Britney(object):
         if not update_candidate and forces:
             excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
             update_candidate = True
-
-        # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
-        if suite in ['tpu', 'pu']:
-            approves = [ x for x in self.hints.search('unblock', package=src) if self.same_source(source_u[VERSION], x.version) ]
-            if approves:
-                excuse.addhtml("Approved by %s" % approves[0].user)
-            else:
-                excuse.addhtml("NEEDS APPROVAL BY RM")
-                update_candidate = False
 
         # if the package can be updated, it is a valid candidate
         if update_candidate:
