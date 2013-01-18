@@ -831,6 +831,7 @@ class Britney(object):
                     # All current hints require at least one argument
                     self.__log("Malformed hint found in %s: '%s'" % (filename, line), type="W")
                 elif l[0] in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove"]:
+                    if l[0] == 'approve': l[0] = 'unblock'
                     for package in l[1:]:
                         hints.add_hint('%s %s' % (l[0], package), who)
                 elif l[0] in ["age-days"]:
@@ -1483,7 +1484,7 @@ class Britney(object):
 
         # if the suite is *-proposed-updates, the package needs an explicit approval in order to go in
         if suite in ['tpu', 'pu']:
-            approves = [ x for x in self.hints.search('approve', package=src) if self.same_source(source_u[VERSION], x.version) ]
+            approves = [ x for x in self.hints.search('unblock', package=src) if self.same_source(source_u[VERSION], x.version) ]
             if approves:
                 excuse.addhtml("Approved by %s" % approves[0].user)
             else:
