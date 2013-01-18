@@ -840,7 +840,7 @@ class Britney(object):
                 else:
                     hints.add_hint(l, who)
 
-        for x in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
+        for x in ["block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
             z = {}
             for hint in hints[x]:
                 package = hint.package
@@ -869,12 +869,6 @@ class Britney(object):
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
             self.__log("WARNING: No block hints at all, not even udeb ones!", type="W")
-
-        # A (t-)p-u approval overrides an unstable block
-        for p in hints["approve"]:
-            for o in hints.search('unblock', package=p.package):
-                o.set_active(False)
-            hints.add_hint('unblock %s/%s' % (p.package, p.version), p.user)
 
         return hints
 
