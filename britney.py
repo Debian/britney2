@@ -1213,17 +1213,20 @@ class Britney(object):
         if not anywrongver and (anyworthdoing or not self.sources[suite][src][FAKESRC]):
             srcv = self.sources[suite][src][VERSION]
             ssrc = self.same_source(source_t[VERSION], srcv)
-            # for every binary package produced by this source in testing for this architecture
-            for pkg in sorted([x.split("/")[0] for x in self.sources['testing'][src][BINARIES] if x.endswith("/"+arch)]):
-                # if the package is architecture-independent, then ignore it
-                if self.binaries['testing'][arch][0][pkg][ARCHITECTURE] == 'all':
-                    excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
-                    continue
-                # if the package is not produced by the new source package, then remove it from testing
-                if pkg not in self.binaries[suite][arch][0]:
-                    tpkgv = self.binaries['testing'][arch][0][pkg][VERSION]
-                    excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
-                    if ssrc: anyworthdoing = True
+            # if this is a binary-only migration via *pu, we never want to try
+            # removing binary packages
+            if not (ssrc and suite != 'unstable'):
+                # for every binary package produced by this source in testing for this architecture
+                for pkg in sorted([x.split("/")[0] for x in self.sources['testing'][src][BINARIES] if x.endswith("/"+arch)]):
+                    # if the package is architecture-independent, then ignore it
+                    if self.binaries['testing'][arch][0][pkg][ARCHITECTURE] == 'all':
+                        excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
+                        continue
+                    # if the package is not produced by the new source package, then remove it from testing
+                    if pkg not in self.binaries[suite][arch][0]:
+                        tpkgv = self.binaries['testing'][arch][0][pkg][VERSION]
+                        excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
+                        if ssrc: anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
