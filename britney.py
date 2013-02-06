@@ -1891,9 +1891,8 @@ class Britney(object):
                 # outside of the current source
                 for p in check:
                     binary, parch = p.split("/")
-                    rdeps = [ bin for bin in binaries[parch][0][binary][RDEPENDS] \
-                              if bin in [y.split("/")[0] for y in smoothbins] ]
-                    if len(rdeps) > 0:
+                    if any(bin for bin in binaries[parch][0][binary][RDEPENDS] \
+                              if bin in [y.split("/")[0] for y in smoothbins]):
                         smoothbins.append(p)
 
                 # remove all the binaries which aren't being smooth updated
