@@ -1371,17 +1371,17 @@ class Britney(object):
                     
                 # if the package in testing has no binaries on this
                 # architecture, it can't be out-of-date
-                if (len([x for x in self.sources["testing"][src][BINARIES]
-                         if x.endswith("/"+arch) and self.binaries["testing"][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) == 0):
+                if not any(x for x in self.sources["testing"][src][BINARIES]
+                           if x.endswith("/"+arch) and self.binaries["testing"][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all'):
                     continue
                     
                 # if the (t-)p-u package has produced any binaries on
                 # this architecture then we assume it's ok. this allows for
                 # uploads to (t-)p-u which intentionally drop binary
                 # packages
-                if (len([x for x in self.binaries[suite][arch][0].values() \
-                           if x[SOURCE] == src and x[SOURCEVER] == source_u[VERSION] and \
-                              x[ARCHITECTURE] != 'all' ]) > 0):
+                if any(x for x in self.binaries[suite][arch][0].values() \
+                          if x[SOURCE] == src and x[SOURCEVER] == source_u[VERSION] and \
+                             x[ARCHITECTURE] != 'all'):
                     continue
 
                 if suite == 'tpu':
