@@ -1374,7 +1374,9 @@ class Britney(object):
 
                 if not src in self.sources["testing"] or \
                    (len([x for x in self.sources["testing"][src][BINARIES] if x.endswith("/"+arch) and self.binaries["testing"][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) == 0) or \
-                   (len([x for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch) and self.binaries[suite][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all' ]) > 0):
+                   (len([x for x in self.binaries[suite][arch][0].values() \
+                           if x[SOURCE] == src and x[SOURCEVER] == source_u[VERSION] and \
+                              x[ARCHITECTURE] != 'all' ]) > 0):
                     continue
 
                 if suite == 'tpu':
