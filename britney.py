@@ -1846,7 +1846,16 @@ class Britney(object):
                 # first, build a list of eligible binaries
                 for p in source[BINARIES]:
                     binary, parch = p.split("/")
-                    if item.architecture != 'source' and parch != item.architecture: continue
+                    if item.architecture != 'source':
+                        # for a binary migration, binaries should not be removed:
+                        # - unless they are for the correct architecture
+                        if parch != item.architecture: continue
+                        # - if they are arch:all and the migration is via *pu,
+                        #   as the packages will not have been rebuilt and the
+                        #   source suite will not contain them
+                        if binaries[parch][0][binary][ARCHITECTURE] == 'all' and \
+                           item.suite != 'unstable':
+                            continue
                     # do not remove binaries which have been hijacked by other sources
                     if binaries[parch][0][binary][SOURCE] != item.package: continue
                     bins.append(p)
