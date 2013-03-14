@@ -40,6 +40,8 @@ class Completer(object):
             if pkg[0] == '-':
                 suite = 'testing'
                 pkg = pkg[1:]
+            if "_" in pkg:
+                (pkg, suite) = pkg.split("_")
             if "/" in pkg:
                 pkg = pkg.split("/")[0]
             name = "%s/%s" % (e.name, britney.sources[suite][pkg][0]) # 0 == VERSION
