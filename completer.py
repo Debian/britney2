@@ -37,6 +37,7 @@ class Completer(object):
         # generate a completion list from excuses.
         # - it might contain too many items, but meh
         complete = []
+        tpu = []
         for e in britney.excuses:
             ver = None
             pkg = e.name
@@ -50,7 +51,10 @@ class Completer(object):
                 pkg = pkg.split("/")[0]
             name = "%s/%s" % (e.name, britney.sources[suite][pkg][0]) # 0 == VERSION
             complete.append(name)
+            if suite == 'tpu':
+                tpu.append(name)
         self.packages = sorted(complete)
+        self.tpu_packages = sorted(tpu)
         testing = britney.sources['testing']
         self.testing_packages = sorted("%s/%s" % (pkg, testing[pkg][0]) for pkg in testing)
         
@@ -69,6 +73,8 @@ class Completer(object):
                 # complete pkg/[arch/]version
                 if words[0] == 'remove':
                     packages = self.testing_packages
+                elif words[0] == 'approve':
+                    packages = self.tpu_packages
                 else:
                     packages = self.packages
                 start = bisect.bisect_left(packages, text)
