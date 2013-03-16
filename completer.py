@@ -50,7 +50,9 @@ class Completer(object):
             name = "%s/%s" % (e.name, britney.sources[suite][pkg][0]) # 0 == VERSION
             complete.append(name)
         self.packages = sorted(complete)
-
+        testing = britney.sources['testing']
+        self.testing_packages = sorted("%s/%s" % (pkg, testing[pkg][0]) for pkg in testing)
+        
     def completer(self, text, state):
         """readline completer (see the readline API)"""
 
@@ -64,11 +66,15 @@ class Completer(object):
                 self.matches = [x for x in self.cmds if x.startswith(text)]
             else:
                 # complete pkg/[arch/]version
-                start = bisect.bisect_left(self.packages, text)
-                while start < len(self.packages):
-                    if not self.packages[start].startswith(text):
+                if words[0] == 'remove':
+                    packages = self.testing_packages
+                else:
+                    packages = self.packages
+                start = bisect.bisect_left(packages, text)
+                while start < len(packages):
+                    if not packages[start].startswith(text):
                         break
-                    self.matches.append(self.packages[start])
+                    self.matches.append(packages[start])
                     start += 1
 
         if len(self.matches) > state:
