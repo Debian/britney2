@@ -32,7 +32,7 @@ class Completer(object):
         self.cmds = ['easy', 'hint', 'force-hint', 'force', 'remove',
                      'force', 'age-days', 'urgent', 'block-all',
                      'block', 'block-udeb', 'unblock', 'unblock-udeb',
-                     'exit', 'quit']
+                     'approve', 'exit', 'quit']
         self.britney = britney
         # generate a completion list from excuses.
         # - it might contain too many items, but meh
