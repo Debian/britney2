@@ -1581,6 +1581,8 @@ class Britney(object):
         # if a package is going to be removed, it will have a "-" prefix
         upgrade_me = []
 
+        self.excuses = []
+
         # for every source package in testing, check if it should be removed
         for pkg in sources['testing']:
             if should_remove_source(pkg):
