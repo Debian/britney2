@@ -28,7 +28,7 @@ class Completer(object):
         Creates a completer for a given britney.
         """
         self.matches = []
-        self.cmds = ['easy', 'hint', 'force-hint', 'force',
+        self.cmds = ['easy', 'hint', 'force-hint', 'force', 'remove',
                      'force', 'age-days', 'urgent', 'block-all',
                      'block', 'block-udeb', 'unblock', 'unblock-udeb',
                      'exit', 'quit']
