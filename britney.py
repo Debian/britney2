@@ -2533,6 +2533,11 @@ class Britney(object):
             # quit the hint tester
             if input and input[0] in ('quit', 'exit'):
                 break
+            elif input and input[0] in ('remove', 'approve', 'urgent', 'age-days',
+                                        'block', 'block-udeb', 'unblock', 'unblock-udeb',
+                                        'block-all', 'force'):
+                self.hints.add_hint(' '.join(input), 'hint-tester')
+                self.write_excuses()
             # run a hint
             elif input and input[0] in ('easy', 'hint', 'force-hint'):
                 try:
