@@ -988,6 +988,9 @@ class Britney(object):
         if sv1 == sv2:
             return 1
 
+        if sv1 is None or sv2 is None:
+            return 0
+
         m = re.match(r'^(.*)\+b\d+$', sv1)
         if m: sv1 = m.group(1)
         m = re.match(r'^(.*)\+b\d+$', sv2)
