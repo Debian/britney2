@@ -2326,6 +2326,7 @@ class Britney(object):
         else:
             self.output_write("FAILED\n")
             if not lundo: return
+            lundo.reverse()
 
             self.undo_changes(lundo, self.systems, self.sources, self.binaries)
 
