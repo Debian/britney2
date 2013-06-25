@@ -1335,7 +1335,7 @@ class Britney(object):
             unblock_cmd = "un" + block_cmd
             unblocks = self.hints.search(unblock_cmd, package=src)
 
-            if unblocks and self.same_source(unblocks[0].version, source_u[VERSION]):
+            if unblocks and unblocks[0].version is not None and self.same_source(unblocks[0].version, source_u[VERSION]):
                 if suite == 'unstable' or block_cmd == 'block-udeb':
                     excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
                                    (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
@@ -1343,8 +1343,12 @@ class Britney(object):
                     excuse.addhtml("Approved by %s" % (unblocks[0].user))
             else:
                 if unblocks:
-                    excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
-                                   (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
+                    if unblocks[0].version is None:
+                        excuse.addhtml("%s request by %s ignored due to missing version" %
+                                       (unblock_cmd.capitalize(), unblocks[0].user))
+                    else:
+                        excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
+                                       (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
                 if suite == 'unstable' or block_cmd == 'block-udeb':
                     excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
                                    (block_cmd, blocked[block_cmd].user))
