@@ -555,12 +555,20 @@ class Britney(object):
                 if "(" in source:
                     dpkg[SOURCEVER] = source[source.find("(")+1:source.find(")")]
 
+            pkgarch = "%s/%s" % (pkg,arch)
             # if the source package is available in the distribution, then register this binary package
             if dpkg[SOURCE] in sources[distribution]:
-                sources[distribution][dpkg[SOURCE]][BINARIES].append(pkg + "/" + arch)
+                # There may be multiple versions of any arch:all packages
+                # (in unstable) if some architectures have out-of-date
+                # binaries.  We only want to include the package in the
+                # source -> binary mapping once. It doesn't matter which
+                # of the versions we include as only the package name and
+                # architecture are recorded.
+                if pkgarch not in sources[distribution][dpkg[SOURCE]][BINARIES]:
+                    sources[distribution][dpkg[SOURCE]][BINARIES].append(pkgarch)
             # if the source package doesn't exist, create a fake one
             else:
-                sources[distribution][dpkg[SOURCE]] = [dpkg[SOURCEVER], 'faux', [pkg + "/" + arch], None, True]
+                sources[distribution][dpkg[SOURCE]] = [dpkg[SOURCEVER], 'faux', [pkgarch], None, True]
 
             # register virtual packages and real packages that provide them
             if dpkg[PROVIDES]:
