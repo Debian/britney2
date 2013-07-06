@@ -1111,7 +1111,7 @@ class Britney(object):
         present in the unstable distribution anymore.
 
         It returns True if the package can be removed, False otherwise.
-        In the former case, a new excuse is appended to the the object
+        In the former case, a new excuse is appended to the object
         attribute excuses.
         """
         # if the source package is available in unstable, then do nothing
@@ -1145,7 +1145,7 @@ class Britney(object):
        
         It returns False if the given packages don't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
-        the the object attribute excuses.
+        the object attribute excuses.
         """
         # retrieve the source packages for testing and suite
         source_t = self.sources['testing'][src]
