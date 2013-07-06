@@ -1137,15 +1137,13 @@ class Britney(object):
         return True
 
     def should_upgrade_srcarch(self, src, arch, suite):
-        """Check if a binary package should be upgraded
+        """Check if a set of binary packages should be upgraded
 
-        This method checks if a binary package should be upgraded; this can
-        happen also if the binary package is a binary-NMU for the given arch.
-        The analysis is performed for the source package specified by the
-        `src' parameter, checking the architecture `arch' for the distribution
-        `suite'.
+        This method checks if the binary packages produced by the source
+        package on the given architecture should be upgraded; this can
+        happen also if the migration is a binary-NMU for the given arch.
        
-        It returns False if the given package doesn't need to be upgraded,
+        It returns False if the given packages don't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the the object attribute excuses.
         """
@@ -1162,6 +1160,8 @@ class Britney(object):
         
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
+        # (as a side effect, a removal will generate such excuses for both the source
+        # package and its binary packages on each architecture)
         for hint in [ x for x in self.hints.search('remove', package=src) if self.same_source(source_t[VERSION], x.version) ]:
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
@@ -1190,12 +1190,14 @@ class Britney(object):
                 continue
 
             # if the new binary package is not from the same source as the testing one, then skip it
+            # this implies that this binary migration is part of a source migration
             if not self.same_source(source_t[VERSION], pkgsv):
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_t[VERSION]))
                 break
 
             # if the source package has been updated in unstable and this is a binary migration, skip it
+            # (the binaries are now out-of-date)
             if self.same_source(source_t[VERSION], pkgsv) and source_t[VERSION] != source_u[VERSION]:
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_u[VERSION]))
@@ -1243,6 +1245,9 @@ class Britney(object):
                     if pkg not in self.binaries[suite][arch][0]:
                         tpkgv = self.binaries['testing'][arch][0][pkg][VERSION]
                         excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
+                        # the removed binary is only interesting if this is a binary-only migration,
+                        # as otherwise the updated source will already cause the binary packages
+                        # to be updated
                         if ssrc: anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
