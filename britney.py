@@ -1160,7 +1160,7 @@ class Britney(object):
         
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        # (as a side effect, a removal will generate such excuses for both the source
+        # (as a side effect, a removal may generate such excuses for both the source
         # package and its binary packages on each architecture)
         for hint in [ x for x in self.hints.search('remove', package=src) if self.same_source(source_t[VERSION], x.version) ]:
             excuse.addhtml("Removal request by %s" % (hint.user))
