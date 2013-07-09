@@ -1840,6 +1840,81 @@ class Britney(object):
         return diff <= 0
 
 
+    def find_upgraded_binaries(self, item, source):
+        bins = []
+        smoothbins = []
+        check = []
+
+
+        binaries_t = self.binaries['testing']
+        # first, build a list of eligible binaries
+        for p in source[BINARIES]:
+            binary, parch = p.split("/")
+            if item.architecture != 'source':
+                # for a binary migration, binaries should not be removed:
+                # - unless they are for the correct architecture
+                if parch != item.architecture:
+                    continue
+                # - if they are arch:all and the migration is via *pu,
+                #   as the packages will not have been rebuilt and the
+                #   source suite will not contain them
+                if binaries_t[parch][0][binary][ARCHITECTURE] == 'all' and \
+                        item.suite != 'unstable':
+                    continue
+            # do not remove binaries which have been hijacked by other sources
+            if binaries_t[parch][0][binary][SOURCE] != item.package:
+                continue
+            bins.append(p)
+
+        for p in bins:
+            binary, parch = p.split("/")
+            # if a smooth update is possible for the package, skip it
+            if item.suite == 'unstable' and \
+                    binary not in self.binaries[item.suite][parch][0] and \
+                    ('ALL' in self.options.smooth_updates or \
+                         binaries_t[parch][0][binary][SECTION] in self.options.smooth_updates):
+
+                # if the package has reverse-dependencies which are
+                # built from other sources, it's a valid candidate for
+                # a smooth update.  if not, it may still be a valid
+                # candidate if one if its r-deps is itself a candidate,
+                # so note it for checking later
+                rdeps = binaries_t[parch][0][binary][RDEPENDS]
+
+                # the list of reverse-dependencies may be outdated
+                # if, for example, we're processing a hint and
+                # a new version of one of the apparent reverse-dependencies
+                # migrated earlier in the hint.  walk the list to make
+                # sure that at least one of the entries is still
+                # valid
+                rrdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
+                if rrdeps:
+                    for dep in rrdeps:
+                        if dep in binaries_t[parch][0]:
+                            bin = binaries_t[parch][0][dep]
+                            deps = []
+                            if bin[DEPENDS] is not None:
+                                deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
+                                if any(binary == entry[0] for deplist in deps for entry in deplist):
+                                    smoothbins.append(p)
+                                    break
+                else:
+                    check.append(p)
+
+                
+        # check whether we should perform a smooth update for
+        # packages which are candidates but do not have r-deps
+        # outside of the current source
+        for p in check:
+            binary, parch = p.split("/")
+            if any(bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
+                       if bin in [y.split("/")[0] for y in smoothbins]):
+                smoothbins.append(p)
+
+
+
+        return (bins, smoothbins)
+
     def doop_source(self, item, hint_undo=[]):
         """Apply a change to the testing distribution as requested by `pkg`
 
@@ -1865,72 +1940,7 @@ class Britney(object):
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
 
-                bins = []
-                check = []
-                smoothbins = []
-
-                # remove all the binaries
-
-                # first, build a list of eligible binaries
-                for p in source[BINARIES]:
-                    binary, parch = p.split("/")
-                    if item.architecture != 'source':
-                        # for a binary migration, binaries should not be removed:
-                        # - unless they are for the correct architecture
-                        if parch != item.architecture: continue
-                        # - if they are arch:all and the migration is via *pu,
-                        #   as the packages will not have been rebuilt and the
-                        #   source suite will not contain them
-                        if binaries[parch][0][binary][ARCHITECTURE] == 'all' and \
-                           item.suite != 'unstable':
-                            continue
-                    # do not remove binaries which have been hijacked by other sources
-                    if binaries[parch][0][binary][SOURCE] != item.package: continue
-                    bins.append(p)
-
-                for p in bins:
-                    binary, parch = p.split("/")
-                    # if a smooth update is possible for the package, skip it
-                    if item.suite == 'unstable' and \
-                       binary not in self.binaries[item.suite][parch][0] and \
-                       ('ALL' in self.options.smooth_updates or \
-                        binaries[parch][0][binary][SECTION] in self.options.smooth_updates):
-
-                        # if the package has reverse-dependencies which are
-                        # built from other sources, it's a valid candidate for
-                        # a smooth update.  if not, it may still be a valid
-                        # candidate if one if its r-deps is itself a candidate,
-                        # so note it for checking later
-                        rdeps = binaries[parch][0][binary][RDEPENDS]
-
-                        # the list of reverse-dependencies may be outdated
-                        # if, for example, we're processing a hint and
-                        # a new version of one of the apparent reverse-dependencies
-                        # migrated earlier in the hint.  walk the list to make
-                        # sure that at least one of the entries is still
-                        # valid
-                        rrdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
-                        if len(rrdeps) > 0:
-                            for dep in rrdeps:
-                                if dep in binaries[parch][0]:
-                                    bin = binaries[parch][0][dep]
-                                    deps = []
-                                    if bin[DEPENDS] is not None:
-                                        deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
-                                    if any(binary == entry[0] for deplist in deps for entry in deplist):
-                                        smoothbins.append(p)
-                                        break
-                        else:
-                            check.append(p)
-
-                # check whether we should perform a smooth update for
-                # packages which are candidates but do not have r-deps
-                # outside of the current source
-                for p in check:
-                    binary, parch = p.split("/")
-                    if any(bin for bin in binaries[parch][0][binary][RDEPENDS] \
-                              if bin in [y.split("/")[0] for y in smoothbins]):
-                        smoothbins.append(p)
+                bins, smoothbins = self.find_upgraded_binaries(item, source)
 
                 # remove all the binaries which aren't being smooth updated
                 for p in [ bin for bin in bins if bin not in smoothbins ]:
