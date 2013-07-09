@@ -1236,19 +1236,32 @@ class Britney(object):
             # removing binary packages
             if not (ssrc and suite != 'unstable'):
                 # for every binary package produced by this source in testing for this architecture
-                for pkg in sorted([x.split("/")[0] for x in self.sources['testing'][src][BINARIES] if x.endswith("/"+arch)]):
+                source_data = self.sources['testing'][src]
+                _, smoothbins = self.find_upgraded_binaries(src,
+                                                            source_data,
+                                                            arch,
+                                                            suite)
+
+                for pkg in sorted([x.split("/")[0] for x in source_data[BINARIES] if x.endswith("/"+arch)]):
                     # if the package is architecture-independent, then ignore it
-                    if self.binaries['testing'][arch][0][pkg][ARCHITECTURE] == 'all':
+                    tpkg_data = self.binaries['testing'][arch][0][pkg]
+                    if tpkg_data[ARCHITECTURE] == 'all':
                         excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                         continue
                     # if the package is not produced by the new source package, then remove it from testing
                     if pkg not in self.binaries[suite][arch][0]:
-                        tpkgv = self.binaries['testing'][arch][0][pkg][VERSION]
-                        excuse.addhtml("Removed binary: %s %s" % (pkg, tpkgv))
+                        excuse.addhtml("Removed binary: %s %s" % (pkg, tpkg_data[VERSION]))
                         # the removed binary is only interesting if this is a binary-only migration,
                         # as otherwise the updated source will already cause the binary packages
                         # to be updated
-                        if ssrc: anyworthdoing = True
+                        if ssrc:
+                            # Special-case, if the binary is a candidate for smooth update, we do not consider
+                            # it "interesting" on its own.  This case happens quite often with smooth updatable
+                            # packages, where the old binary "survives" a full run because it still has
+                            # reverse dependencies.
+                            name = pkg + "/" + tpkg_data[ARCHITECTURE]
+                            if name not in smoothbins:
+                                anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
