@@ -1840,37 +1840,68 @@ class Britney(object):
         return diff <= 0
 
 
-    def find_upgraded_binaries(self, item, source):
-        bins = []
-        smoothbins = []
-        check = []
+    def find_upgraded_binaries(self, source_name, source_data,
+                                   architecture, suite):
+        # XXX: not the best name - really.
+        """Find smooth and non-smooth updatable binaries for upgrades
 
+        This method will compute the binaries that will be replaced in
+        testing and which of them are smooth updatable.
+
+        Parameters:
+        * "source_name" is the name of the source package, whose
+          binaries are migrating.
+        * "source_data" is the fields of that source package from
+          testing.
+        * "architecture" is the architecture determines architecture of
+          the migrating binaries (can be "source" for a
+          "source"-migration, meaning all binaries regardless of
+          architecture).
+        * "suite" is the suite from which the binaries are migrating.
+
+        Returns a tuple (bins, smoothbins).  "bins" is a set of binaries
+        that are not smooth-updatable (or binaries that could be, but
+        there is no reason to let them be smooth updated).
+        "smoothbins" is set of binaries that are to be smooth-updated
+
+        Pre-Conditions: The source package must be in testing and this
+        should only be used when considering to do an upgrade
+        migration from the input suite.  (e.g. do not use this for
+        removals).
+        """
+        bins = set()
+        smoothbins = set()
+        check = []
 
         binaries_t = self.binaries['testing']
         # first, build a list of eligible binaries
-        for p in source[BINARIES]:
+        for p in source_data[BINARIES]:
             binary, parch = p.split("/")
-            if item.architecture != 'source':
+            if architecture != 'source':
                 # for a binary migration, binaries should not be removed:
                 # - unless they are for the correct architecture
-                if parch != item.architecture:
+                if parch != architecture:
                     continue
                 # - if they are arch:all and the migration is via *pu,
                 #   as the packages will not have been rebuilt and the
                 #   source suite will not contain them
                 if binaries_t[parch][0][binary][ARCHITECTURE] == 'all' and \
-                        item.suite != 'unstable':
+                        suite != 'unstable':
                     continue
             # do not remove binaries which have been hijacked by other sources
-            if binaries_t[parch][0][binary][SOURCE] != item.package:
+            if binaries_t[parch][0][binary][SOURCE] != source_name:
                 continue
-            bins.append(p)
+            bins.add(p)
+
+        if suite != 'unstable':
+            # We only allow smooth updates from unstable, so if it we
+            # are not migrating from unstable just exit now.
+            return (bins, smoothbins)
 
         for p in bins:
             binary, parch = p.split("/")
             # if a smooth update is possible for the package, skip it
-            if item.suite == 'unstable' and \
-                    binary not in self.binaries[item.suite][parch][0] and \
+            if binary not in self.binaries[suite][parch][0] and \
                     ('ALL' in self.options.smooth_updates or \
                          binaries_t[parch][0][binary][SECTION] in self.options.smooth_updates):
 
@@ -1896,7 +1927,7 @@ class Britney(object):
                             if bin[DEPENDS] is not None:
                                 deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
                                 if any(binary == entry[0] for deplist in deps for entry in deplist):
-                                    smoothbins.append(p)
+                                    smoothbins.add(p)
                                     break
                 else:
                     check.append(p)
@@ -1909,10 +1940,9 @@ class Britney(object):
             binary, parch = p.split("/")
             if any(bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
                        if bin in [y.split("/")[0] for y in smoothbins]):
-                smoothbins.append(p)
+                smoothbins.add(p)
 
-
-
+        bins -= smoothbins
         return (bins, smoothbins)
 
     def doop_source(self, item, hint_undo=[]):
@@ -1940,10 +1970,13 @@ class Britney(object):
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
 
-                bins, smoothbins = self.find_upgraded_binaries(item, source)
+                bins, _ = self.find_upgraded_binaries(item.package,
+                                                      source,
+                                                      item.architecture,
+                                                      item.suite)
 
                 # remove all the binaries which aren't being smooth updated
-                for p in [ bin for bin in bins if bin not in smoothbins ]:
+                for p in bins:
                     binary, parch = p.split("/")
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
