@@ -186,12 +186,14 @@ import string
 import time
 import optparse
 import urllib
+import yaml
 
 import apt_pkg
 
 from functools import reduce, partial
 from itertools import chain, ifilter, product
 from operator import attrgetter
+from datetime import datetime
 
 if __name__ == '__main__':
     # Check if there is a python-search dir for this version of
@@ -1654,6 +1656,18 @@ class Britney(object):
                 f.write("<li>%s" % e.html())
             f.write("</ul></body></html>\n")
             f.close()
+
+            if hasattr(self.options, 'excuses_yaml_output'):
+                self.__log("> Writing YAML Excuses to %s" % self.options.excuses_yaml_output, type="I")
+                f = open(self.options.excuses_yaml_output, 'w')
+                excuselist = []
+                for e in self.excuses:
+                    excuselist.append(e.excusedata())
+                excusesdata = {}
+                excusesdata["sources"] = excuselist
+                excusesdata["generated"] = datetime.utcnow()
+                f.write(yaml.dump(excusesdata, default_flow_style=False, allow_unicode=True))
+                f.close()
 
         self.__log("Update Excuses generation completed", type="I")
 

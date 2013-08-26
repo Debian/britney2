@@ -151,3 +151,57 @@ class Excuse(object):
             res += "<li>Valid candidate\n"
         res = res + "</ul>\n"
         return res
+
+    # TODO merge with html()
+    def text(self):
+        """Render the excuse in text"""
+        res = []
+        res.append("%s (%s to %s)" % \
+            (self.name, self.ver[0], self.ver[1]))
+        if self.maint:
+            maint = self.maint
+            # ugly hack to work around strange encoding in pyyaml
+            # should go away with pyyaml in python 3
+            try:
+                maint.decode('ascii')
+            except UnicodeDecodeError:
+                maint = unicode(self.maint,'utf-8')
+            res.append("Maintainer: %s" % maint)
+        if self.section and string.find(self.section, "/") > -1:
+            res.append("Section: %s" % (self.section))
+        if self.daysold != None:
+            if self.daysold < self.mindays:
+                res.append(("Too young, only %d of %d days old" %
+                (self.daysold, self.mindays)))
+            else:
+                res.append(("%d days old (needed %d days)" %
+                (self.daysold, self.mindays)))
+        for x in self.htmlline:
+            res.append("" + x + "")
+        lastdep = ""
+        for x in sorted(self.deps, lambda x,y: cmp(x.split('/')[0], y.split('/')[0])):
+            dep = x.split('/')[0]
+            if dep == lastdep: continue
+            lastdep = dep
+            if x in self.invalid_deps:
+                res.append("Depends: %s %s (not considered)" % (self.name, dep))
+            else:
+                res.append("Depends: %s %s" % (self.name, dep))
+        for (n,a) in self.break_deps:
+            if n not in self.deps:
+                res.append("Ignoring %s depends: %s" % (a, n))
+        if self.is_valid:
+            res.append("Valid candidate")
+        return res
+
+    def excusedata(self):
+        """Render the excuse in as key-value data"""
+        excusedata = {}
+        excusedata["excuses"] = self.text()
+        excusedata["source"] = self.name
+        excusedata["oldversion"] = self.ver[0]
+        excusedata["newversion"] = self.ver[1]
+        excusedata["age"] = self.daysold
+        excusedata["ageneeded"] = self.mindays
+        return excusedata
+
