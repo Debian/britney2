@@ -2368,7 +2368,10 @@ class Britney(object):
                 self.write_controlfiles(self.options.testing, 'testing')
 
             # write dates
-            self.write_dates(self.options.testing, self.dates)
+            try:
+                self.write_dates(self.options.outputdir, self.dates)
+            except AttributeError:
+                self.write_dates(self.options.testing, self.dates)
 
             # write HeidiResult
             self.__log("Writing Heidi results to %s" % self.options.heidi_output)
