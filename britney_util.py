@@ -154,12 +154,11 @@ def old_libraries_format(libs):
     """Format old libraries in a smart table"""
     libraries = {}
     for i in libs:
-        pkg, arch = i.split("/")
-        pkg = pkg[1:]
+        pkg = i.package
         if pkg in libraries:
-            libraries[pkg].append(arch)
+            libraries[pkg].append(i.architecture)
         else:
-            libraries[pkg] = [arch]
+            libraries[pkg] = [i.architecture]
     return "\n".join("  " + k + ": " + " ".join(libraries[k]) for k in libraries) + "\n"
 
 

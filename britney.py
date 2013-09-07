@@ -215,7 +215,7 @@ from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
-                          eval_uninst, newly_uninst)
+                          eval_uninst, newly_uninst, make_hintitem)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -1573,7 +1573,7 @@ class Britney(object):
         self.invalidate_excuses(upgrade_me, unconsidered)
 
         # sort the list of candidates
-        self.upgrade_me = sorted( MigrationItem(x) for x in upgrade_me )
+        self.upgrade_me = sorted( make_hintitem(x, self.sources) for x in upgrade_me )
 
         # write excuses to the output file
         if not self.options.dry_run:
@@ -2011,14 +2011,14 @@ class Britney(object):
                 defer = False
                 for p in dependencies.get(pkg, []):
                     if p in skipped:
-                        deferred.append(pkg)
-                        skipped.append(pkg)
+                        deferred.append(make_hintitem(pkg, self.sources))
+                        skipped.append(make_hintitem(pkg, self.sources))
                         defer = True
                         break
                 if defer: continue
 
             if not hint:
-                self.output_write("trying: %s\n" % (pkg))
+                self.output_write("trying: %s\n" % (pkg.uvname))
 
             better = True
             nuninst = {}
@@ -2040,7 +2040,7 @@ class Britney(object):
                 nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
                 nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
 
-                check_packages(arch, affected, skip_archall, nuninst, pkg)
+                check_packages(arch, affected, skip_archall, nuninst, pkg.uvname)
 
                 # if we are processing hints, go ahead
                 if hint:
@@ -2063,7 +2063,7 @@ class Britney(object):
                 selected.append(pkg)
                 packages.extend(extra)
                 extra = []
-                self.output_write("accepted: %s\n" % (pkg))
+                self.output_write("accepted: %s\n" % (pkg.uvname))
                 self.output_write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
                 self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
                 self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
@@ -2074,13 +2074,13 @@ class Britney(object):
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
-                self.output_write("skipped: %s (%d <- %d)\n" % (pkg, len(extra), len(packages)))
+                self.output_write("skipped: %s (%d <- %d)\n" % (pkg.uvname, len(extra), len(packages)))
                 self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, pkg.architecture != 'source' and nuninst_comp or None)))
                 self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted(b for b in nuninst[arch] if b not in nuninst_comp[arch]))))
 
-                extra.append(pkg)
+                extra.append(item)
                 if not mark_passed:
-                    skipped.append(pkg)
+                    skipped.append(item)
                 single_undo = [(undo, item)]
                 # (local-scope) binaries is actually self.binaries["testing"] so we cannot use it here.
                 undo_changes(single_undo, systems, sources, self.binaries)
@@ -2281,7 +2281,7 @@ class Britney(object):
             if len(removals) > 0:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
                     (len(removals), old_libraries_format(removals)))
-                self.do_all(actions=[ MigrationItem(x) for x in removals ])
+                self.do_all(actions=removals)
                 removals = self.old_libraries()
         else:
             removals = ()
@@ -2451,7 +2451,7 @@ class Britney(object):
                 self.dependencies[e.name] = e.deps
 
         # replace the list of actions with the new one
-        self.upgrade_me = [ MigrationItem(x) for x in upgrade_me ]
+        self.upgrade_me = [ make_hintitem(x, self.sources) for x in upgrade_me ]
 
     def auto_hinter(self):
         """Auto-generate "easy" hints.
@@ -2551,7 +2551,7 @@ class Britney(object):
                 pkg = testing[arch][0][pkg_name]
                 if pkg_name not in unstable[arch][0] and \
                    not same_source(sources[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
-                    removals.append("-" + pkg_name + "/" + arch)
+                    removals.append(HintItem("-" + pkg_name + "/" + arch + "/" + pkg[SOURCEVER]))
         return removals
 
     def nuninst_arch_report(self, nuninst, arch):
