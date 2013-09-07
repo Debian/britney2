@@ -23,7 +23,7 @@ from functools import partial
 from itertools import chain, ifilter, ifilterfalse, izip, repeat
 import re
 import time
-from migrationitem import HintItem, MigrationItem
+from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION)
