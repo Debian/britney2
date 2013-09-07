@@ -23,7 +23,7 @@ from functools import partial
 from itertools import chain, ifilter, ifilterfalse, izip, repeat
 import re
 import time
-
+from migrationitem import HintItem, MigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION)
@@ -361,3 +361,13 @@ def write_heidi(filename, sources_t, packages_t,
             srcv = src[VERSION]
             srcsec = src[SECTION] or 'unknown'
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
+
+def make_hintitem(package, sources, VERSION=VERSION):
+    """Convert a textual package specification to a HintItem
+    
+    sources is a list of source packages in each suite, used to determine
+    the version which should be used for the HintItem.
+    """
+    
+    item = MigrationItem(package)
+    return HintItem("%s/%s" % (item.uvname, sources[item.suite][item.package][VERSION]))
