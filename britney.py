@@ -215,7 +215,7 @@ from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
-                          eval_uninst, newly_uninst, make_hintitem)
+                          eval_uninst, newly_uninst, make_migrationitem)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS)
@@ -1573,7 +1573,7 @@ class Britney(object):
         self.invalidate_excuses(upgrade_me, unconsidered)
 
         # sort the list of candidates
-        self.upgrade_me = sorted( make_hintitem(x, self.sources) for x in upgrade_me )
+        self.upgrade_me = sorted( make_migrationitem(x, self.sources) for x in upgrade_me )
 
         # write excuses to the output file
         if not self.options.dry_run:
@@ -2011,8 +2011,8 @@ class Britney(object):
                 defer = False
                 for p in dependencies.get(pkg, []):
                     if p in skipped:
-                        deferred.append(make_hintitem(pkg, self.sources))
-                        skipped.append(make_hintitem(pkg, self.sources))
+                        deferred.append(make_migrationitem(pkg, self.sources))
+                        skipped.append(make_migrationitem(pkg, self.sources))
                         defer = True
                         break
                 if defer: continue
@@ -2451,7 +2451,7 @@ class Britney(object):
                 self.dependencies[e.name] = e.deps
 
         # replace the list of actions with the new one
-        self.upgrade_me = [ make_hintitem(x, self.sources) for x in upgrade_me ]
+        self.upgrade_me = [ make_migrationitem(x, self.sources) for x in upgrade_me ]
 
     def auto_hinter(self):
         """Auto-generate "easy" hints.

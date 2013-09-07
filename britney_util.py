@@ -361,7 +361,7 @@ def write_heidi(filename, sources_t, packages_t,
             srcsec = src[SECTION] or 'unknown'
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
 
-def make_hintitem(package, sources, VERSION=VERSION):
+def make_migrationitem(package, sources, VERSION=VERSION):
     """Convert a textual package specification to a MigrationItem
     
     sources is a list of source packages in each suite, used to determine
