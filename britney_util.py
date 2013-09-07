@@ -362,11 +362,11 @@ def write_heidi(filename, sources_t, packages_t,
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
 
 def make_hintitem(package, sources, VERSION=VERSION):
-    """Convert a textual package specification to a HintItem
+    """Convert a textual package specification to a MigrationItem
     
     sources is a list of source packages in each suite, used to determine
-    the version which should be used for the HintItem.
+    the version which should be used for the MigrationItem.
     """
     
-    item = MigrationItem(package)
-    return HintItem("%s/%s" % (item.uvname, sources[item.suite][item.package][VERSION]))
+    item = UnversionnedMigrationItem(package)
+    return MigrationItem("%s/%s" % (item.uvname, sources[item.suite][item.package][VERSION]))

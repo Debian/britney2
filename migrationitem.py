@@ -23,7 +23,7 @@ class MigrationItem(object):
     def get_architectures(cls):
         return cls._architectures
 
-    def __init__(self, name = None, versionned = False):
+    def __init__(self, name = None, versionned = True):
         self._name = None
         self._uvname = None
         self._package = None
@@ -141,6 +141,6 @@ class MigrationItem(object):
     def uvname(self):
         return self._uvname
 
-class HintItem(MigrationItem):
+class UnversionnedMigrationItem(MigrationItem):
     def __init__(self, name = None):
-        MigrationItem.__init__(self, name = name, versionned = True)
+        MigrationItem.__init__(self, name = name, versionned = False)

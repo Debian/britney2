@@ -209,7 +209,7 @@ if __name__ == '__main__':
         sys.path.insert(0, idir)
 
 from excuse import Excuse
-from migrationitem import MigrationItem, HintItem
+from migrationitem import MigrationItem
 from hints import HintCollection
 from britney import buildSystem
 from britney_util import (old_libraries_format, same_source, undo_changes,
@@ -2267,7 +2267,7 @@ class Britney(object):
                      for arch in binaries
                      for binary in binaries[arch][0]
                   )
-        removals = [ HintItem("-%s/%s" % (source, sources[source][VERSION]))
+        removals = [ MigrationItem("-%s/%s" % (source, sources[source][VERSION]))
                      for source in sources if source not in used
                    ]
         if len(removals) > 0:
@@ -2377,7 +2377,7 @@ class Britney(object):
         """
 
         if isinstance(pkgvers[0], tuple) or isinstance(pkgvers[0], list):
-            _pkgvers = [ HintItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
+            _pkgvers = [ MigrationItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
         else:
             _pkgvers = pkgvers
 
@@ -2530,7 +2530,7 @@ class Britney(object):
                         to_skip.append(i)
             for i in range(len(l)):
                 if i not in to_skip:
-                    self.do_hint("easy", "autohinter", [ HintItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
+                    self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
 
     def old_libraries(self, same_source=same_source):
         """Detect old libraries left in testing for smooth transitions
@@ -2551,7 +2551,7 @@ class Britney(object):
                 pkg = testing[arch][0][pkg_name]
                 if pkg_name not in unstable[arch][0] and \
                    not same_source(sources[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
-                    removals.append(HintItem("-" + pkg_name + "/" + arch + "/" + pkg[SOURCEVER]))
+                    removals.append(MigrationItem("-" + pkg_name + "/" + arch + "/" + pkg[SOURCEVER]))
         return removals
 
     def nuninst_arch_report(self, nuninst, arch):
