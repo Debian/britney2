@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Copyright (C) 2011 Adam D. Barratt <adsb@debian.org>
+# Copyright (C) 2013 Adam D. Barratt <adsb@debian.org>
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -12,7 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from migrationitem import HintItem
+from migrationitem import MigrationItem
 
 class HintCollection(object):
     def __init__(self):
@@ -57,7 +57,7 @@ class Hint(object):
         if isinstance(self._packages, str):
             self._packages = self._packages.split(' ')
 
-        self._packages = [HintItem(x) for x in self._packages]
+        self._packages = [MigrationItem(x) for x in self._packages]
 
     def set_active(self, active):
         self._active = active
