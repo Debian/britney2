@@ -294,7 +294,7 @@ def write_heidi(filename, sources_t, packages_t, sorted=sorted):
                     continue
                 if pkg.source_version and pkgarch == 'all' and \
                     pkg.source_version != sources_t[pkg.source].version:
-                    # when architectures are marked as "fucked", their binary
+                    # when architectures are marked as "outofsync", their binary
                     # versions may be lower than those of the associated
                     # source package in testing. the binary package list for
                     # such architectures will include arch:all packages
@@ -467,7 +467,7 @@ def write_controlfiles(sources, packages, suite, basedir):
     write_sources(sources_s, os.path.join(basedir, 'Sources'))
 
 
-def old_libraries(sources, packages, fucked_arches=frozenset()):
+def old_libraries(sources, packages, outofsync_arches=frozenset()):
     """Detect old libraries left in testing for smooth transitions
 
     This method detects old libraries which are in testing but no
@@ -475,7 +475,7 @@ def old_libraries(sources, packages, fucked_arches=frozenset()):
     other packages still depend on them, but they should be removed as
     soon as possible.
 
-    For "fucked" architectures, outdated binaries are allowed to be in
+    For "outofsync" architectures, outdated binaries are allowed to be in
     testing, so they are only added to the removal list if they are no longer
     in unstable.
     """
@@ -487,7 +487,7 @@ def old_libraries(sources, packages, fucked_arches=frozenset()):
         for pkg_name in testing[arch][0]:
             pkg = testing[arch][0][pkg_name]
             if sources_t[pkg.source].version != pkg.source_version and \
-                (arch not in fucked_arches or pkg_name not in unstable[arch][0]):
+                (arch not in outofsync_arches or pkg_name not in unstable[arch][0]):
                 migration = "-" + "/".join((pkg_name, arch, pkg.source_version))
                 removals.append(MigrationItem(migration))
     return removals

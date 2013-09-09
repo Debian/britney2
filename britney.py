@@ -493,14 +493,14 @@ class Britney(object):
             self.options.heidi_delta_output = self.options.heidi_output + "Delta"
 
         self.options.nobreakall_arches = self.options.nobreakall_arches.split()
-        self.options.fucked_arches = self.options.fucked_arches.split()
+        self.options.outofsync_arches = self.options.outofsync_arches.split()
         self.options.break_arches = self.options.break_arches.split()
         self.options.new_arches = self.options.new_arches.split()
 
         # Sort the architecture list
         allarches = sorted(self.options.architectures.split())
         arches = [x for x in allarches if x in self.options.nobreakall_arches]
-        arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.outofsync_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches]
         arches += [x for x in allarches if x not in arches]
@@ -1608,7 +1608,7 @@ class Britney(object):
                     base = 'stable'
                 text = "Not yet built on <a href=\"https://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u.version), base, arch)
 
-                if arch in self.options.fucked_arches:
+                if arch in self.options.outofsync_arches:
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
                     excuse.missing_build_on_ood_arch(arch)
                 else:
@@ -1657,7 +1657,7 @@ class Britney(object):
 
             # if there are out-of-date packages, warn about them in the excuse and set update_candidate
             # to False to block the update; if the architecture where the package is out-of-date is
-            # in the `fucked_arches' list, then do not block the update
+            # in the `outofsync_arches' list, then do not block the update
             if oodbins:
                 oodtxt = ""
                 for v in oodbins.keys():
@@ -1674,7 +1674,7 @@ class Britney(object):
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
                         (quote(arch), quote(src), quote(source_u.version), arch, oodtxt)
 
-                if arch in self.options.fucked_arches:
+                if arch in self.options.outofsync_arches:
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
                     if not uptodatebins:
                         excuse.missing_build_on_ood_arch(arch)
@@ -2158,7 +2158,7 @@ class Britney(object):
                     continue
 
                 # Don't add the binary if it is old cruft that is no longer in testing
-                if (parch not in self.options.fucked_arches and
+                if (parch not in self.options.outofsync_arches and
                     source_data.version != self.binaries[suite][parch][0][binary].source_version and
                     binary not in binaries_t[parch][0]):
                     continue
@@ -2752,14 +2752,14 @@ class Britney(object):
             self.do_all(actions=removals)
 
         # smooth updates
-        removals = old_libraries(self.sources, self.binaries, self.options.fucked_arches)
+        removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
         if self.options.smooth_updates:
             self.log("> Removing old packages left in testing from smooth updates", type="I")
             if removals:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
                     (len(removals), old_libraries_format(removals)))
                 self.do_all(actions=removals)
-                removals = old_libraries(self.sources, self.binaries, self.options.fucked_arches)
+                removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
         else:
             self.log("> Not removing old packages left in testing from smooth updates (smooth-updates disabled)",
                      type="I")
