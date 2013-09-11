@@ -36,6 +36,8 @@ class HintCollection(object):
         self._hints.append(Hint(hint, user))
 
 class Hint(object):
+    NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
+
     def __init__(self, hint, user):
         self._hint = hint
         self._user = user
@@ -58,6 +60,15 @@ class Hint(object):
             self._packages = self._packages.split(' ')
 
         self._packages = [MigrationItem(x) for x in self._packages]
+        
+        self.check()
+        
+    def check(self):
+        for package in self.packages:
+            if self.type in self.__class__.NO_VERSION:
+                assert package.version is None, package
+            else:
+                assert package.version is not None, package
 
     def set_active(self, active):
         self._active = active
