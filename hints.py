@@ -77,7 +77,12 @@ class Hint(object):
         return self._hint
 
     def __eq__(self, other):
-        return str(self) == str(other)
+        if self.type != other.type:
+            return False
+        elif self.type == 'age-days' and self.days != other.days:
+            return False
+        else:
+            return frozenset(self.packages) == frozenset(other.packages)
 
     @property
     def type(self):
