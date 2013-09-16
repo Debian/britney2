@@ -218,7 +218,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           eval_uninst, newly_uninst, make_migrationitem)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
-                   PROVIDES, RDEPENDS, RCONFLICTS)
+                   PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH)
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -524,6 +524,7 @@ class Britney(object):
                     pkg, 
                     version,
                     get_field('Architecture'),
+                    get_field('Multi-Arch'),
                     None, # Pre-depends - leave as None for the C-code
                     deps,
                     ', '.join(final_conflicts_list) or None,
@@ -824,7 +825,7 @@ class Britney(object):
             binaries = self.binaries[suite][arch][0]
             for pkg in binaries:
                 output = "Package: %s\n" % pkg
-                for key, k in ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'), (SOURCE, 'Source'), (VERSION, 'Version'), 
+                for key, k in ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'), (MULTIARCH, 'Multi-Arch'), (SOURCE, 'Source'), (VERSION, 'Version'), 
                           (DEPENDS, 'Depends'), (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts')):
                     if not binaries[pkg][key]: continue
                     if key == SOURCE:
@@ -880,12 +881,19 @@ class Britney(object):
 
         # for every package, version and operation in the block
         for name, version, op in block:
+            if ":" in name:
+                name, archqual = name.split(":", 1)
+            else:
+                archqual = None
+
             # look for the package in unstable
             if name in binaries[0]:
                 package = binaries[0][name]
-                # check the versioned dependency (if present)
+                # check the versioned dependency and architecture qualifier
+                # (if present)
                 if op == '' and version == '' or apt_pkg.check_dep(package[VERSION], op, version):
-                    packages.append(name)
+                    if archqual is None or (archqual == 'any' and package[MULTIARCH] == 'allowed'):
+                        packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
             for prov in binaries[1].get(name, []):
@@ -893,7 +901,9 @@ class Britney(object):
                 package = binaries[0][prov]
                 # A provides only satisfies an unversioned dependency
                 # (per Policy Manual §7.5)
-                if op == '' and version == '':
+                # A provides only satisfies a dependency without an
+                # architecture qualifier (per analysis of apt code)
+                if op == '' and version == '' and archqual is None:
                     packages.append(prov)
 
         return (len(packages) > 0, packages)

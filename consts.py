@@ -29,11 +29,12 @@ FAKESRC = 4
 SOURCE = 2
 SOURCEVER = 3
 ARCHITECTURE = 4
-# PREDEPENDS = 5 - No longer used by the python code
+MULTIARCH = 5
+# PREDEPENDS = 6 - No longer used by the python code
 #  - The C-code needs it for alignment reasons and still check it
 #    but ignore it if it is None (so keep it None).
-DEPENDS = 6
-CONFLICTS = 7
-PROVIDES = 8
-RDEPENDS = 9
-RCONFLICTS = 10
+DEPENDS = 7
+CONFLICTS = 8
+PROVIDES = 9
+RDEPENDS = 10
+RCONFLICTS = 11

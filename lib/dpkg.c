@@ -24,7 +24,8 @@ static collpackagelist *get_matching(dpkg_packages *pkgs, deplist *depopts, int 
 static deplist *read_deplist(char **buf, char sep, char end);
 static dependency *read_dependency(char **buf, char *end);
 static void add_virtualpackage(virtualpkgtbl *vpkgs, char *package, 
-                               char *version, dpkg_collected_package *cpkg);
+                               char *version, char *multiarch,
+                               dpkg_collected_package *cpkg);
 static void remove_virtualpackage(virtualpkgtbl *vpkgs, char *pkgname,
 			          dpkg_collected_package *cpkg);
 static char *read_packagename(char **buf, char *end);
@@ -177,9 +178,9 @@ void add_package(dpkg_packages *pkgs, dpkg_package *pkg)
     add_packagetbl(pkgs->packages, cpkg->pkg->package, cpkg);
 	
     add_virtualpackage(pkgs->virtualpkgs, cpkg->pkg->package, 
-		       cpkg->pkg->version, cpkg);
+		       cpkg->pkg->version, cpkg->pkg->multiarch, cpkg);
     for (v = cpkg->pkg->provides; v != NULL; v = v->next) {
-	add_virtualpackage(pkgs->virtualpkgs, v->value, NULL, cpkg);
+	add_virtualpackage(pkgs->virtualpkgs, v->value, NULL, NULL, cpkg);
     }
 }
 
@@ -246,7 +247,8 @@ static void remove_virtualpackage(virtualpkgtbl *vpkgs, char *pkgname,
 }
 
 static void add_virtualpackage(virtualpkgtbl *vpkgs, char *package, 
-                               char *version, dpkg_collected_package *cpkg)
+                               char *version, char *multiarch,
+                               dpkg_collected_package *cpkg)
 {
     dpkg_provision value;
     virtualpkg *list, **addto;
@@ -254,6 +256,7 @@ static void add_virtualpackage(virtualpkgtbl *vpkgs, char *package,
    
     value.pkg = cpkg;
     value.version = version;
+    value.multiarch = multiarch;
     
     list = lookup_virtualpkgtbl(vpkgs, package);
     shouldreplace = (list != NULL);
@@ -398,11 +401,11 @@ deplistlist *read_dep_andor(char *buf) {
 static dependency *read_dependency(char **buf, char *end) {
     dependency *dep;
     char *name;
-    char newend[10];
+    char newend[11];
     DEBUG_ONLY( char *strend = *buf + strlen(*buf); )
     
     assert(strlen(end) <= 8);
-    newend[0] = '('; strcpy(newend + 1, end);
+    newend[0] = '('; newend[1] = ':'; strcpy(newend + 2, end);
     
     name = my_strdup(read_until_char(buf, newend));
     if (name == NULL) return NULL;
@@ -411,6 +414,13 @@ static dependency *read_dependency(char **buf, char *end) {
     if (dep == NULL) die("read_dependency alloc 1:");
     
     dep->package = name;
+
+    if (**buf == ':') {
+	(*buf)++;
+	dep->archqual = my_strdup(read_until_char(buf, newend));
+	if (dep->archqual == NULL) return NULL;
+    } else
+	dep->archqual = NULL;
     
     while(isspace(**buf)) (*buf)++;
     
@@ -465,7 +475,7 @@ static dependency *read_dependency(char **buf, char *end) {
 	}
 	
 	while (isspace(**buf)) (*buf)++;
-	newend[0] = ')';
+	newend[0] = ')'; strcpy(newend + 1, end);
 	dep->version = my_strdup(read_until_char(buf, newend));
 	while (isspace(**buf)) (*buf)++;
 	
@@ -507,6 +517,14 @@ static collpackagelist **get_matching_low(collpackagelist **addto,
 	    if (cmpversions(vpkg->value.version, dep->op, dep->version)) {
 		add = 1;
 	    }
+	}
+
+	if (dep->archqual != NULL) {
+	    if (strcmp(dep->archqual, "any") == 0) {
+		if (strcmp(vpkg->value.multiarch, "allowed") != 0)
+		    add = 0;
+	    } else
+		add = 0;
 	}
 
 	if (add) {

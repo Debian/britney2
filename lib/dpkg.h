@@ -33,6 +33,7 @@ extern char *dependency_relation_sym[];
 typedef struct dependency dependency;
 struct dependency {
     char *package;
+    char *archqual;
     dependency_relation op;
     char *version;
 };
@@ -48,6 +49,7 @@ typedef struct dpkg_package dpkg_package;
 struct dpkg_package {
     char *package;
     char *version;
+    char *multiarch;
     
     char *source;
     char *source_ver;
@@ -102,6 +104,7 @@ LIST(collpackagelist, dpkg_collected_package *);
 typedef struct dpkg_provision dpkg_provision;
 struct dpkg_provision {
     char *version;
+    char *multiarch;
     dpkg_collected_package *pkg;
 };
 
