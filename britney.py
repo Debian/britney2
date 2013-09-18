@@ -525,7 +525,6 @@ class Britney(object):
                     version,
                     get_field('Architecture'),
                     get_field('Multi-Arch'),
-                    None, # Pre-depends - leave as None for the C-code
                     deps,
                     ', '.join(final_conflicts_list) or None,
                     get_field('Provides'),

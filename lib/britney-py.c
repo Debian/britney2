@@ -85,6 +85,7 @@ static PyObject *dpkgpackages_add_binary(dpkgpackages *self, PyObject *args) {
     pkg->package = strdup(pkg_name);
     pkg->priority = 0;
     pkg->details    = NULL;
+    pkg->depends[1] = NULL;
     pkg->depends[2] = NULL;
     pkg->depends[3] = NULL;
 
@@ -119,16 +120,10 @@ static PyObject *dpkgpackages_add_binary(dpkgpackages *self, PyObject *args) {
     pyString = PyList_GetItem(value, 7);
     if (pyString == NULL) return NULL;
     if (pyString != Py_None) {
-        pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
-    } else pkg->depends[1] = NULL;
-
-    pyString = PyList_GetItem(value, 8);
-    if (pyString == NULL) return NULL;
-    if (pyString != Py_None) {
         pkg->conflicts = read_dep_and(PyString_AsString(pyString));
     } else pkg->conflicts = NULL;
 
-    pyString = PyList_GetItem(value, 9);
+    pyString = PyList_GetItem(value, 8);
     if (pyString == NULL) return NULL;
     if (pyString != Py_None) {
         pkg->provides = read_packagenames(PyString_AsString(pyString));
@@ -211,12 +206,11 @@ static PyObject *build_system(PyObject *self, PyObject *args) {
        # SOURCEVER = 3
        # ARCHITECTURE = 4
        # MULTIARCH = 5
-       # PREDEPENDS = 6
-       # DEPENDS = 7
-       # CONFLICTS = 8
-       # PROVIDES = 9
-       # RDEPENDS = 10
-       # RCONFLICTS = 11
+       # DEPENDS = 6
+       # CONFLICTS = 7
+       # PROVIDES = 8
+       # RDEPENDS = 9
+       # RCONFLICTS = 10
     */
 
     dpkg_packages *dpkg_pkgs = new_packages(arch);
@@ -230,6 +224,7 @@ static PyObject *build_system(PyObject *self, PyObject *args) {
         pkg->package = strdup(PyString_AsString(key));
         pkg->priority = 0;
         pkg->details    = NULL;
+        pkg->depends[1] = NULL;
         pkg->depends[2] = NULL;
         pkg->depends[3] = NULL;
 
@@ -264,16 +259,10 @@ static PyObject *build_system(PyObject *self, PyObject *args) {
         pyString = PyList_GetItem(value, 7);
         if (pyString == NULL) continue;
         if (pyString != Py_None) {
-            pkg->depends[1] = read_dep_andor(PyString_AsString(pyString));
-        } else pkg->depends[1] = NULL;
-
-        pyString = PyList_GetItem(value, 8);
-        if (pyString == NULL) continue;
-        if (pyString != Py_None) {
             pkg->conflicts = read_dep_and(PyString_AsString(pyString));
         } else pkg->conflicts = NULL;
 
-        pyString = PyList_GetItem(value, 9);
+        pyString = PyList_GetItem(value, 8);
         if (pyString == NULL) continue;
         if (pyString != Py_None) {
             pkg->provides = read_packagenames(PyString_AsString(pyString));
