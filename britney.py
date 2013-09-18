@@ -24,7 +24,7 @@ This is the Debian testing updater script, also known as "Britney".
 Packages are usually installed into the `testing' distribution after
 they have undergone some degree of testing in unstable. The goal of
 this software is to do this task in a smart way, allowing testing
-to be always fully installable and close to being a release candidate.
+to always be fully installable and close to being a release candidate.
 
 Britney's source code is split between two different but related tasks:
 the first one is the generation of the update excuses, while the
@@ -95,9 +95,9 @@ does for the generation of the update excuses.
        is ignored: it will be removed and not updated.
 
     2. For every binary package built from the new source, it checks
-       for unsatisfied dependencies, new binary package and updated
-       binary package (binNMU) excluding the architecture-independent
-       ones and the packages not built from the same source.
+       for unsatisfied dependencies, new binary packages and updated
+       binary packages (binNMU), excluding the architecture-independent
+       ones, and packages not built from the same source.
 
     3. For every binary package built from the old source, it checks
        if it is still built from the new source; if this is not true
@@ -146,7 +146,7 @@ does for the generation of the update excuses.
        If this is not true, then these are called `out-of-date'
        architectures and the package is ignored.
 
-    9. The source package must have at least a binary package, otherwise
+    9. The source package must have at least one binary package, otherwise
        it is ignored.
 
    10. If the suite is unstable, the new source package must have no
@@ -397,7 +397,7 @@ class Britney(object):
         output. The type parameter controls the urgency of the message, and
         can be equal to `I' for `Information', `W' for `Warning' and `E' for
         `Error'. Warnings and errors are always printed, and information is
-        printed only if the verbose logging is enabled.
+        printed only if verbose logging is enabled.
         """
         if self.options.verbose or type in ("E", "W"):
             print "%s: [%s] - %s" % (type, time.asctime(), msg)
@@ -463,7 +463,7 @@ class Britney(object):
         within the directory specified as `basedir' parameter, replacing
         ${arch} with the value of the arch parameter. Considering the
         large amount of memory needed, not all the fields are loaded
-        in memory. The available fields are Version, Source, Pre-Depends,
+        in memory. The available fields are Version, Source, Multi-Arch,
         Depends, Conflicts, Provides and Architecture.
         
         After reading the packages, reverse dependencies are computed
@@ -652,7 +652,7 @@ class Britney(object):
 
         <package-name> <version> <date-of-upload>
 
-        The dates are expressed as days starting from the 1970-01-01.
+        The dates are expressed as the number of days from 1970-01-01.
 
         The method returns a dictionary where the key is the binary package
         name and the value is a tuple with two items, the version and the date.
@@ -890,7 +890,7 @@ class Britney(object):
                 package = binaries[0][name]
                 # check the versioned dependency and architecture qualifier
                 # (if present)
-                if op == '' and version == '' or apt_pkg.check_dep(package[VERSION], op, version):
+                if (op == '' and version == '') or apt_pkg.check_dep(package[VERSION], op, version):
                     if archqual is None or (archqual == 'any' and package[MULTIARCH] == 'allowed'):
                         packages.append(name)
 
@@ -898,10 +898,10 @@ class Britney(object):
             for prov in binaries[1].get(name, []):
                 if prov not in binaries[0]: continue
                 package = binaries[0][prov]
-                # A provides only satisfies an unversioned dependency
-                # (per Policy Manual §7.5)
-                # A provides only satisfies a dependency without an
-                # architecture qualifier (per analysis of apt code)
+                # A provides only satisfies:
+                # - an unversioned dependency (per Policy Manual §7.5)
+                # - a dependency without an architecture qualifier
+                #   (per analysis of apt code)
                 if op == '' and version == '' and archqual is None:
                     packages.append(prov)
 
@@ -919,7 +919,7 @@ class Britney(object):
         # retrieve the binary package from the specified suite and arch
         binary_u = self.binaries[suite][arch][0][pkg]
 
-        # local copies for better performances
+        # local copies for better performance
         parse_depends = apt_pkg.parse_depends
         get_dependency_solvers = self.get_dependency_solvers
 
@@ -928,7 +928,7 @@ class Britney(object):
             return
         deps = binary_u[DEPENDS]
 
-        # for every block of dependency (which is formed as conjunction of disconjunction)
+        # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
             # if the block is satisfied in testing, then skip the block
             solved, packages = get_dependency_solvers(block, arch, 'testing')
@@ -1118,7 +1118,7 @@ class Britney(object):
                         # as otherwise the updated source will already cause the binary packages
                         # to be updated
                         if ssrc:
-                            # Special-case, if the binary is a candidate for smooth update, we do not consider
+                            # Special-case, if the binary is a candidate for a smooth update, we do not consider
                             # it "interesting" on its own.  This case happens quite often with smooth updatable
                             # packages, where the old binary "survives" a full run because it still has
                             # reverse dependencies.
@@ -1356,7 +1356,7 @@ class Britney(object):
 
         # if the suite is unstable, then we have to check the release-critical bug lists before
         # updating testing; if the unstable package has RC bugs that do not apply to the testing
-        # one,  the check fails and we set update_candidate to False to block the update
+        # one, the check fails and we set update_candidate to False to block the update
         if suite == 'unstable':
             for pkg in pkgs:
                 bugs_t = []
