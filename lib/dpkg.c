@@ -521,7 +521,7 @@ static collpackagelist **get_matching_low(collpackagelist **addto,
 
 	if (dep->archqual != NULL) {
 	    if (strcmp(dep->archqual, "any") == 0) {
-		if (strcmp(vpkg->value.multiarch, "allowed") != 0)
+		if (vpkg->value.multiarch == NULL || strcmp(vpkg->value.multiarch, "allowed") != 0)
 		    add = 0;
 	    } else
 		add = 0;
