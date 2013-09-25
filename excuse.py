@@ -161,7 +161,9 @@ class Excuse(object):
         if self.section and self.section.find("/") > -1:
             res = res + "<li>Section: %s\n" % (self.section)
         if self.daysold != None:
-            if self.daysold < self.mindays:
+            if self.mindays == 0:
+                res = res + ("<li>%d days old\n" % self.daysold)
+            elif self.daysold < self.mindays:
                 res = res + ("<li>Too young, only %d of %d days old\n" %
                 (self.daysold, self.mindays))
             else:
