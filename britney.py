@@ -256,6 +256,7 @@ class Britney(object):
         apt_pkg.init()
         self.sources = {}
         self.binaries = {}
+        self.hints = self.read_hints(self.options.unstable)
 
         if self.options.nuninst_cache:
             self.__log("Not building the list of non-installable packages, as requested", type="I")
@@ -324,7 +325,6 @@ class Britney(object):
         # read additional data
         self.dates = self.read_dates(self.options.testing)
         self.urgencies = self.read_urgencies(self.options.testing)
-        self.hints = self.read_hints(self.options.unstable)
         self.excuses = []
         self.dependencies = {}
 
