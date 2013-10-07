@@ -256,7 +256,10 @@ class Britney(object):
         apt_pkg.init()
         self.sources = {}
         self.binaries = {}
-        self.hints = self.read_hints(self.options.unstable)
+        try:
+            self.hints = self.read_hints(self.options.hintsdir)
+        except AttributeError:
+            self.hints = self.read_hints(self.options.unstable)
 
         if self.options.nuninst_cache:
             self.__log("Not building the list of non-installable packages, as requested", type="I")
