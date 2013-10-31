@@ -2559,7 +2559,7 @@ class Britney(object):
 
             if not force:
                 self.output_write(eval_uninst(self.options.architectures,
-                                              newly_uninst(nuninst_start, nuninst_end)) + "\n")
+                                              newly_uninst(nuninst_start, nuninst_end)))
 
         if not force:
             break_arches = set(self.options.break_arches)
@@ -2588,7 +2588,7 @@ class Britney(object):
             if force:
                 self.output_write("force breaks:\n")
                 self.output_write(eval_uninst(self.options.architectures,
-                                              newly_uninst(nuninst_start, nuninst_end)) + "\n")
+                                              newly_uninst(nuninst_start, nuninst_end)))
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
             self.all_selected += selected
@@ -2604,6 +2604,7 @@ class Britney(object):
 
             undo_changes(lundo, self._inst_tester, self.sources, self.binaries, self.all_binaries)
 
+        self.output_write("\n")
 
     def assert_nuninst_is_correct(self):
         self.log("> Update complete - Verifying non-installability counters", type="I")
