@@ -1472,7 +1472,7 @@ class Britney(object):
             excuse.dontinvalidate = True
         if not update_candidate and forces:
             excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
-            # TODO force
+            excuse.force()
             update_candidate = True
 
         # if the package can be updated, it is a valid candidate

@@ -50,6 +50,7 @@ class Excuse(object):
         self.section = None
         self._is_valid = False
         self._dontinvalidate = False
+        self.forced = False
 
         self.invalid_deps = []
         self.deps = {}
@@ -116,6 +117,10 @@ class Excuse(object):
         """Set the number of days from the upload and the minimum number of days for the update"""
         self.daysold = daysold
         self.mindays = mindays
+
+    def force(self):
+        """Add force hint"""
+        self.forced = True
 
     def addhtml(self, note):
         """Add a note in HTML"""
@@ -219,6 +224,10 @@ class Excuse(object):
         excusedata["ageneeded"] = self.mindays
         excusedata["newbugs"] = self.newbugs.keys()
         excusedata["oldbugs"] = self.oldbugs.keys()
-        excusedata["reason"] = self.reason.keys()
+        if self.forced:
+            excusedata["forcedreason"] = self.reason.keys()
+            excusedata["reason"] = []
+        else:
+            excusedata["reason"] = self.reason.keys()
         return excusedata
 
