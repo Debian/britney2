@@ -33,7 +33,7 @@ class Excuse(object):
 
     ## @var reemail
     # Regular expression for removing the email address
-    reemail = re.compile(r"<.*?>")
+    reemail = re.compile(r" *<.*?>")
 
     def __init__(self, name):
         """Class constructor
