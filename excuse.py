@@ -58,6 +58,7 @@ class Excuse(object):
         self.bugs = []
         self.newbugs = {}
         self.oldbugs = {}
+        self.reason = {}
         self.htmlline = []
 
     @property
@@ -161,6 +162,10 @@ class Excuse(object):
         for bug in oldbugs:
             self.oldbugs[bug] = 1
 
+    def addreason(self, reason):
+        """"adding reason"""
+        self.reason[reason] = 1
+
     # TODO merge with html()
     def text(self):
         """Render the excuse in text"""
@@ -214,5 +219,6 @@ class Excuse(object):
         excusedata["ageneeded"] = self.mindays
         excusedata["newbugs"] = self.newbugs.keys()
         excusedata["oldbugs"] = self.oldbugs.keys()
+        excusedata["reason"] = self.reason.keys()
         return excusedata
 

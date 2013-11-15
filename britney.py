@@ -1007,6 +1007,7 @@ class Britney(object):
             # if no package can satisfy the dependency, add this information to the excuse
             if len(packages) == 0:
                 excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
+                excuse.addreason("depends");
                 continue
 
             # for the solving packages, update the excuse to add the dependencies
@@ -1048,6 +1049,7 @@ class Britney(object):
             excuse.addhtml("Not touching package, as requested by %s (contact debian-release "
                 "if update is needed)" % hint.user)
             excuse.addhtml("Not considered")
+            excuse.addreason("block")
             self.excuses.append(excuse)
             return False
 
@@ -1087,6 +1089,7 @@ class Britney(object):
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
+            excuse.addreason("remove")
             self.excuses.append(excuse)
             return False
 
@@ -1235,6 +1238,7 @@ class Britney(object):
         if source_t and apt_pkg.version_compare(source_u[VERSION], source_t[VERSION]) < 0:
             excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t[VERSION], source_u[VERSION]))
             self.excuses.append(excuse)
+            excuse.addreason("newerintesting");
             return False
 
         # check if the source package really exists or if it is a fake one
@@ -1256,6 +1260,7 @@ class Britney(object):
                same_source(source_u[VERSION], item.version):
                 excuse.addhtml("Removal request by %s" % (item.user))
                 excuse.addhtml("Trying to remove package, not update it")
+                excuse.addreason("remove")
                 update_candidate = False
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
@@ -1294,8 +1299,10 @@ class Britney(object):
                 if suite == 'unstable' or block_cmd == 'block-udeb':
                     excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
                                    (block_cmd, blocked[block_cmd].user))
+                    excuse.addreason("block")
                 else:
                     excuse.addhtml("NEEDS APPROVAL BY RM")
+                    excuse.addreason("block")
                 update_candidate = False
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
@@ -1325,6 +1332,7 @@ class Britney(object):
                     excuse.addhtml("Too young, but urgency pushed by %s" % (urgent_hints[0].user))
                 else:
                     update_candidate = False
+                    excuse.addreason("age")
 
         if suite in ['pu', 'tpu']:
             # o-o-d(ish) checks for (t-)p-u
@@ -1357,6 +1365,8 @@ class Britney(object):
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
                 else:
                     update_candidate = False
+                    excuse.addreason("arch")
+                    excuse.addreason("arch-%s" % arch)
 
                 excuse.addhtml(text)
 
@@ -1404,6 +1414,8 @@ class Britney(object):
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
                 else:
                     update_candidate = False
+                    excuse.addreason("arch")
+                    excuse.addreason("arch-%s" % arch)
 
                 if self.date_now != self.dates[src][1]:
                     excuse.addhtml(text)
@@ -1411,6 +1423,7 @@ class Britney(object):
         # if the source package has no binaries, set update_candidate to False to block the update
         if len(self.sources[suite][src][BINARIES]) == 0:
             excuse.addhtml("%s has no binaries on any arch" % src)
+            excuse.addreason("no-binaries")
             update_candidate = False
 
         # if the suite is unstable, then we have to check the release-critical bug lists before
@@ -1443,6 +1456,7 @@ class Britney(object):
                     excuse.addhtml("Updating %s introduces new bugs: %s" % (pkg, ", ".join(
                         ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (urllib.quote(a), a) for a in new_bugs])))
                     update_candidate = False
+                    excuse.addreason("buggy")
 
                 if len(old_bugs) > 0:
                     excuse.addhtml("Updating %s fixes old bugs: %s" % (pkg, ", ".join(
@@ -1457,6 +1471,7 @@ class Britney(object):
             excuse.dontinvalidate = True
         if not update_candidate and forces:
             excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
+            # TODO force
             update_candidate = True
 
         # if the package can be updated, it is a valid candidate
@@ -1464,6 +1479,7 @@ class Britney(object):
             excuse.is_valid = True
         # else it won't be considered
         else:
+            # TODO
             excuse.addhtml("Not considered")
 
         self.excuses.append(excuse)
@@ -1522,6 +1538,7 @@ class Britney(object):
                     invalid.append(valid.pop(p))
                     exclookup[x].addhtml("Invalidated by dependency")
                     exclookup[x].addhtml("Not considered")
+                    exclookup[x].addreason("depends")
                     exclookup[x].is_valid = False
             i = i + 1
  
@@ -1600,6 +1617,7 @@ class Britney(object):
             excuse.set_vers(tsrcv, None)
             excuse.addhtml("Removal request by %s" % (item.user))
             excuse.addhtml("Package is broken, will try to remove")
+            excuse.addreason("remove")
             self.excuses.append(excuse)
 
         # sort the excuses by daysold and name
@@ -1640,6 +1658,7 @@ class Britney(object):
                         ok = True
                 if not ok:
                     e.addhtml("Impossible dependency: %s -> %s" % (e.name, d))
+                    e.addreason("depends")
         self.invalidate_excuses(upgrade_me, unconsidered)
 
         # sort the list of candidates
