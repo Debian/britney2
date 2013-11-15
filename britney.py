@@ -1040,6 +1040,7 @@ class Britney(object):
         # otherwise, add a new excuse for its removal and return True
         src = self.sources['testing'][pkg]
         excuse = Excuse("-" + pkg)
+        excuse.addreason("remove")
         excuse.set_vers(src[VERSION], None)
         src[MAINTAINER] and excuse.set_maint(src[MAINTAINER].strip())
         src[SECTION] and excuse.set_section(src[SECTION].strip())
