@@ -56,6 +56,8 @@ class Excuse(object):
         self.sane_deps = []
         self.break_deps = []
         self.bugs = []
+        self.newbugs = {}
+        self.oldbugs = {}
         self.htmlline = []
 
     @property
@@ -152,6 +154,13 @@ class Excuse(object):
         res = res + "</ul>\n"
         return res
 
+    def setbugs(self, oldbugs, newbugs):
+        """"Set the list of old and new bugs"""
+        for bug in newbugs:
+            self.newbugs[bug] = 1
+        for bug in oldbugs:
+            self.oldbugs[bug] = 1
+
     # TODO merge with html()
     def text(self):
         """Render the excuse in text"""
@@ -203,5 +212,7 @@ class Excuse(object):
         excusedata["newversion"] = self.ver[1]
         excusedata["age"] = self.daysold
         excusedata["ageneeded"] = self.mindays
+        excusedata["newbugs"] = self.newbugs.keys()
+        excusedata["oldbugs"] = self.oldbugs.keys()
         return excusedata
 

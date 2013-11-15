@@ -1434,6 +1434,8 @@ class Britney(object):
                 new_bugs = sorted(set(bugs_u).difference(bugs_t))
                 old_bugs = sorted(set(bugs_t).difference(bugs_u))
 
+                excuse.setbugs(old_bugs,new_bugs)
+
                 if len(new_bugs) > 0:
                     excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
                         "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
