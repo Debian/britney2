@@ -5,13 +5,5 @@ Requirements:
 -------------
 
   * Python 2.7                  aptitude install python2.7
-  * Python APT/DPKG bindings    aptitude install python2.7-apt libapt-pkg-dev dpkg-dev
-  * Python dev headers          aptitude install python2.7-dev
-
-Compiling:
-----------
-
-Run "make all" in the lib directory and add a symlink called
-britneymodule.so pointing to the freshly generated britneymodule.so in
-the lib directory.
+  * Python APT/DPKG bindings    aptitude install python2.7-apt
 
