@@ -1239,9 +1239,10 @@ class Britney(object):
 
         # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
         urgency = self.urgencies.get(src, self.options.default_urgency)
-        if not source_t and urgency != self.options.default_urgency:
-            excuse.addhtml("Ignoring %s urgency setting for NEW package" % (urgency))
-            urgency = self.options.default_urgency
+        if not source_t:
+            if self.MINDAYS[urgency] < self.MINDAYS[self.options.default_urgency]:
+                excuse.addhtml("Ignoring %s urgency setting for NEW package" % (urgency))
+                urgency = self.options.default_urgency
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
