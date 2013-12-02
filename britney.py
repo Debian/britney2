@@ -755,8 +755,8 @@ class Britney(object):
             if len(l) != 3: continue
 
             # read the minimum days associated with the urgencies
-            urgency_old = urgencies.get(l[0], self.options.default_urgency)
-            mindays_old = self.MINDAYS.get(urgency_old, self.MINDAYS[self.options.default_urgency])
+            urgency_old = urgencies.get(l[0], None)
+            mindays_old = self.MINDAYS.get(urgency_old, sys.maxint)
             mindays_new = self.MINDAYS.get(l[2], self.MINDAYS[self.options.default_urgency])
 
             # if the new urgency is lower (so the min days are higher), do nothing
