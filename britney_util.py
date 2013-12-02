@@ -29,7 +29,8 @@ import time
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
-                    RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION)
+                    RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION,
+                    SOURCE, SOURCEVER)
 
 binnmu_re = re.compile(r'^(.*)\+b\d+$')
 
@@ -385,6 +386,15 @@ def write_heidi(filename, sources_t, packages_t,
                 pkgv = pkg[VERSION]
                 pkgarch = pkg[ARCHITECTURE] or 'all'
                 pkgsec = pkg[SECTION] or 'faux'
+                if pkg[SOURCEVER] and pkgarch == 'all' and \
+                    pkg[SOURCEVER] != sources_t[pkg[SOURCE]][VERSION]:
+                    # when architectures are marked as "fucked", their binary
+                    # versions may be lower than those of the associated
+                    # source package in testing. the binary package list for
+                    # such architectures will include arch:all packages
+                    # matching those older versions, but we only want the
+                    # newer arch:all in testing
+                    continue
                 f.write('%s %s %s %s\n' % (pkg_name, pkgv, pkgarch, pkgsec))
 
         # write sources
