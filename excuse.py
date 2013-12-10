@@ -57,8 +57,8 @@ class Excuse(object):
         self.sane_deps = []
         self.break_deps = []
         self.bugs = []
-        self.newbugs = {}
-        self.oldbugs = {}
+        self.newbugs = set()
+        self.oldbugs = set()
         self.reason = {}
         self.htmlline = []
 
@@ -162,10 +162,8 @@ class Excuse(object):
 
     def setbugs(self, oldbugs, newbugs):
         """"Set the list of old and new bugs"""
-        for bug in newbugs:
-            self.newbugs[bug] = 1
-        for bug in oldbugs:
-            self.oldbugs[bug] = 1
+        self.newbugs.update(newbugs)
+        self.oldbugs.update(oldbugs)
 
     def addreason(self, reason):
         """"adding reason"""
@@ -222,8 +220,8 @@ class Excuse(object):
         excusedata["newversion"] = self.ver[1]
         excusedata["age"] = self.daysold
         excusedata["ageneeded"] = self.mindays
-        excusedata["newbugs"] = self.newbugs.keys()
-        excusedata["oldbugs"] = self.oldbugs.keys()
+        excusedata["newbugs"] = sorted(self.newbugs)
+        excusedata["oldbugs"] = sorted(self.oldbugs)
         if self.forced:
             excusedata["forcedreason"] = self.reason.keys()
             excusedata["reason"] = []
