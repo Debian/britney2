@@ -432,7 +432,7 @@ def write_excuses(excuses, dest_file, output_format="yaml"):
                 excuselist.append(e.excusedata())
             excusesdata = {}
             excusesdata["sources"] = excuselist
-            excusesdata["generated"] = datetime.utcnow()
+            excusesdata["generated-date"] = datetime.utcnow()
             f.write(yaml.dump(excusesdata, default_flow_style=False, allow_unicode=True))
     elif output_format == "legacy-html":
         with open(dest_file, 'w') as f:
