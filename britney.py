@@ -1039,6 +1039,7 @@ class Britney(object):
         # otherwise, add a new excuse for its removal and return True
         src = self.sources['testing'][pkg]
         excuse = Excuse("-" + pkg)
+        excuse.addhtml("Package not in unstable, will try to remove")
         excuse.addreason("remove")
         excuse.set_vers(src[VERSION], None)
         src[MAINTAINER] and excuse.set_maint(src[MAINTAINER].strip())
