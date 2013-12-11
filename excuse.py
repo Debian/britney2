@@ -216,14 +216,14 @@ class Excuse(object):
         excusedata = {}
         excusedata["excuses"] = self.text()
         excusedata["source"] = self.name
-        excusedata["oldversion"] = self.ver[0]
-        excusedata["newversion"] = self.ver[1]
+        excusedata["old-version"] = self.ver[0]
+        excusedata["new-version"] = self.ver[1]
         excusedata["age"] = self.daysold
-        excusedata["ageneeded"] = self.mindays
-        excusedata["newbugs"] = sorted(self.newbugs)
-        excusedata["oldbugs"] = sorted(self.oldbugs)
+        excusedata["age-needed"] = self.mindays
+        excusedata["new-bugs"] = sorted(self.newbugs)
+        excusedata["old-bugs"] = sorted(self.oldbugs)
         if self.forced:
-            excusedata["forcedreason"] = self.reason.keys()
+            excusedata["forced-reason"] = self.reason.keys()
             excusedata["reason"] = []
         else:
             excusedata["reason"] = self.reason.keys()
