@@ -186,14 +186,12 @@ import string
 import time
 import optparse
 import urllib
-import yaml
 
 import apt_pkg
 
 from functools import reduce, partial
 from itertools import chain, ifilter, product
 from operator import attrgetter
-from datetime import datetime
 
 if __name__ == '__main__':
     # Check if there is a python-search dir for this version of
@@ -217,7 +215,8 @@ from hints import HintCollection
 from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
-                          eval_uninst, newly_uninst, make_migrationitem)
+                          eval_uninst, newly_uninst, make_migrationitem,
+                          write_excuses)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -1668,28 +1667,12 @@ class Britney(object):
         # write excuses to the output file
         if not self.options.dry_run:
             self.__log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
-            f = open(self.options.excuses_output, 'w')
-            f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
-            f.write("<html><head><title>excuses...</title>")
-            f.write("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"></head><body>\n")
-            f.write("<p>Generated: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "</p>\n")
-            f.write("<ul>\n")
-            for e in self.excuses:
-                f.write("<li>%s" % e.html())
-            f.write("</ul></body></html>\n")
-            f.close()
-
+            write_excuses(self.excuses, self.options.excuses_output,
+                          output_format="legacy-html")
             if hasattr(self.options, 'excuses_yaml_output'):
                 self.__log("> Writing YAML Excuses to %s" % self.options.excuses_yaml_output, type="I")
-                f = open(self.options.excuses_yaml_output, 'w')
-                excuselist = []
-                for e in self.excuses:
-                    excuselist.append(e.excusedata())
-                excusesdata = {}
-                excusesdata["sources"] = excuselist
-                excusesdata["generated"] = datetime.utcnow()
-                f.write(yaml.dump(excusesdata, default_flow_style=False, allow_unicode=True))
-                f.close()
+                write_excuses(self.excuses, self.options.excuses_yaml_output,
+                          output_format="yaml")
 
         self.__log("Update Excuses generation completed", type="I")
 

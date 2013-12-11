@@ -23,9 +23,12 @@
 
 import apt_pkg
 from functools import partial
+from datetime import datetime
 from itertools import chain, ifilter, ifilterfalse, izip, repeat
 import re
 import time
+import yaml
+
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
@@ -413,3 +416,34 @@ def make_migrationitem(package, sources, VERSION=VERSION):
     
     item = UnversionnedMigrationItem(package)
     return MigrationItem("%s/%s" % (item.uvname, sources[item.suite][item.package][VERSION]))
+
+
+def write_excuses(excuses, dest_file, output_format="yaml"):
+    """Write the excuses to dest_file
+
+    Writes a list of excuses in a specified output_format to the
+    path denoted by dest_file.  The output_format can either be "yaml"
+    or "legacy-html".
+    """
+    if output_format == "yaml":
+        with open(dest_file, 'w') as f:
+            excuselist = []
+            for e in excuses:
+                excuselist.append(e.excusedata())
+            excusesdata = {}
+            excusesdata["sources"] = excuselist
+            excusesdata["generated"] = datetime.utcnow()
+            f.write(yaml.dump(excusesdata, default_flow_style=False, allow_unicode=True))
+    elif output_format == "legacy-html":
+        with open(dest_file, 'w') as f:
+            f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
+            f.write("<html><head><title>excuses...</title>")
+            f.write("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"></head><body>\n")
+            f.write("<p>Generated: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "</p>\n")
+            f.write("<ul>\n")
+            for e in excuses:
+                f.write("<li>%s" % e.html())
+            f.write("</ul></body></html>\n")
+    else:
+        raise ValueError('Output format must be either "yaml or "legacy-html"')
+
