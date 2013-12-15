@@ -2711,9 +2711,6 @@ class Britney(object):
 
         If nuninst_arch is not None then it also updated in the same
         way as broken is.
-
-        current_pkg is the package currently being tried, mainly used
-        to print where an AIEEE is coming from.
         """
         r = self._inst_tester.is_installable(pkg_name, pkg_version, pkg_arch)
         if not r:
