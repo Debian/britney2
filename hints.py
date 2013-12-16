@@ -33,7 +33,10 @@ class HintCollection(object):
                ]
 
     def add_hint(self, hint, user):
-        self._hints.append(Hint(hint, user))
+        try:
+            self._hints.append(Hint(hint, user))
+        except AssertionError:
+            print "Ignoring broken hint %r from %s" % (hint, user)
 
 class Hint(object):
     NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
