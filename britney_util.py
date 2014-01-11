@@ -407,6 +407,34 @@ def write_heidi(filename, sources_t, packages_t,
             srcsec = src[SECTION] or 'unknown'
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
 
+
+def write_heidi_delta(filename, all_selected):
+    """Write the output delta
+
+    This method writes the packages to be upgraded, in the form:
+    <src-name> <src-version>
+    or (if the source is to be removed):
+    -<src-name> <src-version>
+
+    The order corresponds to that shown in update_output.
+    """
+    with open(filename, "w") as fd:
+
+        fd.write("#HeidiDelta\n")
+
+        for item in all_selected:
+            prefix = ""
+
+            if item.is_removal:
+                prefix = "-"
+
+            if item.architecture == 'source':
+                fd.write('%s%s %s\n' % (prefix, item.package, item.version))
+            else:
+                fd.write('%s%s %s %s\n' % (prefix, item.package,
+                                           item.version, item.architecture))
+
+
 def make_migrationitem(package, sources, VERSION=VERSION):
     """Convert a textual package specification to a MigrationItem
     

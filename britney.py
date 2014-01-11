@@ -216,7 +216,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
-                          write_excuses)
+                          write_excuses, write_heidi_delta)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -257,6 +257,8 @@ class Britney(object):
         apt_pkg.init()
         self.sources = {}
         self.binaries = {}
+        self.all_selected = []
+
         try:
             self.hints = self.read_hints(self.options.hintsdir)
         except AttributeError:
@@ -384,6 +386,9 @@ class Britney(object):
             elif not hasattr(self.options, k.lower()) or \
                  not getattr(self.options, k.lower()):
                 setattr(self.options, k.lower(), v)
+
+        if not hasattr(self.options, "heidi_delta_output"):
+            self.options.heidi_delta_output = self.options.heidi_output + "Delta"
 
         # Sort the architecture list
         allarches = sorted(self.options.architectures.split())
@@ -2272,6 +2277,7 @@ class Britney(object):
                                               newly_uninst(nuninst_start, nuninst_end)) + "\n")
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
+            self.all_selected += selected
             if not actions:
                 if recurse:
                     self.upgrade_me = sorted(extra)
@@ -2400,6 +2406,11 @@ class Britney(object):
             self.__log("Writing Heidi results to %s" % self.options.heidi_output)
             write_heidi(self.options.heidi_output, self.sources["testing"],
                         self.binaries["testing"])
+
+            self.__log("Writing delta to %s" % self.options.heidi_delta_output)
+            write_heidi_delta(self.options.heidi_delta_output,
+                              self.all_selected)
+
 
         self.printuninstchange()
         self.__log("Test completed!", type="I")
