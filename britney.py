@@ -1728,7 +1728,9 @@ class Britney(object):
 
 
     def _compute_groups(self, source_name, suite, migration_architecture,
-                        is_removal, include_hijacked=False):
+                        is_removal, include_hijacked=False,
+                        allow_smooth_updates=True,
+                        removals=frozenset()):
         """Compute the groups of binaries being migrated by item
 
         This method will compute the binaries that will be added,
@@ -1747,6 +1749,17 @@ class Britney(object):
            or not [Same as item.is_removal, where available]
         * "include_hijacked" determines whether hijacked binaries should
           be included in results or not. (defaults: False)
+        * "allow_smooth_updates" is a boolean determing whether smooth-
+          updates are permitted in this migration.  When set to False,
+          the "smoothbins" return value will always be the empty set.
+          Any value that would have been there will now be in "rms"
+          instead. (defaults: True)
+        * "removals" is a set of binaries that is assumed to be
+          removed at the same time as this migration (e.g. in the same
+          "easy"-hint).  This may affect what if some binaries are
+          smooth updated or not. (defaults: empty-set)
+          - Binaries must be given as ("package-name", "version",
+            "architecture") tuples.
 
         Returns a tuple (adds, rms, smoothbins).  "adds" is a set of
         binaries that will updated in or appear after the migration.
@@ -1801,7 +1814,7 @@ class Britney(object):
                 for p in bins:
                     binary, parch = p.split("/")
                     # if a smooth update is possible for the package, skip it
-                    if suite == 'unstable' and \
+                    if allow_smooth_updates and suite == 'unstable' and \
                        binary not in self.binaries[suite][parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries_t[parch][0][binary][SECTION] in self.options.smooth_updates):
@@ -1826,6 +1839,14 @@ class Britney(object):
                                 if dep in binaries_t[parch][0]:
                                     bin = binaries_t[parch][0][dep]
                                     deps = []
+                                    # If the package is being removed
+                                    # together with dep, then it is
+                                    # not a reason to smooth update
+                                    # the binary
+                                    t = (dep, bin[VERSION], parch)
+                                    if t in removals:
+                                        continue
+
                                     if bin[DEPENDS] is not None:
                                         deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
                                     if any(binary == entry[0] for deplist in deps for entry in deplist):
@@ -1869,11 +1890,17 @@ class Britney(object):
         return (adds, rms, set(smoothbins.itervalues()))
 
 
-    def doop_source(self, item, hint_undo=[]):
+    def doop_source(self, item, hint_undo=[], removals=frozenset()):
         """Apply a change to the testing distribution as requested by `pkg`
 
         An optional list of undo actions related to packages processed earlier
         in a hint may be passed in `hint_undo`.
+
+        An optional set of binaries may be passed in "removals". Binaries listed
+        in this set will be assumined to be removed at the same time as the "item"
+        will migrate.  This may change what binaries will be smooth-updated.
+        - Binaries in this set must be ("package-name", "version", "architecture")
+          tuples.
 
         This method applies the changes required by the action `item` tracking
         them so it will be possible to revert them.
@@ -1898,7 +1925,8 @@ class Britney(object):
                 _, bins, _ = self._compute_groups(item.package,
                                                   item.suite,
                                                   item.architecture,
-                                                  item.is_removal)
+                                                  item.is_removal,
+                                                  removals=removals)
 
                 # remove all the binaries which aren't being smooth updated
                 for bin_data in bins:
@@ -2074,8 +2102,16 @@ class Britney(object):
         # pre-process a hint batch
         pre_process = {}
         if selected and hint:
+            removals = set()
+            for item in selected:
+                _, rms, _ = self._compute_groups(item.package, item.suite,
+                                                 item.architecture,
+                                                 item.is_removal,
+                                                 allow_smooth_updates=False)
+                removals.update(rms)
             for package in selected:
-                pkg, affected, undo = self.doop_source(package)
+                pkg, affected, undo = self.doop_source(package,
+                                                       removals=removals)
                 pre_process[package] = (pkg, affected, undo)
 
         if lundo is None:
