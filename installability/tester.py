@@ -280,10 +280,6 @@ class InstallabilityTester(object):
                 # is smaller than testing (so presumably faster)
                 remain = choice - never - cbroken
 
-                if not remain:
-                    # all alternatives would violate the conflicts => package is not installable
-                    return None
-
                 if len(remain) > 1 and not remain.isdisjoint(safe_set):
                     first = None
                     for r in ifilter(safe_set.__contains__, remain):
@@ -305,6 +301,12 @@ class InstallabilityTester(object):
                     check.update(remain)
                     musts.update(remain)
                     continue
+
+                if not remain:
+                    # all alternatives would violate the conflicts or are uninstallable
+                    # => package is not installable
+                    return None
+
                 # The choice is still deferred
                 rebuild.add(frozenset(remain))
 
