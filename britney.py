@@ -216,7 +216,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
-                          write_excuses, write_heidi_delta, write_sources)
+                          write_excuses, write_heidi_delta, write_controlfiles)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -866,52 +866,6 @@ class Britney(object):
             self.__log("WARNING: No block hints at all, not even udeb ones!", type="W")
 
         return hints
-
-
-    def write_controlfiles(self, basedir, suite):
-        """Write the control files
-
-        This method writes the control files for the binary packages of all
-        the architectures and for the source packages.
-        """
-        sources = self.sources[suite]
-
-        self.__log("Writing new %s control files to %s" % (suite, basedir))
-        for arch in self.options.architectures:
-            filename = os.path.join(basedir, 'Packages_%s' % arch)
-            f = open(filename, 'w')
-            binaries = self.binaries[suite][arch][0]
-            for pkg in binaries:
-                output = "Package: %s\n" % pkg
-                for key, k in ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'), (MULTIARCH, 'Multi-Arch'), (SOURCE, 'Source'), (VERSION, 'Version'), 
-                          (DEPENDS, 'Depends'), (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts'), (ESSENTIAL, 'Essential')):
-                    if not binaries[pkg][key]: continue
-                    if key == SOURCE:
-                        if binaries[pkg][SOURCE] == pkg:
-                            if binaries[pkg][SOURCEVER] != binaries[pkg][VERSION]:
-                                source = binaries[pkg][SOURCE] + " (" + binaries[pkg][SOURCEVER] + ")"
-                            else: continue
-                        else:
-                            if binaries[pkg][SOURCEVER] != binaries[pkg][VERSION]:
-                                source = binaries[pkg][SOURCE] + " (" + binaries[pkg][SOURCEVER] + ")"
-                            else:
-                                source = binaries[pkg][SOURCE]
-                        output += (k + ": " + source + "\n")
-                        if sources[binaries[pkg][SOURCE]][MAINTAINER]:
-                            output += ("Maintainer: " + sources[binaries[pkg][SOURCE]][MAINTAINER] + "\n")
-                    elif key == PROVIDES:
-                        if len(binaries[pkg][key]) > 0:
-                            output += (k + ": " + ", ".join(binaries[pkg][key]) + "\n")
-                    elif key == ESSENTIAL:
-                        if binaries[pkg][key]:
-                            output += (k + ": " + " yes\n")
-                    else:
-                        output += (k + ": " + binaries[pkg][key] + "\n")
-                f.write(output + "\n")
-            f.close()
-
-        filename = os.path.join(basedir, 'Sources')
-        write_sources(sources, filename)
 
 
     # Utility methods for package analysis
@@ -2388,7 +2342,10 @@ class Britney(object):
         if not self.options.dry_run:
             # re-write control files
             if self.options.control_files:
-                self.write_controlfiles(self.options.testing, 'testing')
+                self.__log("Writing new testing control files to %s" %
+                           self.options.testing)
+                write_controlfiles(self.sources, self.binaries,
+                                   'testing', self.options.testing)
 
             # write dates
             try:

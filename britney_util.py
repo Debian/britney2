@@ -25,6 +25,7 @@ import apt_pkg
 from functools import partial
 from datetime import datetime
 from itertools import chain, ifilter, ifilterfalse, izip, repeat
+import os
 import re
 import time
 import yaml
@@ -33,7 +34,8 @@ from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION,
-                    SOURCE, SOURCEVER, MAINTAINER)
+                    SOURCE, SOURCEVER, MAINTAINER, MULTIARCH,
+                    ESSENTIAL)
 
 binnmu_re = re.compile(r'^(.*)\+b\d+$')
 
@@ -493,3 +495,58 @@ def write_sources(sources_s, filename):
            output += "\n".join(k + ": "+ src_data[key]
                                for key, k in key_pairs if src_data[key])
            f.write(output + "\n\n")
+
+
+def write_controlfiles(sources, packages, suite, basedir):
+    """Write the control files
+
+    This method writes the control files for the binary packages of all
+    the architectures and for the source packages.  Note that Britney
+    discards a lot of fields that she does not care about.  Therefore,
+    these files may omit a lot of regular fields.
+    """
+
+    sources_s = sources[suite]
+    packages_s = packages[suite]
+
+    key_pairs = ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'),
+                 (MULTIARCH, 'Multi-Arch'), (SOURCE, 'Source'),
+                 (VERSION, 'Version'), (DEPENDS, 'Depends'),
+                 (PROVIDES, 'Provides'), (CONFLICTS, 'Conflicts'),
+                 (ESSENTIAL, 'Essential'))
+
+    for arch in packages_s:
+        filename = os.path.join(basedir, 'Packages_%s' % arch)
+        binaries = packages_s[arch][0]
+        with open(filename, 'w') as f:
+            for pkg in binaries:
+                output = "Package: %s\n" % pkg
+                bin_data = binaries[pkg]
+                for key, k in key_pairs:
+                    if not bin_data[key]: continue
+                    if key == SOURCE:
+                        src = bin_data[SOURCE]
+                        if sources_s[src][MAINTAINER]:
+                            output += ("Maintainer: " + sources_s[src][MAINTAINER] + "\n")
+
+                        if bin_data[SOURCE] == pkg:
+                            if bin_data[SOURCEVER] != bin_data[VERSION]:
+                                source = src + " (" + bin_data[SOURCEVER] + ")"
+                            else: continue
+                        else:
+                            if bin_data[SOURCEVER] != bin_data[VERSION]:
+                                source = src + " (" + bin_data[SOURCEVER] + ")"
+                            else:
+                                source = src
+                        output += (k + ": " + source + "\n")
+                    elif key == PROVIDES:
+                        if bin_data[key]:
+                            output += (k + ": " + ", ".join(bin_data[key]) + "\n")
+                    elif key == ESSENTIAL:
+                        if bin_data[key]:
+                            output += (k + ": " + " yes\n")
+                    else:
+                        output += (k + ": " + bin_data[key] + "\n")
+                f.write(output + "\n")
+
+    write_sources(sources_s, os.path.join(basedir, 'Sources'))
