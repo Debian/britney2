@@ -550,3 +550,27 @@ def write_controlfiles(sources, packages, suite, basedir):
                 f.write(output + "\n")
 
     write_sources(sources_s, os.path.join(basedir, 'Sources'))
+
+
+def old_libraries(sources, packages, same_source=same_source):
+    """Detect old libraries left in testing for smooth transitions
+
+    This method detects old libraries which are in testing but no
+    longer built from the source package: they are still there because
+    other packages still depend on them, but they should be removed as
+    soon as possible.
+
+    same_source is an optimisation to avoid "load global".
+    """
+    sources_t = sources['testing']
+    testing = packages['testing']
+    unstable = packages['unstable']
+    removals = []
+    for arch in testing:
+        for pkg_name in testing[arch][0]:
+            pkg = testing[arch][0][pkg_name]
+            if pkg_name not in unstable[arch][0] and \
+                    not same_source(sources_t[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
+                migration = "-" + "/".join((pkg_name, arch, pkg[SOURCEVER]))
+                removals.append(MigrationItem(migration))
+    return removals

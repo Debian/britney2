@@ -216,7 +216,8 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
-                          write_excuses, write_heidi_delta, write_controlfiles)
+                          write_excuses, write_heidi_delta, write_controlfiles,
+                          old_libraries)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -2324,14 +2325,14 @@ class Britney(object):
             self.do_all(actions=removals)
                                                                                                                                      
         # smooth updates
-        if len(self.options.smooth_updates) > 0:
+        if self.options.smooth_updates:
             self.__log("> Removing old packages left in testing from smooth updates", type="I")
-            removals = self.old_libraries()
-            if len(removals) > 0:
+            removals = old_libraries(self.sources, self.binaries)
+            if removals:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
                     (len(removals), old_libraries_format(removals)))
                 self.do_all(actions=removals)
-                removals = self.old_libraries()
+                removals = old_libraries(self.sources, self.binaries)
         else:
             removals = ()
 
@@ -2592,27 +2593,6 @@ class Britney(object):
                 if i not in to_skip:
                     self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
 
-    def old_libraries(self, same_source=same_source):
-        """Detect old libraries left in testing for smooth transitions
-
-        This method detects old libraries which are in testing but no longer
-        built from the source package: they are still there because other
-        packages still depend on them, but they should be removed as soon
-        as possible.
-
-        same_source is an opt to avoid "load global".
-        """
-        sources = self.sources['testing']
-        testing = self.binaries['testing']
-        unstable = self.binaries['unstable']
-        removals = []
-        for arch in self.options.architectures:
-            for pkg_name in testing[arch][0]:
-                pkg = testing[arch][0][pkg_name]
-                if pkg_name not in unstable[arch][0] and \
-                   not same_source(sources[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
-                    removals.append(MigrationItem("-" + pkg_name + "/" + arch + "/" + pkg[SOURCEVER]))
-        return removals
 
     def nuninst_arch_report(self, nuninst, arch):
         """Print a report of uninstallable packages for one architecture."""
