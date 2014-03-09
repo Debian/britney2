@@ -33,7 +33,7 @@ from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION,
-                    SOURCE, SOURCEVER)
+                    SOURCE, SOURCEVER, MAINTAINER)
 
 binnmu_re = re.compile(r'^(.*)\+b\d+$')
 
@@ -475,3 +475,21 @@ def write_excuses(excuses, dest_file, output_format="yaml"):
     else:
         raise ValueError('Output format must be either "yaml or "legacy-html"')
 
+
+def write_sources(sources_s, filename):
+    """Write a sources file from Britney's state for a given suite
+
+    Britney discards fields she does not care about, so the resulting
+    file omitts a lot of regular fields.
+    """
+
+    key_pairs = ((VERSION, 'Version'), (SECTION, 'Section'),
+                 (MAINTAINER, 'Maintainer'))
+
+    with open(filename, 'w') as f:
+        for src in sources_s:
+           src_data = sources_s[src]
+           output = "Package: %s\n" % src
+           output += "\n".join(k + ": "+ src_data[key]
+                               for key, k in key_pairs if src_data[key])
+           f.write(output + "\n\n")

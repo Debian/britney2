@@ -216,7 +216,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           register_reverses, compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
-                          write_excuses, write_heidi_delta)
+                          write_excuses, write_heidi_delta, write_sources)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -911,14 +911,8 @@ class Britney(object):
             f.close()
 
         filename = os.path.join(basedir, 'Sources')
-        f = open(filename, 'w')
-        for src in sources:
-            output = "Package: %s\n" % src
-            for key, k in ((VERSION, 'Version'), (SECTION, 'Section'), (MAINTAINER, 'Maintainer')):
-                if not sources[src][key]: continue
-                output += (k + ": " + sources[src][key] + "\n")
-            f.write(output + "\n")
-        f.close()
+        write_sources(sources, filename)
+
 
     # Utility methods for package analysis
     # ------------------------------------
