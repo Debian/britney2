@@ -1116,10 +1116,10 @@ class Britney(object):
             if not (ssrc and suite != 'unstable'):
                 # for every binary package produced by this source in testing for this architecture
                 source_data = self.sources['testing'][src]
-                _, smoothbins = self.find_upgraded_binaries(src,
-                                                            source_data,
-                                                            arch,
-                                                            suite)
+                _, _, smoothbins = self._compute_groups(src,
+                                                        "unstable",
+                                                        arch,
+                                                        False)
 
                 for pkg in sorted(x.split("/")[0] for x in source_data[BINARIES] if x.endswith("/"+arch)):
                     # if the package is architecture-independent, then ignore it
@@ -1727,110 +1727,147 @@ class Britney(object):
         return diff <= 0
 
 
-    def find_upgraded_binaries(self, source_name, source_data,
-                                   architecture, suite):
-        # XXX: not the best name - really.
-        """Find smooth and non-smooth updatable binaries for upgrades
+    def _compute_groups(self, source_name, suite, migration_architecture,
+                        is_removal, include_hijacked=False):
+        """Compute the groups of binaries being migrated by item
 
-        This method will compute the binaries that will be replaced in
-        testing and which of them are smooth updatable.
+        This method will compute the binaries that will be added,
+        replaced in testing and which of them are smooth updatable.
 
         Parameters:
         * "source_name" is the name of the source package, whose
           binaries are migrating.
-        * "source_data" is the fields of that source package from
-          testing.
-        * "architecture" is the architecture determines architecture of
-          the migrating binaries (can be "source" for a
-          "source"-migration, meaning all binaries regardless of
-          architecture).
         * "suite" is the suite from which the binaries are migrating.
+          [Same as item.suite, where available]
+        * "migration_architecture" is the architecture determines
+          architecture of the migrating binaries (can be "source" for
+          a "source"-migration, meaning all binaries regardless of
+          architecture).  [Same as item.architecture, where available]
+        * "is_removal" is a boolean determining if this is a removal
+           or not [Same as item.is_removal, where available]
+        * "include_hijacked" determines whether hijacked binaries should
+          be included in results or not. (defaults: False)
 
-        Returns a tuple (bins, smoothbins).  "bins" is a set of binaries
-        that are not smooth-updatable (or binaries that could be, but
-        there is no reason to let them be smooth updated).
-        "smoothbins" is set of binaries that are to be smooth-updated
+        Returns a tuple (adds, rms, smoothbins).  "adds" is a set of
+        binaries that will updated in or appear after the migration.
+        "rms" is a set of binaries that are not smooth-updatable (or
+        binaries that could be, but there is no reason to let them be
+        smooth updated).  "smoothbins" is set of binaries that are to
+        be smooth-updated.
+
+        Each "binary" in "adds", "rms" and "smoothbins" will be a
+        tuple of ("package-name", "version", "architecture") and are
+        thus tuples suitable for passing on to the
+        InstallabilityTester.
+
 
         Pre-Conditions: The source package must be in testing and this
         should only be used when considering to do an upgrade
         migration from the input suite.  (e.g. do not use this for
         removals).
+
+        Unlike doop_source, this will not modify any data structure.
         """
-        bins = set()
-        smoothbins = set()
-        check = []
-
+        # local copies for better performances
+        sources = self.sources
         binaries_t = self.binaries['testing']
-        # first, build a list of eligible binaries
-        for p in source_data[BINARIES]:
-            binary, parch = p.split("/")
-            if architecture != 'source':
-                # for a binary migration, binaries should not be removed:
-                # - unless they are for the correct architecture
-                if parch != architecture:
+
+        adds = set()
+        rms = set()
+        smoothbins = {}
+
+        # remove all binary packages (if the source already exists)
+        if migration_architecture == 'source' or not is_removal:
+            if source_name in sources['testing']:
+                source_data = sources['testing'][source_name]
+
+                bins = []
+                check = {}
+                # remove all the binaries
+
+                # first, build a list of eligible binaries
+                for p in source_data[BINARIES]:
+                    binary, parch = p.split("/")
+                    if (migration_architecture != 'source'
+                        and parch != migration_architecture):
+                        continue
+
+                    if (not include_hijacked
+                        and binaries_t[parch][0][binary][SOURCE] != source_name):
+                        continue
+
+                    bins.append(p)
+
+                for p in bins:
+                    binary, parch = p.split("/")
+                    # if a smooth update is possible for the package, skip it
+                    if suite == 'unstable' and \
+                       binary not in self.binaries[suite][parch][0] and \
+                       ('ALL' in self.options.smooth_updates or \
+                        binaries_t[parch][0][binary][SECTION] in self.options.smooth_updates):
+
+                        # if the package has reverse-dependencies which are
+                        # built from other sources, it's a valid candidate for
+                        # a smooth update.  if not, it may still be a valid
+                        # candidate if one if its r-deps is itself a candidate,
+                        # so note it for checking later
+                        bin_data = binaries_t[parch][0][binary]
+                        rdeps = bin_data[RDEPENDS]
+
+                        # the list of reverse-dependencies may be outdated
+                        # if, for example, we're processing a hint and
+                        # a new version of one of the apparent reverse-dependencies
+                        # migrated earlier in the hint.  walk the list to make
+                        # sure that at least one of the entries is still
+                        # valid
+                        rrdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
+                        if rrdeps:
+                            for dep in rrdeps:
+                                if dep in binaries_t[parch][0]:
+                                    bin = binaries_t[parch][0][dep]
+                                    deps = []
+                                    if bin[DEPENDS] is not None:
+                                        deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
+                                    if any(binary == entry[0] for deplist in deps for entry in deplist):
+                                        smoothbins[p] = (binary, bin_data[VERSION], parch)
+                                        break
+                        else:
+                            check[p] = (binary, bin_data[VERSION], parch)
+
+                # check whether we should perform a smooth update for
+                # packages which are candidates but do not have r-deps
+                # outside of the current source
+                for p in check:
+                    binary, _, parch = check[p]
+                    rdeps = [ bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
+                              if bin in [y[0] for y in smoothbins.itervalues()] ]
+                    if rdeps:
+                        smoothbins.add(check[p])
+
+                # remove all the binaries which aren't being smooth updated
+                for p in ( bin for bin in bins if bin not in smoothbins ):
+                    binary, parch = p.split("/")
+                    version = binaries_t[parch][0][binary][VERSION]
+                    rms.add((binary, version, parch))
+
+        # single binary removal; used for clearing up after smooth
+        # updates but not supported as a manual hint
+        elif source_name in binaries_t[item.architecture][0]:
+            version = binaries_t[item.architecture][0][source_name][VERSION]
+            rms.add((source_name, version, migration_architecture))
+
+        # add the new binary packages (if we are not removing)
+        if not is_removal:
+            source_data = sources[suite][source_name]
+            for p in source_data[BINARIES]:
+                binary, parch = p.split("/")
+                if migration_architecture not in ['source', parch]:
                     continue
-                # - if they are arch:all and the migration is via *pu,
-                #   as the packages will not have been rebuilt and the
-                #   source suite will not contain them
-                if binaries_t[parch][0][binary][ARCHITECTURE] == 'all' and \
-                        suite != 'unstable':
-                    continue
-            # do not remove binaries which have been hijacked by other sources
-            if binaries_t[parch][0][binary][SOURCE] != source_name:
-                continue
-            bins.add(p)
+                version = self.binaries[suite][parch][0][binary][VERSION]
+                adds.add((binary, version, parch))
 
-        if suite != 'unstable':
-            # We only allow smooth updates from unstable, so if it we
-            # are not migrating from unstable just exit now.
-            return (bins, smoothbins)
+        return (adds, rms, set(smoothbins.itervalues()))
 
-        for p in bins:
-            binary, parch = p.split("/")
-            # if a smooth update is possible for the package, skip it
-            if binary not in self.binaries[suite][parch][0] and \
-                    ('ALL' in self.options.smooth_updates or \
-                         binaries_t[parch][0][binary][SECTION] in self.options.smooth_updates):
-
-                # if the package has reverse-dependencies which are
-                # built from other sources, it's a valid candidate for
-                # a smooth update.  if not, it may still be a valid
-                # candidate if one if its r-deps is itself a candidate,
-                # so note it for checking later
-                rdeps = binaries_t[parch][0][binary][RDEPENDS]
-
-                # the list of reverse-dependencies may be outdated
-                # if, for example, we're processing a hint and
-                # a new version of one of the apparent reverse-dependencies
-                # migrated earlier in the hint.  walk the list to make
-                # sure that at least one of the entries is still
-                # valid
-                rrdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
-                if rrdeps:
-                    for dep in rrdeps:
-                        if dep in binaries_t[parch][0]:
-                            bin = binaries_t[parch][0][dep]
-                            deps = []
-                            if bin[DEPENDS] is not None:
-                                deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
-                                if any(binary == entry[0] for deplist in deps for entry in deplist):
-                                    smoothbins.add(p)
-                                    break
-                else:
-                    check.append(p)
-
-                
-        # check whether we should perform a smooth update for
-        # packages which are candidates but do not have r-deps
-        # outside of the current source
-        for p in check:
-            binary, parch = p.split("/")
-            if any(bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
-                       if bin in [y.split("/")[0] for y in smoothbins]):
-                smoothbins.add(p)
-
-        bins -= smoothbins
-        return (bins, smoothbins)
 
     def doop_source(self, item, hint_undo=[]):
         """Apply a change to the testing distribution as requested by `pkg`
@@ -1858,14 +1895,15 @@ class Britney(object):
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
 
-                bins, _ = self.find_upgraded_binaries(item.package,
-                                                      source,
-                                                      item.architecture,
-                                                      item.suite)
+                _, bins, _ = self._compute_groups(item.package,
+                                                  item.suite,
+                                                  item.architecture,
+                                                  item.is_removal)
 
                 # remove all the binaries which aren't being smooth updated
-                for p in bins:
-                    binary, parch = p.split("/")
+                for bin_data in bins:
+                    binary, _, parch = bin_data
+                    p = binary + "/" + parch
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
                     # all the reverse dependencies are affected by the change
