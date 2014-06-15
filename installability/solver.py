@@ -78,6 +78,9 @@ class InstallabilitySolver(InstallabilityTester):
             for r in rms:
                 ptable[r] = key
 
+        if debug_solver > 1:
+            self._dump_groups(groups)
+
         # This large loop will add ordering constrains on each "item"
         # that migrates based on various rules.
         for (item, adds, rms) in groups:
@@ -296,4 +299,10 @@ class InstallabilitySolver(InstallabilityTester):
             visit(node)
 
         return result
+
+    def _dump_groups(self, groups):
+        print "N: === Groups ==="
+        for (item, adds, rms) in groups:
+            print "N: %s =>  A: %s, R: %s" % (str(item), str(adds), str(rms))
+        print "N: === END Groups ==="
 
