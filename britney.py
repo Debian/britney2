@@ -2628,7 +2628,7 @@ class Britney(object):
 
         for comp in self._inst_tester.solve_groups(groups):
             if len(comp) > 1:
-                self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x.uvname, excuses[x.uvname].ver[1])) for x in comp])
+                self.do_hint("easy", "autohinter", comp)
 
         self.__log("> Processing hints from the auto hinter [Original]",
                    type="I")
