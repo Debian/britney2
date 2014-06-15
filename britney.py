@@ -2613,7 +2613,7 @@ class Britney(object):
 
         groups = set()
         for y in sorted((y for y in self.upgrade_me if y.uvname in excuses), key=attrgetter('uvname')):
-            if y.is_removal and y.uvname not in sources_t:
+            if y.is_removal and y.package not in sources_t:
                 # Already removed
                 continue
             if not y.is_removal:
