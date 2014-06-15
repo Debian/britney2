@@ -273,8 +273,6 @@ class Britney(object):
                 return
 
         # read the source and binary packages for the involved distributions
-        # if this takes a very long time, try increasing SIZEOFHASHMAP in
-        # lib/dpkg.c and rebuilding
         if 'testing' not in self.sources:
             self.sources['testing'] = self.read_sources(self.options.testing)
         self.sources['unstable'] = self.read_sources(self.options.unstable)
