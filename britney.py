@@ -1136,7 +1136,7 @@ class Britney(object):
                             # it "interesting" on its own.  This case happens quite often with smooth updatable
                             # packages, where the old binary "survives" a full run because it still has
                             # reverse dependencies.
-                            name = pkg + "/" + tpkg_data[ARCHITECTURE]
+                            name = (pkg, tpkg_data[VERSION], tpkg_data[ARCHITECTURE])
                             if name not in smoothbins:
                                 anyworthdoing = True
 
