@@ -1857,11 +1857,12 @@ class Britney(object):
                 # packages which are candidates but do not have r-deps
                 # outside of the current source
                 for p in check:
-                    binary, _, parch = check[p]
+                    ptuple = check[p]
+                    binary, _, parch = ptuple
                     rdeps = [ bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
                               if bin in [y[0] for y in smoothbins.itervalues()] ]
                     if rdeps:
-                        smoothbins.add(check[p])
+                        smoothbins[p] = ptuple
 
                 # remove all the binaries which aren't being smooth updated
                 for p in ( bin for bin in bins if bin not in smoothbins ):
