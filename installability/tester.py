@@ -20,7 +20,7 @@ from britney_util import iter_except
 class InstallabilityTester(object):
 
     def __init__(self, universe, revuniverse, testing, broken, essentials,
-                 safe_set):
+                 safe_set, eqv_table):
         """Create a new installability tester
 
         universe is a dict mapping package tuples to their
@@ -51,6 +51,7 @@ class InstallabilityTester(object):
         self._essentials = essentials
         self._revuniverse = revuniverse
         self._safe_set = safe_set
+        self._eqv_table = eqv_table
 
         # Cache of packages known to be broken - we deliberately do not
         # include "broken" in it.  See _optimize for more info.
@@ -235,8 +236,9 @@ class InstallabilityTester(object):
             never.update(ess_never)
 
         # curry check_loop
-        check_loop = partial(self._check_loop, universe, testing, musts,
-                             never, choices, cbroken)
+        check_loop = partial(self._check_loop, universe, testing,
+                             self._eqv_table, musts, never, choices,
+                             cbroken)
 
 
         # Useful things to remember:
@@ -359,8 +361,9 @@ class InstallabilityTester(object):
         return verdict
 
 
-    def _check_loop(self, universe, testing, musts, never,
-                    choices, cbroken, check):
+    def _check_loop(self, universe, testing, eqv_table, musts, never,
+                    choices, cbroken, check, len=len,
+                    frozenset=frozenset):
         """Finds all guaranteed dependencies via "check".
 
         If it returns False, t is not installable.  If it returns True
@@ -368,8 +371,6 @@ class InstallabilityTester(object):
         returns True, then t is installable.
         """
         # Local variables for faster access...
-        l = len
-        fset = frozenset
         not_satisfied = partial(ifilter, musts.isdisjoint)
 
         # While we have guaranteed dependencies (in check), examine all
@@ -401,9 +402,9 @@ class InstallabilityTester(object):
                 #  - not in testing
                 #  - known to be broken (by cache)
                 #  - in never
-                candidates = fset((depgroup & testing) - never)
+                candidates = frozenset((depgroup & testing) - never)
 
-                if l(candidates) == 0:
+                if len(candidates) == 0:
                     # We got no candidates to satisfy it - this
                     # package cannot be installed with the current
                     # testing
@@ -413,21 +414,43 @@ class InstallabilityTester(object):
                         cbroken.add(cur)
                         testing.remove(cur)
                     return False
-                if l(candidates) == 1:
+                if len(candidates) == 1:
                     # only one possible solution to this choice and we
                     # haven't seen it before
                     check.update(candidates)
                     musts.update(candidates)
                 else:
+                    possible_eqv = set(x for x in candidates if x in eqv_table)
+                    if len(possible_eqv) > 1:
+                        # Exploit equvialency to reduce the number of
+                        # candidates if possible.  Basically, this
+                        # code maps "similar" candidates into a single
+                        # candidate that will give a identical result
+                        # to any other candidate it eliminates.
+                        #
+                        # See InstallabilityTesterBuilder's
+                        # _build_eqv_packages_table method for more
+                        # information on how this works.
+                        new_cand = set(x for x in candidates if x not in possible_eqv)
+                        for chosen in iter_except(possible_eqv.pop, KeyError):
+                            new_cand.add(chosen)
+                            possible_eqv -= eqv_table[chosen]
+                        if len(new_cand) == 1:
+                            check.update(new_cand)
+                            musts.update(new_cand)
+                            continue
+                        candidates = frozenset(new_cand)
                     # defer this choice till later
                     choices.add(candidates)
         return True
+
 
     def _get_min_pseudo_ess_set(self, arch):
         if arch not in self._cache_ess:
             # The minimal essential set cache is not present -
             # compute it now.
             testing = self._testing
+            eqv_table = self._eqv_table
             cbroken = self._cache_broken
             universe = self._universe
             safe_set = self._safe_set
@@ -439,8 +462,9 @@ class InstallabilityTester(object):
             not_satisified = partial(ifilter, start.isdisjoint)
 
             while ess_base:
-                self._check_loop(universe, testing, start, ess_never,\
-                                     ess_choices, cbroken, ess_base)
+                self._check_loop(universe, testing, eqv_table,
+                                 start, ess_never, ess_choices,
+                                 cbroken, ess_base)
                 if ess_choices:
                     # Try to break choices where possible
                     nchoice = set()

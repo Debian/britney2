@@ -24,7 +24,7 @@ from britney_util import (ifilter_only, iter_except)
 class InstallabilitySolver(InstallabilityTester):
 
     def __init__(self, universe, revuniverse, testing, broken, essentials,
-                 safe_set):
+                 safe_set, eqv_table):
         """Create a new installability solver
 
         universe is a dict mapping package tuples to their
@@ -44,7 +44,7 @@ class InstallabilitySolver(InstallabilityTester):
             (simplifies caches and dependency checking)
         """
         InstallabilityTester.__init__(self, universe, revuniverse, testing,
-                                      broken, essentials, safe_set)
+                                      broken, essentials, safe_set, eqv_table)
 
 
     def solve_groups(self, groups):

@@ -12,6 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from collections import defaultdict
 from contextlib import contextmanager
 
 from britney_util import ifilter_except, iter_except
@@ -28,7 +29,7 @@ class _RelationBuilder(object):
         self._new_breaks = set(binary_data[1])
 
 
-    def add_dependency_clause(self, or_clause):
+    def add_dependency_clause(self, or_clause, frozenset=frozenset):
         """Add a dependency clause
 
         The clause must be a sequence of (name, version, architecture)
@@ -48,12 +49,12 @@ class _RelationBuilder(object):
         binary = self._binary
         itbuilder = self._itbuilder
         package_table = itbuilder._package_table
-        reverse_package_table = itbuilder._reverse_package_table
         okay = False
         for dep_tuple in clause:
             okay = True
-            reverse_relations = itbuilder._reverse_relations(dep_tuple)
-            reverse_relations[0].add(binary)
+            rdeps, _, rdep_relations = itbuilder._reverse_relations(dep_tuple)
+            rdeps.add(binary)
+            rdep_relations.add(clause)
 
         self._new_deps.add(clause)
         if not okay:
@@ -193,7 +194,7 @@ class InstallabilityTesterBuilder(object):
 
         if binary in self._reverse_package_table:
             return self._reverse_package_table[binary]
-        rel = [set(), set()]
+        rel = [set(), set(), set()]
         self._reverse_package_table[binary] = rel
         return rel
 
@@ -227,18 +228,21 @@ class InstallabilityTesterBuilder(object):
         # operations in _check_loop since we only have to check one
         # set (instead of two) and we remove a few duplicates here
         # and there.
+        #
+        # At the same time, intern the rdep sets
         for pkg in reverse_package_table:
             if pkg not in package_table:
                 raise RuntimeError("%s/%s/%s referenced but not added!" % pkg)
-            if not reverse_package_table[pkg][1]:
-                # no rconflicts - ignore
-                continue
             deps, con = package_table[pkg]
-            if not con:
-                con = intern_set(reverse_package_table[pkg][1])
-            else:
-                con = intern_set(con | reverse_package_table[pkg][1])
-            package_table[pkg] = (deps, con)
+            rdeps, rcon, rdep_relations = reverse_package_table[pkg]
+            if rcon:
+                if not con:
+                    con = intern_set(rcon)
+                else:
+                    con = intern_set(con | rcon)
+                package_table[pkg] = (deps, con)
+            reverse_package_table[pkg] = (intern_set(rdeps), con,
+                                          intern_set(rdep_relations))
 
         # Check if we can expand broken.
         for t in not_broken(iter_except(check.pop, KeyError)):
@@ -308,8 +312,95 @@ class InstallabilityTesterBuilder(object):
                     # add all rdeps (except those already in the safe_set)
                     check.update(reverse_package_table[pkg][0] - safe_set)
 
+        eqv_table = self._build_eqv_packages_table(package_table,
+                                       reverse_package_table)
 
         return InstallabilitySolver(package_table,
                                     reverse_package_table,
                                     self._testing, self._broken,
-                                    self._essentials, safe_set)
+                                    self._essentials, safe_set,
+                                    eqv_table)
+
+
+    def _build_eqv_packages_table(self, package_table,
+                                  reverse_package_table,
+                                  frozenset=frozenset):
+        """Attempt to build a table of equivalent packages
+
+        This method attempts to create a table of packages that are
+        equivalent (in terms of installability).  If two packages (A
+        and B) are equivalent then testing the installability of A is
+        the same as testing the installability of B.  This equivalency
+        also applies to co-installability.
+
+        The example cases:
+        * aspell-*
+        * ispell-*
+
+        Cases that do *not* apply:
+        * MTA's
+
+        The theory:
+
+        The packages A and B are equivalent iff:
+
+          reverse_depends(A) == reverse_depends(B) AND
+                conflicts(A) == conflicts(B)       AND
+                  depends(A) == depends(B)
+
+        Where "reverse_depends(X)" is the set of reverse dependencies
+        of X, "conflicts(X)" is the set of negative dependencies of X
+        (Breaks and Conflicts plus the reverse ones of those combined)
+        and "depends(X)" is the set of strong dependencies of X
+        (Depends and Pre-Depends combined).
+
+        To be honest, we are actually equally interested another
+        property as well, namely substitutability.  The package A can
+        always used instead of B, iff:
+
+          reverse_depends(A) >= reverse_depends(B) AND
+                conflicts(A) <= conflicts(B)       AND
+                  depends(A) == depends(B)
+
+        (With the same definitions as above).  Note that equivalency
+        is just a special-case of substitutability, where A and B can
+        substitute each other (i.e. a two-way substituation).
+
+        Finally, note that the "depends(A) == depends(B)" for
+        substitutability is actually not a strict requirement.  There
+        are cases where those sets are different without affecting the
+        property.
+        """
+        # Despite talking about substitutability, the method currently
+        # only finds the equivalence cases.  Lets leave
+        # substitutability for a future version.
+
+        find_eqv_table = defaultdict(list)
+        eqv_table = {}
+
+        for pkg in reverse_package_table:
+            rdeps = reverse_package_table[pkg][2]
+            if not rdeps:
+                # we don't care for things without rdeps (because
+                # it is not worth it)
+                continue
+            deps, con = package_table[pkg]
+            ekey = (deps, con, rdeps)
+            find_eqv_table[ekey].append(pkg)
+
+        for pkg_list in find_eqv_table.itervalues():
+            if len(pkg_list) < 2:
+                continue
+            if (len(pkg_list) == 2 and pkg_list[0][0] == pkg_list[1][0]
+               and pkg_list[0][2] == pkg_list[1][2]):
+                # This is a (most likely) common and boring case.  It
+                # is when pkgA depends on pkgB and is satisfied with
+                # any version available.  However, at most one version
+                # of pkgB will be available in testing, so other
+                # filters will make this case redundant.
+                continue
+            eqv_set = frozenset(pkg_list)
+            for pkg in pkg_list:
+                eqv_table[pkg] = eqv_set
+
+        return eqv_table
