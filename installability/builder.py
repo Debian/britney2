@@ -198,10 +198,12 @@ class InstallabilityTesterBuilder(object):
         return rel
 
     def build(self):
-        # Merge reverse conflicts with conflicts - this saves some
-        # operations in _check_loop since we only have to check one
-        # set (instead of two) and we remove a few duplicates here
-        # and there.
+        """Compile the installability tester
+
+        This method will compile an installability tester from the
+        information given and (where possible) try to optimise a
+        few things.
+        """
         package_table = self._package_table
         reverse_package_table = self._reverse_package_table
         intern_set = self._intern_set
@@ -220,6 +222,11 @@ class InstallabilityTesterBuilder(object):
                     return False
             return True
 
+
+        # Merge reverse conflicts with conflicts - this saves some
+        # operations in _check_loop since we only have to check one
+        # set (instead of two) and we remove a few duplicates here
+        # and there.
         for pkg in reverse_package_table:
             if pkg not in package_table:
                 raise RuntimeError("%s/%s/%s referenced but not added!" % pkg)
