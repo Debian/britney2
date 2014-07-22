@@ -81,11 +81,22 @@ class InstallabilityTester(object):
         check_inst = self._check_inst
         cbroken = self._cache_broken
         cache_inst = self._cache_inst
-        tcopy = [x for x in self._testing]
+        eqv_table = self._eqv_table
+        testing = self._testing
+        tcopy = [x for x in testing]
         for t in ifilterfalse(cache_inst.__contains__, tcopy):
             if t in cbroken:
                 continue
-            check_inst(t)
+            res = check_inst(t)
+            if t in eqv_table:
+                eqv = (x for x in eqv_table[t] if x in testing)
+                if res:
+                    cache_inst.update(eqv)
+                else:
+                    eqv_set = frozenset(eqv)
+                    testing -= eqv_set
+                    cbroken |= eqv_set
+
 
     def add_testing_binary(self, pkg_name, pkg_version, pkg_arch):
         """Add a binary package to "testing"
@@ -422,7 +433,7 @@ class InstallabilityTester(object):
                 else:
                     possible_eqv = set(x for x in candidates if x in eqv_table)
                     if len(possible_eqv) > 1:
-                        # Exploit equvialency to reduce the number of
+                        # Exploit equivalency to reduce the number of
                         # candidates if possible.  Basically, this
                         # code maps "similar" candidates into a single
                         # candidate that will give a identical result
