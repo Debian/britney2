@@ -207,6 +207,7 @@ class InstallabilityTester(object):
         testing = self._testing
         cbroken = self._cache_broken
         safe_set = self._safe_set
+        eqv_table = self._eqv_table
 
         # Our installability verdict - start with "yes" and change if
         # prove otherwise.
@@ -248,7 +249,7 @@ class InstallabilityTester(object):
 
         # curry check_loop
         check_loop = partial(self._check_loop, universe, testing,
-                             self._eqv_table, musts, never, choices,
+                             eqv_table, musts, never, choices,
                              cbroken)
 
 
@@ -271,7 +272,7 @@ class InstallabilityTester(object):
         #     of t via recursion (calls _check_inst).  In this case
         #     check and choices are not (always) empty.
 
-        def _pick_choice(rebuild):
+        def _pick_choice(rebuild, set=set, len=len):
             """Picks a choice from choices and updates rebuild.
 
             Prunes the choices and updates "rebuild" to reflect the
@@ -330,18 +331,55 @@ class InstallabilityTester(object):
             last = next(choice) # pick one to go last
             for p in choice:
                 musts_copy = musts.copy()
-                never_copy = never.copy()
-                choices_copy = choices.copy()
-                if self._check_inst(p, musts_copy, never_copy, choices_copy):
+                never_tmp = set()
+                choices_tmp = set()
+                check_tmp = set([p])
+                if not self._check_loop(universe, testing, eqv_table,
+                                        musts_copy, never_tmp,
+                                        choices_tmp, cbroken,
+                                        check_tmp):
+                    # p cannot be chosen/is broken (unlikely, but ...)
+                    continue
+
+                # Test if we can pick p without any consequences.
+                # - when we can, we avoid a backtrack point.
+                if never_tmp <= never and choices_tmp <= rebuild:
+                    # we can pick p without picking up new conflicts
+                    # or unresolved choices.  Therefore we commit to
+                    # using p.
+                    #
+                    # NB: Optimally, we would go to the start of this
+                    # routine, but to conserve stack-space, we return
+                    # and expect to be called again later.
+                    musts.update(musts_copy)
+                    return False
+
+                if not musts.isdisjoint(never_tmp):
+                    # If we pick p, we will definitely end up making
+                    # t uninstallable, so p is a no-go.
+                    continue
+
+                # We are not sure that p is safe, setup a backtrack
+                # point and recurse.
+                never_tmp |= never
+                choices_tmp |= rebuild
+                if self._check_inst(p, musts_copy, never_tmp,
+                                    choices_tmp):
+                    # Success, p was a valid choice and made it all
+                    # installable
                     return True
-                # If we get here, we failed to find something that would satisfy choice (without breaking
-                # the installability of t).  This means p cannot be used to satisfy the dependencies, so
-                # pretend to conflict with it - hopefully it will reduce future choices.
+
+                # If we get here, we failed to find something that
+                # would satisfy choice (without breaking the
+                # installability of t).  This means p cannot be used
+                # to satisfy the dependencies, so pretend to conflict
+                # with it - hopefully it will reduce future choices.
                 never.add(p)
 
-            # Optimization for the last case; avoid the recursive call and just
-            # assume the last will lead to a solution.  If it doesn't there is
-            # no solution and if it does, we don't have to back-track anyway.
+            # Optimization for the last case; avoid the recursive call
+            # and just assume the last will lead to a solution.  If it
+            # doesn't there is no solution and if it does, we don't
+            # have to back-track anyway.
             check.add(last)
             musts.add(last)
             return False
