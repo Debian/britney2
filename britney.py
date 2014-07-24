@@ -1963,7 +1963,7 @@ class Britney(object):
 
                 # remove all the binaries which aren't being smooth updated
                 for bin_data in bins:
-                    binary, _, parch = bin_data
+                    binary, version, parch = bin_data
                     p = binary + "/" + parch
                     # save the old binary for undo
                     undo['binaries'][p] = binaries[parch][0][binary]
@@ -1978,7 +1978,6 @@ class Britney(object):
                         if len(binaries[parch][1][j]) == 0:
                             del binaries[parch][1][j]
                     # finally, remove the binary package
-                    version = binaries[parch][0][binary][VERSION]
                     del binaries[parch][0][binary]
                     self._inst_tester.remove_testing_binary(binary, version, parch)
                 # remove the source package
