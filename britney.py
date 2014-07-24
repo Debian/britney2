@@ -1938,9 +1938,9 @@ class Britney(object):
         This method applies the changes required by the action `item` tracking
         them so it will be possible to revert them.
 
-        The method returns a list of the package name, the suite where the
-        package comes from, the set of packages affected by the change and
-        the dictionary undo which can be used to rollback the changes.
+        The method returns a tuple containing a set of packages
+        affected by the change (as (name, arch)-tuples) and the
+        dictionary undo which can be used to rollback the changes.
         """
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
@@ -2068,7 +2068,7 @@ class Britney(object):
                 sources['testing'][item.package] = sources[item.suite][item.package]
 
         # return the package name, the suite, the list of affected packages and the undo dictionary
-        return (item, affected, undo)
+        return (affected, undo)
 
 
     def _check_packages(self, binaries, arch, affected, skip_archall, nuninst):
@@ -2130,8 +2130,8 @@ class Britney(object):
             removals.update(rms)
 
         for item in hinted_packages:
-            _, affected, undo = self.doop_source(item,
-                                                 removals=removals)
+            affected, undo = self.doop_source(item,
+                                              removals=removals)
             all_affected.update(affected)
             if lundo is not None:
                 lundo.append((undo,item))
@@ -2183,7 +2183,7 @@ class Britney(object):
 
         # loop on the packages (or better, actions)
         while packages:
-            pkg = packages.pop(0)
+            item = packages.pop(0)
 
             # this is the marker for the first loop
             if not mark_passed and position < 0:
@@ -2195,21 +2195,21 @@ class Britney(object):
             # defer packages if their dependency has been already skipped
             if not mark_passed:
                 defer = False
-                for p in dependencies.get(pkg, []):
+                for p in dependencies.get(item, []):
                     if p in skipped:
-                        deferred.append(make_migrationitem(pkg, self.sources))
-                        skipped.append(make_migrationitem(pkg, self.sources))
+                        deferred.append(make_migrationitem(item, self.sources))
+                        skipped.append(make_migrationitem(item, self.sources))
                         defer = True
                         break
                 if defer: continue
 
-            self.output_write("trying: %s\n" % (pkg.uvname))
+            self.output_write("trying: %s\n" % (item.uvname))
 
             better = True
             nuninst = {}
 
             # apply the changes
-            item, affected, undo = self.doop_source(pkg, lundo)
+            affected, undo = self.doop_source(item, lundo)
 
             # check the affected packages on all the architectures
             for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
@@ -2233,10 +2233,10 @@ class Britney(object):
             # check if the action improved the uninstallability counters
             if better:
                 lundo.append((undo, item))
-                selected.append(pkg)
+                selected.append(item)
                 packages.extend(extra)
                 extra = []
-                self.output_write("accepted: %s\n" % (pkg.uvname))
+                self.output_write("accepted: %s\n" % (item.uvname))
                 self.output_write("   ori: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
                 self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_comp)))
                 self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst, nuninst_comp)))
@@ -2247,8 +2247,8 @@ class Britney(object):
                 for k in nuninst:
                     nuninst_comp[k] = nuninst[k]
             else:
-                self.output_write("skipped: %s (%d <- %d)\n" % (pkg.uvname, len(extra), len(packages)))
-                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, pkg.architecture != 'source' and nuninst_comp or None)))
+                self.output_write("skipped: %s (%d <- %d)\n" % (item.uvname, len(extra), len(packages)))
+                self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, item.architecture != 'source' and nuninst_comp or None)))
                 self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted(b for b in nuninst[arch] if b not in nuninst_comp[arch]))))
 
                 extra.append(item)
