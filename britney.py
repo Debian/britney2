@@ -2103,7 +2103,51 @@ class Britney(object):
                 self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
 
-    def iter_packages(self, packages, selected, hint=False, nuninst=None, lundo=None):
+    def iter_packages_hint(self, hinted_packages, lundo=None):
+        """Iter on hinted list of actions and apply them in one go
+
+        This method applies the changes from "hinted_packages" to
+        testing and computes the uninstallability counters after te
+        actions are performed.
+
+        The method returns the new uninstallability counters.
+        """
+
+        removals = set()
+        all_affected = set()
+        nobreakall_arches = self.options.nobreakall_arches.split()
+        binaries_t = self.binaries['testing']
+        check_packages = partial(self._check_packages, binaries_t)
+        # Deep copy nuninst (in case the hint is undone)
+        nuninst = {k:v.copy() for k,v in self.nuninst_orig.iteritems()}
+
+
+        for item in hinted_packages:
+            _, rms, _ = self._compute_groups(item.package, item.suite,
+                                             item.architecture,
+                                             item.is_removal,
+                                             allow_smooth_updates=False)
+            removals.update(rms)
+
+        for item in hinted_packages:
+            _, affected, undo = self.doop_source(item,
+                                                 removals=removals)
+            all_affected.update(affected)
+            if lundo is not None:
+                lundo.append((undo,item))
+
+        for arch in self.options.architectures:
+            if arch not in nobreakall_arches:
+                skip_archall = True
+            else:
+                skip_archall = False
+
+            check_packages(arch, all_affected, skip_archall, nuninst)
+
+        return nuninst
+
+
+    def iter_packages(self, packages, selected, nuninst=None, lundo=None):
         """Iter on the list of actions and apply them one-by-one
 
         This method applies the changes from `packages` to testing, checking the uninstallability
@@ -2132,25 +2176,10 @@ class Britney(object):
         dependencies = self.dependencies
         check_packages = partial(self._check_packages, binaries)
 
-        # pre-process a hint batch
-        pre_process = {}
-        if selected and hint:
-            removals = set()
-            for item in selected:
-                _, rms, _ = self._compute_groups(item.package, item.suite,
-                                                 item.architecture,
-                                                 item.is_removal,
-                                                 allow_smooth_updates=False)
-                removals.update(rms)
-            for package in selected:
-                pkg, affected, undo = self.doop_source(package,
-                                                       removals=removals)
-                pre_process[package] = (pkg, affected, undo)
-
         if lundo is None:
             lundo = []
-        if not hint:
-            self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(x.uvname for x in selected), len(packages), len(extra)))
+
+        self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(x.uvname for x in selected), len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
@@ -2174,36 +2203,25 @@ class Britney(object):
                         break
                 if defer: continue
 
-            if not hint:
-                self.output_write("trying: %s\n" % (pkg.uvname))
+            self.output_write("trying: %s\n" % (pkg.uvname))
 
             better = True
             nuninst = {}
 
             # apply the changes
-            if pkg in pre_process:
-                item, affected, undo = pre_process[pkg]
-            else:
-                item, affected, undo = self.doop_source(pkg, lundo)
-            if hint:
-                lundo.append((undo, item))
+            item, affected, undo = self.doop_source(pkg, lundo)
 
             # check the affected packages on all the architectures
             for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
                 if arch not in nobreakall_arches:
                     skip_archall = True
-                else: skip_archall = False
+                else:
+                    skip_archall = False
 
                 nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
                 nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
 
                 check_packages(arch, affected, skip_archall, nuninst)
-
-                # if we are processing hints, go ahead
-                if hint:
-                    nuninst_comp[arch] = nuninst[arch]
-                    nuninst_comp[arch + "+all"] = nuninst[arch + "+all"]
-                    continue
 
                 # if the uninstallability counter is worse than before, break the loop
                 if ((item.architecture != 'source' and arch not in new_arches) or \
@@ -2211,8 +2229,6 @@ class Britney(object):
                     better = False
                     break
 
-            # if we are processing hints or the package is already accepted, go ahead
-            if hint or item in selected: continue
 
             # check if the action improved the uninstallability counters
             if better:
@@ -2242,9 +2258,6 @@ class Britney(object):
                 # (local-scope) binaries is actually self.binaries["testing"] so we cannot use it here.
                 undo_changes(single_undo, self._inst_tester, sources, self.binaries)
 
-        # if we are processing hints, return now
-        if hint:
-            return (nuninst_comp, [])
 
         self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
@@ -2254,6 +2267,7 @@ class Britney(object):
         self.output_write("\n")
 
         return (nuninst_comp, extra)
+
 
     def do_all(self, hinttype=None, init=None, actions=None):
         """Testing update runner
@@ -2274,6 +2288,7 @@ class Britney(object):
         recurse = True
         lundo = None
         nuninst_end = None
+        extra = () # empty tuple
 
         if hinttype == "easy" or hinttype == "force-hint":
             force = hinttype == "force-hint"
@@ -2298,7 +2313,11 @@ class Britney(object):
 
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
-            (nuninst_end, extra) = self.iter_packages(init, selected, hint=True, lundo=lundo)
+            nuninst_end = self.iter_packages_hint(selected, lundo=lundo)
+            if recurse:
+                # Ensure upgrade_me and selected do not overlap, if we
+                # follow-up with a recurse ("hint"-hint).
+                upgrade_me = [x for x in upgrade_me if x not in set(selected)]
 
         if recurse:
             # Either the main run or the recursive run of a "hint"-hint.
@@ -2338,7 +2357,7 @@ class Britney(object):
                 if recurse:
                     self.upgrade_me = sorted(extra)
                 else:
-                    self.upgrade_me = [x for x in self.upgrade_me if x not in selected]
+                    self.upgrade_me = [x for x in self.upgrade_me if x not in set(selected)]
                 self.sort_actions()
         else:
             self.output_write("FAILED\n")
