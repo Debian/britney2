@@ -189,6 +189,7 @@ import urllib
 
 import apt_pkg
 
+from collections import defaultdict
 from functools import reduce, partial
 from itertools import chain, ifilter, product
 from operator import attrgetter
@@ -678,7 +679,7 @@ class Britney(object):
         The method returns a dictionary where the key is the binary package
         name and the value is the list of open RC bugs for it.
         """
-        bugs = {}
+        bugs = defaultdict(list)
         filename = os.path.join(basedir, "BugsV")
         self.__log("Loading RC bugs data from %s" % filename)
         for line in open(filename):
@@ -687,7 +688,6 @@ class Britney(object):
                 self.__log("Malformed line found in line %s" % (line), type='W')
                 continue
             pkg = l[0]
-            bugs.setdefault(pkg, [])
             bugs[pkg] += l[1].split(",")
         return bugs
 
@@ -2783,10 +2783,10 @@ class Britney(object):
 
     def nuninst_arch_report(self, nuninst, arch):
         """Print a report of uninstallable packages for one architecture."""
-        all = {}
+        all = defaultdict(set)
         for p in nuninst[arch]:
             pkg = self.binaries['testing'][arch][0][p]
-            all.setdefault((pkg[SOURCE], pkg[SOURCEVER]), set()).add(p)
+            all[pkg].add(p)
 
         print '* %s' % (arch,)
 
