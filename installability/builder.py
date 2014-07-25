@@ -391,14 +391,7 @@ class InstallabilityTesterBuilder(object):
         for pkg_list in find_eqv_table.itervalues():
             if len(pkg_list) < 2:
                 continue
-            if (len(pkg_list) == 2 and pkg_list[0][0] == pkg_list[1][0]
-               and pkg_list[0][2] == pkg_list[1][2]):
-                # This is a (most likely) common and boring case.  It
-                # is when pkgA depends on pkgB and is satisfied with
-                # any version available.  However, at most one version
-                # of pkgB will be available in testing, so other
-                # filters will make this case redundant.
-                continue
+
             eqv_set = frozenset(pkg_list)
             for pkg in pkg_list:
                 eqv_table[pkg] = eqv_set

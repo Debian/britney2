@@ -98,6 +98,17 @@ class InstallabilityTester(object):
                     cbroken |= eqv_set
 
 
+    def are_equivalent(self, p1, p2):
+        """Test if p1 and p2 are equivalent
+
+        Returns True if p1 and p2 have the same "signature" in
+        the package dependency graph (i.e. relations can not tell
+        them appart sematically except for their name)
+        """
+        eqv_table = self._eqv_table
+        return p1 in eqv_table and p2 in eqv_table[p1]
+
+
     def add_testing_binary(self, pkg_name, pkg_version, pkg_arch):
         """Add a binary package to "testing"
 
