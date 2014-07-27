@@ -431,10 +431,12 @@ class Britney(object):
 
                 depends = []
                 conflicts = []
+                possible_dep_ranges = {}
 
                 # We do not differ between depends and pre-depends
                 if pkgdata[DEPENDS]:
                     depends.extend(apt_pkg.parse_depends(pkgdata[DEPENDS], False))
+
                 if pkgdata[CONFLICTS]:
                     conflicts = apt_pkg.parse_depends(pkgdata[CONFLICTS], False)
 
@@ -442,8 +444,10 @@ class Britney(object):
 
                     for (al, dep) in [(depends, True), \
                                       (conflicts, False)]:
+
                         for block in al:
                             sat = set()
+
                             for dep_dist in binaries:
                                 (_, pkgs) = solvers(block, arch, dep_dist)
                                 for p in pkgs:
@@ -460,7 +464,37 @@ class Britney(object):
                                         # is using §7.6.2
                                         relations.add_breaks(pt)
                             if dep:
-                                relations.add_dependency_clause(sat)
+                                if len(block) != 1:
+                                    relations.add_dependency_clause(sat)
+                                else:
+                                    # This dependency might be a part
+                                    # of a version-range a la:
+                                    #
+                                    #   Depends: pkg-a (>= 1),
+                                    #            pkg-a (<< 2~)
+                                    #
+                                    # In such a case we want to reduce
+                                    # that to a single clause for
+                                    # efficiency.
+                                    #
+                                    # In theory, it could also happen
+                                    # with "non-minimal" dependencies
+                                    # a la:
+                                    #
+                                    #   Depends: pkg-a, pkg-a (>= 1)
+                                    #
+                                    # But dpkg is known to fix that up
+                                    # at build time, so we will
+                                    # probably only see "ranges" here.
+                                    key = block[0][0]
+                                    if key in possible_dep_ranges:
+                                        possible_dep_ranges[key] &= sat
+                                    else:
+                                        possible_dep_ranges[key] = sat
+
+                        if dep:
+                            for clause in possible_dep_ranges.itervalues():
+                                relations.add_dependency_clause(clause)
 
         self._inst_tester = builder.build()
 
