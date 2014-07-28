@@ -1093,7 +1093,7 @@ class Britney(object):
             binary_u = self.binaries[suite][arch][0][pkg_name]
 
             # this is the source version for the new binary package
-            pkgsv = self.binaries[suite][arch][0][pkg_name][SOURCEVER]
+            pkgsv = binary_u[SOURCEVER]
 
             # if the new binary package is architecture-independent, then skip it
             if binary_u[ARCHITECTURE] == 'all':
