@@ -2234,8 +2234,8 @@ class Britney(object):
                 defer = False
                 for p in dependencies.get(item, []):
                     if p in skipped:
-                        deferred.append(make_migrationitem(item, self.sources))
-                        skipped.append(make_migrationitem(item, self.sources))
+                        deferred.append(item)
+                        skipped.append(item)
                         defer = True
                         break
                 if defer: continue
