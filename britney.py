@@ -218,7 +218,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
                           write_excuses, write_heidi_delta, write_controlfiles,
-                          old_libraries)
+                          old_libraries, is_nuninst_asgood_generous)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -1751,14 +1751,6 @@ class Britney(object):
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
 
-    def is_nuninst_asgood_generous(self, old, new):
-        diff = 0
-        for arch in self.options.architectures:
-            if arch in self.options.break_arches.split(): continue
-            diff = diff + (len(new[arch]) - len(old[arch]))
-        return diff <= 0
-
-
     def _compute_groups(self, source_name, suite, migration_architecture,
                         is_removal, include_hijacked=False,
                         allow_smooth_updates=True,
@@ -2325,6 +2317,7 @@ class Britney(object):
         recurse = True
         lundo = None
         nuninst_end = None
+        better = True
         extra = () # empty tuple
 
         if hinttype == "easy" or hinttype == "force-hint":
@@ -2372,7 +2365,14 @@ class Britney(object):
                 self.output_write(eval_uninst(self.options.architectures,
                                               newly_uninst(nuninst_start, nuninst_end)) + "\n")
 
-        if force or self.is_nuninst_asgood_generous(self.nuninst_orig, nuninst_end):
+        if not force:
+            break_arches = self.options.break_arches.split()
+            better = is_nuninst_asgood_generous(self.options.architectures,
+                                                self.nuninst_orig,
+                                                nuninst_end,
+                                                break_arches)
+
+        if better:
             # Result accepted either by force or by being better than the original result.
             if recurse:
                 self.output_write("Apparently successful\n")

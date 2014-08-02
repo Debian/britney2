@@ -574,3 +574,24 @@ def old_libraries(sources, packages, same_source=same_source):
                 migration = "-" + "/".join((pkg_name, arch, pkg[SOURCEVER]))
                 removals.append(MigrationItem(migration))
     return removals
+
+
+def is_nuninst_asgood_generous(architectures, old, new, break_arches=frozenset()):
+    """Compares the nuninst counters to see if they improved
+
+    Given a list of architecters, the previous and the current nuninst
+    counters, this function determines if the current nuninst counter
+    is better than the previous one.  Optionally it also accepts a set
+    of "break_arches", the nuninst counter for any architecture listed
+    in this set are completely ignored.
+
+    Returns True if the new nuninst counter is better than the
+    previous.  Returns False otherwise.
+
+    """
+    diff = 0
+    for arch in architectures:
+        if arch in break_arches:
+            continue
+        diff = diff + (len(new[arch]) - len(old[arch]))
+    return diff <= 0
