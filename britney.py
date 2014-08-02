@@ -2366,7 +2366,12 @@ class Britney(object):
                                               newly_uninst(nuninst_start, nuninst_end)) + "\n")
 
         if not force:
-            break_arches = self.options.break_arches.split()
+            break_arches = set(self.options.break_arches.split())
+            if all(x.architecture in break_arches for x in selected):
+                # If we only migrated items from break-arches, then we
+                # do not allow any regressions on these architectures.
+                # This usually only happens with hints
+                break_arches = set()
             better = is_nuninst_asgood_generous(self.options.architectures,
                                                 self.nuninst_orig,
                                                 nuninst_end,
