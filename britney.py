@@ -1915,7 +1915,7 @@ class Britney(object):
         return (adds, rms, set(smoothbins.itervalues()))
 
 
-    def doop_source(self, item, hint_undo=[], removals=frozenset()):
+    def doop_source(self, item, hint_undo=None, removals=frozenset()):
         """Apply a change to the testing distribution as requested by `pkg`
 
         An optional list of undo actions related to packages processed earlier
@@ -2048,7 +2048,7 @@ class Britney(object):
                             affected.update(get_reverse_tree(j, parch))
                     old_version = old_pkg_data[VERSION]
                     inst_tester.remove_testing_binary(binary, old_version, parch)
-                else:
+                elif hint_undo:
                     # the binary isn't in testing, but it may have been at
                     # the start of the current hint and have been removed
                     # by an earlier migration. if that's the case then we
@@ -2205,9 +2205,6 @@ class Britney(object):
         dependencies = self.dependencies
         check_packages = partial(self._check_packages, binaries)
 
-        if lundo is None:
-            lundo = []
-
         self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(x.uvname for x in selected), len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
@@ -2261,7 +2258,8 @@ class Britney(object):
 
             # check if the action improved the uninstallability counters
             if better:
-                lundo.append((undo, item))
+                if lundo is not None:
+                    lundo.append((undo, item))
                 selected.append(item)
                 packages.extend(extra)
                 extra = []
