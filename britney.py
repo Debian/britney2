@@ -2786,7 +2786,8 @@ class Britney(object):
         all = defaultdict(set)
         for p in nuninst[arch]:
             pkg = self.binaries['testing'][arch][0][p]
-            all[pkg].add(p)
+            all[(pkg[SOURCE], pkg[SOURCEVER])].add(p)
+
 
         print '* %s' % (arch,)
 
