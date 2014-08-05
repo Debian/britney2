@@ -2316,7 +2316,7 @@ class Britney(object):
         lundo = None
         nuninst_end = None
         better = True
-        extra = () # empty tuple
+        extra = []
 
         if hinttype == "easy" or hinttype == "force-hint":
             force = hinttype == "force-hint"
@@ -2395,10 +2395,10 @@ class Britney(object):
             self.all_selected += selected
             if not actions:
                 if recurse:
-                    self.upgrade_me = sorted(extra)
+                    self.upgrade_me = extra
+                    self.sort_actions()
                 else:
                     self.upgrade_me = [x for x in self.upgrade_me if x not in set(selected)]
-                self.sort_actions()
         else:
             self.output_write("FAILED\n")
             if not lundo: return
