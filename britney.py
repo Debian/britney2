@@ -2147,8 +2147,7 @@ class Britney(object):
         nobreakall_arches = self.options.nobreakall_arches.split()
         binaries_t = self.binaries['testing']
         check_packages = partial(self._check_packages, binaries_t)
-        # Deep copy nuninst (in case the hint is undone)
-        nuninst = {k:v.copy() for k,v in self.nuninst_orig.iteritems()}
+        nuninst = {}
 
 
         for item in hinted_packages:
@@ -2164,6 +2163,16 @@ class Britney(object):
             all_affected.update(affected)
             if lundo is not None:
                 lundo.append((undo,item))
+
+        # deep copy nuninst (in case the hint is undone)
+        # NB: We do this *after* updating testing and we have to filter out
+        # removed binaries.  Otherwise, uninstallable binaries that were
+        # removed by the hint would still be counted.
+        for arch in self.options.architectures:
+            nuninst_arch = self.nuninst_orig[arch]
+            nuninst_arch_all = self.nuninst_orig[arch + '+all']
+            nuninst[arch] = set(x for x in nuninst_arch if x in binaries_t[arch])
+            nuninst[arch + '+all'] = set(x for x in nuninst_arch_all if x in binaries_t[arch])
 
         for arch in self.options.architectures:
             if arch not in nobreakall_arches:
