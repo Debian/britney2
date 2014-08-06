@@ -2291,9 +2291,9 @@ class Britney(object):
         position = len(packages)
 
         if nuninst:
-            nuninst_comp = nuninst.copy()
+            nuninst_comp = nuninst
         else:
-            nuninst_comp = self.nuninst_orig.copy()
+            nuninst_comp = self.nuninst_orig
 
         # local copies for better performance
         binaries = self.binaries['testing']
@@ -2332,17 +2332,35 @@ class Britney(object):
             self.output_write("trying: %s\n" % (item.uvname))
 
             better = True
-            nuninst = {}
 
             # apply the changes
             affected, undo = self.doop_source(item, lundo)
 
+            # Copy nuninst_comp - we have to deep clone affected
+            # architectures.
+
+            # NB: We do this *after* updating testing and we have to filter out
+            # removed binaries.  Otherwise, uninstallable binaries that were
+            # removed by the item would still be counted.
+            if item.architecture == 'source':
+                # Assume that all architectures are affected and deep
+                # copy nuninst_comp
+                nuninst = {}
+                for arch in architectures:
+                    nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
+                    nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
+            else:
+                # Shallow clone nuninst_comp except for the affected
+                # architecture, which is deep cloned.
+                arch = item.architecture
+                nuninst = nuninst_comp.copy()
+                nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
+                nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
+
+
             # check the affected packages on all the architectures
             for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
                 check_archall = arch in nobreakall_arches
-
-                nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
-                nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
 
                 check_packages(arch, affected, check_archall, nuninst)
 
@@ -2368,8 +2386,7 @@ class Britney(object):
                     self.output_write("   all: %s\n" % (" ".join( x.uvname for x in selected )))
                 else:
                     self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
-                for k in nuninst:
-                    nuninst_comp[k] = nuninst[k]
+                nuninst_comp = nuninst
             else:
                 self.output_write("skipped: %s (%d <- %d)\n" % (item.uvname, len(extra), len(packages)))
                 self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, item.architecture != 'source' and nuninst_comp or None)))
