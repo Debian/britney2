@@ -2745,29 +2745,39 @@ class Britney(object):
         so the ones with most reverse dependencies are at the end of the loop.
         If an action depends on another one, it is put after it.
         """
-        upgrade_me = [x.name for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me]]
-        for e in self.excuses:
-            if e.name not in upgrade_me: continue
-            # try removes at the end of the loop
-            elif e.name[0] == '-':
-                upgrade_me.remove(e.name)
-                upgrade_me.append(e.name)
-            # otherwise, put it in a good position checking its dependencies
+        uvnames = frozenset(y.uvname for y in self.upgrade_me)
+        excuses = [e for e in self.excuses if e.name in uvnames]
+        removals = []
+        upgrade_me = []
+
+        for e in excuses:
+            # We order removals and regular migrations differently, so
+            # split them out early.
+            if e.name[0] == '-':
+                removals.append(e.name)
             else:
-                pos = []
-                udeps = [upgrade_me.index(x) for x in e.deps if x in upgrade_me and x != e.name]
-                if len(udeps) > 0:
-                    pos.append(max(udeps))
-                sdeps = [upgrade_me.index(x) for x in e.sane_deps if x in upgrade_me and x != e.name]
-                if len(sdeps) > 0:
-                    pos.append(min(sdeps))
-                if len(pos) == 0: continue
-                upgrade_me.remove(e.name)
-                upgrade_me.insert(max(pos)+1, e.name)
-                self.dependencies[e.name] = e.deps
+                upgrade_me.append(e.name)
+
+        for e in excuses:
+            # put the item (regular migration) in a good position
+            # checking its dependencies
+            pos = []
+            udeps = [upgrade_me.index(x) for x in e.deps if x in upgrade_me and x != e.name]
+            if udeps:
+                pos.append(max(udeps))
+            sdeps = [upgrade_me.index(x) for x in e.sane_deps if x in upgrade_me and x != e.name]
+            if sdeps:
+                pos.append(min(sdeps))
+            if not pos:
+                continue
+            upgrade_me.remove(e.name)
+            upgrade_me.insert(max(pos)+1, e.name)
+            self.dependencies[e.name] = e.deps
 
         # replace the list of actions with the new one
         self.upgrade_me = [ make_migrationitem(x, self.sources) for x in upgrade_me ]
+        self.upgrade_me.extend(make_migrationitem(x, self.sources) for x in removals)
+
 
     def auto_hinter(self):
         """Auto-generate "easy" hints.
