@@ -441,7 +441,7 @@ class Britney(object):
                             sat = set()
 
                             for dep_dist in binaries:
-                                (_, pkgs) = solvers(block, arch, dep_dist)
+                                pkgs = solvers(block, arch, dep_dist)
                                 for p in pkgs:
                                     # version and arch is already interned, but solvers use
                                     # the package name extracted from the field and is therefore
@@ -946,7 +946,8 @@ class Britney(object):
                 if op == '' and version == '' and archqual is None:
                     packages.append(prov)
 
-        return (len(packages) > 0, packages)
+        return packages
+
 
     def excuse_unsat_deps(self, pkg, src, arch, suite, excuse):
         """Find unsatisfied dependencies for a binary package
@@ -972,15 +973,15 @@ class Britney(object):
         # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
             # if the block is satisfied in testing, then skip the block
-            solved, packages = get_dependency_solvers(block, arch, 'testing')
-            if solved:
+            packages = get_dependency_solvers(block, arch, 'testing')
+            if packages:
                 for p in packages:
                     if p not in self.binaries[suite][arch][0]: continue
                     excuse.add_sane_dep(self.binaries[suite][arch][0][p][SOURCE])
                 continue
 
             # check if the block can be satisfied in unstable, and list the solving packages
-            solved, packages = get_dependency_solvers(block, arch, suite)
+            packages = get_dependency_solvers(block, arch, suite)
             packages = [self.binaries[suite][arch][0][p][SOURCE] for p in packages]
 
             # if the dependency can be satisfied by the same source package, skip the block:
@@ -988,7 +989,7 @@ class Britney(object):
             if src in packages: continue
 
             # if no package can satisfy the dependency, add this information to the excuse
-            if len(packages) == 0:
+            if not packages:
                 excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
                 excuse.addreason("depends");
                 continue
