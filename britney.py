@@ -2145,8 +2145,8 @@ class Britney(object):
         removals = set()
         all_affected = set()
         nobreakall_arches = self.options.nobreakall_arches.split()
-        binaries_t = self.binaries['testing']
-        check_packages = partial(self._check_packages, binaries_t)
+        packages_t = self.binaries['testing']
+        check_packages = partial(self._check_packages, packages_t)
         nuninst = {}
 
 
@@ -2171,8 +2171,9 @@ class Britney(object):
         for arch in self.options.architectures:
             nuninst_arch = self.nuninst_orig[arch]
             nuninst_arch_all = self.nuninst_orig[arch + '+all']
-            nuninst[arch] = set(x for x in nuninst_arch if x in binaries_t[arch])
-            nuninst[arch + '+all'] = set(x for x in nuninst_arch_all if x in binaries_t[arch])
+            binaries_t_a = packages_t[arch][0]
+            nuninst[arch] = set(x for x in nuninst_arch if x in binaries_t_a)
+            nuninst[arch + '+all'] = set(x for x in nuninst_arch_all if x in binaries_t_a)
 
         for arch in self.options.architectures:
             if arch not in nobreakall_arches:
