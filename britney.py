@@ -1894,7 +1894,17 @@ class Britney(object):
                 for p in ( bin for bin in bins if bin not in smoothbins ):
                     binary, parch = p.split("/")
                     version = binaries_t[parch][0][binary][VERSION]
-                    rms.add((binary, version, parch))
+                    # if this is a binary migration from *pu, only the arch:any
+                    # packages will be present. ideally dak would also populate
+                    # the arch-indep packages, but as that's not the case we
+                    # must keep them around; they will not be re-added by the
+                    # migration so will end up missing from testing
+                    if migration_architecture != 'source' and \
+                         suite != 'unstable' and \
+                         binaries_t[parch][0][binary][ARCHITECTURE] == 'all':
+                        continue
+                    else:    
+                        rms.add((binary, version, parch))
 
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
