@@ -1033,8 +1033,8 @@ class Britney(object):
 
         # if the package is blocked, skip it
         for hint in self.hints.search('block', package=pkg, removal=True):
-            excuse.addhtml("Not touching package, as requested by %s (contact debian-release "
-                "if update is needed)" % hint.user)
+            excuse.addhtml("Not touching package, as requested by %s "
+                "(check https://release.debian.org/jessie/freeze_policy.html if update is needed)" % hint.user)
             excuse.addhtml("Not considered")
             excuse.addreason("block")
             self.excuses.append(excuse)
@@ -1284,7 +1284,8 @@ class Britney(object):
                         excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
                                        (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
                 if suite == 'unstable' or block_cmd == 'block-udeb':
-                    excuse.addhtml("Not touching package due to %s request by %s (contact debian-release if update is needed)" %
+                    excuse.addhtml("Not touching package due to %s request by %s "
+                                    "(check https://release.debian.org/jessie/freeze_policy.html if update is needed)" %
                                    (block_cmd, blocked[block_cmd].user))
                     excuse.addreason("block")
                 else:
