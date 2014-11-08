@@ -1355,6 +1355,8 @@ class Britney(object):
                     update_candidate = False
                     excuse.addreason("arch")
                     excuse.addreason("arch-%s" % arch)
+                    excuse.addreason("build-arch")
+                    excuse.addreason("build-arch-%s" % arch)
 
                 excuse.addhtml(text)
 
@@ -1363,6 +1365,7 @@ class Britney(object):
         pkgs = {src: ["source"]}
         for arch in self.options.architectures:
             oodbins = {}
+            uptodatebins = False
             # for every binary package produced by this source in the suite for this architecture
             for pkg in sorted(x.split("/")[0] for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch)):
                 if pkg not in pkgs: pkgs[pkg] = []
@@ -1373,11 +1376,15 @@ class Britney(object):
                 pkgsv = binary_u[SOURCEVER]
 
                 # if it wasn't built by the same source, it is out-of-date
+                # it there is at least one binary which is up-to-date, there
+                # is a build on this arch
                 if not same_source(source_u[VERSION], pkgsv):
                     if pkgsv not in oodbins:
                         oodbins[pkgsv] = []
                     oodbins[pkgsv].append(pkg)
                     continue
+                else:
+                    uptodatebins = True
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
@@ -1394,9 +1401,14 @@ class Britney(object):
                     oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
                         (", ".join(sorted(oodbins[v])), urllib.quote(arch), urllib.quote(src), urllib.quote(v), v)
-                text = "out of date on <a href=\"http://buildd.debian.org/status/logs.php?" \
-                    "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
-                    (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
+                if uptodatebins:
+                    text = "old binaries left on <a href=\"http://buildd.debian.org/status/logs.php?" \
+                        "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
+                        (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
+                else:
+                    text = "missing build on <a href=\"http://buildd.debian.org/status/logs.php?" \
+                        "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
+                        (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
 
                 if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
@@ -1404,6 +1416,12 @@ class Britney(object):
                     update_candidate = False
                     excuse.addreason("arch")
                     excuse.addreason("arch-%s" % arch)
+                    if uptodatebins:
+                        excuse.addreason("cruft-arch")
+                        excuse.addreason("cruft-arch-%s" % arch)
+                    else:
+                        excuse.addreason("build-arch")
+                        excuse.addreason("build-arch-%s" % arch)
 
                 if self.date_now != self.dates[src][1]:
                     excuse.addhtml(text)
