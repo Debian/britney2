@@ -853,6 +853,11 @@ class Britney(object):
                 l = line.split()
                 if l[0] == 'finished':
                     break
+                if l[0] == 'remark':
+                    # Ignore "no-op" hint, which sole purpose is to be
+                    # found by hint grep (and show up in "d"'s
+                    # output).
+                    continue
                 elif l[0] not in self.HINTS[who]:
                     continue
                 elif len(l) == 1:
