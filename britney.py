@@ -2767,11 +2767,11 @@ class Britney(object):
             if e not in excuses:
                 return False
             excuse = excuses[e]
-            if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
+            if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
                 return True
             if not circular_first:
                 hint[e] = excuse.ver[1]
-            if len(excuse.deps) == 0:
+            if not excuse.deps:
                 return hint
             for p in excuse.deps:
                 if p in hint: continue
@@ -2784,9 +2784,9 @@ class Britney(object):
         mincands = []
         for e in excuses:
             excuse = excuses[e]
-            if e in self.sources['testing'] and self.sources['testing'][e][VERSION] == excuse.ver[1]:
+            if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
                 continue
-            if len(excuse.deps) > 0:
+            if excuse.deps:
                 hint = find_related(e, {}, True)
                 if isinstance(hint, dict) and e in hint and hint not in candidates:
                     candidates.append(hint.items())
