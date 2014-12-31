@@ -2801,22 +2801,33 @@ class Britney(object):
                     if not looped and len(items) > 1:
                         mincands.append(items[:])
                     looped = True
-                if len(items) > 1 and frozenset(items) != frozenset(mincands[-1]):
+                if (len(items) > 1 and len(items) != len(mincands[-1]) and
+                    frozenset(items) != frozenset(mincands[-1])):
                     candidates.append(items)
 
         for l in [ candidates, mincands ]:
-            to_skip = []
+            to_skip = set()
             for i in range(len(l)):
+                if i in to_skip:
+                    continue
+                l_i = None
                 for j in range(i+1, len(l)):
-                    if i in to_skip or j in to_skip:
+                    if j in to_skip:
                         # we already know this list isn't interesting
                         continue
-                    elif frozenset(l[i]) >= frozenset(l[j]):
+                    if l_i is None:
+                        l_i = frozenset(l[i])
+                    l_j = frozenset(l[j])
+                    if l_i >= l_j:
                         # j is a subset of i; ignore it
-                        to_skip.append(j)
-                    elif frozenset(l[i]) <= frozenset(l[j]):
-                        # i is a subset of j; ignore it
-                        to_skip.append(i)
+                        to_skip.add(j)
+                    elif l_i < l_j:
+                        # i is a subset of j; ignore it and the rest of the
+                        # "i" series.
+                        # NB: We use < and not <= because the "==" case is
+                        # already covered above
+                        to_skip.add(i)
+                        break
             for i in range(len(l)):
                 if i not in to_skip:
                     self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
