@@ -832,6 +832,7 @@ class Britney(object):
         for who in self.HINTS.keys():
             if who == 'command-line':
                 lines = self.options.hints and self.options.hints.split(';') or ()
+                filename = '<cmd-line>'
             else:
                 filename = os.path.join(basedir, "Hints", who)
                 if not os.path.isfile(filename):
