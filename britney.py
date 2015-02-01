@@ -992,7 +992,7 @@ class Britney(object):
             # if no package can satisfy the dependency, add this information to the excuse
             if not packages:
                 excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
-                excuse.addreason("depends");
+                excuse.addreason("depends")
                 continue
 
             # for the solving packages, update the excuse to add the dependencies
@@ -1225,7 +1225,7 @@ class Britney(object):
         if source_t and apt_pkg.version_compare(source_u[VERSION], source_t[VERSION]) < 0:
             excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t[VERSION], source_u[VERSION]))
             self.excuses.append(excuse)
-            excuse.addreason("newerintesting");
+            excuse.addreason("newerintesting")
             return False
 
         # check if the source package really exists or if it is a fake one
