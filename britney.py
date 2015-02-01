@@ -2514,7 +2514,6 @@ class Britney(object):
         # a package is obsolete if none of the binary packages in testing
         # are built by it
         self.__log("> Removing obsolete source packages from testing", type="I")
-        removals = []
         # local copies for performance
         sources = self.sources['testing']
         binaries = self.binaries['testing']

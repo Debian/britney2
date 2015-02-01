@@ -39,7 +39,6 @@ class Completer(object):
         complete = []
         tpu = []
         for e in britney.excuses:
-            ver = None
             pkg = e.name
             suite = 'unstable'
             if pkg[0] == '-':

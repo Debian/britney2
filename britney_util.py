@@ -115,7 +115,7 @@ def iter_except(func, exception, first=None):
 
 
 def undo_changes(lundo, inst_tester, sources, binaries,
-                 BINARIES=BINARIES, PROVIDES=PROVIDES):
+                 BINARIES=BINARIES):
     """Undoes one or more changes to testing
 
     * lundo is a list of (undo, item)-tuples

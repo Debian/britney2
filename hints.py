@@ -24,7 +24,7 @@ class HintCollection(object):
         return self.search(type)
 
     def search(self, type=None, onlyactive=True, package=None, \
-       version=None, days=None, removal=None):
+       version=None, removal=None):
 
         return [ hint for hint in self._hints if
                  (type is None or type == hint.type) and

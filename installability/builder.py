@@ -29,7 +29,7 @@ class _RelationBuilder(object):
         self._new_breaks = set(binary_data[1])
 
 
-    def add_dependency_clause(self, or_clause, frozenset=frozenset):
+    def add_dependency_clause(self, or_clause):
         """Add a dependency clause
 
         The clause must be a sequence of (name, version, architecture)
@@ -48,7 +48,6 @@ class _RelationBuilder(object):
         clause = self._itbuilder._intern_set(or_clause)
         binary = self._binary
         itbuilder = self._itbuilder
-        package_table = itbuilder._package_table
         okay = False
         for dep_tuple in clause:
             okay = True
