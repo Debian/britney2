@@ -2888,6 +2888,10 @@ class Britney(object):
             else:
                 self.upgrade_testing()
 
+            self.__log('> Stats from the installability tester', type="I")
+            for stat in self._inst_tester.stats.stats():
+                self.__log('>   %s' % stat, type="I")
+
     def _installability_test(self, pkg_name, pkg_version, pkg_arch, broken, to_check, nuninst_arch):
         """Test for installability of a package on an architecture
 
