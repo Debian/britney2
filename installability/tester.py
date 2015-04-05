@@ -274,8 +274,7 @@ class InstallabilityTester(object):
 
         # curry check_loop
         check_loop = partial(self._check_loop, universe, testing,
-                             eqv_table, stats, musts, never, choices,
-                             cbroken)
+                             eqv_table, stats, musts, never, cbroken)
 
         # Useful things to remember:
         #
@@ -310,7 +309,7 @@ class InstallabilityTester(object):
             rebuild.
             """
 
-            # We already satisfied/chosen at least one of the litterals
+            # We already satisfied/chosen at least one of the literals
             # in the choice, so the choice is gone
             for choice in filter(musts.isdisjoint, choices):
                 # cbroken is needed here because (in theory) it could
@@ -363,7 +362,7 @@ class InstallabilityTester(object):
                 check_tmp = set([p])
                 if not self._check_loop(universe, testing, eqv_table,
                                         stats, musts_copy, never_tmp,
-                                        choices_tmp, cbroken,
+                                        cbroken, choices_tmp,
                                         check_tmp):
                     # p cannot be chosen/is broken (unlikely, but ...)
                     continue
@@ -417,7 +416,7 @@ class InstallabilityTester(object):
         # END _pick_choice
 
         while check:
-            if not check_loop(check):
+            if not check_loop(choices, check):
                 verdict = False
                 break
 
@@ -444,7 +443,7 @@ class InstallabilityTester(object):
         return verdict
 
     def _check_loop(self, universe, testing, eqv_table, stats, musts, never,
-                    choices, cbroken, check, len=len,
+                    cbroken, choices, check, len=len,
                     frozenset=frozenset):
         """Finds all guaranteed dependencies via "check".
 
@@ -475,7 +474,7 @@ class InstallabilityTester(object):
                 # so "obviously" we can never choose any of its conflicts
                 never.update(cons & testing)
 
-            # depgroup can be satisifed by picking something that is
+            # depgroup can be satisfied by picking something that is
             # already in musts - lets pick that (again).  :)
             for depgroup in not_satisfied(deps):
 
@@ -552,8 +551,8 @@ class InstallabilityTester(object):
 
             while ess_base:
                 self._check_loop(universe, testing, eqv_table, stats,
-                                 start, ess_never, ess_choices,
-                                 cbroken, ess_base)
+                                 start, ess_never, cbroken,
+                                 ess_choices, ess_base)
                 if ess_choices:
                     # Try to break choices where possible
                     nchoice = set()
