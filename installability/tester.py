@@ -12,8 +12,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from collections import defaultdict
 from functools import partial
-from itertools import filterfalse
+from itertools import chain, filterfalse
 
 from britney_util import iter_except
 
@@ -547,4 +548,86 @@ class InstallabilityTester(object):
             self._cache_ess[arch] = (frozenset(start), frozenset(ess_never))
 
         return self._cache_ess[arch]
+
+    def compute_stats(self):
+        universe = self._universe
+        eqv_table = self._eqv_table
+        graph_stats = defaultdict(ArchStats)
+        seen_eqv = defaultdict(set)
+
+        for pkg in universe:
+            (pkg_name, pkg_version, pkg_arch) = pkg
+            deps, con = universe[pkg]
+            arch_stats = graph_stats[pkg_arch]
+
+            arch_stats.nodes += 1
+
+            if pkg in eqv_table and pkg not in seen_eqv[pkg_arch]:
+                eqv = [e for e in eqv_table[pkg] if e[2] == pkg_arch]
+                arch_stats.eqv_nodes += len(eqv)
+
+            arch_stats.add_dep_edges(deps)
+            arch_stats.add_con_edges(con)
+
+        for stat in graph_stats.values():
+            stat.compute_all()
+
+        return graph_stats
+
+
+class ArchStats(object):
+
+    def __init__(self):
+        self.nodes = 0
+        self.eqv_nodes = 0
+        self.dep_edges = []
+        self.con_edges = []
+        self.stats = defaultdict(lambda: defaultdict(int))
+
+    def stat(self, statname):
+        return self.stats[statname]
+
+    def stat_summary(self):
+        text = []
+        for statname in ['nodes', 'dependency-clauses', 'dependency-clause-alternatives', 'negative-dependency-clauses']:
+            stat = self.stats[statname]
+            if statname != 'nodes':
+                format_str = "%s, max: %d, min: %d, median: %d, average: %f (%d/%d)"
+                values = [statname, stat['max'], stat['min'], stat['median'], stat['average'], stat['sum'], stat['size']]
+                if 'average-per-node' in stat:
+                    format_str += ", average-per-node: %f"
+                    values.append(stat['average-per-node'])
+            else:
+                format_str = "nodes: %d, eqv-nodes: %d"
+                values = (self.nodes, self.eqv_nodes)
+            text.append(format_str % tuple(values))
+        return text
+
+    def add_dep_edges(self, edges):
+        self.dep_edges.append(edges)
+
+    def add_con_edges(self, edges):
+        self.con_edges.append(edges)
+
+    def _list_stats(self, stat_name, sorted_list, average_per_node=False):
+        if sorted_list:
+            stats = self.stats[stat_name]
+            stats['max'] = sorted_list[-1]
+            stats['min'] = sorted_list[0]
+            stats['sum'] = sum(sorted_list)
+            stats['size'] = len(sorted_list)
+            stats['average'] = float(stats['sum'])/len(sorted_list)
+            stats['median'] = sorted_list[len(sorted_list)//2]
+            if average_per_node:
+                stats['average-per-node'] = float(stats['sum'])/self.nodes
+
+    def compute_all(self):
+        dep_edges = self.dep_edges
+        con_edges = self.con_edges
+        sorted_no_dep_edges = sorted(len(x) for x in dep_edges)
+        sorted_size_dep_edges = sorted(len(x) for x in chain.from_iterable(dep_edges))
+        sorted_no_con_edges = sorted(len(x) for x in con_edges)
+        self._list_stats('dependency-clauses', sorted_no_dep_edges)
+        self._list_stats('dependency-clause-alternatives', sorted_size_dep_edges, average_per_node=True)
+        self._list_stats('negative-dependency-clauses', sorted_no_con_edges)
 

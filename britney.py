@@ -309,6 +309,14 @@ class Britney(object):
             else:
                 write_nuninst(self.options.noninst_status, nuninst)
 
+            stats = self._inst_tester.compute_stats()
+            self.__log("> Installability tester statistics (per architecture)", type="I")
+            for arch in self.options.architectures:
+                arch_stat = stats[arch]
+                self.__log(">  %s" % arch, type="I")
+                for stat in arch_stat.stat_summary():
+                    self.__log(">  - %s" % stat, type="I")
+
         # read the release-critical bug summaries for testing and unstable
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
                      'testing': self.read_bugs(self.options.testing),}
