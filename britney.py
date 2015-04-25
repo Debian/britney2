@@ -17,7 +17,7 @@
 # GNU General Public License for more details.
 
 """
-= Introdution =
+= Introduction =
 
 This is the Debian testing updater script, also known as "Britney".
 
