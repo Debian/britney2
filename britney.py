@@ -485,7 +485,7 @@ class Britney(object):
                                         possible_dep_ranges[key] = sat
 
                         if dep:
-                            for clause in possible_dep_ranges.itervalues():
+                            for clause in possible_dep_ranges.values():
                                 relations.add_dependency_clause(clause)
 
         self._inst_tester = builder.build()
@@ -1901,7 +1901,7 @@ class Britney(object):
                     ptuple = check[p]
                     binary, _, parch = ptuple
                     rdeps = [ bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
-                              if bin in [y[0] for y in smoothbins.itervalues()] ]
+                              if bin in [y[0] for y in smoothbins.values()] ]
                     if rdeps:
                         smoothbins[p] = ptuple
 
@@ -1937,7 +1937,7 @@ class Britney(object):
                 version = self.binaries[suite][parch][0][binary][VERSION]
                 adds.add((binary, version, parch))
 
-        return (adds, rms, set(smoothbins.itervalues()))
+        return (adds, rms, set(smoothbins.values()))
 
 
     def doop_source(self, item, hint_undo=None, removals=frozenset()):
@@ -2829,7 +2829,7 @@ class Britney(object):
 
         print('* %s' % (arch,))
 
-        for (src, ver), pkgs in sorted(all.iteritems()):
+        for (src, ver), pkgs in sorted(all.items()):
             print('  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs))))
 
         print

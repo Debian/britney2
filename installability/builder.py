@@ -388,7 +388,7 @@ class InstallabilityTesterBuilder(object):
             ekey = (deps, con, rdeps)
             find_eqv_table[ekey].append(pkg)
 
-        for pkg_list in find_eqv_table.itervalues():
+        for pkg_list in find_eqv_table.values():
             if len(pkg_list) < 2:
                 continue
 

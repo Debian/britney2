@@ -220,7 +220,7 @@ def register_reverses(packages, provides, check_doubles=True, iterator=None,
     the loops.
     """
     if iterator is None:
-        iterator = packages.iterkeys()
+        iterator = packages.keys()
     else:
         iterator = ifilter_only(packages, iterator)
 
