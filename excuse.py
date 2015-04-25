@@ -15,7 +15,6 @@
 # GNU General Public License for more details.
 
 import re
-import string
 
 
 class Excuse(object):
@@ -137,7 +136,7 @@ class Excuse(object):
             (self.name, self.name, self.name, self.ver[0], self.ver[1])
         if self.maint:
             res = res + "<li>Maintainer: %s\n" % (self.maint)
-        if self.section and string.find(self.section, "/") > -1:
+        if self.section and self.section.find("/") > -1:
             res = res + "<li>Section: %s\n" % (self.section)
         if self.daysold != None:
             if self.daysold < self.mindays:
@@ -189,7 +188,7 @@ class Excuse(object):
             except UnicodeDecodeError:
                 maint = unicode(self.maint,'utf-8')
             res.append("Maintainer: %s" % maint)
-        if self.section and string.find(self.section, "/") > -1:
+        if self.section and self.section.find("/") > -1:
             res.append("Section: %s" % (self.section))
         if self.daysold != None:
             if self.daysold < self.mindays:
