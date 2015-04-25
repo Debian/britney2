@@ -146,4 +146,4 @@ class MigrationItem(object):
 
 class UnversionnedMigrationItem(MigrationItem):
     def __init__(self, name=None):
-        super(UnversionnedMigrationItem, self).__init__(name=name, versionned=False)
+        super().__init__(name=name, versionned=False)
