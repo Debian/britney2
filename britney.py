@@ -509,7 +509,8 @@ class Britney(object):
         filename = os.path.join(basedir, "Sources")
         self.__log("Loading source packages from %s" % filename)
 
-        Packages = apt_pkg.TagFile(open(filename))
+        with open(filename, encoding='utf-8') as f:
+            Packages = apt_pkg.TagFile(f)
         get_field = Packages.section.get
         step = Packages.step
 
@@ -564,7 +565,8 @@ class Britney(object):
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
 
-        Packages = apt_pkg.TagFile(open(filename))
+        with open(filename, encoding='utf-8') as f:
+            Packages = apt_pkg.TagFile(f)
         get_field = Packages.section.get
         step = Packages.step
 
