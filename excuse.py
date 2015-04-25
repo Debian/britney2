@@ -15,7 +15,7 @@
 # GNU General Public License for more details.
 
 import re
-
+import six
 
 class Excuse(object):
     """Excuse class
@@ -183,10 +183,11 @@ class Excuse(object):
             maint = self.maint
             # ugly hack to work around strange encoding in pyyaml
             # should go away with pyyaml in python 3
-            try:
-                maint.decode('ascii')
-            except UnicodeDecodeError:
-                maint = unicode(self.maint,'utf-8')
+            if isinstance(maint, six.binary_type):
+                try:
+                    maint.decode('ascii')
+                except UnicodeDecodeError:
+                    maint = six.string_type(self.maint,'utf-8')
             res.append("Maintainer: %s" % maint)
         if self.section and self.section.find("/") > -1:
             res.append("Section: %s" % (self.section))
