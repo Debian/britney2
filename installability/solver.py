@@ -45,8 +45,8 @@ class InstallabilitySolver(InstallabilityTester):
           - NB: arch:all packages are "re-mapped" to given architecture.
             (simplifies caches and dependency checking)
         """
-        InstallabilityTester.__init__(self, universe, revuniverse, testing,
-                                      broken, essentials, safe_set, eqv_table)
+        super(InstallabilitySolver, self).__init__(universe, revuniverse, testing,
+                                                   broken, essentials, safe_set, eqv_table)
 
 
     def solve_groups(self, groups):
