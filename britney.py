@@ -179,6 +179,7 @@ does for the generation of the update excuses.
 
  * The excuses are written in an HTML file.
 """
+from __future__ import print_function
 
 import os
 import sys
@@ -255,8 +256,8 @@ class Britney(object):
         if self.options.nuninst_cache:
             self.__log("Not building the list of non-installable packages, as requested", type="I")
             if self.options.print_uninst:
-                print '* summary'
-                print '\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures))
+                print('* summary')
+                print('\n'.join('%4d %s' % (len(nuninst[x]), x) for x in self.options.architectures))
                 return
 
         # read the source and binary packages for the involved distributions
@@ -303,8 +304,8 @@ class Britney(object):
                     self.nuninst_arch_report(nuninst, arch)
 
             if self.options.print_uninst:
-                print '* summary'
-                print '\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures))
+                print('* summary')
+                print('\n'.join(map(lambda x: '%4d %s' % (len(nuninst[x]), x), self.options.architectures)))
                 return
             else:
                 write_nuninst(self.options.noninst_status, nuninst)
@@ -396,7 +397,7 @@ class Britney(object):
         printed only if verbose logging is enabled.
         """
         if self.options.verbose or type in ("E", "W"):
-            print "%s: [%s] - %s" % (type, time.asctime(), msg)
+            print("%s: [%s] - %s" % (type, time.asctime(), msg))
 
     def _build_installability_tester(self, archs):
         """Create the installability tester"""
@@ -2600,10 +2601,10 @@ class Britney(object):
             try:
                 input = raw_input('britney> ').lower().split()
             except EOFError:
-                print ""
+                print("")
                 break
             except KeyboardInterrupt:
-                print ""
+                print("")
                 continue
             # quit the hint tester
             if input and input[0] in ('quit', 'exit'):
@@ -2822,16 +2823,16 @@ class Britney(object):
             all[(pkg[SOURCE], pkg[SOURCEVER])].add(p)
 
 
-        print '* %s' % (arch,)
+        print('* %s' % (arch,))
 
         for (src, ver), pkgs in sorted(all.iteritems()):
-            print '  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs)))
+            print('  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs))))
 
         print
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
-        print msg,
+        print(msg, end='')
         self.__output.write(msg)
 
     def main(self):

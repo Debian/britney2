@@ -12,6 +12,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 from migrationitem import MigrationItem
 
 class HintCollection(object):
@@ -36,7 +38,7 @@ class HintCollection(object):
         try:
             self._hints.append(Hint(hint, user))
         except AssertionError:
-            print "Ignoring broken hint %r from %s" % (hint, user)
+            print("Ignoring broken hint %r from %s" % (hint, user))
 
 class Hint(object):
     NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
