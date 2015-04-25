@@ -223,7 +223,7 @@ class Excuse(object):
             excusedata["forced-reason"] = self.reason.keys()
             excusedata["reason"] = []
         else:
-            excusedata["reason"] = self.reason.keys()
+            excusedata["reason"] = list(self.reason.keys())
         excusedata["is-candidate"] = self.is_valid
         return excusedata
 
