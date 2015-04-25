@@ -1623,7 +1623,7 @@ class Britney(object):
             self.excuses.append(excuse)
 
         # sort the excuses by daysold and name
-        self.excuses.sort(key=attrgetter('daysold', 'name'))
+        self.excuses.sort(key=lambda x: x.sortkey())
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me
         unconsidered = [e.name for e in self.excuses if e.name not in upgrade_me]

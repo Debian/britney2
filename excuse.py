@@ -62,6 +62,11 @@ class Excuse(object):
         self.reason = {}
         self.htmlline = []
 
+    def sortkey(self):
+        if self.daysold == None:
+            return (-1, self.name)
+        return (self.daysold, self.name)
+
     @property
     def is_valid(self):
         return self._is_valid
@@ -144,7 +149,7 @@ class Excuse(object):
         for x in self.htmlline:
             res = res + "<li>" + x + "\n"
         lastdep = ""
-        for x in sorted(self.deps, lambda x,y: cmp(x.split('/')[0], y.split('/')[0])):
+        for x in sorted(self.deps, key=lambda x: x.split('/')[0]):
             dep = x.split('/')[0]
             if dep == lastdep: continue
             lastdep = dep
@@ -196,7 +201,7 @@ class Excuse(object):
         for x in self.htmlline:
             res.append("" + x + "")
         lastdep = ""
-        for x in sorted(self.deps, lambda x,y: cmp(x.split('/')[0], y.split('/')[0])):
+        for x in sorted(self.deps, key=lambda x: x.split('/')[0]):
             dep = x.split('/')[0]
             if dep == lastdep: continue
             lastdep = dep
