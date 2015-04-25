@@ -1866,11 +1866,6 @@ class Britney(object):
         InstallabilityTester.
 
 
-        Pre-Conditions: The source package must be in testing and this
-        should only be used when considering to do an upgrade
-        migration from the input suite.  (e.g. do not use this for
-        removals).
-
         Unlike doop_source, this will not modify any data structure.
         """
         # local copies for better performances
@@ -1971,7 +1966,7 @@ class Britney(object):
                          suite != 'unstable' and \
                          binaries_t[parch][0][binary][ARCHITECTURE] == 'all':
                         continue
-                    else:    
+                    else:
                         rms.add((binary, version, parch))
 
         # single binary removal; used for clearing up after smooth
@@ -1988,10 +1983,23 @@ class Britney(object):
                 if migration_architecture not in ['source', parch]:
                     continue
                 version = self.binaries[suite][parch][0][binary][VERSION]
+
+                if (not include_hijacked
+                    and self.binaries[suite][parch][0][binary][SOURCE] != source_name):
+                    # This binary package has been hijacked by some other source.
+                    # So don't add it as part of this update.
+                    #
+                    # Also, if this isn't a source update, don't remove
+                    # the package that's been hijacked if it's present.
+                    if migration_architecture != 'source':
+                        for rm_b, rm_v, rm_p in list(rms):
+                            if (rm_b, rm_p) == (binary, parch):
+                                rms.remove((rm_b, rm_v, rm_p))
+                    continue
+
                 adds.add((binary, version, parch))
 
         return (adds, rms, set(smoothbins.values()))
-
 
     def doop_source(self, item, hint_undo=None, removals=frozenset()):
         """Apply a change to the testing distribution as requested by `pkg`
@@ -2023,16 +2031,19 @@ class Britney(object):
         inst_tester = self._inst_tester
         eqv_set = set()
 
+        updates, rms, _ = self._compute_groups(item.package,
+                                               item.suite,
+                                               item.architecture,
+                                               item.is_removal,
+                                               removals=removals)
+        #print("+++ %s" % (sorted(updates)))
+        #print("--- %s" % (sorted(rms)))
+
         # remove all binary packages (if the source already exists)
         if item.architecture == 'source' or not item.is_removal:
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
 
-                updates, rms, _ = self._compute_groups(item.package,
-                                                       item.suite,
-                                                       item.architecture,
-                                                       item.is_removal,
-                                                       removals=removals)
 
                 eqv_table = {}
 
@@ -2098,9 +2109,9 @@ class Britney(object):
         if not item.is_removal:
             source = sources[item.suite][item.package]
             packages_s = self.binaries[item.suite]
-            for p in source[BINARIES]:
-                binary, parch = p.split("/")
-                if item.architecture not in ['source', parch]: continue
+
+            for binary, version, parch in updates:
+                p = "%s/%s" % (binary, parch)
                 key = (binary, parch)
                 binaries_t_a, provides_t_a = packages_t[parch]
                 equivalent_replacement = key in eqv_set
