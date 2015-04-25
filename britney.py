@@ -334,9 +334,13 @@ class Britney(object):
     def _check_mismatches(self, arch):
         suites = [s for s in self.binaries if arch in self.binaries[s]]
 
+        # NB: ESSENTIAL deliberately skipped as the 2011 and 2012
+        # parts of the live-data tests requires it (britney merges
+        # this field correctly from the unstable version where
+        # available)
         check_field_name = dict( (globals()[fn], fn) for fn in
                ("SOURCE SOURCEVER ARCHITECTURE MULTIARCH"
-                 + " DEPENDS CONFLICTS PROVIDES ESSENTIAL").split() )
+                 + " DEPENDS CONFLICTS PROVIDES").split() )
         check_fields = check_field_name.keys()
 
         any_mismatch = False
