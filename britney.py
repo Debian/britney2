@@ -288,6 +288,9 @@ class Britney(object):
                 # properly initialised, so insert two empty dicts
                 # here.
                 self.binaries['pu'][arch] = ({}, {})
+
+            self._check_mismatches(arch)
+
         self._build_installability_tester(self.options.architectures)
 
         if not self.options.nuninst_cache:
@@ -327,6 +330,40 @@ class Britney(object):
         self.urgencies = self.read_urgencies(self.options.testing)
         self.excuses = []
         self.dependencies = {}
+
+    def _check_mismatches(self, arch):
+        suites = [s for s in self.binaries if arch in self.binaries[s]]
+
+        check_field_name = dict( (globals()[fn], fn) for fn in
+               ("SOURCE SOURCEVER ARCHITECTURE MULTIARCH"
+                 + " DEPENDS CONFLICTS PROVIDES ESSENTIAL").split() )
+        check_fields = check_field_name.keys()
+
+        any_mismatch = False
+        for s1, s2 in product(suites, suites):
+            if s1 >= s2: continue
+            s1_pkgs = self.binaries[s1][arch][0]
+            s2_pkgs = self.binaries[s2][arch][0]
+            pkgs = set(s1_pkgs) & set(s2_pkgs)
+            for p in pkgs:
+                if s1_pkgs[p][VERSION] != s2_pkgs[p][VERSION]: continue
+                bad = []
+                for f in check_fields:
+                    if s1_pkgs[p][f] != s2_pkgs[p][f]:
+                        bad.append((f, s1_pkgs[p][f], s2_pkgs[p][f]))
+
+                if bad:
+                    any_mismatch = True
+                    self.__log("Mismatch found %s %s %s differs in %s vs %s" % (
+                        p, s1_pkgs[p][VERSION], arch, s1, s2), type="E")
+                    for f, v1, v2 in bad:
+                        self.__log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
+
+        # test suite doesn't appreciate aborts of this nature
+        #if any_mismatch:
+        #    self.__log("Mismatches found, exiting.", type="I")
+        #    sys.exit(1)
+        return
 
     def __parse_arguments(self):
         """Parse the command line arguments
