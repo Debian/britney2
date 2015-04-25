@@ -306,7 +306,7 @@ def write_nuninst(filename, nuninst):
     Write the non-installable report derived from "nuninst" to the
     file denoted by "filename".
     """
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         # Having two fields with (almost) identical dates seems a bit
         # redundant.
         f.write("Built on: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "\n")
@@ -323,7 +323,7 @@ def read_nuninst(filename, architectures):
     will be included in the report.
     """
     nuninst = {}
-    with open(filename) as f:
+    with open(filename, encoding='ascii') as f:
         for r in f:
             if ":" not in r: continue
             arch, packages = r.strip().split(":", 1)
@@ -381,7 +381,7 @@ def write_heidi(filename, sources_t, packages_t,
     The "X=X" parameters are optimizations to avoid "load global" in
     the loops.
     """
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='ascii') as f:
 
         # write binary packages
         for arch in sorted(packages_t):
@@ -420,7 +420,7 @@ def write_heidi_delta(filename, all_selected):
 
     The order corresponds to that shown in update_output.
     """
-    with open(filename, "w") as fd:
+    with open(filename, "w", encoding='ascii') as fd:
 
         fd.write("#HeidiDelta\n")
 
@@ -456,7 +456,7 @@ def write_excuses(excuses, dest_file, output_format="yaml"):
     or "legacy-html".
     """
     if output_format == "yaml":
-        with open(dest_file, 'w') as f:
+        with open(dest_file, 'w', encoding='utf-8') as f:
             excuselist = []
             for e in excuses:
                 excuselist.append(e.excusedata())
@@ -465,7 +465,7 @@ def write_excuses(excuses, dest_file, output_format="yaml"):
             excusesdata["generated-date"] = datetime.utcnow()
             f.write(yaml.dump(excusesdata, default_flow_style=False, allow_unicode=True))
     elif output_format == "legacy-html":
-        with open(dest_file, 'w') as f:
+        with open(dest_file, 'w', encoding='utf-8') as f:
             f.write("<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n")
             f.write("<html><head><title>excuses...</title>")
             f.write("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"></head><body>\n")
@@ -488,7 +488,7 @@ def write_sources(sources_s, filename):
     key_pairs = ((VERSION, 'Version'), (SECTION, 'Section'),
                  (MAINTAINER, 'Maintainer'))
 
-    with open(filename, 'w') as f:
+    with open(filename, 'w', encoding='utf-8') as f:
         for src in sources_s:
            src_data = sources_s[src]
            output = "Package: %s\n" % src
@@ -518,7 +518,7 @@ def write_controlfiles(sources, packages, suite, basedir):
     for arch in packages_s:
         filename = os.path.join(basedir, 'Packages_%s' % arch)
         binaries = packages_s[arch][0]
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding='utf-8') as f:
             for pkg in binaries:
                 output = "Package: %s\n" % pkg
                 bin_data = binaries[pkg]

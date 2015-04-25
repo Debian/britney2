@@ -363,7 +363,7 @@ class Britney(object):
         # are handled as an ad-hoc case
         self.MINDAYS = {}
         self.HINTS = {'command-line': self.HINTS_ALL}
-        with open(self.options.config) as config:
+        with open(self.options.config, encoding='utf-8') as config:
             for line in config:
                 if '=' in line and not line.strip().startswith('#'):
                     k, v = line.split('=', 1)
@@ -675,7 +675,7 @@ class Britney(object):
         bugs = defaultdict(list)
         filename = os.path.join(basedir, "BugsV")
         self.__log("Loading RC bugs data from %s" % filename)
-        for line in open(filename):
+        for line in open(filename, encoding='ascii'):
             l = line.split()
             if len(l) != 2:
                 self.__log("Malformed line found in line %s" % (line), type='W')
@@ -745,7 +745,7 @@ class Britney(object):
         dates = {}
         filename = os.path.join(basedir, "Dates")
         self.__log("Loading upload data from %s" % filename)
-        for line in open(filename):
+        for line in open(filename, encoding='ascii'):
             l = line.split()
             if len(l) != 3: continue
             try:
@@ -762,10 +762,9 @@ class Britney(object):
         """
         filename = os.path.join(basedir, "Dates")
         self.__log("Writing upload data to %s" % filename)
-        f = open(filename, 'w')
-        for pkg in sorted(dates):
-            f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
-        f.close()
+        with open(filename, 'w', encoding='utf-8'):
+            for pkg in sorted(dates):
+                f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
 
 
     def read_urgencies(self, basedir):
@@ -785,7 +784,7 @@ class Britney(object):
         urgencies = {}
         filename = os.path.join(basedir, "Urgency")
         self.__log("Loading upload urgencies from %s" % filename)
-        for line in open(filename, errors='surrogateescape'):
+        for line in open(filename, errors='surrogateescape', encoding='ascii'):
             l = line.split()
             if len(l) != 3: continue
 
@@ -839,7 +838,8 @@ class Britney(object):
                     self.__log("Cannot read hints list from %s, no such file!" % filename, type="E")
                     continue
                 self.__log("Loading hints list from %s" % filename)
-                lines = open(filename)
+                with open(filename, encoding='utf-8') as f:
+                    lines = f.readlines()
             for line in lines:
                 line = line.strip()
                 if line == "": continue
@@ -2858,16 +2858,15 @@ class Britney(object):
         else:
             self.upgrade_me = self.options.actions.split()
 
-        self.__output = open(self.options.upgrade_output, 'w')
+        with open(self.options.upgrade_output, 'w', encoding='utf-8') as f:
+            self.__output = f
 
-        # run the hint tester
-        if self.options.hint_tester:
-            self.hint_tester()
-        # run the upgrade test
-        else:
-            self.upgrade_testing()
-
-        self.__output.close()
+            # run the hint tester
+            if self.options.hint_tester:
+                self.hint_tester()
+            # run the upgrade test
+            else:
+                self.upgrade_testing()
 
     def _installability_test(self, pkg_name, pkg_version, pkg_arch, broken, to_check, nuninst_arch):
         """Test for installability of a package on an architecture
