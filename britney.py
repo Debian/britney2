@@ -2628,7 +2628,7 @@ class Britney(object):
                     continue
         try:
             readline.write_history_file(histfile)
-        except IOError, e:
+        except IOError as e:
             self.__log("Could not write %s: %s" % (histfile, e), type="W")
 
     def do_hint(self, hinttype, who, pkgvers):
