@@ -54,6 +54,9 @@ class MigrationItem(object):
     def __hash__(self):
         return hash((self.uvname, self.version))
 
+    def __lt__(self, other):
+        return (self.uvname, self.version) < (other.uvname, other.version)
+
     @property
     def name(self):
         return self._name
