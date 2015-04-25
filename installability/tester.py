@@ -13,7 +13,8 @@
 # GNU General Public License for more details.
 
 from functools import partial
-from itertools import ifilter, ifilterfalse
+
+from six.moves import filter as ifilter, filterfalse as ifilterfalse
 
 from britney_util import iter_except
 

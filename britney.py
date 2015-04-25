@@ -185,15 +185,15 @@ import os
 import sys
 import time
 import optparse
-import urllib
 
 import apt_pkg
 
 from collections import defaultdict
 from functools import reduce, partial
-from itertools import chain, ifilter, product
+from itertools import chain, product
 from operator import attrgetter
 
+from six.moves import filter as ifilter, intern, urllib_parse as urllib
 
 from installability.builder import InstallabilityTesterBuilder
 from excuse import Excuse

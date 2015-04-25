@@ -24,11 +24,15 @@
 import apt_pkg
 from functools import partial
 from datetime import datetime
-from itertools import chain, ifilter, ifilterfalse, izip, repeat
+from itertools import chain, repeat
 import os
 import re
 import time
 import yaml
+
+from six.moves import (filter as ifilter,
+                       filterfalse as ifilterfalse,
+                       zip as izip)
 
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
