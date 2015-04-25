@@ -783,7 +783,7 @@ class Britney(object):
         urgencies = {}
         filename = os.path.join(basedir, "Urgency")
         self.__log("Loading upload urgencies from %s" % filename)
-        for line in open(filename):
+        for line in open(filename, errors='surrogateescape'):
             l = line.split()
             if len(l) != 3: continue
 
