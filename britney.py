@@ -364,15 +364,20 @@ class Britney(object):
         # are handled as an ad-hoc case
         self.MINDAYS = {}
         self.HINTS = {'command-line': self.HINTS_ALL}
-        for k, v in [map(string.strip,r.split('=', 1)) for r in open(self.options.config) if '=' in r and not r.strip().startswith('#')]:
-            if k.startswith("MINDAYS_"):
-                self.MINDAYS[k.split("_")[1].lower()] = int(v)
-            elif k.startswith("HINTS_"):
-                self.HINTS[k.split("_")[1].lower()] = \
-                    reduce(lambda x,y: x+y, [hasattr(self, "HINTS_" + i) and getattr(self, "HINTS_" + i) or (i,) for i in v.split()])
-            elif not hasattr(self.options, k.lower()) or \
-                 not getattr(self.options, k.lower()):
-                setattr(self.options, k.lower(), v)
+        with open(self.options.config) as config:
+            for line in config:
+                if '=' in line and not line.strip().startswith('#'):
+                    k, v = line.split('=', 1)
+                    k = k.strip()
+                    v = v.strip()
+                    if k.startswith("MINDAYS_"):
+                        self.MINDAYS[k.split("_")[1].lower()] = int(v)
+                    elif k.startswith("HINTS_"):
+                        self.HINTS[k.split("_")[1].lower()] = \
+                            reduce(lambda x,y: x+y, [hasattr(self, "HINTS_" + i) and getattr(self, "HINTS_" + i) or (i,) for i in v.split()])
+                    elif not hasattr(self.options, k.lower()) or \
+                         not getattr(self.options, k.lower()):
+                        setattr(self.options, k.lower(), v)
 
         if not hasattr(self.options, "heidi_delta_output"):
             self.options.heidi_delta_output = self.options.heidi_output + "Delta"
