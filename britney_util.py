@@ -24,15 +24,11 @@
 import apt_pkg
 from functools import partial
 from datetime import datetime
-from itertools import chain, repeat
+from itertools import chain, repeat, filterfalse
 import os
 import re
 import time
 import yaml
-
-from six.moves import (filter as ifilter,
-                       filterfalse as ifilterfalse,
-                       zip as izip)
 
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
@@ -75,8 +71,8 @@ def ifilter_except(container, iterable=None):
     iterators that are not known on beforehand.
     """
     if iterable is not None:
-        return ifilterfalse(container.__contains__, iterable)
-    return partial(ifilterfalse, container.__contains__)
+        return filterfalse(container.__contains__, iterable)
+    return partial(filterfalse, container.__contains__)
 
 
 def ifilter_only(container, iterable=None):
@@ -88,8 +84,8 @@ def ifilter_only(container, iterable=None):
     iterators that are not known on beforehand.
     """
     if iterable is not None:
-        return ifilter(container.__contains__, iterable)
-    return partial(ifilter, container.__contains__)
+        return filter(container.__contains__, iterable)
+    return partial(filter, container.__contains__)
 
 
 # iter_except is from the "itertools" recipe
@@ -301,7 +297,7 @@ def compute_reverse_tree(packages_s, pkg, arch,
         # generate the next iteration, which is the reverse-dependencies of
         # the current iteration
         rev_deps = set(revfilt(flatten( binaries[x][RDEPENDS] for x in binfilt(rev_deps) )))
-    return izip(seen, repeat(arch))
+    return zip(seen, repeat(arch))
 
 
 def write_nuninst(filename, nuninst):

@@ -13,8 +13,7 @@
 # GNU General Public License for more details.
 
 from functools import partial
-
-from six.moves import filter as ifilter, filterfalse as ifilterfalse
+from itertools import filterfalse
 
 from britney_util import iter_except
 
@@ -85,7 +84,7 @@ class InstallabilityTester(object):
         eqv_table = self._eqv_table
         testing = self._testing
         tcopy = [x for x in testing]
-        for t in ifilterfalse(cache_inst.__contains__, tcopy):
+        for t in filterfalse(cache_inst.__contains__, tcopy):
             if t in cbroken:
                 continue
             res = check_inst(t)
@@ -300,7 +299,7 @@ class InstallabilityTester(object):
 
             # We already satisfied/chosen at least one of the litterals
             # in the choice, so the choice is gone
-            for choice in ifilter(musts.isdisjoint, choices):
+            for choice in filter(musts.isdisjoint, choices):
                 # cbroken is needed here because (in theory) it could
                 # have changed since the choice was discovered and it
                 # is smaller than testing (so presumably faster)
@@ -308,7 +307,7 @@ class InstallabilityTester(object):
 
                 if len(remain) > 1 and not remain.isdisjoint(safe_set):
                     first = None
-                    for r in ifilter(safe_set.__contains__, remain):
+                    for r in filter(safe_set.__contains__, remain):
                         # don't bother giving extra arguments to _check_inst.  "safe" packages are
                         # usually trivial to satisfy on their own and will not involve conflicts
                         # (so never will not help)
@@ -432,7 +431,7 @@ class InstallabilityTester(object):
         returns True, then t is installable.
         """
         # Local variables for faster access...
-        not_satisfied = partial(ifilter, musts.isdisjoint)
+        not_satisfied = partial(filter, musts.isdisjoint)
 
         # While we have guaranteed dependencies (in check), examine all
         # of them.
@@ -520,7 +519,7 @@ class InstallabilityTester(object):
             start = set(ess_base)
             ess_never = set()
             ess_choices = set()
-            not_satisified = partial(ifilter, start.isdisjoint)
+            not_satisified = partial(filter, start.isdisjoint)
 
             while ess_base:
                 self._check_loop(universe, testing, eqv_table,

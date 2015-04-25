@@ -193,7 +193,7 @@ from functools import reduce, partial
 from itertools import chain, product
 from operator import attrgetter
 
-from six.moves import filter as ifilter, intern, urllib_parse as urllib
+from urllib.parse import quote
 
 from installability.builder import InstallabilityTesterBuilder
 from excuse import Excuse
@@ -388,7 +388,7 @@ class Britney(object):
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches.split()]
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches.split()]
         arches += [x for x in allarches if x not in arches]
-        self.options.architectures = [intern(arch) for arch in arches]
+        self.options.architectures = [sys.intern(arch) for arch in arches]
         self.options.smooth_updates = self.options.smooth_updates.split()
 
     def __log(self, msg, type="I"):
@@ -447,7 +447,7 @@ class Britney(object):
                                     # the package name extracted from the field and is therefore
                                     # not interned.
                                     pdata = binaries[dep_dist][arch][0][p]
-                                    pt = (intern(p), pdata[VERSION], arch)
+                                    pt = (sys.intern(p), pdata[VERSION], arch)
                                     if dep:
                                         sat.add(pt)
                                     elif t != pt:
@@ -494,7 +494,7 @@ class Britney(object):
     # Data reading/writing methods
     # ----------------------------
 
-    def read_sources(self, basedir, intern=intern):
+    def read_sources(self, basedir, intern=sys.intern):
         """Read the list of source packages from the specified directory
         
         The source packages are read from the `Sources' file within the
@@ -533,7 +533,7 @@ class Britney(object):
                            ]
         return sources
 
-    def read_binaries(self, basedir, distribution, arch, intern=intern):
+    def read_binaries(self, basedir, distribution, arch, intern=sys.intern):
         """Read the list of binary packages from the specified directory
         
         The binary packages are read from the `Packages_${arch}' files
@@ -1081,7 +1081,7 @@ class Britney(object):
         anyworthdoing = False
 
         # for every binary package produced by this source in unstable for this architecture
-        for pkg in sorted(ifilter(lambda x: x.endswith("/" + arch), source_u[BINARIES]), key=lambda x: x.split("/")[0]):
+        for pkg in sorted(filter(lambda x: x.endswith("/" + arch), source_u[BINARIES]), key=lambda x: x.split("/")[0]):
             pkg_name = pkg.split("/")[0]
 
             # retrieve the testing (if present) and unstable corresponding binary packages
@@ -1343,7 +1343,7 @@ class Britney(object):
                     base = 'testing'
                 else:
                     base = 'stable'
-                text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), base, arch)
+                text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u[VERSION]), base, arch)
 
                 if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
@@ -1396,15 +1396,15 @@ class Britney(object):
                     if oodtxt: oodtxt = oodtxt + "; "
                     oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
-                        (", ".join(sorted(oodbins[v])), urllib.quote(arch), urllib.quote(src), urllib.quote(v), v)
+                        (", ".join(sorted(oodbins[v])), quote(arch), quote(src), quote(v), v)
                 if uptodatebins:
                     text = "old binaries left on <a href=\"http://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
-                        (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
+                        (quote(arch), quote(src), quote(source_u[VERSION]), arch, oodtxt)
                 else:
                     text = "missing build on <a href=\"http://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
-                        (urllib.quote(arch), urllib.quote(src), urllib.quote(source_u[VERSION]), arch, oodtxt)
+                        (quote(arch), quote(src), quote(source_u[VERSION]), arch, oodtxt)
 
                 if arch in self.options.fucked_arches.split():
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
@@ -1454,15 +1454,15 @@ class Britney(object):
                 if len(new_bugs) > 0:
                     excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
                         "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                        "target=\"_blank\">has new bugs</a>!" % (pkg, ", ".join(pkgs[pkg]), urllib.quote(pkg)))
+                        "target=\"_blank\">has new bugs</a>!" % (pkg, ", ".join(pkgs[pkg]), quote(pkg)))
                     excuse.addhtml("Updating %s introduces new bugs: %s" % (pkg, ", ".join(
-                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (urllib.quote(a), a) for a in new_bugs])))
+                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
                     update_candidate = False
                     excuse.addreason("buggy")
 
                 if len(old_bugs) > 0:
                     excuse.addhtml("Updating %s fixes old bugs: %s" % (pkg, ", ".join(
-                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (urllib.quote(a), a) for a in old_bugs])))
+                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
                 if len(old_bugs) > len(new_bugs) and len(new_bugs) > 0:
                     excuse.addhtml("%s introduces new bugs, so still ignored (even "
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
