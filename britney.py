@@ -194,20 +194,6 @@ from functools import reduce, partial
 from itertools import chain, ifilter, product
 from operator import attrgetter
 
-if __name__ == '__main__':
-    # Check if there is a python-search dir for this version of
-    # python.  If so, use the britney module for that.
-    mdir = os.path.dirname(sys.argv[0])
-    if sys.version_info[0] == 3:
-        python_dir = "python3"
-    else:
-        python_dir = "python2.%d" % (sys.version_info[1])
-    idir = os.path.join(mdir, python_dir)
-    if os.path.isdir(idir):
-        print "N: Loading from %s" % python_dir
-        # Insert in front (else current dir is before it, which makes
-        # it useless).
-        sys.path.insert(0, idir)
 
 from installability.builder import InstallabilityTesterBuilder
 from excuse import Excuse
