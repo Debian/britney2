@@ -364,9 +364,9 @@ class Britney(object):
                         self.__log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
 
         # test suite doesn't appreciate aborts of this nature
-        #if any_mismatch:
-        #    self.__log("Mismatches found, exiting.", type="I")
-        #    sys.exit(1)
+        if any_mismatch:
+            self.__log("Mismatches found, exiting.", type="I")
+            sys.exit(1)
         return
 
     def __parse_arguments(self):
