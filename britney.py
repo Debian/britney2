@@ -364,7 +364,7 @@ class Britney(object):
         # are handled as an ad-hoc case
         self.MINDAYS = {}
         self.HINTS = {'command-line': self.HINTS_ALL}
-        for k, v in [map(string.strip,r.split('=', 1)) for r in file(self.options.config) if '=' in r and not r.strip().startswith('#')]:
+        for k, v in [map(string.strip,r.split('=', 1)) for r in open(self.options.config) if '=' in r and not r.strip().startswith('#')]:
             if k.startswith("MINDAYS_"):
                 self.MINDAYS[k.split("_")[1].lower()] = int(v)
             elif k.startswith("HINTS_"):
