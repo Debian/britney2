@@ -183,7 +183,6 @@ from __future__ import print_function
 
 import os
 import sys
-import string
 import time
 import optparse
 import urllib
@@ -389,7 +388,7 @@ class Britney(object):
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches.split()]
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches.split()]
         arches += [x for x in allarches if x not in arches]
-        self.options.architectures = map(intern, arches)
+        self.options.architectures = [intern(arch) for arch in arches]
         self.options.smooth_updates = self.options.smooth_updates.split()
 
     def __log(self, msg, type="I"):
@@ -641,7 +640,7 @@ class Britney(object):
 
             # register virtual packages and real packages that provide them
             if dpkg[PROVIDES]:
-                parts = map(string.strip, dpkg[PROVIDES].split(","))
+                parts = [p.strip() for p in dpkg[PROVIDES].split(",")]
                 for p in parts:
                     if p not in provides:
                         provides[p] = []
