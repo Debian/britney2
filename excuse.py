@@ -220,7 +220,7 @@ class Excuse(object):
         excusedata["new-bugs"] = sorted(self.newbugs)
         excusedata["old-bugs"] = sorted(self.oldbugs)
         if self.forced:
-            excusedata["forced-reason"] = self.reason.keys()
+            excusedata["forced-reason"] = list(self.reason.keys())
             excusedata["reason"] = []
         else:
             excusedata["reason"] = list(self.reason.keys())
