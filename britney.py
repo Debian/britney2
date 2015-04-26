@@ -762,7 +762,7 @@ class Britney(object):
         """
         filename = os.path.join(basedir, "Dates")
         self.__log("Writing upload data to %s" % filename)
-        with open(filename, 'w', encoding='utf-8'):
+        with open(filename, 'w', encoding='utf-8') as f:
             for pkg in sorted(dates):
                 f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
 
