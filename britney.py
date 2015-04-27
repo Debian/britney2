@@ -284,7 +284,7 @@ class Britney(object):
             if hasattr(self.options, 'pu'):
                 self.binaries['pu'][arch] = self.read_binaries(self.options.pu, "pu", arch)
             else:
-                # _build_installability_tester relies it being
+                # _build_installability_tester relies on it being
                 # properly initialised, so insert two empty dicts
                 # here.
                 self.binaries['pu'][arch] = ({}, {})
@@ -335,7 +335,7 @@ class Britney(object):
         suites = [s for s in self.binaries if arch in self.binaries[s]]
 
         # NB: ESSENTIAL deliberately skipped as the 2011 and 2012
-        # parts of the live-data tests requires it (britney merges
+        # parts of the live-data tests require it (britney merges
         # this field correctly from the unstable version where
         # available)
         check_field_name = dict( (globals()[fn], fn) for fn in
@@ -403,7 +403,7 @@ class Britney(object):
         if self.options.nuninst_cache and self.options.print_uninst:
             self.__log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
             sys.exit(1)
-        # if the configuration file exists, than read it and set the additional options
+        # if the configuration file exists, then read it and set the additional options
         elif not os.path.isfile(self.options.config):
             self.__log("Unable to read the configuration file (%s), exiting!" % self.options.config, type="E")
             sys.exit(1)
@@ -474,7 +474,7 @@ class Britney(object):
                 conflicts = []
                 possible_dep_ranges = {}
 
-                # We do not differ between depends and pre-depends
+                # We do not differentiate between depends and pre-depends
                 if pkgdata[DEPENDS]:
                     depends.extend(apt_pkg.parse_depends(pkgdata[DEPENDS], False))
 
@@ -493,7 +493,7 @@ class Britney(object):
                                 pkgs = solvers(block, arch, dep_dist)
                                 for p in pkgs:
                                     # version and arch is already interned, but solvers use
-                                    # the package name extracted from the field and is therefore
+                                    # the package name extracted from the field and it is therefore
                                     # not interned.
                                     pdata = binaries[dep_dist][arch][0][p]
                                     pt = (sys.intern(p), pdata[VERSION], arch)
@@ -634,7 +634,7 @@ class Britney(object):
 
             # Merge Pre-Depends with Depends and Conflicts with
             # Breaks. Britney is not interested in the "finer
-            # semantical differences" of these fields anyway.
+            # semantic differences" of these fields anyway.
             pdeps = get_field('Pre-Depends')
             deps = get_field('Depends')
             if deps and pdeps:
@@ -897,7 +897,7 @@ class Britney(object):
                 if l[0] == 'finished':
                     break
                 if l[0] == 'remark':
-                    # Ignore "no-op" hint, which sole purpose is to be
+                    # Ignore "no-op" hint, the sole purpose of which is to be
                     # found by hint grep (and show up in "d"'s
                     # output).
                     continue
@@ -966,7 +966,7 @@ class Britney(object):
 
         packages = []
 
-        # local copies for better performances
+        # local copies for better performance
         binaries = self.binaries[distribution][arch]
 
         # for every package, version and operation in the block
@@ -1071,7 +1071,7 @@ class Britney(object):
         # if the source package is available in unstable, then do nothing
         if pkg in self.sources['unstable']:
             return False
-        # otherwise, add a new excuse for its removal and return True
+        # otherwise, add a new excuse for its removal
         src = self.sources['testing'][pkg]
         excuse = Excuse("-" + pkg)
         excuse.addhtml("Package not in unstable, will try to remove")
@@ -1425,7 +1425,7 @@ class Britney(object):
                 pkgsv = binary_u[SOURCEVER]
 
                 # if it wasn't built by the same source, it is out-of-date
-                # it there is at least one binary which is up-to-date, there
+                # if there is at least one binary which is up-to-date, there
                 # is a build on this arch
                 if not same_source(source_u[VERSION], pkgsv):
                     if pkgsv not in oodbins:
@@ -2023,7 +2023,7 @@ class Britney(object):
 
         affected = set()
 
-        # local copies for better performances
+        # local copies for better performance
         sources = self.sources
         packages_t = self.binaries['testing']
         get_reverse_tree = partial(compute_reverse_tree, packages_t)
