@@ -1768,8 +1768,7 @@ class Britney(object):
                 skip_archall = True
             else: skip_archall = False
 
-            # check all the packages for this architecture, calling add_nuninst if a new
-            # uninstallable package is found
+            # check all the packages for this architecture
             nuninst[arch] = set()
             for pkg_name in binaries[arch][0]:
                 pkgdata = binaries[arch][0][pkg_name]
