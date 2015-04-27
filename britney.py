@@ -1764,9 +1764,7 @@ class Britney(object):
         for arch in self.options.architectures:
             if requested_arch and arch != requested_arch: continue
             # if it is in the nobreakall ones, check arch-independent packages too
-            if arch not in self.options.nobreakall_arches.split():
-                skip_archall = True
-            else: skip_archall = False
+            check_archall = arch in self.options.nobreakall_arches.split()
 
             # check all the packages for this architecture
             nuninst[arch] = set()
@@ -1778,7 +1776,7 @@ class Britney(object):
 
             # if they are not required, remove architecture-independent packages
             nuninst[arch + "+all"] = nuninst[arch].copy()
-            if skip_archall:
+            if not check_archall:
                 for pkg in nuninst[arch + "+all"]:
                     bpkg = binaries[arch][0][pkg]
                     if bpkg[ARCHITECTURE] == 'all':
@@ -2188,7 +2186,7 @@ class Britney(object):
         return (affected, undo)
 
 
-    def _check_packages(self, binaries, arch, affected, skip_archall, nuninst):
+    def _check_packages(self, binaries, arch, affected, check_archall, nuninst):
         broken = nuninst[arch + "+all"]
         to_check = []
 
@@ -2200,7 +2198,8 @@ class Britney(object):
             version = pkgdata[VERSION]
             parch = pkgdata[ARCHITECTURE]
             nuninst_arch = None
-            if not (skip_archall and parch == 'all'):
+            # only check arch:all packages if requested
+            if check_archall or parch != 'all':
                 nuninst_arch = nuninst[arch]
             self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
@@ -2215,7 +2214,8 @@ class Britney(object):
                 version = pkgdata[VERSION]
                 parch = pkgdata[ARCHITECTURE]
                 nuninst_arch = None
-                if not (skip_archall and parch == 'all'):
+                # only check arch:all packages if requested
+                if check_archall or parch != 'all':
                     nuninst_arch = nuninst[arch]
                 self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
@@ -2264,12 +2264,9 @@ class Britney(object):
             nuninst[arch + '+all'] = set(x for x in nuninst_arch_all if x in binaries_t_a)
 
         for arch in self.options.architectures:
-            if arch not in nobreakall_arches:
-                skip_archall = True
-            else:
-                skip_archall = False
+            check_archall = arch in nobreakall_arches
 
-            check_packages(arch, all_affected, skip_archall, nuninst)
+            check_packages(arch, all_affected, check_archall, nuninst)
 
         return nuninst
 
@@ -2337,15 +2334,12 @@ class Britney(object):
 
             # check the affected packages on all the architectures
             for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
-                if arch not in nobreakall_arches:
-                    skip_archall = True
-                else:
-                    skip_archall = False
+                check_archall = arch in nobreakall_arches
 
                 nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
                 nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
 
-                check_packages(arch, affected, skip_archall, nuninst)
+                check_packages(arch, affected, check_archall, nuninst)
 
                 # if the uninstallability counter is worse than before, break the loop
                 if ((item.architecture != 'source' and arch not in new_arches) or \
