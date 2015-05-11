@@ -2419,7 +2419,7 @@ class Britney(object):
                 lundo = []
             for x in init:
                 if x not in upgrade_me:
-                    self.output_write("failed: %s\n" % (x.uvname))
+                    self.output_write("failed: %s is not a valid candidate (or it already migrated)\n" % (x.uvname))
                     return None
                 selected.append(x)
                 upgrade_me.remove(x)
