@@ -988,7 +988,6 @@ class Britney(object):
             # look for the package in the virtual packages list and loop on them
             for prov in binaries[1].get(name, []):
                 if prov not in binaries[0]: continue
-                package = binaries[0][prov]
                 # A provides only satisfies:
                 # - an unversioned dependency (per Policy Manual §7.5)
                 # - a dependency without an architecture qualifier
