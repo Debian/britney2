@@ -2417,7 +2417,6 @@ class Britney(object):
         if init:
             if not force:
                 lundo = []
-            self.output_write("leading: %s\n" % (",".join( x.uvname for x in init )))
             for x in init:
                 if x not in upgrade_me:
                     self.output_write("failed: %s\n" % (x.uvname))
