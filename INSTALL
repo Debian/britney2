@@ -4,6 +4,6 @@ INSTALL for britney v2.0
 Requirements:
 -------------
 
-  * Python 2.7                  aptitude install python
-  * Python APT/DPKG bindings    aptitude install python-apt
-  * Python YAML library         aptitude install python-yaml
+  * Python 3                    aptitude install python3
+  * Python APT/DPKG bindings    aptitude install python3-apt
+  * Python YAML library         aptitude install python3-yaml
