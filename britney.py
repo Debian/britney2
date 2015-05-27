@@ -430,15 +430,21 @@ class Britney(object):
         if not hasattr(self.options, "heidi_delta_output"):
             self.options.heidi_delta_output = self.options.heidi_output + "Delta"
 
+        self.options.nobreakall_arches = self.options.nobreakall_arches.split()
+        self.options.fucked_arches = self.options.fucked_arches.split()
+        self.options.break_arches = self.options.break_arches.split()
+        self.options.new_arches = self.options.new_arches.split()
+
         # Sort the architecture list
         allarches = sorted(self.options.architectures.split())
-        arches = [x for x in allarches if x in self.options.nobreakall_arches.split()]
-        arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches.split()]
-        arches += [x for x in allarches if x not in arches and x not in self.options.break_arches.split()]
-        arches += [x for x in allarches if x not in arches and x not in self.options.new_arches.split()]
+        arches = [x for x in allarches if x in self.options.nobreakall_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.fucked_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
+        arches += [x for x in allarches if x not in arches and x not in self.options.new_arches]
         arches += [x for x in allarches if x not in arches]
         self.options.architectures = [sys.intern(arch) for arch in arches]
         self.options.smooth_updates = self.options.smooth_updates.split()
+
 
     def __log(self, msg, type="I"):
         """Print info messages according to verbosity level
@@ -1045,7 +1051,7 @@ class Britney(object):
 
             # for the solving packages, update the excuse to add the dependencies
             for p in packages:
-                if arch not in self.options.break_arches.split():
+                if arch not in self.options.break_arches:
                     if p in self.sources['testing'] and self.sources['testing'][p][VERSION] == self.sources[suite][p][VERSION]:
                         excuse.add_dep("%s/%s" % (p, arch), arch)
                     else:
@@ -1397,7 +1403,7 @@ class Britney(object):
                     base = 'stable'
                 text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u[VERSION]), base, arch)
 
-                if arch in self.options.fucked_arches.split():
+                if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
                 else:
                     update_candidate = False
@@ -1436,7 +1442,7 @@ class Britney(object):
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
-                if binary_u[ARCHITECTURE] != 'all' or arch in self.options.nobreakall_arches.split():
+                if binary_u[ARCHITECTURE] != 'all' or arch in self.options.nobreakall_arches:
                     self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
 
             # if there are out-of-date packages, warn about them in the excuse and set update_candidate
@@ -1458,7 +1464,7 @@ class Britney(object):
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
                         (quote(arch), quote(src), quote(source_u[VERSION]), arch, oodtxt)
 
-                if arch in self.options.fucked_arches.split():
+                if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
                 else:
                     update_candidate = False
@@ -1763,7 +1769,7 @@ class Britney(object):
         for arch in self.options.architectures:
             if requested_arch and arch != requested_arch: continue
             # if it is in the nobreakall ones, check arch-independent packages too
-            check_archall = arch in self.options.nobreakall_arches.split()
+            check_archall = arch in self.options.nobreakall_arches
 
             # check all the packages for this architecture
             nuninst[arch] = set()
@@ -1807,7 +1813,7 @@ class Britney(object):
             elif original and arch in original:
                 n = len(original[arch])
             else: continue
-            if arch in self.options.break_arches.split():
+            if arch in self.options.break_arches:
                 totalbreak = totalbreak + n
             else:
                 total = total + n
@@ -2231,7 +2237,7 @@ class Britney(object):
 
         removals = set()
         all_affected = set()
-        nobreakall_arches = self.options.nobreakall_arches.split()
+        nobreakall_arches = self.options.nobreakall_arches
         packages_t = self.binaries['testing']
         check_packages = partial(self._check_packages, packages_t)
         nuninst = {}
@@ -2293,9 +2299,9 @@ class Britney(object):
         binaries = self.binaries['testing']
         sources = self.sources
         architectures = self.options.architectures
-        nobreakall_arches = self.options.nobreakall_arches.split()
-        new_arches = self.options.new_arches.split()
-        break_arches = self.options.break_arches.split()
+        nobreakall_arches = self.options.nobreakall_arches
+        new_arches = self.options.new_arches
+        break_arches = self.options.break_arches
         dependencies = self.dependencies
         check_packages = partial(self._check_packages, binaries)
 
@@ -2454,7 +2460,7 @@ class Britney(object):
                                               newly_uninst(nuninst_start, nuninst_end)) + "\n")
 
         if not force:
-            break_arches = set(self.options.break_arches.split())
+            break_arches = set(self.options.break_arches)
             if all(x.architecture in break_arches for x in selected):
                 # If we only migrated items from break-arches, then we
                 # do not allow any regressions on these architectures.
@@ -2528,16 +2534,16 @@ class Britney(object):
         allpackages = []
         normpackages = self.upgrade_me[:]
         archpackages = {}
-        for a in self.options.break_arches.split():
+        for a in self.options.break_arches:
             archpackages[a] = [p for p in normpackages if p.architecture == a]
             normpackages = [p for p in normpackages if p not in archpackages[a]]
         self.upgrade_me = normpackages
         self.output_write("info: main run\n")
         self.do_all()
         allpackages += self.upgrade_me
-        for a in self.options.break_arches.split():
+        for a in self.options.break_arches:
             backup = self.options.break_arches
-            self.options.break_arches = " ".join(x for x in self.options.break_arches.split() if x != a)
+            self.options.break_arches = " ".join(x for x in self.options.break_arches if x != a)
             self.upgrade_me = archpackages[a]
             self.output_write("info: broken arch run for %s\n" % (a))
             self.do_all()
