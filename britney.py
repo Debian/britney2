@@ -204,7 +204,8 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
                           write_excuses, write_heidi_delta, write_controlfiles,
-                          old_libraries, is_nuninst_asgood_generous)
+                          old_libraries, is_nuninst_asgood_generous,
+                          clone_nuninst)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
@@ -2240,7 +2241,6 @@ class Britney(object):
         nobreakall_arches = self.options.nobreakall_arches
         packages_t = self.binaries['testing']
         check_packages = partial(self._check_packages, packages_t)
-        nuninst = {}
 
 
         for item in hinted_packages:
@@ -2258,15 +2258,11 @@ class Britney(object):
                 lundo.append((undo,item))
 
         # deep copy nuninst (in case the hint is undone)
-        # NB: We do this *after* updating testing and we have to filter out
+        # NB: We do this *after* updating testing as we have to filter out
         # removed binaries.  Otherwise, uninstallable binaries that were
         # removed by the hint would still be counted.
-        for arch in self.options.architectures:
-            nuninst_arch = self.nuninst_orig[arch]
-            nuninst_arch_all = self.nuninst_orig[arch + '+all']
-            binaries_t_a = packages_t[arch][0]
-            nuninst[arch] = set(x for x in nuninst_arch if x in binaries_t_a)
-            nuninst[arch + '+all'] = set(x for x in nuninst_arch_all if x in binaries_t_a)
+        nuninst = clone_nuninst(self.nuninst_orig, packages_t,
+                                self.options.architectures)
 
         for arch in self.options.architectures:
             check_archall = arch in nobreakall_arches
@@ -2339,27 +2335,18 @@ class Britney(object):
             # Copy nuninst_comp - we have to deep clone affected
             # architectures.
 
-            # NB: We do this *after* updating testing and we have to filter out
+            # NB: We do this *after* updating testing as we have to filter out
             # removed binaries.  Otherwise, uninstallable binaries that were
             # removed by the item would still be counted.
             if item.architecture == 'source':
-                # Assume that all architectures are affected and deep
-                # copy nuninst_comp
-                nuninst = {}
-                for arch in architectures:
-                    nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
-                    nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
+                affected_architectures = architectures
             else:
-                # Shallow clone nuninst_comp except for the affected
-                # architecture, which is deep cloned.
-                arch = item.architecture
-                nuninst = nuninst_comp.copy()
-                nuninst[arch] = set(x for x in nuninst_comp[arch] if x in binaries[arch][0])
-                nuninst[arch + "+all"] = set(x for x in nuninst_comp[arch + "+all"] if x in binaries[arch][0])
+                affected_architectures = [item.architecture]
+            nuninst = clone_nuninst(nuninst_comp, binaries, affected_architectures)
 
 
             # check the affected packages on all the architectures
-            for arch in (item.architecture == 'source' and architectures or (item.architecture,)):
+            for arch in affected_architectures:
                 check_archall = arch in nobreakall_arches
 
                 check_packages(arch, affected, check_archall, nuninst)
