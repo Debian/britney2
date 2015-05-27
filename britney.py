@@ -2299,7 +2299,7 @@ class Britney(object):
         dependencies = self.dependencies
         check_packages = partial(self._check_packages, binaries)
 
-        self.output_write("recur: [%s] %s %d/%d\n" % ("", ",".join(x.uvname for x in selected), len(packages), len(extra)))
+        self.output_write("recur: [] %s %d/%d\n" % (",".join(x.uvname for x in selected), len(packages), len(extra)))
 
         # loop on the packages (or better, actions)
         while packages:
