@@ -482,7 +482,7 @@ def write_sources(sources_s, filename):
     """Write a sources file from Britney's state for a given suite
 
     Britney discards fields she does not care about, so the resulting
-    file omitts a lot of regular fields.
+    file omits a lot of regular fields.
     """
 
     key_pairs = ((VERSION, 'Version'), (SECTION, 'Section'),
