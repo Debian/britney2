@@ -2264,6 +2264,55 @@ class Britney(object):
 
         return nuninst
 
+    def try_migration(self, actions, nuninst_now, lundo=None, automatic_revert=True):
+        is_accepted = True
+        affected_architectures = set()
+        item = actions
+        packages_t = self.binaries['testing']
+
+        nobreakall_arches = self.options.nobreakall_arches
+        new_arches = self.options.new_arches
+        break_arches = self.options.break_arches
+        arch = None
+
+        # apply the changes
+        affected, undo = self.doop_source(item, lundo)
+        single_undo = (undo, item)
+
+        # Copy nuninst_comp - we have to deep clone affected
+        # architectures.
+
+        # NB: We do this *after* updating testing as we have to filter out
+        # removed binaries.  Otherwise, uninstallable binaries that were
+        # removed by the item would still be counted.
+        if item.architecture == 'source':
+            affected_architectures = set(self.options.architectures)
+        else:
+            affected_architectures.add(item.architecture)
+        nuninst_after = clone_nuninst(nuninst_now, packages_t, affected_architectures)
+
+        # check the affected packages on all the architectures
+        for arch in affected_architectures:
+            check_archall = arch in nobreakall_arches
+
+            self._check_packages(packages_t, arch, affected, check_archall, nuninst_after)
+
+            # if the uninstallability counter is worse than before, break the loop
+            if automatic_revert and len(nuninst_after[arch]) > len(nuninst_now[arch]):
+                # ... except for a few special cases
+                if (item.architecture != 'source' and arch not in new_arches) or \
+                   (arch not in break_arches):
+                    is_accepted = False
+                    break
+
+        # check if the action improved the uninstallability counters
+        if not is_accepted and automatic_revert:
+            undo_list = [single_undo]
+            undo_changes(undo_list, self._inst_tester, self.sources, self.binaries)
+
+        return (is_accepted, nuninst_after, single_undo, arch)
+
+
 
     def iter_packages(self, packages, selected, nuninst=None, lundo=None):
         """Iter on the list of actions and apply them one-by-one
@@ -2285,14 +2334,7 @@ class Britney(object):
             nuninst_comp = self.nuninst_orig
 
         # local copies for better performance
-        binaries = self.binaries['testing']
-        sources = self.sources
-        architectures = self.options.architectures
-        nobreakall_arches = self.options.nobreakall_arches
-        new_arches = self.options.new_arches
-        break_arches = self.options.break_arches
         dependencies = self.dependencies
-        check_packages = partial(self._check_packages, binaries)
 
         self.output_write("recur: [] %s %d/%d\n" % (",".join(x.uvname for x in selected), len(packages), len(extra)))
 
@@ -2320,41 +2362,12 @@ class Britney(object):
 
             self.output_write("trying: %s\n" % (item.uvname))
 
-            better = True
-
-            # apply the changes
-            affected, undo = self.doop_source(item, lundo)
-
-            # Copy nuninst_comp - we have to deep clone affected
-            # architectures.
-
-            # NB: We do this *after* updating testing as we have to filter out
-            # removed binaries.  Otherwise, uninstallable binaries that were
-            # removed by the item would still be counted.
-            if item.architecture == 'source':
-                affected_architectures = architectures
-            else:
-                affected_architectures = [item.architecture]
-            nuninst = clone_nuninst(nuninst_comp, binaries, affected_architectures)
-
-
-            # check the affected packages on all the architectures
-            for arch in affected_architectures:
-                check_archall = arch in nobreakall_arches
-
-                check_packages(arch, affected, check_archall, nuninst)
-
-                # if the uninstallability counter is worse than before, break the loop
-                if ((item.architecture != 'source' and arch not in new_arches) or \
-                    (arch not in break_arches)) and len(nuninst[arch]) > len(nuninst_comp[arch]):
-                    better = False
-                    break
-
+            (better, nuninst, undo_item, arch) = self.try_migration(item, nuninst_comp, lundo=lundo)
 
             # check if the action improved the uninstallability counters
             if better:
                 if lundo is not None:
-                    lundo.append((undo, item))
+                    lundo.append(undo_item)
                 selected.append(item)
                 packages.extend(extra)
                 extra = []
@@ -2368,6 +2381,7 @@ class Britney(object):
                     self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
                 nuninst_comp = nuninst
             else:
+                # NB: try_migration already reverted this for us, so just print the results and move on
                 self.output_write("skipped: %s (%d <- %d)\n" % (item.uvname, len(extra), len(packages)))
                 self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst, item.architecture != 'source' and nuninst_comp or None)))
                 self.output_write("    * %s: %s\n" % (arch, ", ".join(sorted(b for b in nuninst[arch] if b not in nuninst_comp[arch]))))
@@ -2375,9 +2389,6 @@ class Britney(object):
                 extra.append(item)
                 if not mark_passed:
                     skipped.append(item)
-                single_undo = [(undo, item)]
-                # (local-scope) binaries is actually self.binaries["testing"] so we cannot use it here.
-                undo_changes(single_undo, self._inst_tester, sources, self.binaries)
 
 
         self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
