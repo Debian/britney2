@@ -2219,51 +2219,6 @@ class Britney(object):
         # contain anything new.
         assert affected.issuperset(to_check)
 
-    def iter_packages_hint(self, hinted_packages, lundo=None):
-        """Iter on hinted list of actions and apply them in one go
-
-        This method applies the changes from "hinted_packages" to
-        testing and computes the uninstallability counters after te
-        actions are performed.
-
-        The method returns the new uninstallability counters.
-        """
-
-        removals = set()
-        all_affected = set()
-        nobreakall_arches = self.options.nobreakall_arches
-        packages_t = self.binaries['testing']
-        check_packages = partial(self._check_packages, packages_t)
-
-
-        for item in hinted_packages:
-            _, rms, _ = self._compute_groups(item.package, item.suite,
-                                             item.architecture,
-                                             item.is_removal,
-                                             allow_smooth_updates=False)
-            removals.update(rms)
-
-        for item in hinted_packages:
-            affected, undo = self.doop_source(item,
-                                              removals=removals)
-            all_affected.update(affected)
-            if lundo is not None:
-                lundo.append((undo,item))
-
-        # deep copy nuninst (in case the hint is undone)
-        # NB: We do this *after* updating testing as we have to filter out
-        # removed binaries.  Otherwise, uninstallable binaries that were
-        # removed by the hint would still be counted.
-        nuninst = clone_nuninst(self.nuninst_orig, packages_t,
-                                self.options.architectures)
-
-        for arch in self.options.architectures:
-            check_archall = arch in nobreakall_arches
-
-            check_packages(arch, all_affected, check_archall, nuninst)
-
-        return nuninst
-
     def try_migration(self, actions, nuninst_now, lundo=None, automatic_revert=True):
         is_accepted = True
         affected_architectures = set()
@@ -2275,9 +2230,35 @@ class Britney(object):
         break_arches = self.options.break_arches
         arch = None
 
-        # apply the changes
-        affected, undo = self.doop_source(item, lundo)
-        single_undo = (undo, item)
+        if len(actions) == 1:
+            item = actions[0]
+            # apply the changes
+            affected, undo = self.doop_source(item, lundo)
+            undo_list = [(undo, item)]
+            if item.architecture == 'source':
+                affected_architectures = set(self.options.architectures)
+            else:
+                affected_architectures.add(item.architecture)
+        else:
+            undo_list = []
+            removals = set()
+            affected = set()
+            for item in actions:
+                _, rms, _ = self._compute_groups(item.package, item.suite,
+                                                 item.architecture,
+                                                 item.is_removal,
+                                                 allow_smooth_updates=False)
+                removals.update(rms)
+                affected_architectures.add(item.architecture)
+
+            if 'source' in affected_architectures:
+                affected_architectures = set(self.options.architectures)
+
+            for item in actions:
+                item_affected, undo = self.doop_source(item,
+                                                       removals=removals)
+                affected.update(item_affected)
+                undo_list.append((undo, item))
 
         # Copy nuninst_comp - we have to deep clone affected
         # architectures.
@@ -2285,10 +2266,7 @@ class Britney(object):
         # NB: We do this *after* updating testing as we have to filter out
         # removed binaries.  Otherwise, uninstallable binaries that were
         # removed by the item would still be counted.
-        if item.architecture == 'source':
-            affected_architectures = set(self.options.architectures)
-        else:
-            affected_architectures.add(item.architecture)
+
         nuninst_after = clone_nuninst(nuninst_now, packages_t, affected_architectures)
 
         # check the affected packages on all the architectures
@@ -2307,10 +2285,10 @@ class Britney(object):
 
         # check if the action improved the uninstallability counters
         if not is_accepted and automatic_revert:
-            undo_list = [single_undo]
-            undo_changes(undo_list, self._inst_tester, self.sources, self.binaries)
+            undo_copy = list(reversed(undo_list))
+            undo_changes(undo_copy, self._inst_tester, self.sources, self.binaries)
 
-        return (is_accepted, nuninst_after, single_undo, arch)
+        return (is_accepted, nuninst_after, undo_list, arch)
 
 
 
@@ -2362,12 +2340,12 @@ class Britney(object):
 
             self.output_write("trying: %s\n" % (item.uvname))
 
-            (better, nuninst, undo_item, arch) = self.try_migration(item, nuninst_comp, lundo=lundo)
+            (better, nuninst, undo_list, arch) = self.try_migration([item], nuninst_comp, lundo=lundo)
 
             # check if the action improved the uninstallability counters
             if better:
                 if lundo is not None:
-                    lundo.append(undo_item)
+                    lundo.extend(undo_list)
                 selected.append(item)
                 packages.extend(extra)
                 extra = []
@@ -2445,7 +2423,17 @@ class Britney(object):
 
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
-            nuninst_end = self.iter_packages_hint(selected, lundo=lundo)
+            (better, nuninst_end, undo_list, _) = self.try_migration(selected,
+                                                                     self.nuninst_orig,
+                                                                     lundo=lundo,
+                                                                     automatic_revert=False)
+            if force:
+                # Force implies "unconditionally better"
+                better = True
+
+            if lundo is not None:
+                lundo.extend(undo_list)
+
             if recurse:
                 # Ensure upgrade_me and selected do not overlap, if we
                 # follow-up with a recurse ("hint"-hint).
