@@ -17,6 +17,7 @@
 from __future__ import print_function
 
 import os
+from collections import deque
 
 from installability.tester import InstallabilityTester
 from britney_util import (ifilter_only, iter_except)
@@ -54,7 +55,7 @@ class InstallabilitySolver(InstallabilityTester):
         revuniverse = self._revuniverse
         result = []
         emitted = set()
-        check = set()
+        queue = deque()
         order = {}
         ptable = {}
         key2item = {}
@@ -226,22 +227,26 @@ class InstallabilitySolver(InstallabilityTester):
         if debug_solver:
             print("N: -- PARTIAL ORDER --")
 
+        initial_round = []
         for com in sorted(order):
             if debug_solver and order[com]['before']:
                 print("N: %s <= %s" % (com, str(sorted(order[com]['before']))))
             if not order[com]['after']:
                 # This component can be scheduled immediately, add it
-                # to "check"
-                check.add(com)
+                # to the queue
+                initial_round.append(com)
             elif debug_solver:
                 print("N: %s >= %s" % (com, str(sorted(order[com]['after']))))
+
+        queue.extend(sorted(initial_round, key=len))
+        del initial_round
 
         if debug_solver:
             print("N: -- END PARTIAL ORDER --")
             print("N: -- LINEARIZED ORDER --")
 
-        for cur in iter_except(check.pop, KeyError):
-            if order[cur]['after'] <= emitted:
+        for cur in iter_except(queue.popleft, IndexError):
+            if order[cur]['after'] <= emitted and cur not in emitted:
                 # This item is ready to be emitted right now
                 if debug_solver:
                     print("N: %s -- %s" % (cur, sorted(scc[cur])))
@@ -249,10 +254,10 @@ class InstallabilitySolver(InstallabilityTester):
                 result.append([key2item[x] for x in scc[cur]])
                 if order[cur]['before']:
                     # There are components that come after this one.
-                    # Add it to "check":
+                    # Add it to queue:
                     # - if it is ready, it will be emitted.
                     # - else, it will be dropped and re-added later.
-                    check.update(order[cur]['before'] - emitted)
+                    queue.extend(sorted(order[cur]['before'] - emitted, key=len))
 
         if debug_solver:
             print("N: -- END LINEARIZED ORDER --")
