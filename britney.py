@@ -2862,23 +2862,29 @@ class Britney(object):
                         candidates.append(h)
                         seen_hints.add(h)
             else:
-                items = [ (e, excuse.ver[1]) ]
+                items = [(e, excuse.ver[1])]
                 orig_size = 1
                 looped = False
+                seen_items = set()
+                seen_items.update(items)
+
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
-                    items.extend( (x, excuses[x].ver[1]) for x in excuses if \
+                    new_items = [(x, excuses[x].ver[1]) for x in excuses if \
                        (item in excuses[x].deps or x in excuses[item].deps) \
-                       and (x, excuses[x].ver[1]) not in items )
+                       and (x, excuses[x].ver[1]) not in seen_items]
+                    items.extend(new_items)
+                    seen_items.update(new_items)
+
                     if not looped and len(items) > 1:
                         orig_size = len(items)
-                        h = frozenset(items)
+                        h = frozenset(seen_items)
                         if h not in seen_hints:
                             mincands.append(h)
                             seen_hints.add(h)
                     looped = True
                 if len(items) != orig_size:
-                    h = frozenset(items)
+                    h = frozenset(seen_items)
                     if h != mincands[-1] and h not in seen_hints:
                         candidates.append(h)
                         seen_hints.add(h)
