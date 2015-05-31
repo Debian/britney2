@@ -2849,16 +2849,21 @@ class Britney(object):
         # loop on them
         candidates = []
         mincands = []
+        seen_hints = set()
         for e in excuses:
             excuse = excuses[e]
             if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
                 continue
             if excuse.deps:
                 hint = find_related(e, {}, True)
-                if isinstance(hint, dict) and e in hint and hint not in candidates:
-                    candidates.append(hint.items())
+                if isinstance(hint, dict) and e in hint:
+                    h = frozenset(hint.items())
+                    if h not in seen_hints:
+                        candidates.append(h)
+                        seen_hints.add(h)
             else:
                 items = [ (e, excuse.ver[1]) ]
+                orig_size = 1
                 looped = False
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
@@ -2866,39 +2871,21 @@ class Britney(object):
                        (item in excuses[x].deps or x in excuses[item].deps) \
                        and (x, excuses[x].ver[1]) not in items )
                     if not looped and len(items) > 1:
-                        mincands.append(items[:])
+                        orig_size = len(items)
+                        h = frozenset(items)
+                        if h not in seen_hints:
+                            mincands.append(h)
+                            seen_hints.add(h)
                     looped = True
-                if (len(items) > 1 and len(items) != len(mincands[-1]) and
-                    frozenset(items) != frozenset(mincands[-1])):
-                    candidates.append(items)
+                if len(items) != orig_size:
+                    h = frozenset(items)
+                    if h != mincands[-1] and h not in seen_hints:
+                        candidates.append(h)
+                        seen_hints.add(h)
 
         for l in [ candidates, mincands ]:
-            to_skip = set()
-            for i in range(len(l)):
-                if i in to_skip:
-                    continue
-                l_i = None
-                for j in range(i+1, len(l)):
-                    if j in to_skip:
-                        # we already know this list isn't interesting
-                        continue
-                    if l_i is None:
-                        l_i = frozenset(l[i])
-                    l_j = frozenset(l[j])
-                    if l_i >= l_j:
-                        # j is a subset of i; ignore it
-                        to_skip.add(j)
-                    elif l_i < l_j:
-                        # i is a subset of j; ignore it and the rest of the
-                        # "i" series.
-                        # NB: We use < and not <= because the "==" case is
-                        # already covered above
-                        to_skip.add(i)
-                        break
-            for i in range(len(l)):
-                if i not in to_skip:
-                    self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in l[i] ])
-
+            for hint in l:
+                self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in sorted(hint) ])
 
     def nuninst_arch_report(self, nuninst, arch):
         """Print a report of uninstallable packages for one architecture."""
