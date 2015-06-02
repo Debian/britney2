@@ -2805,7 +2805,9 @@ class Britney(object):
                    type="I")
 
         # consider only excuses which are valid candidates
-        excuses = dict((x.name, x) for x in self.excuses if x.name in [y.uvname for y in self.upgrade_me])
+        valid_excuses = frozenset(y.uvname for y in self.upgrade_me)
+        excuses = dict((x.name, x) for x in self.excuses if x.name in valid_excuses)
+        excuses_deps = dict((name, set(excuse.deps)) for name, excuse in excuses.items())
         sources_t = self.sources['testing']
 
         groups = set()
@@ -2871,7 +2873,7 @@ class Britney(object):
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
                     new_items = [(x, excuses[x].ver[1]) for x in excuses if \
-                       (item in excuses[x].deps or x in excuses[item].deps) \
+                       (item in excuses_deps[x] or x in excuses_deps[item]) \
                        and (x, excuses[x].ver[1]) not in seen_items]
                     items.extend(new_items)
                     seen_items.update(new_items)
