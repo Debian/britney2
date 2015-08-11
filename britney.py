@@ -1339,9 +1339,12 @@ class Britney(object):
                         excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
                                        (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
                 if suite == 'unstable' or block_cmd == 'block-udeb':
-                    excuse.addhtml("Not touching package due to %s request by %s "
-                                    "(check https://release.debian.org/jessie/freeze_policy.html if update is needed)" %
-                                   (block_cmd, blocked[block_cmd].user))
+                    tooltip = "check https://release.debian.org/jessie/freeze_policy.html if update is needed"
+                    # redirect people to d-i RM for udeb things:
+                    if block_cmd == 'block-udeb':
+                        tooltip = "please contact the d-i release manager if an update is needed"
+                    excuse.addhtml("Not touching package due to %s request by %s (%s)" %
+                                   (block_cmd, blocked[block_cmd].user, tooltip))
                     excuse.addreason("block")
                 else:
                     excuse.addhtml("NEEDS APPROVAL BY RM")
