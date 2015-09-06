@@ -2604,12 +2604,12 @@ class Britney(object):
         # smooth updates
         if self.options.smooth_updates:
             self.__log("> Removing old packages left in testing from smooth updates", type="I")
-            removals = old_libraries(self.sources, self.binaries)
+            removals = old_libraries(self.sources, self.binaries, self.options.fucked_arches)
             if removals:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
                     (len(removals), old_libraries_format(removals)))
                 self.do_all(actions=removals)
-                removals = old_libraries(self.sources, self.binaries)
+                removals = old_libraries(self.sources, self.binaries, self.options.fucked_arches)
         else:
             removals = ()
 

@@ -552,13 +552,17 @@ def write_controlfiles(sources, packages, suite, basedir):
     write_sources(sources_s, os.path.join(basedir, 'Sources'))
 
 
-def old_libraries(sources, packages, same_source=same_source):
+def old_libraries(sources, packages, fucked_arches=frozenset(), same_source=same_source):
     """Detect old libraries left in testing for smooth transitions
 
     This method detects old libraries which are in testing but no
     longer built from the source package: they are still there because
     other packages still depend on them, but they should be removed as
     soon as possible.
+
+    For "fucked" architectures, outdated binaries are allowed to be in
+    testing, so they are only added to the removal list if they are no longer
+    in unstable.
 
     same_source is an optimisation to avoid "load global".
     """
@@ -569,7 +573,8 @@ def old_libraries(sources, packages, same_source=same_source):
     for arch in testing:
         for pkg_name in testing[arch][0]:
             pkg = testing[arch][0][pkg_name]
-            if not same_source(sources_t[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
+            if not same_source(sources_t[pkg[SOURCE]][VERSION], pkg[SOURCEVER]) and \
+                (arch not in fucked_arches or pkg_name not in unstable[arch][0]):
                 migration = "-" + "/".join((pkg_name, arch, pkg[SOURCEVER]))
                 removals.append(MigrationItem(migration))
     return removals
