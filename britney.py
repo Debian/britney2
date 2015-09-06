@@ -2926,7 +2926,7 @@ class Britney(object):
         for (src, ver), pkgs in sorted(all.items()):
             print('  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs))))
 
-        print
+        print()
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
