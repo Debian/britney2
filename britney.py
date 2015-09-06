@@ -718,9 +718,8 @@ class Britney(object):
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
 
-     
     def read_bugs(self, basedir):
-        """Read the release critial bug summary from the specified directory
+        """Read the release critical bug summary from the specified directory
         
         The RC bug summaries are read from the `BugsV' file within the
         directory specified in the `basedir' parameter. The file contains
@@ -757,7 +756,7 @@ class Britney(object):
         for arch in self.options.architectures:
             if pkg not in self.binaries[dist][arch][0]: continue
             pkgv = self.binaries[dist][arch][0][pkg][VERSION]
-            if maxver == None or apt_pkg.version_compare(pkgv, maxver) > 0:
+            if maxver is None or apt_pkg.version_compare(pkgv, maxver) > 0:
                 maxver = pkgv
         return maxver
 
@@ -784,7 +783,7 @@ class Britney(object):
 
             # if the package is not available in testing, then reset
             # the list of RC bugs
-            if maxvert == None:
+            if maxvert is None:
                 self.bugs['testing'][pkg] = []
 
     def read_dates(self, basedir):
