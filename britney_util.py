@@ -569,8 +569,7 @@ def old_libraries(sources, packages, same_source=same_source):
     for arch in testing:
         for pkg_name in testing[arch][0]:
             pkg = testing[arch][0][pkg_name]
-            if pkg_name not in unstable[arch][0] and \
-                    not same_source(sources_t[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
+            if not same_source(sources_t[pkg[SOURCE]][VERSION], pkg[SOURCEVER]):
                 migration = "-" + "/".join((pkg_name, arch, pkg[SOURCEVER]))
                 removals.append(MigrationItem(migration))
     return removals
