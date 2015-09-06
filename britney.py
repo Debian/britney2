@@ -1437,15 +1437,18 @@ class Britney(object):
                 pkgsv = binary_u[SOURCEVER]
 
                 # if it wasn't built by the same source, it is out-of-date
-                # if there is at least one binary which is up-to-date, there
-                # is a build on this arch
+                # if there is at least one binary on this arch which is
+                # up-to-date, there is a build on this arch
                 if not same_source(source_u[VERSION], pkgsv):
                     if pkgsv not in oodbins:
                         oodbins[pkgsv] = []
                     oodbins[pkgsv].append(pkg)
                     continue
                 else:
-                    uptodatebins = True
+                    # if the binary is arch all, it doesn't count as
+                    # up-to-date for this arch
+                    if binary_u[ARCHITECTURE] == arch:
+                        uptodatebins = True
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
