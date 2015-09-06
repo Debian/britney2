@@ -446,6 +446,9 @@ class Britney(object):
         self.options.architectures = [sys.intern(arch) for arch in arches]
         self.options.smooth_updates = self.options.smooth_updates.split()
 
+        if not hasattr(self.options, 'ignore_cruft') or \
+            self.options.ignore_cruft == "0":
+            self.options.ignore_cruft = False
 
     def __log(self, msg, type="I"):
         """Print info messages according to verbosity level
@@ -1471,13 +1474,19 @@ class Britney(object):
                 if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
                 else:
-                    update_candidate = False
-                    excuse.addreason("arch")
-                    excuse.addreason("arch-%s" % arch)
                     if uptodatebins:
                         excuse.addreason("cruft-arch")
                         excuse.addreason("cruft-arch-%s" % arch)
+                        if self.options.ignore_cruft:
+                            text = text + " (but ignoring cruft, so nevermind)"
+                        else:
+                            update_candidate = False
+                            excuse.addreason("arch")
+                            excuse.addreason("arch-%s" % arch)
                     else:
+                        update_candidate = False
+                        excuse.addreason("arch")
+                        excuse.addreason("arch-%s" % arch)
                         excuse.addreason("build-arch")
                         excuse.addreason("build-arch-%s" % arch)
 
