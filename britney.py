@@ -2481,7 +2481,6 @@ class Britney(object):
             if not actions:
                 if recurse:
                     self.upgrade_me = extra
-                    self.sort_actions()
                 else:
                     self.upgrade_me = [x for x in self.upgrade_me if x not in set(selected)]
         else:
@@ -2759,47 +2758,6 @@ class Britney(object):
         self.do_all(hinttype, _pkgvers)
         return True
 
-    def sort_actions(self):
-        """Sort actions in a smart way
-
-        This method sorts the list of actions in a smart way. In detail, it uses
-        as the base sort the number of days the excuse is old, then reorders packages
-        so the ones with most reverse dependencies are at the end of the loop.
-        If an action depends on another one, it is put after it.
-        """
-        uvnames = frozenset(y.uvname for y in self.upgrade_me)
-        excuses = [e for e in self.excuses if e.name in uvnames]
-        removals = []
-        upgrade_me = []
-
-        for e in excuses:
-            # We order removals and regular migrations differently, so
-            # split them out early.
-            if e.name[0] == '-':
-                removals.append(e.name)
-            else:
-                upgrade_me.append(e.name)
-
-        for e in excuses:
-            # put the item (regular migration) in a good position
-            # checking its dependencies
-            pos = []
-            udeps = [upgrade_me.index(x) for x in e.deps if x in upgrade_me and x != e.name]
-            if udeps:
-                pos.append(max(udeps))
-            sdeps = [upgrade_me.index(x) for x in e.sane_deps if x in upgrade_me and x != e.name]
-            if sdeps:
-                pos.append(min(sdeps))
-            if not pos:
-                continue
-            upgrade_me.remove(e.name)
-            upgrade_me.insert(max(pos)+1, e.name)
-            self.dependencies[e.name] = e.deps
-
-        # replace the list of actions with the new one
-        self.upgrade_me = [ make_migrationitem(x, self.sources) for x in upgrade_me ]
-        self.upgrade_me.extend(make_migrationitem(x, self.sources) for x in removals)
-
     def auto_hinter(self):
         """Auto-generate "easy" hints.
 
@@ -2920,7 +2878,6 @@ class Britney(object):
         # if no actions are provided, build the excuses and sort them
         elif not self.options.actions:
             self.write_excuses()
-            self.sort_actions()
         # otherwise, use the actions provided by the command line
         else:
             self.upgrade_me = self.options.actions.split()
