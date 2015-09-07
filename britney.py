@@ -2498,6 +2498,31 @@ class Britney(object):
             undo_changes(lundo, self._inst_tester, self.sources, self.binaries)
 
 
+    def assert_nuninst_is_correct(self):
+        self.__log("> Update complete - Verifying non-installability counters", type="I")
+
+        cached_nuninst = self.nuninst_orig
+        self._inst_tester.compute_testing_installability()
+        computed_nuninst = self.get_nuninst(build=True)
+        if cached_nuninst != computed_nuninst:
+            self.__log("==================== NUNINST OUT OF SYNC =========================", type="E")
+            for arch in self.options.architectures:
+                expected_nuninst = set(cached_nuninst[arch])
+                actual_nuninst = set(computed_nuninst[arch])
+                false_negatives = actual_nuninst - expected_nuninst
+                false_positives = expected_nuninst - actual_nuninst
+                any_output = actual_nuninst
+                if false_negatives:
+                    self.__log(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)), type="E")
+                if false_positives:
+                    self.__log(" %s - invalid nuninst: %s" % (arch, str(false_positives)), type="E")
+                self.__log(" %s - actual nuninst: %s" % (arch, str(actual_nuninst)), type="I")
+                self.__log("==================== NUNINST OUT OF SYNC =========================", type="E")
+            raise AssertionError("NUNINST OUT OF SYNC")
+
+        self.__log("> All non-installability counters are ok", type="I")
+
+
     def upgrade_testing(self):
         """Upgrade testing using the unstable packages
 
@@ -2579,7 +2604,7 @@ class Britney(object):
         if len(removals) > 0:
             self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
             self.do_all(actions=removals)
-                                                                                                                                     
+
         # smooth updates
         if self.options.smooth_updates:
             self.__log("> Removing old packages left in testing from smooth updates", type="I")
@@ -2594,6 +2619,8 @@ class Britney(object):
 
         self.output_write("List of old libraries in testing (%d):\n%s" % \
              (len(removals), old_libraries_format(removals)))
+
+        self.assert_nuninst_is_correct()
 
         # output files
         if not self.options.dry_run:
