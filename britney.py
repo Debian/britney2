@@ -292,6 +292,7 @@ class Britney(object):
 
             self._check_mismatches(arch)
 
+        self.__log("Compiling Installability tester", type="I")
         self._build_installability_tester(self.options.architectures)
 
         if not self.options.nuninst_cache:
