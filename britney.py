@@ -501,12 +501,13 @@ class Britney(object):
                             sat = set()
 
                             for dep_dist in binaries:
-                                pkgs = solvers(block, arch, dep_dist)
+                                dep_packages_s_a = binaries[dep_dist][arch]
+                                pkgs = solvers(block, dep_packages_s_a)
                                 for p in pkgs:
                                     # version and arch is already interned, but solvers use
                                     # the package name extracted from the field and it is therefore
                                     # not interned.
-                                    pdata = binaries[dep_dist][arch][0][p]
+                                    pdata = dep_packages_s_a[0][p]
                                     pt = (sys.intern(p), pdata[VERSION], arch)
                                     if dep:
                                         sat.add(pt)
@@ -957,22 +958,18 @@ class Britney(object):
     # Utility methods for package analysis
     # ------------------------------------
 
-    def get_dependency_solvers(self, block, arch, distribution):
+    def get_dependency_solvers(self, block, packages_s_a):
         """Find the packages which satisfy a dependency block
 
         This method returns the list of packages which satisfy a dependency
-        block (as returned by apt_pkg.parse_depends) for the given architecture
-        and distribution.
+        block (as returned by apt_pkg.parse_depends) in a package table
+        for a given suite and architecture (a la self.binaries[suite][arch])
 
         It returns a tuple with two items: the first is a boolean which is
         True if the dependency is satisfied, the second is the list of the
         solving packages.
         """
-
         packages = []
-
-        # local copies for better performance
-        binaries = self.binaries[distribution][arch]
 
         # for every package, version and operation in the block
         for name, version, op in block:
@@ -982,8 +979,8 @@ class Britney(object):
                 archqual = None
 
             # look for the package in unstable
-            if name in binaries[0]:
-                package = binaries[0][name]
+            if name in packages_s_a[0]:
+                package = packages_s_a[0][name]
                 # check the versioned dependency and architecture qualifier
                 # (if present)
                 if (op == '' and version == '') or apt_pkg.check_dep(package[VERSION], op, version):
@@ -991,8 +988,8 @@ class Britney(object):
                         packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
-            for prov in binaries[1].get(name, []):
-                if prov not in binaries[0]: continue
+            for prov in packages_s_a[1].get(name, []):
+                if prov not in packages_s_a[0]: continue
                 # A provides only satisfies:
                 # - an unversioned dependency (per Policy Manual §7.5)
                 # - a dependency without an architecture qualifier
@@ -1013,7 +1010,9 @@ class Britney(object):
         as parameter.
         """
         # retrieve the binary package from the specified suite and arch
-        binary_u = self.binaries[suite][arch][0][pkg]
+        package_s_a = self.binaries[suite][arch]
+        package_t_a = self.binaries['testing'][arch]
+        binary_u = package_s_a[0][pkg]
 
         # local copies for better performance
         parse_depends = apt_pkg.parse_depends
@@ -1027,16 +1026,17 @@ class Britney(object):
         # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
             # if the block is satisfied in testing, then skip the block
-            packages = get_dependency_solvers(block, arch, 'testing')
+            packages = get_dependency_solvers(block, package_t_a)
             if packages:
                 for p in packages:
-                    if p not in self.binaries[suite][arch][0]: continue
-                    excuse.add_sane_dep(self.binaries[suite][arch][0][p][SOURCE])
+                    if p not in package_s_a[0]:
+                        continue
+                    excuse.add_sane_dep(package_s_a[0][p][SOURCE])
                 continue
 
-            # check if the block can be satisfied in unstable, and list the solving packages
-            packages = get_dependency_solvers(block, arch, suite)
-            packages = [self.binaries[suite][arch][0][p][SOURCE] for p in packages]
+            # check if the block can be satisfied in the source suite, and list the solving packages
+            packages = get_dependency_solvers(block, package_s_a)
+            packages = [package_s_a[0][p][SOURCE] for p in packages]
 
             # if the dependency can be satisfied by the same source package, skip the block:
             # obviously both binary packages will enter testing together
