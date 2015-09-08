@@ -2221,6 +2221,8 @@ class Britney(object):
             # only check arch:all packages if requested
             if check_archall or parch != 'all':
                 nuninst_arch = nuninst[arch]
+            elif parch == 'all':
+                nuninst[arch].discard(p)
             self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
         # broken packages (second round, reverse dependencies of the first round)
@@ -2237,6 +2239,8 @@ class Britney(object):
                 # only check arch:all packages if requested
                 if check_archall or parch != 'all':
                     nuninst_arch = nuninst[arch]
+                elif parch == 'all':
+                    nuninst[arch].discard(p)
                 self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
 
 
