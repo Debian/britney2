@@ -45,9 +45,9 @@ class _RelationBuilder(object):
         However, they must be added before the "build()" method is
         called.
         """
-        clause = self._itbuilder._intern_set(or_clause)
-        binary = self._binary
         itbuilder = self._itbuilder
+        clause = itbuilder._intern_set(or_clause)
+        binary = self._binary
         okay = False
         for dep_tuple in clause:
             okay = True
@@ -57,7 +57,7 @@ class _RelationBuilder(object):
 
         self._new_deps.add(clause)
         if not okay:
-            self._itbuilder._broken.add(binary)
+            itbuilder._broken.add(binary)
 
 
     def add_breaks(self, broken_binary):
