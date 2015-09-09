@@ -115,6 +115,30 @@ class InstallabilityTester(object):
         eqv_table = self._eqv_table
         return p1 in eqv_table and p2 in eqv_table[p1]
 
+    def reverse_dependencies_of(self, pkg_id):
+        """Returns the set of reverse dependencies of a given package
+
+        :param pkg_id: The package id as defined in the constructor.
+        :return: A set containing the package ids all of the reverse
+        dependencies of the input package.  The result is suite agnostic.
+        """
+        revuniverse = self._revuniverse
+        if pkg_id not in revuniverse:
+            return frozenset()
+        return revuniverse[pkg_id][0]
+
+    def negative_dependencies_of(self, pkg_id):
+        """Returns the set of negative dependencies of a given package
+
+        Note that there is no "reverse_negative_dependencies_of" method,
+        since negative dependencies have no "direction" unlike positive
+        dependencies.
+
+        :param pkg_id: The package id as defined in the constructor.
+        :return: A set containing the package ids all of the negative
+        dependencies of the input package.  The result is suite agnostic.
+        """
+        return self._universe[pkg_id][1]
 
     def add_testing_binary(self, pkg_name, pkg_version, pkg_arch):
         """Add a binary package to "testing"

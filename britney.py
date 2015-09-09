@@ -2044,7 +2044,6 @@ class Britney(object):
         # local copies for better performance
         sources = self.sources
         packages_t = self.binaries['testing']
-        get_reverse_tree = partial(compute_reverse_tree, packages_t)
         inst_tester = self._inst_tester
         eqv_set = set()
 
@@ -2078,8 +2077,8 @@ class Britney(object):
                             eqv_set.add(key)
 
                 # remove all the binaries which aren't being smooth updated
-                for rm_tuple in rms:
-                    binary, version, parch = rm_tuple
+                for rm_pkg_id in rms:
+                    binary, version, parch = rm_pkg_id
                     p = binary + "/" + parch
                     binaries_t_a, provides_t_a = packages_t[parch]
                     pkey = (binary, parch)
@@ -2090,7 +2089,9 @@ class Britney(object):
                     if pkey not in eqv_set:
                         # all the reverse dependencies are affected by
                         # the change
-                        affected.update(get_reverse_tree(binary, parch))
+
+                        affected.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
+                        affected.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
                     # remove the provided virtual packages
                     for j in pkg_data[PROVIDES]:
@@ -2116,8 +2117,10 @@ class Britney(object):
         elif item.package in packages_t[item.architecture][0]:
             binaries_t_a = packages_t[item.architecture][0]
             undo['binaries'][item.package + "/" + item.architecture] = binaries_t_a[item.package]
-            affected.update(get_reverse_tree(item.package, item.architecture))
             version = binaries_t_a[item.package][VERSION]
+            pkg_id = (item.package, version, item.architecture)
+            affected.add(pkg_id)
+            affected.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
             inst_tester.remove_testing_binary(item.package, version, item.architecture)
 
@@ -2127,15 +2130,16 @@ class Britney(object):
             source = sources[item.suite][item.package]
             packages_s = self.binaries[item.suite]
 
-            for binary, version, parch in updates:
+            for updated_pkg_id in updates:
+                binary, new_version, parch = updated_pkg_id
                 p = "%s/%s" % (binary, parch)
                 key = (binary, parch)
                 binaries_t_a, provides_t_a = packages_t[parch]
                 equivalent_replacement = key in eqv_set
 
                 # obviously, added/modified packages are affected
-                if not equivalent_replacement and key not in affected:
-                    affected.add(key)
+                if not equivalent_replacement and updated_pkg_id not in affected:
+                    affected.add(updated_pkg_id)
                 # if the binary already exists in testing, it is currently
                 # built by another source package. we therefore remove the
                 # version built by the other source package, after marking
@@ -2144,15 +2148,14 @@ class Britney(object):
                     old_pkg_data = binaries_t_a[binary]
                     # save the old binary package
                     undo['binaries'][p] = old_pkg_data
+                    old_version = old_pkg_data[VERSION]
                     if not equivalent_replacement:
+                        old_pkg_id = (binary, old_version, parch)
                         # all the reverse dependencies are affected by
                         # the change
-                        affected.update(get_reverse_tree(binary, parch))
-                        # all the reverse conflicts and their
-                        # dependency tree are affected by the change
-                        for j in old_pkg_data[RCONFLICTS]:
-                            affected.update(get_reverse_tree(j, parch))
-                    old_version = old_pkg_data[VERSION]
+                        affected.update(inst_tester.reverse_dependencies_of(old_pkg_id))
+                        # all the reverse conflicts
+                        affected.update(inst_tester.negative_dependencies_of(old_pkg_id))
                     inst_tester.remove_testing_binary(binary, old_version, parch)
                 elif hint_undo:
                     # the binary isn't in testing, but it may have been at
@@ -2165,16 +2168,14 @@ class Britney(object):
                     # reverse dependencies built from this source can be
                     # ignored as their reverse trees are already handled
                     # by this function
-                    # XXX: and the reverse conflict tree?
                     for (tundo, tpkg) in hint_undo:
                         if p in tundo['binaries']:
-                            for rdep in tundo['binaries'][p][RDEPENDS]:
-                                if rdep in binaries_t_a and rdep not in source[BINARIES]:
-                                    affected.update(get_reverse_tree(rdep, parch))
+                            pv = tundo['binaries'][p][VERSION]
+                            tpkg_id = (p, pv, parch)
+                            affected.update(inst_tester.reverse_dependencies_of(tpkg_id))
 
                 # add/update the binary package from the source suite
                 new_pkg_data = packages_s[parch][0][binary]
-                new_version = new_pkg_data[VERSION]
                 binaries_t_a[binary] = new_pkg_data
                 inst_tester.add_testing_binary(binary, new_version, parch)
                 # register new provided packages
@@ -2188,7 +2189,9 @@ class Britney(object):
                     provides_t_a[j].append(binary)
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
-                    affected.update(get_reverse_tree(binary, parch))
+                    affected.add(updated_pkg_id)
+                    affected.update(inst_tester.reverse_dependencies_of(updated_pkg_id))
+                    affected.update(inst_tester.negative_dependencies_of(updated_pkg_id))
 
             # register reverse dependencies and conflicts for the new binary packages
             if item.architecture == 'source':
@@ -2202,6 +2205,8 @@ class Britney(object):
             if item.architecture == 'source':
                 sources['testing'][item.package] = sources[item.suite][item.package]
 
+        # Also include the transitive rdeps of the packages found so far
+        compute_reverse_tree(inst_tester, affected)
         # return the package name, the suite, the list of affected packages and the undo dictionary
         return (affected, undo)
 
@@ -2211,38 +2216,26 @@ class Britney(object):
         to_check = []
 
         # broken packages (first round)
-        for p in (x[0] for x in affected if x[1] == arch):
-            if p not in binaries[arch][0]:
+        for pkg_id in (x for x in affected if x[2] == arch):
+            name, version, parch = pkg_id
+            if name not in binaries[parch][0]:
                 continue
-            pkgdata = binaries[arch][0][p]
-            version = pkgdata[VERSION]
-            parch = pkgdata[ARCHITECTURE]
+            pkgdata = binaries[parch][0][name]
+            if version != pkgdata[VERSION]:
+                # Not the version in testing right now, ignore
+                continue
+            actual_arch = pkgdata[ARCHITECTURE]
             nuninst_arch = None
             # only check arch:all packages if requested
-            if check_archall or parch != 'all':
-                nuninst_arch = nuninst[arch]
-            elif parch == 'all':
-                nuninst[arch].discard(p)
-            self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
+            if check_archall or actual_arch != 'all':
+                nuninst_arch = nuninst[parch]
+            elif actual_arch == 'all':
+                nuninst[parch].discard(name)
+            self._installability_test(name, version, parch, broken, to_check, nuninst_arch)
 
-        # broken packages (second round, reverse dependencies of the first round)
-        while to_check:
-            j = to_check.pop(0)
-            if j not in binaries[arch][0]: continue
-            for p in binaries[arch][0][j][RDEPENDS]:
-                if p in broken or p not in binaries[arch][0]:
-                    continue
-                pkgdata = binaries[arch][0][p]
-                version = pkgdata[VERSION]
-                parch = pkgdata[ARCHITECTURE]
-                nuninst_arch = None
-                # only check arch:all packages if requested
-                if check_archall or parch != 'all':
-                    nuninst_arch = nuninst[arch]
-                elif parch == 'all':
-                    nuninst[arch].discard(p)
-                self._installability_test(p, version, arch, broken, to_check, nuninst_arch)
-
+        # We have always overshot the affected set, so to_check does not
+        # contain anything new.
+        assert affected.issuperset(to_check)
 
     def iter_packages_hint(self, hinted_packages, lundo=None):
         """Iter on hinted list of actions and apply them in one go
@@ -2986,12 +2979,12 @@ class Britney(object):
             # not installable
             if pkg_name not in broken:
                 broken.add(pkg_name)
-                to_check.append(pkg_name)
+                to_check.append((pkg_name, pkg_version, pkg_arch))
             if nuninst_arch is not None and pkg_name not in nuninst_arch:
                 nuninst_arch.add(pkg_name)
         else:
             if pkg_name in broken:
-                to_check.append(pkg_name)
+                to_check.append((pkg_name, pkg_version, pkg_arch))
                 broken.remove(pkg_name)
             if nuninst_arch is not None and pkg_name in nuninst_arch:
                 nuninst_arch.remove(pkg_name)
