@@ -140,6 +140,23 @@ class InstallabilityTester(object):
         """
         return self._universe[pkg_id][1]
 
+    def dependencies_of(self, pkg_id):
+        """Returns the set of dependencies of a given package
+
+        :param pkg_id: The package id as defined in the constructor.
+        :return: A set containing the package ids all of the dependencies
+        of the input package.  The result is suite agnostic.
+        """
+        return self._universe[pkg_id][0]
+
+    def any_of_these_are_in_testing(self, pkgs):
+        """Test if at least one package of a given set is in testing
+
+        :param pkgs: A set of package ids (as defined in the constructor)
+        :return: True if any of the packages in pkgs are currently in testing
+        """
+        return not self._testing.isdisjoint(pkgs)
+
     def add_testing_binary(self, pkg_name, pkg_version, pkg_arch):
         """Add a binary package to "testing"
 

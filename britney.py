@@ -1887,10 +1887,11 @@ class Britney(object):
         # local copies for better performances
         sources = self.sources
         binaries_t = self.binaries['testing']
+        inst_tester = self._inst_tester
 
         adds = set()
         rms = set()
-        smoothbins = {}
+        smoothbins = set()
 
         # remove all binary packages (if the source already exists)
         if migration_architecture == 'source' or not is_removal:
@@ -1898,7 +1899,7 @@ class Britney(object):
                 source_data = sources['testing'][source_name]
 
                 bins = []
-                check = {}
+                check = set()
                 # remove all the binaries
 
                 # first, build a list of eligible binaries
@@ -1911,11 +1912,11 @@ class Britney(object):
                     if (not include_hijacked
                         and binaries_t[parch][0][binary][SOURCE] != source_name):
                         continue
+                    version = binaries_t[parch][0][binary][VERSION]
+                    bins.append((binary, version, parch))
 
-                    bins.append(p)
-
-                for p in bins:
-                    binary, parch = p.split("/")
+                for pkg_id in bins:
+                    binary, _, parch = pkg_id
                     # if a smooth update is possible for the package, skip it
                     if allow_smooth_updates and suite == 'unstable' and \
                        binary not in self.binaries[suite][parch][0] and \
@@ -1927,52 +1928,44 @@ class Britney(object):
                         # a smooth update.  if not, it may still be a valid
                         # candidate if one if its r-deps is itself a candidate,
                         # so note it for checking later
-                        bin_data = binaries_t[parch][0][binary]
-                        rdeps = bin_data[RDEPENDS]
+                        rdeps = set(inst_tester.reverse_dependencies_of(pkg_id))
+                        # We ignore all binaries listed in "removals" as we
+                        # assume they will leave at the same time as the
+                        # given package.
+                        rdeps.difference_update(removals, bins)
 
-                        # the list of reverse-dependencies may be outdated
-                        # if, for example, we're processing a hint and
-                        # a new version of one of the apparent reverse-dependencies
-                        # migrated earlier in the hint.  walk the list to make
-                        # sure that at least one of the entries is still
-                        # valid
-                        rrdeps = [x for x in rdeps if x not in [y.split("/")[0] for y in bins]]
-                        if rrdeps:
-                            for dep in rrdeps:
-                                if dep in binaries_t[parch][0]:
-                                    bin = binaries_t[parch][0][dep]
-                                    deps = []
-                                    # If the package is being removed
-                                    # together with dep, then it is
-                                    # not a reason to smooth update
-                                    # the binary
-                                    t = (dep, bin[VERSION], parch)
-                                    if t in removals:
-                                        continue
-
-                                    if bin[DEPENDS] is not None:
-                                        deps.extend(apt_pkg.parse_depends(bin[DEPENDS], False))
-                                    if any(binary == entry[0] for deplist in deps for entry in deplist):
-                                        smoothbins[p] = (binary, bin_data[VERSION], parch)
+                        smooth_update_it = False
+                        if inst_tester.any_of_these_are_in_testing(rdeps):
+                            combined = set(smoothbins)
+                            combined.add(pkg_id)
+                            for rdep in rdeps:
+                                for dep_clause in inst_tester.dependencies_of(rdep):
+                                    if dep_clause <= combined:
+                                        smooth_update_it = True
                                         break
+
+                        if smooth_update_it:
+                            smoothbins = combined
                         else:
-                            check[p] = (binary, bin_data[VERSION], parch)
+                            check.add(pkg_id)
 
                 # check whether we should perform a smooth update for
                 # packages which are candidates but do not have r-deps
                 # outside of the current source
-                for p in check:
-                    ptuple = check[p]
-                    binary, _, parch = ptuple
-                    rdeps = [ bin for bin in binaries_t[parch][0][binary][RDEPENDS] \
-                              if bin in [y[0] for y in smoothbins.values()] ]
-                    if rdeps:
-                        smoothbins[p] = ptuple
+                while 1:
+                    found_any = False
+                    for pkg_id in check:
+                        rdeps = inst_tester.reverse_dependencies_of(pkg_id)
+                        if not rdeps.isdisjoint(smoothbins):
+                            smoothbins.add(pkg_id)
+                            found_any = True
+                    if not found_any:
+                        break
+                    check = [x for x in check if x not in smoothbins]
 
                 # remove all the binaries which aren't being smooth updated
-                for p in ( bin for bin in bins if bin not in smoothbins ):
-                    binary, parch = p.split("/")
-                    version = binaries_t[parch][0][binary][VERSION]
+                for pkg_id in (pkg_id for pkg_id in bins if pkg_id not in smoothbins):
+                    binary, version, parch = pkg_id
                     # if this is a binary migration from *pu, only the arch:any
                     # packages will be present. ideally dak would also populate
                     # the arch-indep packages, but as that's not the case we
@@ -1983,7 +1976,7 @@ class Britney(object):
                          binaries_t[parch][0][binary][ARCHITECTURE] == 'all':
                         continue
                     else:
-                        rms.add((binary, version, parch))
+                        rms.add(pkg_id)
 
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
@@ -2015,7 +2008,7 @@ class Britney(object):
 
                 adds.add((binary, version, parch))
 
-        return (adds, rms, set(smoothbins.values()))
+        return (adds, rms, smoothbins)
 
     def doop_source(self, item, hint_undo=None, removals=frozenset()):
         """Apply a change to the testing distribution as requested by `pkg`
