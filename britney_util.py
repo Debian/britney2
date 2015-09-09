@@ -33,7 +33,7 @@ import yaml
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
-                    RDEPENDS, ARCHITECTURE, SECTION,
+                    ARCHITECTURE, SECTION,
                     SOURCE, SOURCEVER, MAINTAINER, MULTIARCH,
                     ESSENTIAL)
 
@@ -199,49 +199,6 @@ def old_libraries_format(libs):
         else:
             libraries[pkg] = [i.architecture]
     return "\n".join("  " + k + ": " + " ".join(libraries[k]) for k in libraries) + "\n"
-
-
-
-def register_reverses(packages, provides, check_doubles=True, iterator=None,
-                      parse_depends=apt_pkg.parse_depends,
-                      DEPENDS=DEPENDS, RDEPENDS=RDEPENDS):
-    """Register reverse dependencies and conflicts for a given
-    sequence of packages
-
-    This method registers the reverse dependencies and conflicts for a
-    given sequence of packages.  "packages" is a table of real
-    packages and "provides" is a table of virtual packages.
-
-    iterator is the sequence of packages for which the reverse
-    relations should be updated.
-
-    The "X=X" parameters are optimizations to avoid "load global" in
-    the loops.
-    """
-    if iterator is None:
-        iterator = packages.keys()
-    else:
-        iterator = ifilter_only(packages, iterator)
-
-    for pkg in iterator:
-        # register the list of the dependencies for the depending packages
-        dependencies = []
-        pkg_data = packages[pkg]
-        if pkg_data[DEPENDS]:
-            dependencies.extend(parse_depends(pkg_data[DEPENDS], False))
-        # go through the list
-        for p in dependencies:
-            for a in p:
-                dep = a[0]
-                # register real packages
-                if dep in packages and (not check_doubles or pkg not in packages[dep][RDEPENDS]):
-                    packages[dep][RDEPENDS].append(pkg)
-                # also register packages which provide the package (if any)
-                if dep in provides:
-                    for i in provides[dep]:
-                        if i not in packages: continue
-                        if not check_doubles or pkg not in packages[i][RDEPENDS]:
-                            packages[i][RDEPENDS].append(pkg)
 
 
 def compute_reverse_tree(inst_tester, affected):

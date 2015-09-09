@@ -200,7 +200,7 @@ from excuse import Excuse
 from migrationitem import MigrationItem
 from hints import HintCollection
 from britney_util import (old_libraries_format, same_source, undo_changes,
-                          register_reverses, compute_reverse_tree,
+                          compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
                           write_excuses, write_heidi_delta, write_controlfiles,
@@ -208,7 +208,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           clone_nuninst)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
-                   PROVIDES, RDEPENDS, MULTIARCH, ESSENTIAL)
+                   PROVIDES, MULTIARCH, ESSENTIAL)
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -672,7 +672,6 @@ class Britney(object):
                     deps,
                     ', '.join(final_conflicts_list) or None,
                     get_field('Provides'),
-                    [],
                     ess,
                    ]
 
@@ -710,9 +709,6 @@ class Britney(object):
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
-
-        # loop again on the list of packages to register reverse dependencies and conflicts
-        register_reverses(packages, provides, check_doubles=False)
 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
@@ -2184,14 +2180,6 @@ class Britney(object):
                     affected.add(updated_pkg_id)
                     affected.update(inst_tester.reverse_dependencies_of(updated_pkg_id))
                     affected.update(inst_tester.negative_dependencies_of(updated_pkg_id))
-
-            # register reverse dependencies and conflicts for the new binary packages
-            if item.architecture == 'source':
-                pkg_iter = (p.split("/")[0] for p in source[BINARIES])
-            else:
-                ext = "/" + item.architecture
-                pkg_iter = (p.split("/")[0] for p in source[BINARIES] if p.endswith(ext))
-            register_reverses(binaries_t_a, provides_t_a, iterator=pkg_iter)
 
             # add/update the source package
             if item.architecture == 'source':
