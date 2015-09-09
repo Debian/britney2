@@ -33,7 +33,7 @@ import yaml
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
-                    RDEPENDS, RCONFLICTS, ARCHITECTURE, SECTION,
+                    RDEPENDS, ARCHITECTURE, SECTION,
                     SOURCE, SOURCEVER, MAINTAINER, MULTIARCH,
                     ESSENTIAL)
 
@@ -204,8 +204,7 @@ def old_libraries_format(libs):
 
 def register_reverses(packages, provides, check_doubles=True, iterator=None,
                       parse_depends=apt_pkg.parse_depends,
-                      DEPENDS=DEPENDS, CONFLICTS=CONFLICTS,
-                      RDEPENDS=RDEPENDS, RCONFLICTS=RCONFLICTS):
+                      DEPENDS=DEPENDS, RDEPENDS=RDEPENDS):
     """Register reverse dependencies and conflicts for a given
     sequence of packages
 
@@ -243,20 +242,6 @@ def register_reverses(packages, provides, check_doubles=True, iterator=None,
                         if i not in packages: continue
                         if not check_doubles or pkg not in packages[i][RDEPENDS]:
                             packages[i][RDEPENDS].append(pkg)
-        # register the list of the conflicts for the conflicting packages
-        if pkg_data[CONFLICTS]:
-            for p in parse_depends(pkg_data[CONFLICTS], False):
-                for a in p:
-                    con = a[0]
-                    # register real packages
-                    if con in packages and (not check_doubles or pkg not in packages[con][RCONFLICTS]):
-                        packages[con][RCONFLICTS].append(pkg)
-                    # also register packages which provide the package (if any)
-                    if con in provides:
-                        for i in provides[con]:
-                            if i not in packages: continue
-                            if not check_doubles or pkg not in packages[i][RCONFLICTS]:
-                                packages[i][RCONFLICTS].append(pkg)
 
 
 def compute_reverse_tree(inst_tester, affected):

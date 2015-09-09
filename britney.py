@@ -208,7 +208,7 @@ from britney_util import (old_libraries_format, same_source, undo_changes,
                           clone_nuninst)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
-                   PROVIDES, RDEPENDS, RCONFLICTS, MULTIARCH, ESSENTIAL)
+                   PROVIDES, RDEPENDS, MULTIARCH, ESSENTIAL)
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -672,7 +672,6 @@ class Britney(object):
                     deps,
                     ', '.join(final_conflicts_list) or None,
                     get_field('Provides'),
-                    [],
                     [],
                     ess,
                    ]
