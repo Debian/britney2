@@ -154,7 +154,7 @@ def undo_changes(lundo, inst_tester, sources, binaries,
                 if item.architecture in ['source', arch]:
                     version = binaries["testing"][arch][0][binary][VERSION]
                     del binaries["testing"][arch][0][binary]
-                    inst_tester.remove_testing_binary(binary, version, arch)
+                    inst_tester.remove_testing_binary((binary, version, arch))
 
 
     # STEP 3
@@ -170,10 +170,10 @@ def undo_changes(lundo, inst_tester, sources, binaries,
                 binaries_t_a = binaries['testing'][arch][0]
                 if p in binaries_t_a:
                     rmpkgdata = binaries_t_a[p]
-                    inst_tester.remove_testing_binary(binary, rmpkgdata[VERSION], arch)
+                    inst_tester.remove_testing_binary((binary, rmpkgdata[VERSION], arch))
                 pkgdata = undo['binaries'][p]
                 binaries_t_a[binary] = pkgdata
-                inst_tester.add_testing_binary(binary, pkgdata[VERSION], arch)
+                inst_tester.add_testing_binary((binary, pkgdata[VERSION], arch))
 
     # STEP 4
     # undo all changes to virtual packages

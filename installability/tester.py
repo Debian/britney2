@@ -157,22 +157,20 @@ class InstallabilityTester(object):
         """
         return not self._testing.isdisjoint(pkgs)
 
-    def add_testing_binary(self, pkg_name, pkg_version, pkg_arch):
+    def add_testing_binary(self, pkg_id):
         """Add a binary package to "testing"
 
         If the package is not known, this method will throw an
         KeyError.
         """
 
-        t = (pkg_name, pkg_version, pkg_arch)
+        if pkg_id not in self._universe:
+            raise KeyError(str(pkg_id))
 
-        if t not in self._universe:
-            raise KeyError(str(t))
-
-        if t in self._broken:
-            self._testing.add(t)
-        elif t not in self._testing:
-            self._testing.add(t)
+        if pkg_id in self._broken:
+            self._testing.add(pkg_id)
+        elif pkg_id not in self._testing:
+            self._testing.add(pkg_id)
             if self._cache_inst:
                 self._stats.cache_drops += 1
             self._cache_inst = set()
@@ -180,44 +178,42 @@ class InstallabilityTester(object):
                 # Re-add broken packages as some of them may now be installable
                 self._testing |= self._cache_broken
                 self._cache_broken = set()
-            if t in self._essentials and t[2] in self._cache_ess:
+            if pkg_id in self._essentials and pkg_id[2] in self._cache_ess:
                 # Adds new essential => "pseudo-essential" set needs to be
                 # recomputed
-                del self._cache_ess[t[2]]
+                del self._cache_ess[pkg_id[2]]
 
         return True
 
-    def remove_testing_binary(self, pkg_name, pkg_version, pkg_arch):
+    def remove_testing_binary(self, pkg_id):
         """Remove a binary from "testing"
 
         If the package is not known, this method will throw an
         Keyrror.
         """
 
-        t = (pkg_name, pkg_version, pkg_arch)
+        if pkg_id not in self._universe:
+            raise KeyError(str(pkg_id))
 
-        if t not in self._universe:
-            raise KeyError(str(t))
+        self._cache_broken.discard(pkg_id)
 
-        self._cache_broken.discard(t)
-
-        if t in self._testing:
-            self._testing.remove(t)
-            if t[2] in self._cache_ess and t in self._cache_ess[t[2]][0]:
+        if pkg_id in self._testing:
+            self._testing.remove(pkg_id)
+            if pkg_id[2] in self._cache_ess and pkg_id in self._cache_ess[pkg_id[2]][0]:
                 # Removes a package from the "pseudo-essential set"
-                del self._cache_ess[t[2]]
+                del self._cache_ess[pkg_id[2]]
 
-            if t not in self._revuniverse:
+            if pkg_id not in self._revuniverse:
                 # no reverse relations - safe
                 return True
-            if t not in self._broken and t in self._cache_inst:
+            if pkg_id not in self._broken and pkg_id in self._cache_inst:
                 # It is in our cache (and not guaranteed to be broken) - throw out the cache
                 self._cache_inst = set()
                 self._stats.cache_drops += 1
 
         return True
 
-    def is_installable(self, pkg_name, pkg_version, pkg_arch):
+    def is_installable(self, pkg_id):
         """Test if a package is installable in this package set
 
         The package is assumed to be in "testing" and only packages in
@@ -228,21 +224,20 @@ class InstallabilityTester(object):
         """
 
         self._stats.is_installable_calls += 1
-        t = (pkg_name, pkg_version, pkg_arch)
 
-        if t not in self._universe:
-            raise KeyError(str(t))
+        if pkg_id not in self._universe:
+            raise KeyError(str(pkg_id))
 
-        if t not in self._testing or t in self._broken:
+        if pkg_id not in self._testing or pkg_id in self._broken:
             self._stats.cache_hits += 1
             return False
 
-        if t in self._cache_inst:
+        if pkg_id in self._cache_inst:
             self._stats.cache_hits += 1
             return True
 
         self._stats.cache_misses += 1
-        return self._check_inst(t)
+        return self._check_inst(pkg_id)
 
 
     def _check_inst(self, t, musts=None, never=None, choices=None):

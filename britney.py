@@ -1785,7 +1785,8 @@ class Britney(object):
             nuninst[arch] = set()
             for pkg_name in binaries[arch][0]:
                 pkgdata = binaries[arch][0][pkg_name]
-                r = inst_tester.is_installable(pkg_name, pkgdata[VERSION], arch)
+                pkg_id = (pkg_name, pkgdata[VERSION], arch)
+                r = inst_tester.is_installable(pkg_id)
                 if not r:
                     nuninst[arch].add(pkg_name)
 
@@ -2091,7 +2092,7 @@ class Britney(object):
                             del provides_t_a[j]
                     # finally, remove the binary package
                     del binaries_t_a[binary]
-                    inst_tester.remove_testing_binary(binary, version, parch)
+                    inst_tester.remove_testing_binary(rm_pkg_id)
                 # remove the source package
                 if item.architecture == 'source':
                     undo['sources'][item.package] = source
@@ -2110,7 +2111,7 @@ class Britney(object):
             affected.add(pkg_id)
             affected.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
-            inst_tester.remove_testing_binary(item.package, version, item.architecture)
+            inst_tester.remove_testing_binary(pkg_id)
 
 
         # add the new binary packages (if we are not removing)
@@ -2137,14 +2138,14 @@ class Britney(object):
                     # save the old binary package
                     undo['binaries'][p] = old_pkg_data
                     old_version = old_pkg_data[VERSION]
+                    old_pkg_id = (binary, old_version, parch)
                     if not equivalent_replacement:
-                        old_pkg_id = (binary, old_version, parch)
                         # all the reverse dependencies are affected by
                         # the change
                         affected.update(inst_tester.reverse_dependencies_of(old_pkg_id))
                         # all the reverse conflicts
                         affected.update(inst_tester.negative_dependencies_of(old_pkg_id))
-                    inst_tester.remove_testing_binary(binary, old_version, parch)
+                    inst_tester.remove_testing_binary(old_pkg_id)
                 elif hint_undo:
                     # the binary isn't in testing, but it may have been at
                     # the start of the current hint and have been removed
@@ -2165,7 +2166,7 @@ class Britney(object):
                 # add/update the binary package from the source suite
                 new_pkg_data = packages_s[parch][0][binary]
                 binaries_t_a[binary] = new_pkg_data
-                inst_tester.add_testing_binary(binary, new_version, parch)
+                inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
                 for j in new_pkg_data[PROVIDES]:
                     key = j + "/" + parch
@@ -2211,7 +2212,7 @@ class Britney(object):
                 nuninst_arch = nuninst[parch]
             elif actual_arch == 'all':
                 nuninst[parch].discard(name)
-            self._installability_test(name, version, parch, broken, to_check, nuninst_arch)
+            self._installability_test(name, pkg_id, broken, to_check, nuninst_arch)
 
         # We have always overshot the affected set, so to_check does not
         # contain anything new.
@@ -2968,7 +2969,7 @@ class Britney(object):
             for stat in self._inst_tester.stats.stats():
                 self.__log('>   %s' % stat, type="I")
 
-    def _installability_test(self, pkg_name, pkg_version, pkg_arch, broken, to_check, nuninst_arch):
+    def _installability_test(self, pkg_name, pkg_id, broken, to_check, nuninst_arch):
         """Test for installability of a package on an architecture
 
         (pkg_name, pkg_version, pkg_arch) is the package to check.
@@ -2981,17 +2982,17 @@ class Britney(object):
         If nuninst_arch is not None then it also updated in the same
         way as broken is.
         """
-        r = self._inst_tester.is_installable(pkg_name, pkg_version, pkg_arch)
+        r = self._inst_tester.is_installable(pkg_id)
         if not r:
             # not installable
             if pkg_name not in broken:
                 broken.add(pkg_name)
-                to_check.append((pkg_name, pkg_version, pkg_arch))
+                to_check.append(pkg_id)
             if nuninst_arch is not None and pkg_name not in nuninst_arch:
                 nuninst_arch.add(pkg_name)
         else:
             if pkg_name in broken:
-                to_check.append((pkg_name, pkg_version, pkg_arch))
+                to_check.append(pkg_id)
                 broken.remove(pkg_name)
             if nuninst_arch is not None and pkg_name in nuninst_arch:
                 nuninst_arch.remove(pkg_name)
