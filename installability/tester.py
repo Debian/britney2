@@ -25,15 +25,16 @@ class InstallabilityTester(object):
                  safe_set, eqv_table):
         """Create a new installability tester
 
-        universe is a dict mapping package tuples to their
+        universe is a dict mapping package ids to their
         dependencies and conflicts.
 
-        revuniverse is a set of all packages with reverse relations
+        revuniverse is a table containing all packages with reverse
+        relations mapping them to their reverse relations.
 
-        testing is a (mutable) set of package tuples that determines
+        testing is a (mutable) set of package ids that determines
         which of the packages in universe are currently in testing.
 
-        broken is a (mutable) set of package tuples that are known to
+        broken is a (mutable) set of package ids that are known to
         be uninstallable.
 
         essentials is a set of packages with "Essential: yes".
@@ -42,7 +43,7 @@ class InstallabilityTester(object):
         either have no dependencies or only depends on other "safe"
         packages.
 
-        Package tuple: (pkg_name, pkg_version, pkg_arch)
+        Package id: (pkg_name, pkg_version, pkg_arch)
           - NB: arch:all packages are "re-mapped" to given architecture.
             (simplifies caches and dependency checking)
         """
