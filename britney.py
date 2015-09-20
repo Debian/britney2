@@ -2678,7 +2678,7 @@ class Britney(object):
         while True:
             # read the command from the command line
             try:
-                input = raw_input('britney> ').lower().split()
+                user_input = input('britney> ').lower().split()
             except EOFError:
                 print("")
                 break
@@ -2686,18 +2686,18 @@ class Britney(object):
                 print("")
                 continue
             # quit the hint tester
-            if input and input[0] in ('quit', 'exit'):
+            if user_input and user_input[0] in ('quit', 'exit'):
                 break
-            elif input and input[0] in ('remove', 'approve', 'urgent', 'age-days',
+            elif user_input and user_input[0] in ('remove', 'approve', 'urgent', 'age-days',
                                         'block', 'block-udeb', 'unblock', 'unblock-udeb',
                                         'block-all', 'force'):
-                self.hints.add_hint(' '.join(input), 'hint-tester')
+                self.hints.add_hint(' '.join(user_input), 'hint-tester')
                 self.write_excuses()
             # run a hint
-            elif input and input[0] in ('easy', 'hint', 'force-hint'):
+            elif user_input and user_input[0] in ('easy', 'hint', 'force-hint'):
                 try:
-                    self.do_hint(input[0], 'hint-tester',
-                        [k.rsplit("/", 1) for k in input[1:] if "/" in k])
+                    self.do_hint(user_input[0], 'hint-tester',
+                        [k.rsplit("/", 1) for k in user_input[1:] if "/" in k])
                     self.printuninstchange()
                 except KeyboardInterrupt:
                     continue
