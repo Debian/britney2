@@ -2332,7 +2332,6 @@ class Britney(object):
                 self.output_write("trying: %s\n" % comp_name)
                 accepted, nuninst_after, comp_undo, failed_arch = self.try_migration(comp, nuninst_last_accepted, lundo)
                 if accepted:
-                    nuninst_last_accepted = nuninst_after
                     selected.extend(comp)
                     changed = True
                     if lundo is not None:
@@ -2345,6 +2344,7 @@ class Britney(object):
                         self.output_write("   all: %s\n" % (" ".join(x.uvname for x in selected)))
                     else:
                         self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
+                    nuninst_last_accepted = nuninst_after
                 else:
                     broken = sorted(b for b in nuninst_after[failed_arch]
                                     if b not in nuninst_last_accepted[failed_arch])
