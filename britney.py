@@ -1158,14 +1158,14 @@ class Britney(object):
             if not same_source(source_t[VERSION], pkgsv):
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_t[VERSION]))
-                break
+                continue
 
             # if the source package has been updated in unstable and this is a binary migration, skip it
             # (the binaries are now out-of-date)
             if same_source(source_t[VERSION], pkgsv) and source_t[VERSION] != source_u[VERSION]:
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_u[VERSION]))
-                break
+                continue
 
             # find unsatisfied dependencies for the new binary package
             self.excuse_unsat_deps(pkg_name, src, arch, suite, excuse)
