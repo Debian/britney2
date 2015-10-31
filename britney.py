@@ -1155,9 +1155,18 @@ class Britney(object):
 
             # if the new binary package is not from the same source as the testing one, then skip it
             # this implies that this binary migration is part of a source migration
-            if not same_source(source_t[VERSION], pkgsv):
+            if same_source(source_u[VERSION], pkgsv) and not same_source(source_t[VERSION], pkgsv):
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_t[VERSION]))
+                continue
+
+            # cruft in unstable
+            if not same_source(source_u[VERSION], pkgsv) and not same_source(source_t[VERSION], pkgsv):
+                if self.options.ignore_cruft:
+                    excuse.addhtml("Old cruft: %s %s (but ignoring cruft, so nevermind)" % (pkg_name, pkgsv))
+                else:
+                    anywrongver = True
+                    excuse.addhtml("Old cruft: %s %s" % (pkg_name, pkgsv))
                 continue
 
             # if the source package has been updated in unstable and this is a binary migration, skip it
