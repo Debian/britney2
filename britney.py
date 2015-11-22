@@ -189,7 +189,7 @@ import optparse
 import apt_pkg
 
 from collections import defaultdict
-from functools import reduce, partial
+from functools import reduce
 from itertools import chain, product
 from operator import attrgetter
 
