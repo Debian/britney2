@@ -969,6 +969,7 @@ class Britney(object):
         solving packages.
         """
         packages = []
+        binaries_s_a, provides_s_a = packages_s_a
 
         # for every package, version and operation in the block
         for name, version, op in block:
@@ -978,8 +979,8 @@ class Britney(object):
                 archqual = None
 
             # look for the package in unstable
-            if name in packages_s_a[0]:
-                package = packages_s_a[0][name]
+            if name in binaries_s_a:
+                package = binaries_s_a[name]
                 # check the versioned dependency and architecture qualifier
                 # (if present)
                 if (op == '' and version == '') or apt_pkg.check_dep(package[VERSION], op, version):
@@ -987,8 +988,8 @@ class Britney(object):
                         packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
-            for prov in packages_s_a[1].get(name, []):
-                if prov not in packages_s_a[0]: continue
+            for prov in provides_s_a.get(name, []):
+                if prov not in binaries_s_a: continue
                 # A provides only satisfies:
                 # - an unversioned dependency (per Policy Manual §7.5)
                 # - a dependency without an architecture qualifier
