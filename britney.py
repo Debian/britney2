@@ -331,7 +331,6 @@ class Britney(object):
         self.dates = self.read_dates(self.options.testing)
         self.urgencies = self.read_urgencies(self.options.testing)
         self.excuses = []
-        self.dependencies = {}
 
     def _check_mismatches(self, arch):
         suites = [s for s in self.binaries if arch in self.binaries[s]]
@@ -2123,10 +2122,8 @@ class Britney(object):
             del binaries_t_a[item.package]
             inst_tester.remove_testing_binary(pkg_id)
 
-
         # add the new binary packages (if we are not removing)
         if not item.is_removal:
-            source = sources[item.suite][item.package]
             packages_s = self.binaries[item.suite]
 
             for updated_pkg_id in updates:
@@ -2513,7 +2510,6 @@ class Britney(object):
                 actual_nuninst = set(computed_nuninst[arch])
                 false_negatives = actual_nuninst - expected_nuninst
                 false_positives = expected_nuninst - actual_nuninst
-                any_output = actual_nuninst
                 if false_negatives:
                     self.__log(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)), type="E")
                 if false_positives:

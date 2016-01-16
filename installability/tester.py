@@ -568,7 +568,6 @@ class InstallabilityTester(object):
                     choices.add(candidates)
         return True
 
-
     def _get_min_pseudo_ess_set(self, arch):
         if arch not in self._cache_ess:
             # The minimal essential set cache is not present -
@@ -578,7 +577,6 @@ class InstallabilityTester(object):
             cbroken = self._cache_broken
             universe = self._universe
             stats = self._stats
-            safe_set = self._safe_set
 
             ess_base = set(x for x in self._essentials if x[2] == arch and x in testing)
             start = set(ess_base)
