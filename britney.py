@@ -608,7 +608,7 @@ class Britney(object):
         """
 
         packages = {}
-        provides = {}
+        provides = defaultdict(set)
         sources = self.sources
         all_binaries = self.all_binaries
 
@@ -693,9 +693,7 @@ class Britney(object):
             if dpkg[PROVIDES]:
                 parts = [p.strip() for p in dpkg[PROVIDES].split(",")]
                 for p in parts:
-                    if p not in provides:
-                        provides[p] = []
-                    provides[p].append(pkg)
+                    provides[p].add(pkg)
                 dpkg[PROVIDES] = parts
             else: dpkg[PROVIDES] = []
 
@@ -2091,7 +2089,7 @@ class Britney(object):
                     for j in pkg_data[PROVIDES]:
                         key = j + "/" + parch
                         if key not in undo['virtual']:
-                            undo['virtual'][key] = provides_t_a[j][:]
+                            undo['virtual'][key] = provides_t_a[j].copy()
                         provides_t_a[j].remove(binary)
                         if not provides_t_a[j]:
                             del provides_t_a[j]
@@ -2174,10 +2172,10 @@ class Britney(object):
                     key = j + "/" + parch
                     if j not in provides_t_a:
                         undo['nvirtual'].append(key)
-                        provides_t_a[j] = []
+                        provides_t_a[j] = set()
                     elif key not in undo['virtual']:
-                        undo['virtual'][key] = provides_t_a[j][:]
-                    provides_t_a[j].append(binary)
+                        undo['virtual'][key] = provides_t_a[j].copy()
+                    provides_t_a[j].add(binary)
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
                     affected.add(updated_pkg_id)
