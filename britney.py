@@ -2079,7 +2079,7 @@ class Britney(object):
 
                     pkg_data = binaries_t_a[binary]
                     # save the old binary for undo
-                    undo['binaries'][p] = pkg_data
+                    undo['binaries'][p] = rm_pkg_id
                     if pkey not in eqv_set:
                         # all the reverse dependencies are affected by
                         # the change
@@ -2110,9 +2110,9 @@ class Britney(object):
         # updates but not supported as a manual hint
         elif item.package in packages_t[item.architecture][0]:
             binaries_t_a = packages_t[item.architecture][0]
-            undo['binaries'][item.package + "/" + item.architecture] = binaries_t_a[item.package]
             version = binaries_t_a[item.package][VERSION]
             pkg_id = (item.package, version, item.architecture)
+            undo['binaries'][item.package + "/" + item.architecture] = pkg_id
             affected.add(pkg_id)
             affected.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
@@ -2138,10 +2138,10 @@ class Britney(object):
                 # all of its reverse dependencies as affected
                 if binary in binaries_t_a:
                     old_pkg_data = binaries_t_a[binary]
-                    # save the old binary package
-                    undo['binaries'][p] = old_pkg_data
                     old_version = old_pkg_data[VERSION]
                     old_pkg_id = (binary, old_version, parch)
+                    # save the old binary package
+                    undo['binaries'][p] = old_pkg_id
                     if not equivalent_replacement:
                         # all the reverse dependencies are affected by
                         # the change
@@ -2162,8 +2162,7 @@ class Britney(object):
                     # by this function
                     for (tundo, tpkg) in hint_undo:
                         if p in tundo['binaries']:
-                            pv = tundo['binaries'][p][VERSION]
-                            tpkg_id = (p, pv, parch)
+                            tpkg_id = tundo['binaries'][p]
                             affected.update(inst_tester.reverse_dependencies_of(tpkg_id))
 
                 # add/update the binary package from the source suite
@@ -2289,7 +2288,7 @@ class Britney(object):
         # check if the action improved the uninstallability counters
         if not is_accepted and automatic_revert:
             undo_copy = list(reversed(undo_list))
-            undo_changes(undo_copy, self._inst_tester, self.sources, self.binaries)
+            undo_changes(undo_copy, self._inst_tester, self.sources, self.binaries, self.all_binaries)
 
         return (is_accepted, nuninst_after, undo_list, arch)
 
@@ -2490,7 +2489,7 @@ class Britney(object):
             if not lundo: return
             lundo.reverse()
 
-            undo_changes(lundo, self._inst_tester, self.sources, self.binaries)
+            undo_changes(lundo, self._inst_tester, self.sources, self.binaries, self.all_binaries)
 
 
     def assert_nuninst_is_correct(self):

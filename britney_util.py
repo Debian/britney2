@@ -114,7 +114,7 @@ def iter_except(func, exception, first=None):
         pass
 
 
-def undo_changes(lundo, inst_tester, sources, binaries,
+def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
                  BINARIES=BINARIES):
     """Undoes one or more changes to testing
 
@@ -171,7 +171,7 @@ def undo_changes(lundo, inst_tester, sources, binaries,
                 if p in binaries_t_a:
                     rmpkgdata = binaries_t_a[p]
                     inst_tester.remove_testing_binary((binary, rmpkgdata[VERSION], arch))
-                pkgdata = undo['binaries'][p]
+                pkgdata = all_binary_packages[undo['binaries'][p]]
                 binaries_t_a[binary] = pkgdata
                 inst_tester.add_testing_binary((binary, pkgdata[VERSION], arch))
 
