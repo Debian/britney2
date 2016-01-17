@@ -105,15 +105,17 @@ class InstallabilityTester(object):
     def stats(self):
         return self._stats
 
-    def are_equivalent(self, p1, p2):
-        """Test if p1 and p2 are equivalent
+    def are_equivalent(self, pkg_id1, pkg_id2):
+        """Test if pkg_id1 and pkg_id2 are equivalent
 
-        Returns True if p1 and p2 have the same "signature" in
+        :param pkg_id1 The id of the first package
+        :param pkg_id2 The id of the second package
+        :return: True if pkg_id1 and pkg_id2 have the same "signature" in
         the package dependency graph (i.e. relations can not tell
-        them apart semantically except for their name)
+        them apart semantically except for their name). Otherwise False
         """
         eqv_table = self._eqv_table
-        return p1 in eqv_table and p2 in eqv_table[p1]
+        return pkg_id1 in eqv_table and pkg_id2 in eqv_table[pkg_id1]
 
     def reverse_dependencies_of(self, pkg_id):
         """Returns the set of reverse dependencies of a given package
@@ -162,6 +164,8 @@ class InstallabilityTester(object):
 
         If the package is not known, this method will throw an
         KeyError.
+
+        :param pkg_id The id of the package
         """
 
         if pkg_id not in self._universe:
@@ -188,8 +192,9 @@ class InstallabilityTester(object):
     def remove_testing_binary(self, pkg_id):
         """Remove a binary from "testing"
 
+        :param pkg_id The id of the package
         If the package is not known, this method will throw an
-        Keyrror.
+        KeyError.
         """
 
         if pkg_id not in self._universe:
@@ -219,6 +224,7 @@ class InstallabilityTester(object):
         The package is assumed to be in "testing" and only packages in
         "testing" can be used to satisfy relations.
 
+        :param pkg_id The id of the package
         Returns True iff the package is installable.
         Returns False otherwise.
         """
@@ -238,7 +244,6 @@ class InstallabilityTester(object):
 
         self._stats.cache_misses += 1
         return self._check_inst(pkg_id)
-
 
     def _check_inst(self, t, musts=None, never=None, choices=None):
         # See the explanation of musts, never and choices below.
