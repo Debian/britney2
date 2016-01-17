@@ -293,7 +293,7 @@ class InstallabilityTester(object):
             choices = set()
 
         # The subset of musts we haven't checked yet.
-        check = set([t])
+        check = {t}
 
         if len(musts) == 1:
             # Include the essential packages in testing as a starting point.
@@ -445,7 +445,7 @@ class InstallabilityTester(object):
                 musts_copy = musts.copy()
                 never_tmp = set()
                 choices_tmp = set()
-                check_tmp = set([p])
+                check_tmp = {p}
                 if not self._check_loop(universe, testing, eqv_table,
                                         stats, musts_copy, never_tmp,
                                         cbroken, choices_tmp,
