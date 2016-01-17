@@ -2021,7 +2021,7 @@ class Britney(object):
         in a hint may be passed in `hint_undo`.
 
         An optional set of binaries may be passed in "removals". Binaries listed
-        in this set will be assumined to be removed at the same time as the "item"
+        in this set will be assumed to be removed at the same time as the "item"
         will migrate.  This may change what binaries will be smooth-updated.
         - Binaries in this set must be ("package-name", "version", "architecture")
           tuples.
