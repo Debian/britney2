@@ -328,7 +328,7 @@ class InstallabilityTester(object):
         #
         # * A package is installable if never and musts are disjointed
         #   and both check and choices are empty.
-        #   - exception: resolve_choice may determine the installability
+        #   - exception: resolve_choices may determine the installability
         #     of t via recursion (calls _check_inst).  In this case
         #     check and choices are not (always) empty.
 
@@ -403,12 +403,12 @@ class InstallabilityTester(object):
                     verdict = False
                     break
 
-                while not check and rebuild:
+                if not check and rebuild:
                     # We have to "guess" now, which is always fun, but not cheap. We
                     # stop guessing:
                     # - once we run out of choices to make (obviously), OR
                     # - if one of the choices exhaust all but one option
-                    if self.resolve_choice(check, musts, never, rebuild):
+                    if self.resolve_choices(check, musts, never, rebuild):
                         # The recursive call have already updated the
                         # cache so there is not point in doing it again.
                         return True
@@ -423,73 +423,75 @@ class InstallabilityTester(object):
 
         return verdict
 
-    def resolve_choice(self, check, musts, never, choices):
+    def resolve_choices(self, check, musts, never, choices):
         universe = self._universe
         testing = self._testing
         eqv_table = self._eqv_table
         stats = self._stats
         cbroken = self._cache_broken
 
-        choice = iter(choices.pop())
-        last = next(choice) # pick one to go last
-        for p in choice:
-            musts_copy = musts.copy()
-            never_tmp = set()
-            choices_tmp = set()
-            check_tmp = set([p])
-            if not self._check_loop(universe, testing, eqv_table,
-                                    stats, musts_copy, never_tmp,
-                                    cbroken, choices_tmp,
-                                    check_tmp):
-                # p cannot be chosen/is broken (unlikely, but ...)
-                continue
+        while choices:
+            choice_options = choices.pop()
 
-            # Test if we can pick p without any consequences.
-            # - when we can, we avoid a backtrack point.
-            if never_tmp <= never and choices_tmp <= choices:
-                # we can pick p without picking up new conflicts
-                # or unresolved choices.  Therefore we commit to
-                # using p.
-                #
-                # NB: Optimally, we would go to the start of this
-                # routine, but to conserve stack-space, we return
-                # and expect to be called again later.
-                musts.update(musts_copy)
-                stats.choice_resolved_without_restore_point += 1
+            choice = iter(choice_options)
+            last = next(choice)  # pick one to go last
+            solved = False
+            for p in choice:
+                musts_copy = musts.copy()
+                never_tmp = set()
+                choices_tmp = set()
+                check_tmp = set([p])
+                if not self._check_loop(universe, testing, eqv_table,
+                                        stats, musts_copy, never_tmp,
+                                        cbroken, choices_tmp,
+                                        check_tmp):
+                    # p cannot be chosen/is broken (unlikely, but ...)
+                    continue
+
+                # Test if we can pick p without any consequences.
+                # - when we can, we avoid a backtrack point.
+                if never_tmp <= never and choices_tmp <= choices:
+                    # we can pick p without picking up new conflicts
+                    # or unresolved choices.  Therefore we commit to
+                    # using p.
+                    musts.update(musts_copy)
+                    stats.choice_resolved_without_restore_point += 1
+                    solved = True
+                    break
+
+                if not musts.isdisjoint(never_tmp):
+                    # If we pick p, we will definitely end up making
+                    # t uninstallable, so p is a no-go.
+                    continue
+
+                stats.backtrace_restore_point_created += 1
+                # We are not sure that p is safe, setup a backtrack
+                # point and recurse.
+                never_tmp |= never
+                choices_tmp |= choices
+                if self._check_inst(p, musts_copy, never_tmp,
+                                    choices_tmp):
+                    # Success, p was a valid choice and made it all
+                    # installable
+                    return True
+
+                # If we get here, we failed to find something that
+                # would satisfy choice (without breaking the
+                # installability of t).  This means p cannot be used
+                # to satisfy the dependencies, so pretend to conflict
+                # with it - hopefully it will reduce future choices.
+                never.add(p)
+                stats.backtrace_restore_point_used += 1
+
+            if not solved:
+                # Optimization for the last case; avoid the recursive call
+                # and just assume the last will lead to a solution.  If it
+                # doesn't there is no solution and if it does, we don't
+                # have to back-track anyway.
+                check.add(last)
+                musts.add(last)
+                stats.backtrace_last_option += 1
                 return False
-
-            if not musts.isdisjoint(never_tmp):
-                # If we pick p, we will definitely end up making
-                # t uninstallable, so p is a no-go.
-                continue
-
-            stats.backtrace_restore_point_created += 1
-            # We are not sure that p is safe, setup a backtrack
-            # point and recurse.
-            never_tmp |= never
-            choices_tmp |= choices
-            if self._check_inst(p, musts_copy, never_tmp,
-                                choices_tmp):
-                # Success, p was a valid choice and made it all
-                # installable
-                return True
-
-            # If we get here, we failed to find something that
-            # would satisfy choice (without breaking the
-            # installability of t).  This means p cannot be used
-            # to satisfy the dependencies, so pretend to conflict
-            # with it - hopefully it will reduce future choices.
-            never.add(p)
-            stats.backtrace_restore_point_used += 1
-
-        # Optimization for the last case; avoid the recursive call
-        # and just assume the last will lead to a solution.  If it
-        # doesn't there is no solution and if it does, we don't
-        # have to back-track anyway.
-        check.add(last)
-        musts.add(last)
-        stats.backtrace_last_option += 1
-        return False
 
     def _check_loop(self, universe, testing, eqv_table, stats, musts, never,
                     cbroken, choices, check, len=len,
