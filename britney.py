@@ -213,6 +213,19 @@ from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
 
+# NB: ESSENTIAL deliberately skipped as the 2011 and 2012
+# parts of the live-data tests require it (britney merges
+# this field correctly from the unstable version where
+# available)
+check_field_name = dict((globals()[fn], fn) for fn in
+                         (
+                          "SOURCE SOURCEVER ARCHITECTURE MULTIARCH" +
+                          " DEPENDS CONFLICTS PROVIDES"
+                         ).split()
+                        )
+
+check_fields = sorted(check_field_name)
+
 class Britney(object):
     """Britney, the Debian testing updater script
     
@@ -260,6 +273,7 @@ class Britney(object):
                 print('\n'.join('%4d %s' % (len(nuninst[x]), x) for x in self.options.architectures))
                 return
 
+        self.all_binaries = {}
         # read the source and binary packages for the involved distributions
         self.sources['testing'] = self.read_sources(self.options.testing)
         self.sources['unstable'] = self.read_sources(self.options.unstable)
@@ -286,8 +300,6 @@ class Britney(object):
                 # properly initialised, so insert two empty dicts
                 # here.
                 self.binaries['pu'][arch] = ({}, {})
-
-            self._check_mismatches(arch)
 
         self.__log("Compiling Installability tester", type="I")
         self._build_installability_tester(self.options.architectures)
@@ -329,43 +341,23 @@ class Britney(object):
         self.urgencies = self.read_urgencies(self.options.testing)
         self.excuses = []
 
-    def _check_mismatches(self, arch):
-        suites = [s for s in self.binaries if arch in self.binaries[s]]
+    def merge_pkg_entries(self, package, parch, pkg_entry1, pkg_entry2,
+                          check_fields=check_fields, check_field_name=check_field_name):
+        bad = []
+        for f in check_fields:
+            if pkg_entry1[f] != pkg_entry2[f]:
+                bad.append((f, pkg_entry1[f], pkg_entry2[f]))
 
-        # NB: ESSENTIAL deliberately skipped as the 2011 and 2012
-        # parts of the live-data tests require it (britney merges
-        # this field correctly from the unstable version where
-        # available)
-        check_field_name = dict( (globals()[fn], fn) for fn in
-               ("SOURCE SOURCEVER ARCHITECTURE MULTIARCH"
-                 + " DEPENDS CONFLICTS PROVIDES").split() )
-        check_fields = check_field_name.keys()
+        if bad:
+            self.__log("Mismatch found %s %s %s differs" % (
+                package, pkg_entry1[VERSION], parch), type="E")
+            for f, v1, v2 in bad:
+                self.__log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
+            raise ValueError("Invalid data set")
 
-        any_mismatch = False
-        for s1, s2 in product(suites, suites):
-            if s1 >= s2: continue
-            s1_pkgs = self.binaries[s1][arch][0]
-            s2_pkgs = self.binaries[s2][arch][0]
-            pkgs = set(s1_pkgs) & set(s2_pkgs)
-            for p in pkgs:
-                if s1_pkgs[p][VERSION] != s2_pkgs[p][VERSION]: continue
-                bad = []
-                for f in check_fields:
-                    if s1_pkgs[p][f] != s2_pkgs[p][f]:
-                        bad.append((f, s1_pkgs[p][f], s2_pkgs[p][f]))
-
-                if bad:
-                    any_mismatch = True
-                    self.__log("Mismatch found %s %s %s differs in %s vs %s" % (
-                        p, s1_pkgs[p][VERSION], arch, s1, s2), type="E")
-                    for f, v1, v2 in bad:
-                        self.__log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
-
-        # test suite doesn't appreciate aborts of this nature
-        if any_mismatch:
-            self.__log("Mismatches found, exiting.", type="I")
-            sys.exit(1)
-        return
+        # Merge ESSENTIAL if necessary
+        if pkg_entry2[ESSENTIAL]:
+            pkg_entry1[ESSENTIAL] = True
 
     def __parse_arguments(self):
         """Parse the command line arguments
@@ -618,6 +610,7 @@ class Britney(object):
         packages = {}
         provides = {}
         sources = self.sources
+        all_binaries = self.all_binaries
 
         filename = os.path.join(basedir, "Packages_%s" % arch)
         self.__log("Loading binary packages from %s" % filename)
@@ -639,6 +632,7 @@ class Britney(object):
                 continue
             pkg = intern(pkg)
             version = intern(version)
+            pkg_id = (pkg, version, arch)
 
             # Merge Pre-Depends with Depends and Conflicts with
             # Breaks. Britney is not interested in the "finer
@@ -707,6 +701,10 @@ class Britney(object):
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
+            if pkg_id in all_binaries:
+                self.merge_pkg_entries(pkg, arch, all_binaries[pkg_id], dpkg)
+            else:
+                all_binaries[pkg_id] = dpkg
 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
