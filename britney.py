@@ -2722,7 +2722,7 @@ class Britney(object):
             _pkgvers = pkgvers
 
         self.__log("> Processing '%s' hint from %s" % (hinttype, who), type="I")
-        self.output_write("Trying %s from %s: %s\n" % (hinttype, who, " ".join( ["%s/%s" % (x.uvname, x.version) for x in _pkgvers])))
+        self.output_write("Trying %s from %s: %s\n" % (hinttype, who, " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)))
 
         ok = True
         # loop on the requested packages and versions
@@ -2856,8 +2856,7 @@ class Britney(object):
             pkg = self.binaries['testing'][arch][0][p]
             all[(pkg[SOURCE], pkg[SOURCEVER])].add(p)
 
-
-        print('* %s' % (arch,))
+        print('* %s' % arch)
 
         for (src, ver), pkgs in sorted(all.items()):
             print('  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs))))
