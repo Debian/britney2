@@ -520,9 +520,9 @@ class InstallabilityTester(object):
                 #  - not in testing
                 #  - known to be broken (by cache)
                 #  - in never
-                candidates = frozenset((depgroup & testing) - never)
+                candidates = (depgroup & testing) - never
 
-                if len(candidates) == 0:
+                if not candidates:
                     # We got no candidates to satisfy it - this
                     # package cannot be installed with the current
                     # testing
@@ -563,7 +563,11 @@ class InstallabilityTester(object):
                             continue
                         elif len(candidates) == len(new_cand):
                             stats.eqv_table_reduced_by_zero += 1
+
                         candidates = frozenset(new_cand)
+                    else:
+                        # Candidates have to be a frozenset to be added to choices
+                        candidates = frozenset(candidates)
                     # defer this choice till later
                     choices.add(candidates)
         return True
