@@ -691,11 +691,24 @@ class Britney(object):
 
             # register virtual packages and real packages that provide them
             if dpkg[PROVIDES]:
-                parts = [p.strip() for p in dpkg[PROVIDES].split(",")]
-                for p in parts:
-                    provides[p].add(pkg)
-                dpkg[PROVIDES] = parts
-            else: dpkg[PROVIDES] = []
+                parts = apt_pkg.parse_depends(dpkg[PROVIDES], False)
+                nprov = []
+                for or_clause in parts:
+                    if len(or_clause) != 1:
+                        msg = "Ignoring invalid provides in %s: Alternatives [%s]" % (str(pkg_id), str(or_clause))
+                        self.__log(msg, type='W')
+                        continue
+                    for part in or_clause:
+                        provided, version, op = part
+                        if op != '' and op != '=':
+                            msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, version)
+                            self.__log(msg, type='W')
+                            continue
+                        provides[provided].add(pkg)
+                        nprov.append(part)
+                dpkg[PROVIDES] = nprov
+            else:
+                dpkg[PROVIDES] = []
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
@@ -2086,7 +2099,8 @@ class Britney(object):
                         affected.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
                     # remove the provided virtual packages
-                    for j in pkg_data[PROVIDES]:
+                    for prov_rel in pkg_data[PROVIDES]:
+                        j = prov_rel[0]
                         key = j + "/" + parch
                         if key not in undo['virtual']:
                             undo['virtual'][key] = provides_t_a[j].copy()
@@ -2168,7 +2182,8 @@ class Britney(object):
                 binaries_t_a[binary] = new_pkg_data
                 inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
-                for j in new_pkg_data[PROVIDES]:
+                for prov_rel in new_pkg_data[PROVIDES]:
+                    j = prov_rel[0]
                     key = j + "/" + parch
                     if j not in provides_t_a:
                         undo['nvirtual'].append(key)

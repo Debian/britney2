@@ -418,6 +418,19 @@ def write_sources(sources_s, filename):
            f.write(output + "\n\n")
 
 
+def relation_atom_to_string(atom):
+    """Take a parsed dependency and turn it into a string
+    """
+    pkg, version, rel_op = atom
+    if rel_op != '':
+        if rel_op in ('<', '>'):
+            # APT translate "<<" and ">>" into "<" and ">".  We have
+            # deparse those into the original form.
+            rel_op += rel_op
+        return "%s (%s %s)" % (pkg, rel_op, version)
+    return pkg
+
+
 def write_controlfiles(sources, packages, suite, basedir):
     """Write the control files
 
@@ -462,7 +475,7 @@ def write_controlfiles(sources, packages, suite, basedir):
                         output += (k + ": " + source + "\n")
                     elif key == PROVIDES:
                         if bin_data[key]:
-                            output += (k + ": " + ", ".join(bin_data[key]) + "\n")
+                            output += (k + ": " + ", ".join(relation_atom_to_string(p) for p in bin_data[key]) + "\n")
                     elif key == ESSENTIAL:
                         if bin_data[key]:
                             output += (k + ": " + " yes\n")
