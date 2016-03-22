@@ -1931,6 +1931,10 @@ class Britney(object):
                         and parch != migration_architecture):
                         continue
 
+                    # Work around #815995
+                    if migration_architecture == 'source' and is_removal and binary not in binaries_t[parch][0]:
+                        continue
+
                     if (not include_hijacked
                         and binaries_t[parch][0][binary][SOURCE] != source_name):
                         continue
