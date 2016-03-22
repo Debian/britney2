@@ -699,12 +699,15 @@ class Britney(object):
                         self.__log(msg, type='W')
                         continue
                     for part in or_clause:
-                        provided, version, op = part
+                        provided, provided_version, op = part
                         if op != '' and op != '=':
                             msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, version)
                             self.__log(msg, type='W')
                             continue
-                        provides[provided].add(pkg)
+                        provided = intern(provided)
+                        provided_version = intern(provided_version)
+                        part = (provided, provided_version, intern(op))
+                        provides[provided].add((pkg, provided_version))
                         nprov.append(part)
                 dpkg[PROVIDES] = nprov
             else:
@@ -994,13 +997,19 @@ class Britney(object):
                         packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
-            for prov in provides_s_a.get(name, []):
-                if prov not in binaries_s_a: continue
+            for prov, prov_version in provides_s_a.get(name, []):
+                if prov not in binaries_s_a:
+                    continue
                 # A provides only satisfies:
                 # - an unversioned dependency (per Policy Manual §7.5)
                 # - a dependency without an architecture qualifier
                 #   (per analysis of apt code)
-                if op == '' and version == '' and archqual is None:
+                if archqual is not None:
+                    # Punt on this case - these days, APT and dpkg might actually agree on
+                    # this.
+                    continue
+                if (op == '' and version == '') or \
+                   (prov_version != '' and apt_pkg.check_dep(prov_version, op, version)):
                     packages.append(prov)
 
         return packages
@@ -2099,12 +2108,11 @@ class Britney(object):
                         affected.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
                     # remove the provided virtual packages
-                    for prov_rel in pkg_data[PROVIDES]:
-                        j = prov_rel[0]
+                    for j, prov_version, _ in pkg_data[PROVIDES]:
                         key = j + "/" + parch
                         if key not in undo['virtual']:
                             undo['virtual'][key] = provides_t_a[j].copy()
-                        provides_t_a[j].remove(binary)
+                        provides_t_a[j].remove((binary, prov_version))
                         if not provides_t_a[j]:
                             del provides_t_a[j]
                     # finally, remove the binary package
@@ -2182,15 +2190,14 @@ class Britney(object):
                 binaries_t_a[binary] = new_pkg_data
                 inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
-                for prov_rel in new_pkg_data[PROVIDES]:
-                    j = prov_rel[0]
+                for j, prov_version, _ in new_pkg_data[PROVIDES]:
                     key = j + "/" + parch
                     if j not in provides_t_a:
                         undo['nvirtual'].append(key)
                         provides_t_a[j] = set()
                     elif key not in undo['virtual']:
                         undo['virtual'][key] = provides_t_a[j].copy()
-                    provides_t_a[j].add(binary)
+                    provides_t_a[j].add((binary, prov_version))
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
                     affected.add(updated_pkg_id)
