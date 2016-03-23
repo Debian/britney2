@@ -21,10 +21,9 @@
 # GNU General Public License for more details.
 
 
-import apt_pkg
 from functools import partial
 from datetime import datetime
-from itertools import chain, repeat, filterfalse
+from itertools import filterfalse
 import os
 import time
 import yaml
@@ -35,6 +34,7 @@ from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     ARCHITECTURE, SECTION,
                     SOURCE, SOURCEVER, MAINTAINER, MULTIARCH,
                     ESSENTIAL)
+
 
 def ifilter_except(container, iterable=None):
     """Filter out elements in container
