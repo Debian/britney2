@@ -123,12 +123,11 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
     # undo all new binaries (consequence of the above)
     for (undo, item) in lundo:
         if not item.is_removal and item.package in sources[item.suite]:
-            for p in sources[item.suite][item.package][BINARIES]:
-                binary, arch = p.split("/")
+            for pkg_id in sources[item.suite][item.package][BINARIES]:
+                binary, _, arch = pkg_id
                 if item.architecture in ['source', arch]:
-                    version = binaries["testing"][arch][0][binary][VERSION]
                     del binaries["testing"][arch][0][binary]
-                    inst_tester.remove_testing_binary((binary, version, arch))
+                    inst_tester.remove_testing_binary(pkg_id)
 
 
     # STEP 3

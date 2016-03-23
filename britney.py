@@ -674,7 +674,6 @@ class Britney(object):
                 if "(" in source:
                     dpkg[SOURCEVER] = intern(source[source.find("(")+1:source.find(")")])
 
-            pkgarch = "%s/%s" % (pkg,arch)
             # if the source package is available in the distribution, then register this binary package
             if dpkg[SOURCE] in sources[distribution]:
                 # There may be multiple versions of any arch:all packages
@@ -683,11 +682,11 @@ class Britney(object):
                 # source -> binary mapping once. It doesn't matter which
                 # of the versions we include as only the package name and
                 # architecture are recorded.
-                if pkgarch not in sources[distribution][dpkg[SOURCE]][BINARIES]:
-                    sources[distribution][dpkg[SOURCE]][BINARIES].append(pkgarch)
+                if pkg_id not in sources[distribution][dpkg[SOURCE]][BINARIES]:
+                    sources[distribution][dpkg[SOURCE]][BINARIES].append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                sources[distribution][dpkg[SOURCE]] = [dpkg[SOURCEVER], 'faux', [pkgarch], None, True]
+                sources[distribution][dpkg[SOURCE]] = [dpkg[SOURCEVER], 'faux', [pkg_id], None, True]
 
             # register virtual packages and real packages that provide them
             if dpkg[PROVIDES]:
@@ -1151,11 +1150,11 @@ class Britney(object):
         anyworthdoing = False
 
         # for every binary package produced by this source in unstable for this architecture
-        for pkg in sorted(filter(lambda x: x.endswith("/" + arch), source_u[BINARIES]), key=lambda x: x.split("/")[0]):
-            pkg_name = pkg.split("/")[0]
+        for pkg_id in sorted(x for x in source_u[BINARIES] if x[2] == arch):
+            pkg_name = pkg_id[0]
 
             # retrieve the testing (if present) and unstable corresponding binary packages
-            binary_t = pkg in source_t[BINARIES] and self.binaries['testing'][arch][0][pkg_name] or None
+            binary_t = pkg_name in self.binaries['testing'][arch][0] and self.binaries['testing'][arch][0][pkg_name] or None
             binary_u = self.binaries[suite][arch][0][pkg_name]
 
             # this is the source version for the new binary package
@@ -1228,7 +1227,8 @@ class Britney(object):
                                                         arch,
                                                         False)
 
-                for pkg in sorted(x.split("/")[0] for x in source_data[BINARIES] if x.endswith("/"+arch)):
+                for pkg_id in sorted(x for x in source_data[BINARIES] if x[2] == arch):
+                    pkg = pkg_id[0]
                     # if the package is architecture-independent, then ignore it
                     tpkg_data = self.binaries['testing'][arch][0][pkg]
                     if tpkg_data[ARCHITECTURE] == 'all':
@@ -1245,8 +1245,7 @@ class Britney(object):
                             # it "interesting" on its own.  This case happens quite often with smooth updatable
                             # packages, where the old binary "survives" a full run because it still has
                             # reverse dependencies.
-                            name = (pkg, tpkg_data[VERSION], tpkg_data[ARCHITECTURE])
-                            if name not in smoothbins:
+                            if pkg_id not in smoothbins:
                                 anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
@@ -1407,7 +1406,7 @@ class Britney(object):
                 # if the package in testing has no binaries on this
                 # architecture, it can't be out-of-date
                 if not any(x for x in self.sources["testing"][src][BINARIES]
-                           if x.endswith("/"+arch) and self.binaries["testing"][arch][0][x.split("/")[0]][ARCHITECTURE] != 'all'):
+                           if x[2] == arch and self.binaries["testing"][arch][0][x[0]][ARCHITECTURE] != 'all'):
                     continue
                     
                 # if the (t-)p-u package has produced any binaries on
@@ -1443,7 +1442,8 @@ class Britney(object):
             oodbins = {}
             uptodatebins = False
             # for every binary package produced by this source in the suite for this architecture
-            for pkg in sorted(x.split("/")[0] for x in self.sources[suite][src][BINARIES] if x.endswith("/"+arch)):
+            for pkg_id in sorted(x for x in self.sources[suite][src][BINARIES] if x[2] == arch):
+                pkg = pkg_id[0]
                 if pkg not in pkgs: pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
@@ -1920,8 +1920,8 @@ class Britney(object):
                 # remove all the binaries
 
                 # first, build a list of eligible binaries
-                for p in source_data[BINARIES]:
-                    binary, parch = p.split("/")
+                for pkg_id in source_data[BINARIES]:
+                    binary, _, parch = pkg_id
                     if (migration_architecture != 'source'
                         and parch != migration_architecture):
                         continue
@@ -1933,8 +1933,7 @@ class Britney(object):
                     if (not include_hijacked
                         and binaries_t[parch][0][binary][SOURCE] != source_name):
                         continue
-                    version = binaries_t[parch][0][binary][VERSION]
-                    bins.append((binary, version, parch))
+                    bins.append(pkg_id)
 
                 for pkg_id in bins:
                     binary, _, parch = pkg_id
@@ -2008,11 +2007,10 @@ class Britney(object):
         # add the new binary packages (if we are not removing)
         if not is_removal:
             source_data = sources[suite][source_name]
-            for p in source_data[BINARIES]:
-                binary, parch = p.split("/")
+            for pkg_id in source_data[BINARIES]:
+                binary, _, parch = pkg_id
                 if migration_architecture not in ['source', parch]:
                     continue
-                version = self.binaries[suite][parch][0][binary][VERSION]
 
                 if (not include_hijacked
                     and self.binaries[suite][parch][0][binary][SOURCE] != source_name):
@@ -2027,7 +2025,7 @@ class Britney(object):
                                 rms.remove((rm_b, rm_v, rm_p))
                     continue
 
-                adds.add((binary, version, parch))
+                adds.add(pkg_id)
 
         return (adds, rms, smoothbins)
 
