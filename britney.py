@@ -1149,13 +1149,16 @@ class Britney(object):
         anywrongver = False
         anyworthdoing = False
 
+        packages_t_a = self.binaries['testing'][arch][0]
+        packages_s_a = self.binaries[suite][arch][0]
+
         # for every binary package produced by this source in unstable for this architecture
         for pkg_id in sorted(x for x in source_u[BINARIES] if x[2] == arch):
             pkg_name = pkg_id[0]
 
             # retrieve the testing (if present) and unstable corresponding binary packages
-            binary_t = pkg_name in self.binaries['testing'][arch][0] and self.binaries['testing'][arch][0][pkg_name] or None
-            binary_u = self.binaries[suite][arch][0][pkg_name]
+            binary_t = pkg_name in packages_t_a and packages_t_a[pkg_name] or None
+            binary_u = packages_s_a[pkg_name]
 
             # this is the source version for the new binary package
             pkgsv = binary_u[SOURCEVER]
@@ -1214,28 +1217,27 @@ class Britney(object):
 
         # if there is nothing wrong and there is something worth doing or the source
         # package is not fake, then check what packages should be removed
-        if not anywrongver and (anyworthdoing or not self.sources[suite][src][FAKESRC]):
-            srcv = self.sources[suite][src][VERSION]
+        if not anywrongver and (anyworthdoing or not source_u[FAKESRC]):
+            srcv = source_u[VERSION]
             ssrc = source_t[VERSION] == srcv
             # if this is a binary-only migration via *pu, we never want to try
             # removing binary packages
             if not (ssrc and suite != 'unstable'):
                 # for every binary package produced by this source in testing for this architecture
-                source_data = self.sources['testing'][src]
                 _, _, smoothbins = self._compute_groups(src,
                                                         "unstable",
                                                         arch,
                                                         False)
 
-                for pkg_id in sorted(x for x in source_data[BINARIES] if x[2] == arch):
+                for pkg_id in sorted(x for x in source_t[BINARIES] if x[2] == arch):
                     pkg = pkg_id[0]
                     # if the package is architecture-independent, then ignore it
-                    tpkg_data = self.binaries['testing'][arch][0][pkg]
+                    tpkg_data = packages_t_a[pkg]
                     if tpkg_data[ARCHITECTURE] == 'all':
                         excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                         continue
                     # if the package is not produced by the new source package, then remove it from testing
-                    if pkg not in self.binaries[suite][arch][0]:
+                    if pkg not in packages_s_a:
                         excuse.addhtml("Removed binary: %s %s" % (pkg, tpkg_data[VERSION]))
                         # the removed binary is only interesting if this is a binary-only migration,
                         # as otherwise the updated source will already cause the binary packages
@@ -1397,16 +1399,16 @@ class Britney(object):
                     update_candidate = False
                     excuse.addreason("age")
 
-        if suite in ['pu', 'tpu']:
+        all_binaries = self.all_binaries
+
+        if suite in ('pu', 'tpu') and source_t:
             # o-o-d(ish) checks for (t-)p-u
+            # This only makes sense if the package is actually in testing.
             for arch in self.options.architectures:
-                if src not in self.sources["testing"]:
-                    continue
-                    
                 # if the package in testing has no binaries on this
                 # architecture, it can't be out-of-date
-                if not any(x for x in self.sources["testing"][src][BINARIES]
-                           if x[2] == arch and self.binaries["testing"][arch][0][x[0]][ARCHITECTURE] != 'all'):
+                if not any(x for x in source_t[BINARIES]
+                           if x[2] == arch and all_binaries[x][ARCHITECTURE] != 'all'):
                     continue
                     
                 # if the (t-)p-u package has produced any binaries on
@@ -1442,13 +1444,13 @@ class Britney(object):
             oodbins = {}
             uptodatebins = False
             # for every binary package produced by this source in the suite for this architecture
-            for pkg_id in sorted(x for x in self.sources[suite][src][BINARIES] if x[2] == arch):
+            for pkg_id in sorted(x for x in source_u[BINARIES] if x[2] == arch):
                 pkg = pkg_id[0]
                 if pkg not in pkgs: pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
                 # retrieve the binary package and its source version
-                binary_u = self.binaries[suite][arch][0][pkg]
+                binary_u = all_binaries[pkg_id]
                 pkgsv = binary_u[SOURCEVER]
 
                 # if it wasn't built by the same source, it is out-of-date
@@ -1512,7 +1514,7 @@ class Britney(object):
                     excuse.addhtml(text)
 
         # if the source package has no binaries, set update_candidate to False to block the update
-        if len(self.sources[suite][src][BINARIES]) == 0:
+        if not source_u[BINARIES]:
             excuse.addhtml("%s has no binaries on any arch" % src)
             excuse.addreason("no-binaries")
             update_candidate = False
