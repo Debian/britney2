@@ -1855,7 +1855,7 @@ class Britney(object):
 
 
     def _compute_groups(self, source_name, suite, migration_architecture,
-                        is_removal, include_hijacked=False,
+                        is_removal,
                         allow_smooth_updates=True,
                         removals=frozenset()):
         """Compute the groups of binaries being migrated by item
@@ -1874,8 +1874,6 @@ class Britney(object):
           architecture).  [Same as item.architecture, where available]
         * "is_removal" is a boolean determining if this is a removal
            or not [Same as item.is_removal, where available]
-        * "include_hijacked" determines whether hijacked binaries should
-          be included in results or not. (defaults: False)
         * "allow_smooth_updates" is a boolean determing whether smooth-
           updates are permitted in this migration.  When set to False,
           the "smoothbins" return value will always be the empty set.
@@ -1932,8 +1930,8 @@ class Britney(object):
                     if migration_architecture == 'source' and is_removal and binary not in binaries_t[parch][0]:
                         continue
 
-                    if (not include_hijacked
-                        and binaries_t[parch][0][binary][SOURCE] != source_name):
+                    # Do not include hijacked binaries
+                    if binaries_t[parch][0][binary][SOURCE] != source_name:
                         continue
                     bins.append(pkg_id)
 
@@ -2014,8 +2012,7 @@ class Britney(object):
                 if migration_architecture not in ['source', parch]:
                     continue
 
-                if (not include_hijacked
-                    and self.binaries[suite][parch][0][binary][SOURCE] != source_name):
+                if self.binaries[suite][parch][0][binary][SOURCE] != source_name:
                     # This binary package has been hijacked by some other source.
                     # So don't add it as part of this update.
                     #
