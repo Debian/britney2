@@ -26,7 +26,6 @@ from functools import partial
 from datetime import datetime
 from itertools import chain, repeat, filterfalse
 import os
-import re
 import time
 import yaml
 
@@ -36,31 +35,6 @@ from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     ARCHITECTURE, SECTION,
                     SOURCE, SOURCEVER, MAINTAINER, MULTIARCH,
                     ESSENTIAL)
-
-binnmu_re = re.compile(r'^(.*)\+b\d+$')
-
-def same_source(sv1, sv2, binnmu_re=binnmu_re):
-    """Check if two version numbers are built from the same source
-
-    This method returns a boolean value which is true if the two
-    version numbers specified as parameters are built from the same
-    source. The main use of this code is to detect binary-NMU.
-
-    binnmu_re is an optimization to avoid "load global".
-    """
-    if sv1 == sv2:
-        return 1
-
-    m = binnmu_re.match(sv1)
-    if m: sv1 = m.group(1)
-    m = binnmu_re.match(sv2)
-    if m: sv2 = m.group(1)
-
-    if sv1 == sv2:
-        return 1
-
-    return 0
-
 
 def ifilter_except(container, iterable=None):
     """Filter out elements in container
@@ -486,7 +460,7 @@ def write_controlfiles(sources, packages, suite, basedir):
     write_sources(sources_s, os.path.join(basedir, 'Sources'))
 
 
-def old_libraries(sources, packages, fucked_arches=frozenset(), same_source=same_source):
+def old_libraries(sources, packages, fucked_arches=frozenset()):
     """Detect old libraries left in testing for smooth transitions
 
     This method detects old libraries which are in testing but no
@@ -497,8 +471,6 @@ def old_libraries(sources, packages, fucked_arches=frozenset(), same_source=same
     For "fucked" architectures, outdated binaries are allowed to be in
     testing, so they are only added to the removal list if they are no longer
     in unstable.
-
-    same_source is an optimisation to avoid "load global".
     """
     sources_t = sources['testing']
     testing = packages['testing']
@@ -507,7 +479,7 @@ def old_libraries(sources, packages, fucked_arches=frozenset(), same_source=same
     for arch in testing:
         for pkg_name in testing[arch][0]:
             pkg = testing[arch][0][pkg_name]
-            if not same_source(sources_t[pkg[SOURCE]][VERSION], pkg[SOURCEVER]) and \
+            if sources_t[pkg[SOURCE]][VERSION] != pkg[SOURCEVER] and \
                 (arch not in fucked_arches or pkg_name not in unstable[arch][0]):
                 migration = "-" + "/".join((pkg_name, arch, pkg[SOURCEVER]))
                 removals.append(MigrationItem(migration))

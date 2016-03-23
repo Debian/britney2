@@ -199,7 +199,7 @@ from installability.builder import InstallabilityTesterBuilder
 from excuse import Excuse
 from migrationitem import MigrationItem
 from hints import HintCollection
-from britney_util import (old_libraries_format, same_source, undo_changes,
+from britney_util import (old_libraries_format, undo_changes,
                           compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
@@ -1112,7 +1112,7 @@ class Britney(object):
         self.excuses.append(excuse)
         return True
 
-    def should_upgrade_srcarch(self, src, arch, suite, same_source=same_source):
+    def should_upgrade_srcarch(self, src, arch, suite):
         """Check if a set of binary packages should be upgraded
 
         This method checks if the binary packages produced by the source
@@ -1122,8 +1122,6 @@ class Britney(object):
         It returns False if the given packages don't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the object attribute excuses.
-
-        same_source is an optimization to avoid "load global".
         """
         # retrieve the source packages for testing and suite
         source_t = self.sources['testing'][src]
@@ -1140,7 +1138,7 @@ class Britney(object):
         # version in testing, then stop here and return False
         # (as a side effect, a removal may generate such excuses for both the source
         # package and its binary packages on each architecture)
-        for hint in [ x for x in self.hints.search('remove', package=src) if same_source(source_t[VERSION], x.version) ]:
+        for hint in [x for x in self.hints.search('remove', package=src) if source_t[VERSION] == x.version]:
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
@@ -1170,13 +1168,13 @@ class Britney(object):
 
             # if the new binary package is not from the same source as the testing one, then skip it
             # this implies that this binary migration is part of a source migration
-            if same_source(source_u[VERSION], pkgsv) and not same_source(source_t[VERSION], pkgsv):
+            if source_u[VERSION] == pkgsv and source_t[VERSION] != pkgsv:
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_t[VERSION]))
                 continue
 
             # cruft in unstable
-            if not same_source(source_u[VERSION], pkgsv) and not same_source(source_t[VERSION], pkgsv):
+            if source_u[VERSION] != pkgsv and source_t[VERSION] != pkgsv:
                 if self.options.ignore_cruft:
                     excuse.addhtml("Old cruft: %s %s (but ignoring cruft, so nevermind)" % (pkg_name, pkgsv))
                 else:
@@ -1186,7 +1184,7 @@ class Britney(object):
 
             # if the source package has been updated in unstable and this is a binary migration, skip it
             # (the binaries are now out-of-date)
-            if same_source(source_t[VERSION], pkgsv) and source_t[VERSION] != source_u[VERSION]:
+            if source_t[VERSION] == pkgsv and source_t[VERSION] != source_u[VERSION]:
                 anywrongver = True
                 excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_u[VERSION]))
                 continue
@@ -1219,7 +1217,7 @@ class Britney(object):
         # package is not fake, then check what packages should be removed
         if not anywrongver and (anyworthdoing or not self.sources[suite][src][FAKESRC]):
             srcv = self.sources[suite][src][VERSION]
-            ssrc = same_source(source_t[VERSION], srcv)
+            ssrc = source_t[VERSION] == srcv
             # if this is a binary-only migration via *pu, we never want to try
             # removing binary packages
             if not (ssrc and suite != 'unstable'):
@@ -1264,7 +1262,7 @@ class Britney(object):
         # otherwise, return False
         return False
 
-    def should_upgrade_src(self, src, suite, same_source=same_source):
+    def should_upgrade_src(self, src, suite):
         """Check if source package should be upgraded
 
         This method checks if a source package should be upgraded. The analysis
@@ -1274,8 +1272,6 @@ class Britney(object):
         It returns False if the given package doesn't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the object attribute excuses.
-
-        same_source is an opt to avoid "load global".
         """
 
         # retrieve the source packages for testing (if available) and suite
@@ -1320,8 +1316,8 @@ class Britney(object):
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
         for item in self.hints.search('remove', package=src):
-            if source_t and same_source(source_t[VERSION], item.version) or \
-               same_source(source_u[VERSION], item.version):
+            if source_t and source_t[VERSION] == item.version or \
+               source_u[VERSION] == item.version:
                 excuse.addhtml("Removal request by %s" % (item.user))
                 excuse.addhtml("Trying to remove package, not update it")
                 excuse.addreason("remove")
@@ -1346,7 +1342,7 @@ class Britney(object):
             unblock_cmd = "un" + block_cmd
             unblocks = self.hints.search(unblock_cmd, package=src)
 
-            if unblocks and unblocks[0].version is not None and same_source(unblocks[0].version, source_u[VERSION]):
+            if unblocks and unblocks[0].version is not None and unblocks[0].version == source_u[VERSION]:
                 if suite == 'unstable' or block_cmd == 'block-udeb':
                     excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
                                    (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
@@ -1380,22 +1376,22 @@ class Britney(object):
         if suite == 'unstable':
             if src not in self.dates:
                 self.dates[src] = (source_u[VERSION], self.date_now)
-            elif not same_source(self.dates[src][0], source_u[VERSION]):
+            elif self.dates[src][0] != source_u[VERSION]:
                 self.dates[src] = (source_u[VERSION], self.date_now)
 
             days_old = self.date_now - self.dates[src][1]
             min_days = self.MINDAYS[urgency]
 
-            for age_days_hint in [ x for x in self.hints.search('age-days', package=src) if \
-               same_source(source_u[VERSION], x.version) ]:
+            for age_days_hint in [x for x in self.hints.search('age-days', package=src)
+                                  if source_u[VERSION] == x.version]:
                 excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
                     int(age_days_hint.days), age_days_hint.user))
                 min_days = int(age_days_hint.days)
 
             excuse.setdaysold(days_old, min_days)
             if days_old < min_days:
-                urgent_hints = [ x for x in self.hints.search('urgent', package=src) if \
-                   same_source(source_u[VERSION], x.version) ]
+                urgent_hints = [x for x in self.hints.search('urgent', package=src)
+                                if source_u[VERSION] == x.version]
                 if urgent_hints:
                     excuse.addhtml("Too young, but urgency pushed by %s" % (urgent_hints[0].user))
                 else:
@@ -1458,7 +1454,7 @@ class Britney(object):
                 # if it wasn't built by the same source, it is out-of-date
                 # if there is at least one binary on this arch which is
                 # up-to-date, there is a build on this arch
-                if not same_source(source_u[VERSION], pkgsv):
+                if source_u[VERSION] != pkgsv:
                     if pkgsv not in oodbins:
                         oodbins[pkgsv] = []
                     oodbins[pkgsv].append(pkg)
@@ -1561,7 +1557,7 @@ class Britney(object):
                         "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
-        forces = [ x for x in self.hints.search('force', package=src) if same_source(source_u[VERSION], x.version) ]
+        forces = [x for x in self.hints.search('force', package=src) if source_u[VERSION] == x.version]
         if forces:
             excuse.dontinvalidate = True
         if not update_candidate and forces:
@@ -1637,14 +1633,12 @@ class Britney(object):
                     exclookup[x].is_valid = False
             i = i + 1
  
-    def write_excuses(self, same_source=same_source):
+    def write_excuses(self):
         """Produce and write the update excuses
 
         This method handles the update excuses generation: the packages are
         looked at to determine whether they are valid candidates. For the details
         of this procedure, please refer to the module docstring.
-
-        same_source is an opt to avoid "load global".
         """
 
         self.__log("Update Excuses generation started", type="I")
@@ -1704,7 +1698,8 @@ class Britney(object):
 
             # check if the version specified in the hint is the same as the considered package
             tsrcv = sources['testing'][src][VERSION]
-            if not same_source(tsrcv, item.version): continue
+            if tsrcv != item.version:
+                continue
 
             # add the removal of the package to upgrade_me and build a new excuse
             upgrade_me.append("-%s" % (src))
