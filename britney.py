@@ -2024,6 +2024,12 @@ class Britney(object):
                                 rms.remove((rm_b, rm_v, rm_p))
                     continue
 
+                # Don't add the binary if it is old cruft that is no longer in testing
+                if (parch not in self.options.fucked_arches and
+                    source_data[VERSION] != self.binaries[suite][parch][0][binary][SOURCEVER] and
+                    binary not in binaries_t[parch][0]):
+                    continue
+
                 adds.add(pkg_id)
 
         return (adds, rms, smoothbins)
