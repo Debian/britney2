@@ -1583,10 +1583,9 @@ class Britney(object):
         This method returns a dictionary where the keys are the package names
         and the values are the excuse names which depend on it.
         """
-        res = {}
+        res = defaultdict(list)
         for exc in self.excuses:
             for d in exc.deps:
-                if d not in res: res[d] = []
                 res[d].append(exc.name)
         return res
 
@@ -1598,9 +1597,7 @@ class Britney(object):
         `valid' and `invalid' excuses.
         """
         # build a lookup-by-name map
-        exclookup = {}
-        for e in self.excuses:
-            exclookup[e.name] = e
+        exclookup = {e.name: e for e in self.excuses}
 
         # build the reverse dependencies
         revdeps = self.reversed_exc_deps()
