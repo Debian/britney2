@@ -997,8 +997,7 @@ class Britney(object):
 
             # look for the package in the virtual packages list and loop on them
             for prov, prov_version in provides_s_a.get(name, empty_set):
-                if prov not in binaries_s_a:
-                    continue
+                assert prov in binaries_s_a
                 # A provides only satisfies:
                 # - an unversioned dependency (per Policy Manual §7.5)
                 # - a dependency without an architecture qualifier
