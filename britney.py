@@ -424,6 +424,12 @@ class Britney(object):
         else:
             self.options.components = None
 
+        if self.options.control_files and self.options.components:
+            # We cannot regenerate the control files correctly when reading from an
+            # actual mirror (we don't which package goes in what component etc.).
+            self.__log("Cannot use --control-files with mirror-layout (components)!", type="E")
+            sys.exit(1)
+
         if not hasattr(self.options, "heidi_delta_output"):
             self.options.heidi_delta_output = self.options.heidi_output + "Delta"
 
