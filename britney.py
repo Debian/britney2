@@ -965,7 +965,7 @@ class Britney(object):
     # Utility methods for package analysis
     # ------------------------------------
 
-    def get_dependency_solvers(self, block, packages_s_a):
+    def get_dependency_solvers(self, block, packages_s_a, empty_set=frozenset()):
         """Find the packages which satisfy a dependency block
 
         This method returns the list of packages which satisfy a dependency
@@ -996,7 +996,7 @@ class Britney(object):
                         packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
-            for prov, prov_version in provides_s_a.get(name, []):
+            for prov, prov_version in provides_s_a.get(name, empty_set):
                 if prov not in binaries_s_a:
                     continue
                 # A provides only satisfies:
