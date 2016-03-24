@@ -562,8 +562,7 @@ class Britney(object):
 
         self.__log("Loading source packages from %s" % filename)
 
-        with open(filename, encoding='utf-8') as f:
-            Packages = apt_pkg.TagFile(f)
+        Packages = apt_pkg.TagFile(filename)
         get_field = Packages.section.get
         step = Packages.step
 
@@ -618,8 +617,7 @@ class Britney(object):
 
         all_binaries = self.all_binaries
 
-        with open(filename, encoding='utf-8') as f:
-            Packages = apt_pkg.TagFile(f)
+        Packages = apt_pkg.TagFile(filename)
         get_field = Packages.section.get
         step = Packages.step
 
