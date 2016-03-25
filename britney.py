@@ -205,7 +205,7 @@ from britney_util import (old_libraries_format, undo_changes,
                           eval_uninst, newly_uninst, make_migrationitem,
                           write_excuses, write_heidi_delta, write_controlfiles,
                           old_libraries, is_nuninst_asgood_generous,
-                          clone_nuninst)
+                          clone_nuninst, check_installability)
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, MULTIARCH, ESSENTIAL)
@@ -2245,33 +2245,6 @@ class Britney(object):
         # return the package name, the suite, the list of affected packages and the undo dictionary
         return (affected, undo)
 
-
-    def _check_packages(self, binaries, arch, affected, check_archall, nuninst):
-        broken = nuninst[arch + "+all"]
-        to_check = []
-
-        # broken packages (first round)
-        for pkg_id in (x for x in affected if x[2] == arch):
-            name, version, parch = pkg_id
-            if name not in binaries[parch][0]:
-                continue
-            pkgdata = binaries[parch][0][name]
-            if version != pkgdata[VERSION]:
-                # Not the version in testing right now, ignore
-                continue
-            actual_arch = pkgdata[ARCHITECTURE]
-            nuninst_arch = None
-            # only check arch:all packages if requested
-            if check_archall or actual_arch != 'all':
-                nuninst_arch = nuninst[parch]
-            elif actual_arch == 'all':
-                nuninst[parch].discard(name)
-            self._installability_test(name, pkg_id, broken, to_check, nuninst_arch)
-
-        # We have always overshot the affected set, so to_check does not
-        # contain anything new.
-        assert affected.issuperset(to_check)
-
     def try_migration(self, actions, nuninst_now, lundo=None, automatic_revert=True):
         is_accepted = True
         affected_architectures = set()
@@ -2327,7 +2300,7 @@ class Britney(object):
         for arch in affected_architectures:
             check_archall = arch in nobreakall_arches
 
-            self._check_packages(packages_t, arch, affected, check_archall, nuninst_after)
+            check_installability(self._inst_tester, packages_t, arch, affected, check_archall, nuninst_after)
 
             # if the uninstallability counter is worse than before, break the loop
             if automatic_revert and len(nuninst_after[arch]) > len(nuninst_now[arch]):
@@ -2946,34 +2919,6 @@ class Britney(object):
             self.log('> Stats from the installability tester', type="I")
             for stat in self._inst_tester.stats.stats():
                 self.log('>   %s' % stat, type="I")
-
-    def _installability_test(self, pkg_name, pkg_id, broken, to_check, nuninst_arch):
-        """Test for installability of a package on an architecture
-
-        (pkg_name, pkg_version, pkg_arch) is the package to check.
-
-        broken is the set of broken packages.  If p changes
-        installability (e.g. goes from uninstallable to installable),
-        broken will be updated accordingly.  Furthermore, p will be
-        added to "to_check" for futher processing.
-
-        If nuninst_arch is not None then it also updated in the same
-        way as broken is.
-        """
-        r = self._inst_tester.is_installable(pkg_id)
-        if not r:
-            # not installable
-            if pkg_name not in broken:
-                broken.add(pkg_name)
-                to_check.append(pkg_id)
-            if nuninst_arch is not None and pkg_name not in nuninst_arch:
-                nuninst_arch.add(pkg_name)
-        else:
-            if pkg_name in broken:
-                to_check.append(pkg_id)
-                broken.remove(pkg_name)
-            if nuninst_arch is not None and pkg_name in nuninst_arch:
-                nuninst_arch.remove(pkg_name)
 
 
 if __name__ == '__main__':

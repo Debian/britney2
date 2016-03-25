@@ -518,3 +518,60 @@ def clone_nuninst(nuninst, packages_s, architectures):
         clone[arch] = set(x for x in nuninst[arch] if x in packages_s[arch][0])
         clone[arch + "+all"] = set(x for x in nuninst[arch + "+all"] if x in packages_s[arch][0])
     return clone
+
+
+def test_installability(inst_tester, pkg_name, pkg_id, broken, to_check, nuninst_arch):
+    """Test for installability of a package on an architecture
+
+    (pkg_name, pkg_version, pkg_arch) is the package to check.
+
+    broken is the set of broken packages.  If p changes
+    installability (e.g. goes from uninstallable to installable),
+    broken will be updated accordingly.  Furthermore, p will be
+    added to "to_check" for futher processing.
+
+    If nuninst_arch is not None then it also updated in the same
+    way as broken is.
+    """
+    r = inst_tester.is_installable(pkg_id)
+    if not r:
+        # not installable
+        if pkg_name not in broken:
+            broken.add(pkg_name)
+            to_check.append(pkg_id)
+        if nuninst_arch is not None and pkg_name not in nuninst_arch:
+            nuninst_arch.add(pkg_name)
+    else:
+        if pkg_name in broken:
+            to_check.append(pkg_id)
+            broken.remove(pkg_name)
+        if nuninst_arch is not None and pkg_name in nuninst_arch:
+            nuninst_arch.remove(pkg_name)
+
+
+def check_installability(inst_tester, binaries, arch, affected, check_archall, nuninst):
+    broken = nuninst[arch + "+all"]
+    to_check = []
+    packages_t_a = binaries[arch][0]
+
+    # broken packages (first round)
+    for pkg_id in (x for x in affected if x[2] == arch):
+        name, version, parch = pkg_id
+        if name not in packages_t_a:
+            continue
+        pkgdata = packages_t_a[name]
+        if version != pkgdata[VERSION]:
+            # Not the version in testing right now, ignore
+            continue
+        actual_arch = pkgdata[ARCHITECTURE]
+        nuninst_arch = None
+        # only check arch:all packages if requested
+        if check_archall or actual_arch != 'all':
+            nuninst_arch = nuninst[parch]
+        elif actual_arch == 'all':
+            nuninst[parch].discard(name)
+        test_installability(inst_tester, name, pkg_id, broken, to_check, nuninst_arch)
+
+    # We have always overshot the affected set, so to_check does not
+    # contain anything new.
+    assert affected.issuperset(to_check)
