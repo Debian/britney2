@@ -267,7 +267,7 @@ class Britney(object):
             self.hints = self.read_hints(self.options.unstable)
 
         if self.options.nuninst_cache:
-            self.__log("Not building the list of non-installable packages, as requested", type="I")
+            self.log("Not building the list of non-installable packages, as requested", type="I")
             if self.options.print_uninst:
                 print('* summary')
                 print('\n'.join('%4d %s' % (len(nuninst[x]), x) for x in self.options.architectures))
@@ -301,18 +301,18 @@ class Britney(object):
                 # here.
                 self.binaries['pu'][arch] = ({}, {})
 
-        self.__log("Compiling Installability tester", type="I")
+        self.log("Compiling Installability tester", type="I")
         self._build_installability_tester(self.options.architectures)
 
         if not self.options.nuninst_cache:
-            self.__log("Building the list of non-installable packages for the full archive", type="I")
+            self.log("Building the list of non-installable packages for the full archive", type="I")
             nuninst = {}
             self._inst_tester.compute_testing_installability()
             for arch in self.options.architectures:
-                self.__log("> Checking for non-installable packages for architecture %s" % arch, type="I")
+                self.log("> Checking for non-installable packages for architecture %s" % arch, type="I")
                 result = self.get_nuninst(arch, build=True)
                 nuninst.update(result)
-                self.__log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
+                self.log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
                 if self.options.print_uninst:
                     self.nuninst_arch_report(nuninst, arch)
 
@@ -324,12 +324,12 @@ class Britney(object):
                 write_nuninst(self.options.noninst_status, nuninst)
 
             stats = self._inst_tester.compute_stats()
-            self.__log("> Installability tester statistics (per architecture)", type="I")
+            self.log("> Installability tester statistics (per architecture)", type="I")
             for arch in self.options.architectures:
                 arch_stat = stats[arch]
-                self.__log(">  %s" % arch, type="I")
+                self.log(">  %s" % arch, type="I")
                 for stat in arch_stat.stat_summary():
-                    self.__log(">  - %s" % stat, type="I")
+                    self.log(">  - %s" % stat, type="I")
 
         # read the release-critical bug summaries for testing and unstable
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
@@ -349,10 +349,10 @@ class Britney(object):
                 bad.append((f, pkg_entry1[f], pkg_entry2[f]))
 
         if bad:
-            self.__log("Mismatch found %s %s %s differs" % (
+            self.log("Mismatch found %s %s %s differs" % (
                 package, pkg_entry1[VERSION], parch), type="E")
             for f, v1, v2 in bad:
-                self.__log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
+                self.log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
             raise ValueError("Invalid data set")
 
         # Merge ESSENTIAL if necessary
@@ -393,11 +393,11 @@ class Britney(object):
         
         # integrity checks
         if self.options.nuninst_cache and self.options.print_uninst:
-            self.__log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
+            self.log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
             sys.exit(1)
         # if the configuration file exists, then read it and set the additional options
         elif not os.path.isfile(self.options.config):
-            self.__log("Unable to read the configuration file (%s), exiting!" % self.options.config, type="E")
+            self.log("Unable to read the configuration file (%s), exiting!" % self.options.config, type="E")
             sys.exit(1)
 
         # minimum days for unstable-testing transition and the list of hints
@@ -427,7 +427,7 @@ class Britney(object):
         if self.options.control_files and self.options.components:
             # We cannot regenerate the control files correctly when reading from an
             # actual mirror (we don't which package goes in what component etc.).
-            self.__log("Cannot use --control-files with mirror-layout (components)!", type="E")
+            self.log("Cannot use --control-files with mirror-layout (components)!", type="E")
             sys.exit(1)
 
         if not hasattr(self.options, "heidi_delta_output"):
@@ -452,7 +452,7 @@ class Britney(object):
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
 
-    def __log(self, msg, type="I"):
+    def log(self, msg, type="I"):
         """Print info messages according to verbosity level
         
         An easy-and-simple log method which prints messages to the standard
@@ -560,7 +560,7 @@ class Britney(object):
         if sources is None:
             sources = {}
 
-        self.__log("Loading source packages from %s" % filename)
+        self.log("Loading source packages from %s" % filename)
 
         Packages = apt_pkg.TagFile(filename)
         get_field = Packages.section.get
@@ -610,7 +610,7 @@ class Britney(object):
         return sources
 
     def _read_packages_file(self, filename, arch, srcdist, packages=None, intern=sys.intern):
-        self.__log("Loading binary packages from %s" % filename)
+        self.log("Loading binary packages from %s" % filename)
 
         if packages is None:
             packages = {}
@@ -695,13 +695,13 @@ class Britney(object):
                 for or_clause in parts:
                     if len(or_clause) != 1:
                         msg = "Ignoring invalid provides in %s: Alternatives [%s]" % (str(pkg_id), str(or_clause))
-                        self.__log(msg, type='W')
+                        self.log(msg, type='W')
                         continue
                     for part in or_clause:
                         provided, provided_version, op = part
                         if op != '' and op != '=':
                             msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, version)
-                            self.__log(msg, type='W')
+                            self.log(msg, type='W')
                             continue
                         provided = intern(provided)
                         provided_version = intern(provided_version)
@@ -795,11 +795,11 @@ class Britney(object):
         """
         bugs = defaultdict(list)
         filename = os.path.join(basedir, "BugsV")
-        self.__log("Loading RC bugs data from %s" % filename)
+        self.log("Loading RC bugs data from %s" % filename)
         for line in open(filename, encoding='ascii'):
             l = line.split()
             if len(l) != 2:
-                self.__log("Malformed line found in line %s" % (line), type='W')
+                self.log("Malformed line found in line %s" % (line), type='W')
                 continue
             pkg = l[0]
             bugs[pkg] += l[1].split(",")
@@ -865,14 +865,14 @@ class Britney(object):
         """
         dates = {}
         filename = os.path.join(basedir, "Dates")
-        self.__log("Loading upload data from %s" % filename)
+        self.log("Loading upload data from %s" % filename)
         for line in open(filename, encoding='ascii'):
             l = line.split()
             if len(l) != 3: continue
             try:
                 dates[l[0]] = (l[1], int(l[2]))
             except ValueError:
-                self.__log("Dates, unable to parse \"%s\"" % line, type="E")
+                self.log("Dates, unable to parse \"%s\"" % line, type="E")
         return dates
 
     def write_dates(self, basedir, dates):
@@ -882,7 +882,7 @@ class Britney(object):
         read_dates.
         """
         filename = os.path.join(basedir, "Dates")
-        self.__log("Writing upload data to %s" % filename)
+        self.log("Writing upload data to %s" % filename)
         with open(filename, 'w', encoding='utf-8') as f:
             for pkg in sorted(dates):
                 f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
@@ -904,7 +904,7 @@ class Britney(object):
 
         urgencies = {}
         filename = os.path.join(basedir, "Urgency")
-        self.__log("Loading upload urgencies from %s" % filename)
+        self.log("Loading upload urgencies from %s" % filename)
         for line in open(filename, errors='surrogateescape', encoding='ascii'):
             l = line.split()
             if len(l) != 3: continue
@@ -957,9 +957,9 @@ class Britney(object):
             else:
                 filename = os.path.join(basedir, "Hints", who)
                 if not os.path.isfile(filename):
-                    self.__log("Cannot read hints list from %s, no such file!" % filename, type="E")
+                    self.log("Cannot read hints list from %s, no such file!" % filename, type="E")
                     continue
-                self.__log("Loading hints list from %s" % filename)
+                self.log("Loading hints list from %s" % filename)
                 with open(filename, encoding='utf-8') as f:
                     lines = f.readlines()
             for line in lines:
@@ -977,7 +977,7 @@ class Britney(object):
                     continue
                 elif len(l) == 1:
                     # All current hints require at least one argument
-                    self.__log("Malformed hint found in %s: '%s'" % (filename, line), type="W")
+                    self.log("Malformed hint found in %s: '%s'" % (filename, line), type="W")
                 elif l[0] in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove"]:
                     if l[0] == 'approve': l[0] = 'unblock'
                     for package in l[1:]:
@@ -998,16 +998,16 @@ class Britney(object):
                     if x in ['unblock', 'unblock-udeb']:
                         if apt_pkg.version_compare(hint2.version, hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
-                            self.__log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
+                            self.log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
                                (x, package, hint2.version, hint2.user, hint.version, hint.user), type="W")
                             hint2.set_active(False)
                         else:
                             # This hint is for an older version, so ignore it in favour of the new one
-                            self.__log("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal" %
+                            self.log("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal" %
                                (x, package, hint.version, hint.user, hint2.version, hint2.user), type="W")
                             hint.set_active(False)
                     else:
-                        self.__log("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s', '%s', '%s')" %
+                        self.log("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s', '%s', '%s')" %
                            (x, package, hint2.version, hint2.user, hint2.days,
                             hint.version, hint.user, hint.days), type="W")
                         hint2.set_active(False)
@@ -1016,7 +1016,7 @@ class Britney(object):
 
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
-            self.__log("WARNING: No block hints at all, not even udeb ones!", type="W")
+            self.log("WARNING: No block hints at all, not even udeb ones!", type="W")
 
         return hints
 
@@ -1698,7 +1698,7 @@ class Britney(object):
         of this procedure, please refer to the module docstring.
         """
 
-        self.__log("Update Excuses generation started", type="I")
+        self.log("Update Excuses generation started", type="I")
 
         # list of local methods and variables (for better performance)
         sources = self.sources
@@ -1813,15 +1813,15 @@ class Britney(object):
 
         # write excuses to the output file
         if not self.options.dry_run:
-            self.__log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
+            self.log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
             write_excuses(self.excuses, self.options.excuses_output,
                           output_format="legacy-html")
             if hasattr(self.options, 'excuses_yaml_output'):
-                self.__log("> Writing YAML Excuses to %s" % self.options.excuses_yaml_output, type="I")
+                self.log("> Writing YAML Excuses to %s" % self.options.excuses_yaml_output, type="I")
                 write_excuses(self.excuses, self.options.excuses_yaml_output,
                           output_format="yaml")
 
-        self.__log("Update Excuses generation completed", type="I")
+        self.log("Update Excuses generation completed", type="I")
 
     # Upgrade run
     # -----------
@@ -2570,27 +2570,27 @@ class Britney(object):
 
 
     def assert_nuninst_is_correct(self):
-        self.__log("> Update complete - Verifying non-installability counters", type="I")
+        self.log("> Update complete - Verifying non-installability counters", type="I")
 
         cached_nuninst = self.nuninst_orig
         self._inst_tester.compute_testing_installability()
         computed_nuninst = self.get_nuninst(build=True)
         if cached_nuninst != computed_nuninst:
-            self.__log("==================== NUNINST OUT OF SYNC =========================", type="E")
+            self.log("==================== NUNINST OUT OF SYNC =========================", type="E")
             for arch in self.options.architectures:
                 expected_nuninst = set(cached_nuninst[arch])
                 actual_nuninst = set(computed_nuninst[arch])
                 false_negatives = actual_nuninst - expected_nuninst
                 false_positives = expected_nuninst - actual_nuninst
                 if false_negatives:
-                    self.__log(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)), type="E")
+                    self.log(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)), type="E")
                 if false_positives:
-                    self.__log(" %s - invalid nuninst: %s" % (arch, str(false_positives)), type="E")
-                self.__log(" %s - actual nuninst: %s" % (arch, str(actual_nuninst)), type="I")
-                self.__log("==================== NUNINST OUT OF SYNC =========================", type="E")
+                    self.log(" %s - invalid nuninst: %s" % (arch, str(false_positives)), type="E")
+                self.log(" %s - actual nuninst: %s" % (arch, str(actual_nuninst)), type="I")
+                self.log("==================== NUNINST OUT OF SYNC =========================", type="E")
             raise AssertionError("NUNINST OUT OF SYNC")
 
-        self.__log("> All non-installability counters are ok", type="I")
+        self.log("> All non-installability counters are ok", type="I")
 
 
     def upgrade_testing(self):
@@ -2601,11 +2601,11 @@ class Britney(object):
         commands.
         """
 
-        self.__log("Starting the upgrade test", type="I")
+        self.log("Starting the upgrade test", type="I")
         self.output_write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
         self.output_write("Arch order is: %s\n" % ", ".join(self.options.architectures))
 
-        self.__log("> Calculating current uninstallability counters", type="I")
+        self.log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
         # nuninst_orig may get updated during the upgrade process
         self.nuninst_orig_save = self.get_nuninst()
@@ -2660,7 +2660,7 @@ class Britney(object):
         # obsolete source packages
         # a package is obsolete if none of the binary packages in testing
         # are built by it
-        self.__log("> Removing obsolete source packages from testing", type="I")
+        self.log("> Removing obsolete source packages from testing", type="I")
         # local copies for performance
         sources = self.sources['testing']
         binaries = self.binaries['testing']
@@ -2677,7 +2677,7 @@ class Britney(object):
 
         # smooth updates
         if self.options.smooth_updates:
-            self.__log("> Removing old packages left in testing from smooth updates", type="I")
+            self.log("> Removing old packages left in testing from smooth updates", type="I")
             removals = old_libraries(self.sources, self.binaries, self.options.fucked_arches)
             if removals:
                 self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
@@ -2696,7 +2696,7 @@ class Britney(object):
         if not self.options.dry_run:
             # re-write control files
             if self.options.control_files:
-                self.__log("Writing new testing control files to %s" %
+                self.log("Writing new testing control files to %s" %
                            self.options.testing)
                 write_controlfiles(self.sources, self.binaries,
                                    'testing', self.options.testing)
@@ -2708,20 +2708,20 @@ class Britney(object):
                 self.write_dates(self.options.testing, self.dates)
 
             # write HeidiResult
-            self.__log("Writing Heidi results to %s" % self.options.heidi_output)
+            self.log("Writing Heidi results to %s" % self.options.heidi_output)
             write_heidi(self.options.heidi_output, self.sources["testing"],
                         self.binaries["testing"])
 
-            self.__log("Writing delta to %s" % self.options.heidi_delta_output)
+            self.log("Writing delta to %s" % self.options.heidi_delta_output)
             write_heidi_delta(self.options.heidi_delta_output,
                               self.all_selected)
 
 
         self.printuninstchange()
-        self.__log("Test completed!", type="I")
+        self.log("Test completed!", type="I")
 
     def printuninstchange(self):
-        self.__log("Checking for newly uninstallable packages", type="I")
+        self.log("Checking for newly uninstallable packages", type="I")
         text = eval_uninst(self.options.architectures, newly_uninst(
                         self.nuninst_orig_save, self.nuninst_orig))
 
@@ -2735,7 +2735,7 @@ class Britney(object):
         This method provides a command line interface for the release team to
         try hints and evaluate the results.
         """
-        self.__log("> Calculating current uninstallability counters", type="I")
+        self.log("> Calculating current uninstallability counters", type="I")
         self.nuninst_orig = self.get_nuninst()
         self.nuninst_orig_save = self.get_nuninst()
 
@@ -2781,7 +2781,7 @@ class Britney(object):
         try:
             readline.write_history_file(histfile)
         except IOError as e:
-            self.__log("Could not write %s: %s" % (histfile, e), type="W")
+            self.log("Could not write %s: %s" % (histfile, e), type="W")
 
     def do_hint(self, hinttype, who, pkgvers):
         """Process hints
@@ -2795,7 +2795,7 @@ class Britney(object):
         else:
             _pkgvers = pkgvers
 
-        self.__log("> Processing '%s' hint from %s" % (hinttype, who), type="I")
+        self.log("> Processing '%s' hint from %s" % (hinttype, who), type="I")
         self.output_write("Trying %s from %s: %s\n" % (hinttype, who, " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)))
 
         ok = True
@@ -2851,7 +2851,7 @@ class Britney(object):
         excuses relationships. If they build a circular dependency, which we already
         know as not-working with the standard do_all algorithm, try to `easy` them.
         """
-        self.__log("> Processing hints from the auto hinter",
+        self.log("> Processing hints from the auto hinter",
                    type="I")
 
         # consider only excuses which are valid candidates
@@ -2968,9 +2968,9 @@ class Britney(object):
             else:
                 self.upgrade_testing()
 
-            self.__log('> Stats from the installability tester', type="I")
+            self.log('> Stats from the installability tester', type="I")
             for stat in self._inst_tester.stats.stats():
-                self.__log('>   %s' % stat, type="I")
+                self.log('>   %s' % stat, type="I")
 
     def _installability_test(self, pkg_name, pkg_id, broken, to_check, nuninst_arch):
         """Test for installability of a package on an architecture
