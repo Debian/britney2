@@ -260,6 +260,7 @@ class Britney(object):
         self.sources = {}
         self.binaries = {}
         self.all_selected = []
+        self.excuses = {}
 
         try:
             self.hints = self.read_hints(self.options.hintsdir)
@@ -339,7 +340,6 @@ class Britney(object):
         # read additional data
         self.dates = self.read_dates(self.options.testing)
         self.urgencies = self.read_urgencies(self.options.testing)
-        self.excuses = []
 
     def merge_pkg_entries(self, package, parch, pkg_entry1, pkg_entry2,
                           check_fields=check_fields, check_field_name=check_field_name):
@@ -1140,11 +1140,11 @@ class Britney(object):
                 "(check https://release.debian.org/testing/freeze_policy.html if update is needed)" % hint.user)
             excuse.addhtml("Not considered")
             excuse.addreason("block")
-            self.excuses.append(excuse)
+            self.excuses[excuse.name] = excuse
             return False
 
         excuse.is_valid = True
-        self.excuses.append(excuse)
+        self.excuses[excuse.name] = excuse
         return True
 
     def should_upgrade_srcarch(self, src, arch, suite):
@@ -1178,7 +1178,7 @@ class Britney(object):
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
             excuse.addreason("remove")
-            self.excuses.append(excuse)
+            self.excuses[excuse.name] = excuse
             return False
 
         # the starting point is that there is nothing wrong and nothing worth doing
@@ -1289,12 +1289,12 @@ class Britney(object):
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
             excuse.is_valid = True
-            self.excuses.append(excuse)
+            self.excuses[excuse.name] = excuse
             return True
         # else if there is something worth doing (but something wrong, too) this package won't be considered
         elif anyworthdoing:
             excuse.addhtml("Not considered")
-            self.excuses.append(excuse)
+            self.excuses[excuse.name] = excuse
 
         # otherwise, return False
         return False
@@ -1334,7 +1334,7 @@ class Britney(object):
         # if the version in unstable is older, then stop here with a warning in the excuse and return False
         if source_t and apt_pkg.version_compare(source_u[VERSION], source_t[VERSION]) < 0:
             excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t[VERSION], source_u[VERSION]))
-            self.excuses.append(excuse)
+            self.excuses[excuse.name] = excuse
             excuse.addreason("newerintesting")
             return False
 
@@ -1611,7 +1611,7 @@ class Britney(object):
             # TODO
             excuse.addhtml("Not considered")
 
-        self.excuses.append(excuse)
+        self.excuses[excuse.name] = excuse
         return update_candidate
 
     def reversed_exc_deps(self):
@@ -1621,7 +1621,7 @@ class Britney(object):
         and the values are the excuse names which depend on it.
         """
         res = defaultdict(list)
-        for exc in self.excuses:
+        for exc in self.excuses.values():
             for d in exc.deps:
                 res[d].append(exc.name)
         return res
@@ -1633,8 +1633,7 @@ class Britney(object):
         on invalid excuses. The two parameters contains the list of
         `valid' and `invalid' excuses.
         """
-        # build a lookup-by-name map
-        exclookup = {e.name: e for e in self.excuses}
+        excuses = self.excuses
 
         # build the reverse dependencies
         revdeps = self.reversed_exc_deps()
@@ -1653,19 +1652,19 @@ class Britney(object):
             # loop on the reverse dependencies
             for x in revdeps[invalid[i]]:
                 # if the item is valid and it is marked as `dontinvalidate', skip the item
-                if x in valid and exclookup[x].dontinvalidate:
+                if x in valid and excuses[x].dontinvalidate:
                     continue
 
                 # otherwise, invalidate the dependency and mark as invalidated and
                 # remove the depending excuses
-                exclookup[x].invalidate_dep(invalid[i])
+                excuses[x].invalidate_dep(invalid[i])
                 if x in valid:
                     p = valid.index(x)
                     invalid.append(valid.pop(p))
-                    exclookup[x].addhtml("Invalidated by dependency")
-                    exclookup[x].addhtml("Not considered")
-                    exclookup[x].addreason("depends")
-                    exclookup[x].is_valid = False
+                    excuses[x].addhtml("Invalidated by dependency")
+                    excuses[x].addhtml("Not considered")
+                    excuses[x].addreason("depends")
+                    excuses[x].is_valid = False
             i = i + 1
  
     def write_excuses(self):
@@ -1689,7 +1688,7 @@ class Britney(object):
         # if a package is going to be removed, it will have a "-" prefix
         upgrade_me = []
 
-        self.excuses = []
+        excuses = self.excuses = {}
 
         # for every source package in testing, check if it should be removed
         for pkg in sources['testing']:
@@ -1743,16 +1742,13 @@ class Britney(object):
             excuse.addhtml("Removal request by %s" % (item.user))
             excuse.addhtml("Package is broken, will try to remove")
             excuse.addreason("remove")
-            self.excuses.append(excuse)
-
-        # sort the excuses by daysold and name
-        self.excuses.sort(key=lambda x: x.sortkey())
+            excuses[excuse.name] = excuse
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me
-        unconsidered = [e.name for e in self.excuses if e.name not in upgrade_me]
+        unconsidered = [ename for ename in excuses if ename not in upgrade_me]
 
         # invalidate impossible excuses
-        for e in self.excuses:
+        for e in excuses.values():
             # parts[0] == package name
             # parts[1] == optional architecture
             parts = e.name.split('/')
@@ -1792,12 +1788,13 @@ class Britney(object):
         # write excuses to the output file
         if not self.options.dry_run:
             self.log("> Writing Excuses to %s" % self.options.excuses_output, type="I")
-            write_excuses(self.excuses, self.options.excuses_output,
+            sorted_excuses = sorted(excuses.values(), key=lambda x: x.sortkey())
+            write_excuses(sorted_excuses, self.options.excuses_output,
                           output_format="legacy-html")
             if hasattr(self.options, 'excuses_yaml_output'):
                 self.log("> Writing YAML Excuses to %s" % self.options.excuses_yaml_output, type="I")
-                write_excuses(self.excuses, self.options.excuses_yaml_output,
-                          output_format="yaml")
+                write_excuses(sorted_excuses, self.options.excuses_yaml_output,
+                              output_format="yaml")
 
         self.log("Update Excuses generation completed", type="I")
 
@@ -2834,12 +2831,12 @@ class Britney(object):
 
         # consider only excuses which are valid candidates
         valid_excuses = frozenset(y.uvname for y in self.upgrade_me)
-        excuses = dict((x.name, x) for x in self.excuses if x.name in valid_excuses)
-        excuses_deps = dict((name, set(excuse.deps)) for name, excuse in excuses.items())
+        excuses = self.excuses
+        excuses_deps = dict((name, set(excuse.deps)) for name, excuse in excuses.items() if name in valid_excuses)
         sources_t = self.sources['testing']
 
         def find_related(e, hint, circular_first=False):
-            if e not in excuses:
+            if e not in valid_excuses:
                 return False
             excuse = excuses[e]
             if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
@@ -2858,7 +2855,7 @@ class Britney(object):
         candidates = []
         mincands = []
         seen_hints = set()
-        for e in excuses:
+        for e in valid_excuses:
             excuse = excuses[e]
             if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
                 continue
@@ -2878,7 +2875,7 @@ class Britney(object):
 
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
-                    new_items = [(x, excuses[x].ver[1]) for x in excuses if \
+                    new_items = [(x, excuses[x].ver[1]) for x in valid_excuses if \
                        (item in excuses_deps[x] or x in excuses_deps[item]) \
                        and (x, excuses[x].ver[1]) not in seen_items]
                     items.extend(new_items)

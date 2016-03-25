@@ -342,7 +342,7 @@ def make_migrationitem(package, sources, VERSION=VERSION):
     return MigrationItem("%s/%s" % (item.uvname, sources[item.suite][item.package][VERSION]))
 
 
-def write_excuses(excuses, dest_file, output_format="yaml"):
+def write_excuses(excuselist, dest_file, output_format="yaml"):
     """Write the excuses to dest_file
 
     Writes a list of excuses in a specified output_format to the
@@ -351,12 +351,11 @@ def write_excuses(excuses, dest_file, output_format="yaml"):
     """
     if output_format == "yaml":
         with open(dest_file, 'w', encoding='utf-8') as f:
-            excuselist = []
-            for e in excuses:
-                excuselist.append(e.excusedata())
-            excusesdata = {}
-            excusesdata["sources"] = excuselist
-            excusesdata["generated-date"] = datetime.utcnow()
+            edatalist = [e.excusedata() for e in excuselist]
+            excusesdata = {
+                'sources': edatalist,
+                'generated-date': datetime.utcnow(),
+            }
             f.write(yaml.dump(excusesdata, default_flow_style=False, allow_unicode=True))
     elif output_format == "legacy-html":
         with open(dest_file, 'w', encoding='utf-8') as f:
@@ -365,7 +364,7 @@ def write_excuses(excuses, dest_file, output_format="yaml"):
             f.write("<meta http-equiv=\"Content-Type\" content=\"text/html;charset=utf-8\"></head><body>\n")
             f.write("<p>Generated: " + time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())) + "</p>\n")
             f.write("<ul>\n")
-            for e in excuses:
+            for e in excuselist:
                 f.write("<li>%s" % e.html())
             f.write("</ul></body></html>\n")
     else:
