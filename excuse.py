@@ -59,6 +59,7 @@ class Excuse(object):
         self.oldbugs = set()
         self.reason = {}
         self.htmlline = []
+        self.policy_info = {}
 
     def sortkey(self):
         if self.daysold == None:

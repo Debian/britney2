@@ -57,7 +57,7 @@ Other than source and binary packages, Britney loads the following data:
     of a source package (see Britney.read_dates).
 
   * Urgencies, which contains the urgency of the upload of a given
-    version of a source package (see Britney.read_urgencies).
+    version of a source package (see AgePolicy._read_urgencies).
 
   * Hints, which contains lists of commands which modify the standard behaviour
     of Britney (see Britney.read_hints).
@@ -206,6 +206,7 @@ from britney_util import (old_libraries_format, undo_changes,
                           write_excuses, write_heidi_delta, write_controlfiles,
                           old_libraries, is_nuninst_asgood_generous,
                           clone_nuninst, check_installability)
+from policies.policy import AgePolicy, PolicyVerdict
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, MULTIARCH, ESSENTIAL)
@@ -248,10 +249,9 @@ class Britney(object):
         This method initializes and populates the data lists, which contain all
         the information needed by the other methods of the class.
         """
-        # britney's "day" begins at 3pm
-        self.date_now = int(((time.time() / (60*60)) - 15) / 24)
 
         # parse the command line arguments
+        self.policies = []
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
 
@@ -336,10 +336,9 @@ class Britney(object):
         self.bugs = {'unstable': self.read_bugs(self.options.unstable),
                      'testing': self.read_bugs(self.options.testing),}
         self.normalize_bugs()
-
-        # read additional data
-        self.dates = self.read_dates(self.options.testing)
-        self.urgencies = self.read_urgencies(self.options.testing)
+        for policy in self.policies:
+            policy.hints = self.hints
+            policy.initialise(self)
 
     def merge_pkg_entries(self, package, parch, pkg_entry1, pkg_entry2,
                           check_fields=check_fields, check_field_name=check_field_name):
@@ -402,7 +401,7 @@ class Britney(object):
 
         # minimum days for unstable-testing transition and the list of hints
         # are handled as an ad-hoc case
-        self.MINDAYS = {}
+        MINDAYS = {}
         self.HINTS = {'command-line': self.HINTS_ALL}
         with open(self.options.config, encoding='utf-8') as config:
             for line in config:
@@ -411,7 +410,7 @@ class Britney(object):
                     k = k.strip()
                     v = v.strip()
                     if k.startswith("MINDAYS_"):
-                        self.MINDAYS[k.split("_")[1].lower()] = int(v)
+                        MINDAYS[k.split("_")[1].lower()] = int(v)
                     elif k.startswith("HINTS_"):
                         self.HINTS[k.split("_")[1].lower()] = \
                             reduce(lambda x,y: x+y, [hasattr(self, "HINTS_" + i) and getattr(self, "HINTS_" + i) or (i,) for i in v.split()])
@@ -451,6 +450,8 @@ class Britney(object):
         if not hasattr(self.options, 'ignore_cruft') or \
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
+
+        self.policies.append(AgePolicy(self.options, MINDAYS))
 
     def log(self, msg, type="I"):
         """Print info messages according to verbosity level
@@ -863,90 +864,6 @@ class Britney(object):
             if maxvert is None:
                 self.bugs['testing'][pkg] = []
 
-    def read_dates(self, basedir):
-        """Read the upload date for the packages from the specified directory
-        
-        The upload dates are read from the `Dates' file within the directory
-        specified as `basedir' parameter. The file contains rows with the
-        format:
-
-        <package-name> <version> <date-of-upload>
-
-        The dates are expressed as the number of days from 1970-01-01.
-
-        The method returns a dictionary where the key is the binary package
-        name and the value is a tuple with two items, the version and the date.
-        """
-        dates = {}
-        filename = os.path.join(basedir, "Dates")
-        self.log("Loading upload data from %s" % filename)
-        for line in open(filename, encoding='ascii'):
-            l = line.split()
-            if len(l) != 3: continue
-            try:
-                dates[l[0]] = (l[1], int(l[2]))
-            except ValueError:
-                self.log("Dates, unable to parse \"%s\"" % line, type="E")
-        return dates
-
-    def write_dates(self, basedir, dates):
-        """Write the upload date for the packages to the specified directory
-
-        For a more detailed explanation of the format, please check the method
-        read_dates.
-        """
-        filename = os.path.join(basedir, "Dates")
-        self.log("Writing upload data to %s" % filename)
-        with open(filename, 'w', encoding='utf-8') as f:
-            for pkg in sorted(dates):
-                f.write("%s %s %d\n" % ((pkg,) + dates[pkg]))
-
-
-    def read_urgencies(self, basedir):
-        """Read the upload urgency of the packages from the specified directory
-        
-        The upload urgencies are read from the `Urgency' file within the
-        directory specified as `basedir' parameter. The file contains rows
-        with the format:
-
-        <package-name> <version> <urgency>
-
-        The method returns a dictionary where the key is the binary package
-        name and the value is the greatest urgency from the versions of the
-        package that are higher then the testing one.
-        """
-
-        urgencies = {}
-        filename = os.path.join(basedir, "Urgency")
-        self.log("Loading upload urgencies from %s" % filename)
-        for line in open(filename, errors='surrogateescape', encoding='ascii'):
-            l = line.split()
-            if len(l) != 3: continue
-
-            # read the minimum days associated with the urgencies
-            urgency_old = urgencies.get(l[0], None)
-            mindays_old = self.MINDAYS.get(urgency_old, 1000)
-            mindays_new = self.MINDAYS.get(l[2], self.MINDAYS[self.options.default_urgency])
-
-            # if the new urgency is lower (so the min days are higher), do nothing
-            if mindays_old <= mindays_new:
-                continue
-
-            # if the package exists in testing and it is more recent, do nothing
-            tsrcv = self.sources['testing'].get(l[0], None)
-            if tsrcv and apt_pkg.version_compare(tsrcv[VERSION], l[1]) >= 0:
-                continue
-
-            # if the package doesn't exist in unstable or it is older, do nothing
-            usrcv = self.sources['unstable'].get(l[0], None)
-            if not usrcv or apt_pkg.version_compare(usrcv[VERSION], l[1]) < 0:
-                continue
-
-            # update the urgency for the package
-            urgencies[l[0]] = l[2]
-
-        return urgencies
-
     def read_hints(self, basedir):
         """Read the hint commands from the specified directory
         
@@ -1357,13 +1274,6 @@ class Britney(object):
             excuse.addhtml("%s source package doesn't exist" % (src))
             update_candidate = False
 
-        # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
-        urgency = self.urgencies.get(src, self.options.default_urgency)
-        if not source_t:
-            if self.MINDAYS[urgency] < self.MINDAYS[self.options.default_urgency]:
-                excuse.addhtml("Ignoring %s urgency setting for NEW package" % (urgency))
-                urgency = self.options.default_urgency
-
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
         for item in self.hints.search('remove', package=src):
@@ -1424,30 +1334,32 @@ class Britney(object):
         # permanence in unstable before updating testing; if the source package is too young,
         # the check fails and we set update_candidate to False to block the update; consider
         # the age-days hint, if specified for the package
-        if suite == 'unstable':
-            if src not in self.dates:
-                self.dates[src] = (source_u[VERSION], self.date_now)
-            elif self.dates[src][0] != source_u[VERSION]:
-                self.dates[src] = (source_u[VERSION], self.date_now)
+        policy_info = excuse.policy_info
+        policy_verdict = PolicyVerdict.PASS
+        for policy in self.policies:
+            if suite in policy.applicable_suites:
+                v = policy.apply_policy(policy_info, suite, src, source_t, source_u)
+                if v.value > policy_verdict.value:
+                    policy_verdict = v
 
-            days_old = self.date_now - self.dates[src][1]
-            min_days = self.MINDAYS[urgency]
+        if policy_verdict.is_rejected:
+            update_candidate = False
 
-            for age_days_hint in [x for x in self.hints.search('age-days', package=src)
-                                  if source_u[VERSION] == x.version]:
-                excuse.addhtml("Overriding age needed from %d days to %d by %s" % (min_days,
-                    int(age_days_hint.days), age_days_hint.user))
-                min_days = int(age_days_hint.days)
-
-            excuse.setdaysold(days_old, min_days)
-            if days_old < min_days:
-                urgent_hints = [x for x in self.hints.search('urgent', package=src)
-                                if source_u[VERSION] == x.version]
-                if urgent_hints:
-                    excuse.addhtml("Too young, but urgency pushed by %s" % (urgent_hints[0].user))
+        # Joggle some things into excuses
+        # - remove once the YAML is the canonical source for this information
+        if 'age' in policy_info:
+            age_info = policy_info['age']
+            age_hint = age_info.get('age-requirement-reduced', None)
+            age_min_req = age_info['age-requirement']
+            if age_hint:
+                new_req = age_hint['new-requirement']
+                who = age_hint['changed-by']
+                if new_req:
+                    excuse.addhtml("Overriding age needed from %d days to %d by %s" % (
+                        age_min_req, new_req, who))
                 else:
-                    update_candidate = False
-                    excuse.addreason("age")
+                    excuse.addhtml("Too young, but urgency pushed by %s" % who)
+            excuse.setdaysold(age_info['current-age'], age_min_req)
 
         all_binaries = self.all_binaries
 
@@ -1560,7 +1472,7 @@ class Britney(object):
                         excuse.addreason("build-arch")
                         excuse.addreason("build-arch-%s" % arch)
 
-                if self.date_now != self.dates[src][1]:
+                if 'age' in policy_info and policy_info['age']['current-age']:
                     excuse.addhtml(text)
 
         # if the source package has no binaries, set update_candidate to False to block the update
@@ -2656,11 +2568,8 @@ class Britney(object):
                 write_controlfiles(self.sources, self.binaries,
                                    'testing', self.options.testing)
 
-            # write dates
-            try:
-                self.write_dates(self.options.outputdir, self.dates)
-            except AttributeError:
-                self.write_dates(self.options.testing, self.dates)
+            for policy in self.policies:
+                policy.save_state(self)
 
             # write HeidiResult
             self.log("Writing Heidi results to %s" % self.options.heidi_output)
