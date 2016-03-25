@@ -2098,8 +2098,6 @@ class Britney(object):
                                                item.architecture,
                                                item.is_removal,
                                                removals=removals)
-        #print("+++ %s" % (sorted(updates)))
-        #print("--- %s" % (sorted(rms)))
 
         # remove all binary packages (if the source already exists)
         if item.architecture == 'source' or not item.is_removal:
