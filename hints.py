@@ -16,6 +16,11 @@ from __future__ import print_function
 
 from migrationitem import MigrationItem
 
+
+class MalformedHintException(Exception):
+    pass
+
+
 class HintCollection(object):
     def __init__(self):
         self._hints = []
@@ -35,10 +40,8 @@ class HintCollection(object):
                ]
 
     def add_hint(self, hint, user):
-        try:
-            self._hints.append(Hint(hint, user))
-        except AssertionError:
-            print("Ignoring broken hint %r from %s" % (hint, user))
+        self._hints.append(Hint(hint, user))
+
 
 class Hint(object):
     NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
@@ -48,7 +51,7 @@ class Hint(object):
         self._user = user
         self._active = True
         self._days = None
-        if isinstance(hint, list):
+        if isinstance(hint, list) or isinstance(hint, tuple):
             self._type = hint[0]
             self._packages = hint[1:]
         else:
@@ -71,9 +74,11 @@ class Hint(object):
     def check(self):
         for package in self.packages:
             if self.type in self.__class__.NO_VERSION:
-                assert package.version is None, package
+                if package.version is not None:
+                    raise MalformedHintException("\"%s\" needs unversioned packages, got \"%s\"" % (self.type, package))
             else:
-                assert package.version is not None, package
+                if package.version is None:
+                    raise MalformedHintException("\"%s\" needs versioned packages, got \"%s\"" % (self.type, package))
 
     def set_active(self, active):
         self._active = active
@@ -125,3 +130,89 @@ class Hint(object):
         else:
             return None
 
+
+def age_day_hint(hints, who, hint_name, new_age, *args):
+    for package in args:
+        hints.add_hint('%s %s %s' % (hint_name, new_age, package), who)
+
+
+def split_into_one_hint_per_package(hints, who, hint_name, *args):
+    for package in args:
+        hints.add_hint('%s %s' % (hint_name, package), who)
+
+
+def single_hint_taking_list_of_packages(hints, who, *args):
+    hints.add_hint(args, who)
+
+
+class HintParser(object):
+
+    def __init__(self, britney):
+        self._britney = britney
+        self.hints = HintCollection()
+        self._hint_table = {
+            'remark': (0, lambda *x: None),
+
+            # Migration grouping hints
+            'easy': (2, single_hint_taking_list_of_packages), # Easy needs at least 2 to make sense
+            'force-hint': (1, single_hint_taking_list_of_packages),
+            'hint': (1, single_hint_taking_list_of_packages),
+
+            # Age / urgent
+            'urgent': (1, split_into_one_hint_per_package),
+            'age-days': (2, age_day_hint),
+
+            # Block / freeze related hints
+            'block': (1, split_into_one_hint_per_package),
+            'block-all': (1, split_into_one_hint_per_package),
+            'block-udeb': (1, split_into_one_hint_per_package),
+            'unblock': (1, split_into_one_hint_per_package),
+            'unblock-udeb': (1, split_into_one_hint_per_package),
+
+            # Other
+            'remove': (1, split_into_one_hint_per_package),
+            'force': (1, split_into_one_hint_per_package),
+        }
+        self._aliases = {
+            'approve': 'unblock',
+        }
+
+    def parse_hints(self, who, permitted_hints, filename, lines):
+        hint_table = self._hint_table
+        line_no = 0
+        hints = self.hints
+        aliases = self._aliases
+        for line in lines:
+            line = line.strip()
+            line_no += 1
+            if line == "" or line.startswith('#'):
+                continue
+            l = line.split()
+            hint_name = l[0]
+            if hint_name in aliases:
+                hint_name = aliases[hint_name]
+                l[0] = hint_name
+            if hint_name == 'finished':
+                break
+            if hint_name not in hint_table:
+                self.log("Unknown hint found in %s (line %d): '%s'" % (filename, line_no, line), type="W")
+                continue
+            if hint_name not in permitted_hints:
+                reason = 'The hint is not a part of the permitted hints for ' + who
+                self.log("Ignoring \"%s\" hint from %s found in %s (line %d): %s" % (
+                    hint_name, who, filename, line_no, reason), type="I")
+                continue
+            min_args, hint_parser_impl = hint_table[hint_name]
+            if len(l) - 1 < min_args:
+                self.log("Malformed hint found in %s (line %d): Needs at least %d argument(s), got %d" % (
+                    filename, line_no, min_args, len(l) - 1), type="W")
+                continue
+            try:
+                hint_parser_impl(hints, who, *l)
+            except MalformedHintException as e:
+                self.log("Malformed hint found in %s (line %d): \"%s\"" % (
+                    filename, line_no, e.args[0]), type="W")
+                continue
+
+    def log(self, msg, type="I"):
+        self._britney.log(msg, type=type)

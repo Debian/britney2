@@ -198,7 +198,7 @@ from urllib.parse import quote
 from installability.builder import InstallabilityTesterBuilder
 from excuse import Excuse
 from migrationitem import MigrationItem
-from hints import HintCollection
+from hints import HintParser
 from britney_util import (old_libraries_format, undo_changes,
                           compute_reverse_tree,
                           read_nuninst, write_nuninst, write_heidi,
@@ -948,12 +948,13 @@ class Britney(object):
         The method returns a dictionary where the key is the command, and
         the value is the list of affected packages.
         """
-        hints = HintCollection()
+        hint_parser = HintParser(self)
 
         for who in self.HINTS.keys():
             if who == 'command-line':
                 lines = self.options.hints and self.options.hints.split(';') or ()
                 filename = '<cmd-line>'
+                hint_parser.parse_hints(who, self.HINTS[who], filename, lines)
             else:
                 filename = os.path.join(basedir, "Hints", who)
                 if not os.path.isfile(filename):
@@ -961,32 +962,9 @@ class Britney(object):
                     continue
                 self.log("Loading hints list from %s" % filename)
                 with open(filename, encoding='utf-8') as f:
-                    lines = f.readlines()
-            for line in lines:
-                line = line.strip()
-                if line == "": continue
-                l = line.split()
-                if l[0] == 'finished':
-                    break
-                if l[0] == 'remark':
-                    # Ignore "no-op" hint, the sole purpose of which is to be
-                    # found by hint grep (and show up in "d"'s
-                    # output).
-                    continue
-                elif l[0] not in self.HINTS[who]:
-                    continue
-                elif len(l) == 1:
-                    # All current hints require at least one argument
-                    self.log("Malformed hint found in %s: '%s'" % (filename, line), type="W")
-                elif l[0] in ["approve", "block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove"]:
-                    if l[0] == 'approve': l[0] = 'unblock'
-                    for package in l[1:]:
-                        hints.add_hint('%s %s' % (l[0], package), who)
-                elif l[0] in ["age-days"]:
-                    for package in l[2:]:
-                        hints.add_hint('%s %s %s' % (l[0], l[1], package), who)
-                else:
-                    hints.add_hint(l, who)
+                    hint_parser.parse_hints(who, self.HINTS[who], filename, f)
+
+        hints = hint_parser.hints
 
         for x in ["block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
             z = {}
