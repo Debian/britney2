@@ -2123,7 +2123,7 @@ class Britney(object):
                 # remove all the binaries which aren't being smooth updated
                 for rm_pkg_id in rms:
                     binary, version, parch = rm_pkg_id
-                    p = binary + "/" + parch
+                    p = (binary, parch)
                     binaries_t_a, provides_t_a = packages_t[parch]
                     pkey = (binary, parch)
 
@@ -2139,7 +2139,7 @@ class Britney(object):
 
                     # remove the provided virtual packages
                     for j, prov_version, _ in pkg_data[PROVIDES]:
-                        key = j + "/" + parch
+                        key = (j, parch)
                         if key not in undo['virtual']:
                             undo['virtual'][key] = provides_t_a[j].copy()
                         provides_t_a[j].remove((binary, prov_version))
@@ -2162,7 +2162,7 @@ class Britney(object):
             binaries_t_a = packages_t[item.architecture][0]
             version = binaries_t_a[item.package][VERSION]
             pkg_id = (item.package, version, item.architecture)
-            undo['binaries'][item.package + "/" + item.architecture] = pkg_id
+            undo['binaries'][(item.package, item.architecture)] = pkg_id
             affected.add(pkg_id)
             affected.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
@@ -2174,7 +2174,6 @@ class Britney(object):
 
             for updated_pkg_id in updates:
                 binary, new_version, parch = updated_pkg_id
-                p = "%s/%s" % (binary, parch)
                 key = (binary, parch)
                 binaries_t_a, provides_t_a = packages_t[parch]
                 equivalent_replacement = key in eqv_set
@@ -2191,7 +2190,7 @@ class Britney(object):
                     old_version = old_pkg_data[VERSION]
                     old_pkg_id = (binary, old_version, parch)
                     # save the old binary package
-                    undo['binaries'][p] = old_pkg_id
+                    undo['binaries'][key] = old_pkg_id
                     if not equivalent_replacement:
                         # all the reverse dependencies are affected by
                         # the change
@@ -2211,8 +2210,8 @@ class Britney(object):
                     # ignored as their reverse trees are already handled
                     # by this function
                     for (tundo, tpkg) in hint_undo:
-                        if p in tundo['binaries']:
-                            tpkg_id = tundo['binaries'][p]
+                        if key in tundo['binaries']:
+                            tpkg_id = tundo['binaries'][key]
                             affected.update(inst_tester.reverse_dependencies_of(tpkg_id))
 
                 # add/update the binary package from the source suite
@@ -2221,7 +2220,7 @@ class Britney(object):
                 inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
                 for j, prov_version, _ in new_pkg_data[PROVIDES]:
-                    key = j + "/" + parch
+                    key = (j, parch)
                     if j not in provides_t_a:
                         undo['nvirtual'].append(key)
                         provides_t_a[j] = set()

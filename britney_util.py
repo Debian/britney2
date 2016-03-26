@@ -134,7 +134,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
     # undo all other binary package changes (except virtual packages)
     for (undo, item) in lundo:
         for p in undo['binaries']:
-            binary, arch = p.split("/")
+            binary, arch = p
             if binary[0] == "-":
                 version = binaries["testing"][arch][0][binary][VERSION]
                 del binaries['testing'][arch][0][binary[1:]]
@@ -152,10 +152,10 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
     # undo all changes to virtual packages
     for (undo, item) in lundo:
         for p in undo['nvirtual']:
-            j, arch = p.split("/")
+            j, arch = p
             del binaries['testing'][arch][1][j]
         for p in undo['virtual']:
-            j, arch = p.split("/")
+            j, arch = p
             if j[0] == '-':
                 del binaries['testing'][arch][1][j[1:]]
             else:
