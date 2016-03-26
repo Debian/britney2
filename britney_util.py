@@ -429,7 +429,8 @@ def write_controlfiles(sources, packages, suite, basedir):
                 output = "Package: %s\n" % pkg
                 bin_data = binaries[pkg]
                 for key, k in key_pairs:
-                    if not bin_data[key]: continue
+                    if not bin_data[key]:
+                        continue
                     if key == SOURCE:
                         src = bin_data[SOURCE]
                         if sources_s[src][MAINTAINER]:
@@ -446,11 +447,9 @@ def write_controlfiles(sources, packages, suite, basedir):
                                 source = src
                         output += (k + ": " + source + "\n")
                     elif key == PROVIDES:
-                        if bin_data[key]:
-                            output += (k + ": " + ", ".join(relation_atom_to_string(p) for p in bin_data[key]) + "\n")
+                        output += (k + ": " + ", ".join(relation_atom_to_string(p) for p in bin_data[key]) + "\n")
                     elif key == ESSENTIAL:
-                        if bin_data[key]:
-                            output += (k + ": " + " yes\n")
+                        output += (k + ": " + " yes\n")
                     else:
                         output += (k + ": " + bin_data[key] + "\n")
                 f.write(output + "\n")
