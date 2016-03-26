@@ -520,15 +520,14 @@ def clone_nuninst(nuninst, packages_s, architectures):
     return clone
 
 
-def test_installability(inst_tester, pkg_name, pkg_id, broken, to_check, nuninst_arch):
+def test_installability(inst_tester, pkg_name, pkg_id, broken, nuninst_arch):
     """Test for installability of a package on an architecture
 
     (pkg_name, pkg_version, pkg_arch) is the package to check.
 
     broken is the set of broken packages.  If p changes
     installability (e.g. goes from uninstallable to installable),
-    broken will be updated accordingly.  Furthermore, p will be
-    added to "to_check" for futher processing.
+    broken will be updated accordingly.
 
     If nuninst_arch is not None then it also updated in the same
     way as broken is.
@@ -538,12 +537,10 @@ def test_installability(inst_tester, pkg_name, pkg_id, broken, to_check, nuninst
         # not installable
         if pkg_name not in broken:
             broken.add(pkg_name)
-            to_check.append(pkg_id)
         if nuninst_arch is not None and pkg_name not in nuninst_arch:
             nuninst_arch.add(pkg_name)
     else:
         if pkg_name in broken:
-            to_check.append(pkg_id)
             broken.remove(pkg_name)
         if nuninst_arch is not None and pkg_name in nuninst_arch:
             nuninst_arch.remove(pkg_name)
@@ -551,7 +548,6 @@ def test_installability(inst_tester, pkg_name, pkg_id, broken, to_check, nuninst
 
 def check_installability(inst_tester, binaries, arch, affected, check_archall, nuninst):
     broken = nuninst[arch + "+all"]
-    to_check = []
     packages_t_a = binaries[arch][0]
 
     # broken packages (first round)
@@ -570,8 +566,5 @@ def check_installability(inst_tester, binaries, arch, affected, check_archall, n
             nuninst_arch = nuninst[parch]
         elif actual_arch == 'all':
             nuninst[parch].discard(name)
-        test_installability(inst_tester, name, pkg_id, broken, to_check, nuninst_arch)
+        test_installability(inst_tester, name, pkg_id, broken, nuninst_arch)
 
-    # We have always overshot the affected set, so to_check does not
-    # contain anything new.
-    assert affected.issuperset(to_check)
