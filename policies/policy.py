@@ -4,7 +4,7 @@ import apt_pkg
 import os
 import time
 
-from consts import VERSION
+from consts import VERSION, BINARIES
 
 
 @unique
@@ -240,3 +240,99 @@ class AgePolicy(BasePolicy):
                 version, date = dates[pkg]
                 fd.write("%s %s %d\n" % (pkg, version, date))
         os.rename(filename_tmp, filename)
+
+
+class RCBugPolicy(BasePolicy):
+    """RC bug regression policy for source migrations
+
+    The RCBugPolicy will read provided list of RC bugs and block any
+    source upload that would introduce a *new* RC bug in the target
+    suite.
+
+    The RCBugPolicy's decision is influenced by the following:
+
+    State files:
+     * ${UNSTABLE}/BugsV: File containing RC bugs for packages in the
+      source suite.
+       - This file needs to be updated externally.
+     * ${TESTING}/BugsV: File containing RC bugs for packages in the
+       target suite.
+       - This file needs to be updated externally.
+    """
+
+    def __init__(self, options):
+        super().__init__(options, {'unstable'})
+        self._bugs = {}
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        self._bugs['unstable'] = self._read_bugs(self.options.unstable)
+        self._bugs['testing'] = self._read_bugs(self.options.testing)
+
+    def apply_policy(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+        # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
+        if 'rc-bugs' not in policy_info:
+            policy_info['rc-bugs'] = rcbugs_info = {}
+        else:
+            rcbugs_info = policy_info['rc-bugs']
+
+        bugs_t = set()
+        bugs_u = set()
+
+        for src_key in (source_name, 'src:%s' % source_name):
+            if source_data_tdist and src_key in self._bugs['testing']:
+                bugs_t.update(self._bugs['testing'][src_key])
+            if src_key in self._bugs['unstable']:
+                bugs_u.update(self._bugs['unstable'][src_key])
+
+        for pkg, _, _ in source_data_srcdist[BINARIES]:
+            if pkg in self._bugs['unstable']:
+                bugs_u |= self._bugs['unstable'][pkg]
+        if source_data_tdist:
+            for pkg, _, _ in source_data_tdist[BINARIES]:
+                if pkg in self._bugs['testing']:
+                    bugs_t |= self._bugs['testing'][pkg]
+
+        # If a package is not in testing, it has no RC bugs per
+        # definition.  Unfortunately, it seems that the live-data is
+        # not always accurate (e.g. live-2011-12-13 suggests that
+        # obdgpslogger had the same bug in testing and unstable,
+        # but obdgpslogger was not in testing at that time).
+        # - For the curious, obdgpslogger was removed on that day
+        #   and the BTS probably had not caught up with that fact.
+        #   (https://tracker.debian.org/news/415935)
+        assert not bugs_t or source_data_tdist, "%s had bugs in testing but is not in testing" % source_name
+
+        rcbugs_info['shared-bugs'] = sorted(bugs_u & bugs_t)
+        rcbugs_info['unique-source-bugs'] = sorted(bugs_u - bugs_t)
+        rcbugs_info['unique-target-bugs'] = sorted(bugs_t - bugs_u)
+
+        if not bugs_u or bugs_u <= bugs_t:
+            return PolicyVerdict.PASS
+        return PolicyVerdict.REJECTED_PERMANENTLY
+
+    def _read_bugs(self, basedir):
+        """Read the release critical bug summary from the specified directory
+
+        The RC bug summaries are read from the `BugsV' file within the
+        directory specified in the `basedir' parameter. The file contains
+        rows with the format:
+
+        <package-name> <bug number>[,<bug number>...]
+
+        The method returns a dictionary where the key is the binary package
+        name and the value is the list of open RC bugs for it.
+        """
+        bugs = {}
+        filename = os.path.join(basedir, "BugsV")
+        self.log("Loading RC bugs data from %s" % filename)
+        for line in open(filename, encoding='ascii'):
+            l = line.split()
+            if len(l) != 2:
+                self.log("Malformed line found in line %s" % (line), type='W')
+                continue
+            pkg = l[0]
+            if pkg not in bugs:
+                bugs[pkg] = set()
+            bugs[pkg].update(l[1].split(","))
+        return bugs

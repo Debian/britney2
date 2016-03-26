@@ -51,7 +51,7 @@ and Britney.read_binaries).
 Other than source and binary packages, Britney loads the following data:
 
   * BugsV, which contains the list of release-critical bugs for a given
-    version of a source or binary package (see Britney.read_bugs).
+    version of a source or binary package (see RCBugPolicy.read_bugs).
 
   * Dates, which contains the date of the upload of a given version 
     of a source package (see Britney.read_dates).
@@ -206,7 +206,7 @@ from britney_util import (old_libraries_format, undo_changes,
                           write_excuses, write_heidi_delta, write_controlfiles,
                           old_libraries, is_nuninst_asgood_generous,
                           clone_nuninst, check_installability)
-from policies.policy import AgePolicy, PolicyVerdict
+from policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
                    PROVIDES, MULTIARCH, ESSENTIAL)
@@ -332,10 +332,6 @@ class Britney(object):
                 for stat in arch_stat.stat_summary():
                     self.log(">  - %s" % stat, type="I")
 
-        # read the release-critical bug summaries for testing and unstable
-        self.bugs = {'unstable': self.read_bugs(self.options.unstable),
-                     'testing': self.read_bugs(self.options.testing),}
-        self.normalize_bugs()
         for policy in self.policies:
             policy.hints = self.hints
             policy.initialise(self)
@@ -452,6 +448,7 @@ class Britney(object):
             self.options.ignore_cruft = False
 
         self.policies.append(AgePolicy(self.options, MINDAYS))
+        self.policies.append(RCBugPolicy(self.options))
 
     def log(self, msg, type="I"):
         """Print info messages according to verbosity level
@@ -792,77 +789,8 @@ class Britney(object):
             for provided_pkg, provided_version, _ in dpkg[PROVIDES]:
                 provides[provided_pkg].add((pkg, provided_version))
 
-
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
-
-    def read_bugs(self, basedir):
-        """Read the release critical bug summary from the specified directory
-        
-        The RC bug summaries are read from the `BugsV' file within the
-        directory specified in the `basedir' parameter. The file contains
-        rows with the format:
-
-        <package-name> <bug number>[,<bug number>...]
-
-        The method returns a dictionary where the key is the binary package
-        name and the value is the list of open RC bugs for it.
-        """
-        bugs = defaultdict(list)
-        filename = os.path.join(basedir, "BugsV")
-        self.log("Loading RC bugs data from %s" % filename)
-        for line in open(filename, encoding='ascii'):
-            l = line.split()
-            if len(l) != 2:
-                self.log("Malformed line found in line %s" % (line), type='W')
-                continue
-            pkg = l[0]
-            bugs[pkg] += l[1].split(",")
-        return bugs
-
-    def __maxver(self, pkg, dist):
-        """Return the maximum version for a given package name
-        
-        This method returns None if the specified source package
-        is not available in the `dist' distribution. If the package
-        exists, then it returns the maximum version between the
-        source package and its binary packages.
-        """
-        maxver = None
-        if pkg in self.sources[dist]:
-            maxver = self.sources[dist][pkg][VERSION]
-        for arch in self.options.architectures:
-            if pkg not in self.binaries[dist][arch][0]: continue
-            pkgv = self.binaries[dist][arch][0][pkg][VERSION]
-            if maxver is None or apt_pkg.version_compare(pkgv, maxver) > 0:
-                maxver = pkgv
-        return maxver
-
-    def normalize_bugs(self):
-        """Normalize the release critical bug summaries for testing and unstable
-        
-        The method doesn't return any value: it directly modifies the
-        object attribute `bugs'.
-        """
-        # loop on all the package names from testing and unstable bug summaries
-        for pkg in set(chain(self.bugs['testing'], self.bugs['unstable'])):
-
-            # make sure that the key is present in both dictionaries
-            if pkg not in self.bugs['testing']:
-                self.bugs['testing'][pkg] = []
-            elif pkg not in self.bugs['unstable']:
-                self.bugs['unstable'][pkg] = []
-
-            if pkg.startswith("src:"):
-                pkg = pkg[4:]
-
-            # retrieve the maximum version of the package in testing:
-            maxvert = self.__maxver(pkg, 'testing')
-
-            # if the package is not available in testing, then reset
-            # the list of RC bugs
-            if maxvert is None:
-                self.bugs['testing'][pkg] = []
 
     def read_hints(self, basedir):
         """Read the hint commands from the specified directory
@@ -1361,6 +1289,31 @@ class Britney(object):
                     excuse.addhtml("Too young, but urgency pushed by %s" % who)
             excuse.setdaysold(age_info['current-age'], age_min_req)
 
+        # if the suite is unstable, then we have to check the release-critical bug lists before
+        # updating testing; if the unstable package has RC bugs that do not apply to the testing
+        # one, the check fails and we set update_candidate to False to block the update
+        if 'rc-bugs' in policy_info:
+            rcbugs_info = policy_info['rc-bugs']
+            new_bugs = rcbugs_info['unique-source-bugs']
+            old_bugs = rcbugs_info['unique-target-bugs']
+
+            excuse.setbugs(old_bugs, new_bugs)
+
+            if new_bugs:
+                excuse.addhtml("%s <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                               "pkg=src:%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                               "target=\"_blank\">has new bugs</a>!" % (src, quote(src)))
+                excuse.addhtml("Updating %s introduces new bugs: %s" % (src, ", ".join(
+                    ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
+                update_candidate = False
+
+            if old_bugs:
+                excuse.addhtml("Updating %s fixes old bugs: %s" % (src, ", ".join(
+                    ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
+            if new_bugs and len(old_bugs) > len(new_bugs):
+                excuse.addhtml("%s introduces new bugs, so still ignored (even "
+                               "though it fixes more than it introduces, whine at debian-release)" % src)
+
         all_binaries = self.all_binaries
 
         if suite in ('pu', 'tpu') and source_t:
@@ -1372,7 +1325,7 @@ class Britney(object):
                 if not any(x for x in source_t[BINARIES]
                            if x[2] == arch and all_binaries[x][ARCHITECTURE] != 'all'):
                     continue
-                    
+
                 # if the (t-)p-u package has produced any binaries on
                 # this architecture then we assume it's ok. this allows for
                 # uploads to (t-)p-u which intentionally drop binary
@@ -1480,45 +1433,6 @@ class Britney(object):
             excuse.addhtml("%s has no binaries on any arch" % src)
             excuse.addreason("no-binaries")
             update_candidate = False
-
-        # if the suite is unstable, then we have to check the release-critical bug lists before
-        # updating testing; if the unstable package has RC bugs that do not apply to the testing
-        # one, the check fails and we set update_candidate to False to block the update
-        if suite == 'unstable':
-            for pkg in pkgs:
-                bugs_t = []
-                bugs_u = []
-                if pkg in self.bugs['testing']:
-                    bugs_t.extend(self.bugs['testing'][pkg])
-                if pkg in self.bugs['unstable']:
-                    bugs_u.extend(self.bugs['unstable'][pkg])
-                if 'source' in pkgs[pkg]:
-                    spkg = "src:%s" % (pkg)
-                    if spkg in self.bugs['testing']:
-                        bugs_t.extend(self.bugs['testing'][spkg])
-                    if spkg in self.bugs['unstable']:
-                        bugs_u.extend(self.bugs['unstable'][spkg])
- 
-                new_bugs = sorted(set(bugs_u).difference(bugs_t))
-                old_bugs = sorted(set(bugs_t).difference(bugs_u))
-
-                excuse.setbugs(old_bugs,new_bugs)
-
-                if len(new_bugs) > 0:
-                    excuse.addhtml("%s (%s) <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                        "which=pkg&data=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                        "target=\"_blank\">has new bugs</a>!" % (pkg, ", ".join(pkgs[pkg]), quote(pkg)))
-                    excuse.addhtml("Updating %s introduces new bugs: %s" % (pkg, ", ".join(
-                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
-                    update_candidate = False
-                    excuse.addreason("buggy")
-
-                if len(old_bugs) > 0:
-                    excuse.addhtml("Updating %s fixes old bugs: %s" % (pkg, ", ".join(
-                        ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
-                if len(old_bugs) > len(new_bugs) and len(new_bugs) > 0:
-                    excuse.addhtml("%s introduces new bugs, so still ignored (even "
-                        "though it fixes more than it introduces, whine at debian-release)" % pkg)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
         forces = [x for x in self.hints.search('force', package=src) if source_u[VERSION] == x.version]
