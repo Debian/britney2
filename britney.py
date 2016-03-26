@@ -2133,7 +2133,6 @@ class Britney(object):
                     if pkey not in eqv_set:
                         # all the reverse dependencies are affected by
                         # the change
-
                         affected.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
                         affected.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
@@ -2163,7 +2162,6 @@ class Britney(object):
             version = binaries_t_a[item.package][VERSION]
             pkg_id = (item.package, version, item.architecture)
             undo['binaries'][(item.package, item.architecture)] = pkg_id
-            affected.add(pkg_id)
             affected.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
             inst_tester.remove_testing_binary(pkg_id)
@@ -2192,10 +2190,8 @@ class Britney(object):
                     # save the old binary package
                     undo['binaries'][key] = old_pkg_id
                     if not equivalent_replacement:
-                        # all the reverse dependencies are affected by
-                        # the change
-                        affected.update(inst_tester.reverse_dependencies_of(old_pkg_id))
                         # all the reverse conflicts
+                        affected.update(inst_tester.reverse_dependencies_of(old_pkg_id))
                         affected.update(inst_tester.negative_dependencies_of(old_pkg_id))
                     inst_tester.remove_testing_binary(old_pkg_id)
                 elif hint_undo:
@@ -2230,7 +2226,6 @@ class Britney(object):
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
                     affected.add(updated_pkg_id)
-                    affected.update(inst_tester.reverse_dependencies_of(updated_pkg_id))
                     affected.update(inst_tester.negative_dependencies_of(updated_pkg_id))
 
             # add/update the source package
