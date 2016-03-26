@@ -337,7 +337,7 @@ class InstallabilityTester(object):
         #     of t via recursion (calls _check_inst).  In this case
         #     check and choices are not (always) empty.
 
-        def _prune_choices(rebuild, set=set, len=len):
+        def _prune_choices(rebuild, len=len):
             """Picks a choice from choices and updates rebuild.
 
             Prunes the choices and updates "rebuild" to reflect the
