@@ -14,7 +14,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from collections import defaultdict
 import re
+
 
 class Excuse(object):
     """Excuse class
@@ -59,6 +61,9 @@ class Excuse(object):
         self.oldbugs = set()
         self.reason = {}
         self.htmlline = []
+        self.missing_builds = set()
+        self.missing_builds_ood_arch = set()
+        self.old_binaries = defaultdict(set)
         self.policy_info = {}
 
     def sortkey(self):
@@ -129,6 +134,18 @@ class Excuse(object):
     def addhtml(self, note):
         """Add a note in HTML"""
         self.htmlline.append(note)
+
+    def missing_build_on_arch(self, arch):
+        """Note that the item is missing a build on a given architecture"""
+        self.missing_builds.add(arch)
+
+    def missing_build_on_ood_arch(self, arch):
+        """Note that the item is missing a build on a given "out of date" architecture"""
+        self.missing_builds.add(arch)
+
+    def add_old_binary(self, binary, from_source_version):
+        """Denote than an old binary ("cruft") is available from a previous source version"""
+        self.old_binaries[from_source_version].add(binary)
 
     def html(self):
         """Render the excuse in HTML"""
@@ -214,6 +231,13 @@ class Excuse(object):
             excusedata['component'] = self.section.split('/')[0]
         if self.policy_info:
             excusedata['policy_info'] = self.policy_info
+        if self.missing_builds or self.missing_builds_ood_arch:
+            excusedata['missing-builds'] = {
+                'on-architectures': sorted(self.missing_builds),
+                'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
+            }
+        if self.old_binaries:
+            excusedata['old-binaries'] = {x: sorted(self.old_binaries[x]) for x in self.old_binaries}
         if self.forced:
             excusedata["forced-reason"] = sorted(list(self.reason.keys()))
             excusedata["reason"] = []

@@ -1340,12 +1340,10 @@ class Britney(object):
 
                 if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
+                    excuse.missing_build_on_ood_arch(arch)
                 else:
                     update_candidate = False
-                    excuse.addreason("arch")
-                    excuse.addreason("arch-%s" % arch)
-                    excuse.addreason("build-arch")
-                    excuse.addreason("build-arch-%s" % arch)
+                    excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)
 
@@ -1372,6 +1370,7 @@ class Britney(object):
                     if pkgsv not in oodbins:
                         oodbins[pkgsv] = []
                     oodbins[pkgsv].append(pkg)
+                    excuse.add_old_binary(pkg, pkgsv)
                     continue
                 else:
                     # if the binary is arch all, it doesn't count as
@@ -1405,22 +1404,17 @@ class Britney(object):
 
                 if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
+                    if not uptodatebins:
+                        excuse.missing_build_on_ood_arch(arch)
                 else:
                     if uptodatebins:
-                        excuse.addreason("cruft-arch")
-                        excuse.addreason("cruft-arch-%s" % arch)
                         if self.options.ignore_cruft:
                             text = text + " (but ignoring cruft, so nevermind)"
                         else:
                             update_candidate = False
-                            excuse.addreason("arch")
-                            excuse.addreason("arch-%s" % arch)
                     else:
                         update_candidate = False
-                        excuse.addreason("arch")
-                        excuse.addreason("arch-%s" % arch)
-                        excuse.addreason("build-arch")
-                        excuse.addreason("build-arch-%s" % arch)
+                        excuse.missing_build_on_arch(arch)
 
                 if 'age' in policy_info and policy_info['age']['current-age']:
                     excuse.addhtml(text)
