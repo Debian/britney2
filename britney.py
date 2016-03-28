@@ -1214,12 +1214,18 @@ class Britney(object):
         for hint in self.hints.search(package=src):
             if hint.type == 'block':
                 blocked['block'] = hint
+                excuse.add_hint(hint)
             if hint.type == 'block-udeb':
                 blocked['block-udeb'] = hint
-        for hint in self.hints.search(type='block-all', package='source'):
-            blocked.setdefault('block', hint)
-        if suite in ['pu', 'tpu']:
+                excuse.add_hint(hint)
+        if 'block' not in blocked:
+            for hint in self.hints.search(type='block-all', package='source'):
+                blocked['block'] = hint
+                excuse.add_hint(hint)
+                break
+        if suite in ('pu', 'tpu'):
             blocked['block'] = '%s-block' % (suite)
+            excuse.needs_approval = True
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
         # is processed only if the specified version is correct. If a package is blocked
@@ -1229,7 +1235,8 @@ class Britney(object):
             unblocks = self.hints.search(unblock_cmd, package=src)
 
             if unblocks and unblocks[0].version is not None and unblocks[0].version == source_u[VERSION]:
-                if suite == 'unstable' or block_cmd == 'block-udeb':
+                excuse.add_hint(unblocks[0])
+                if block_cmd == 'block-udeb' or not excuse.needs_approval:
                     excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
                                    (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
                 else:

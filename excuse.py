@@ -50,6 +50,8 @@ class Excuse(object):
         self.section = None
         self._is_valid = False
         self._dontinvalidate = False
+        self.needs_approval = False
+        self.hints = []
         self.forced = False
 
         self.invalid_deps = []
@@ -147,6 +149,9 @@ class Excuse(object):
         """Denote than an old binary ("cruft") is available from a previous source version"""
         self.old_binaries[from_source_version].add(binary)
 
+    def add_hint(self, hint):
+        self.hints.append(hint)
+
     def html(self):
         """Render the excuse in HTML"""
         res = "<a id=\"%s\" name=\"%s\">%s</a> (%s to %s)\n<ul>\n" % \
@@ -236,6 +241,20 @@ class Excuse(object):
                 'on-architectures': sorted(self.missing_builds),
                 'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
             }
+        if self.needs_approval:
+            status = 'not-approved'
+            for h in self.hints:
+                if h.type == 'unblock':
+                    status = 'approved'
+                    break
+            excusedata['manual-approval-status'] = status
+        if self.hints:
+            hint_info = [{
+                             'hint-type': h.type,
+                             'hint-from': h.user,
+                         } for h in self.hints]
+
+            excusedata['hints'] = hint_info
         if self.old_binaries:
             excusedata['old-binaries'] = {x: sorted(self.old_binaries[x]) for x in self.old_binaries}
         if self.forced:
