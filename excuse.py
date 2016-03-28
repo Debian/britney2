@@ -197,9 +197,15 @@ class Excuse(object):
 
     def excusedata(self):
         """Render the excuse in as key-value data"""
+        source = self.name
+        if '/' in source:
+            source = source.split("/")[0]
+        if source[0] == '-':
+            source = source[1:]
         excusedata = {}
         excusedata["excuses"] = self._text()
-        excusedata["source"] = self.name
+        excusedata["item-name"] = self.name
+        excusedata["source"] = source
         excusedata["old-version"] = self.ver[0]
         excusedata["new-version"] = self.ver[1]
         if self.maint:
