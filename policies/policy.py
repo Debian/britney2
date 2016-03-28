@@ -160,8 +160,8 @@ class AgePolicy(BasePolicy):
         age_info['age-requirement'] = min_days
         age_info['current-age'] = days_old
 
-        for age_days_hint in [x for x in self.hints.search('age-days', package=source_name)
-                              if source_data_srcdist[VERSION] == x.version]:
+        for age_days_hint in self.hints.search('age-days', package=source_name,
+                                               version=source_data_srcdist[VERSION]):
             new_req = int(age_days_hint.days)
             age_info['age-requirement-reduced'] = {
                 'new-requirement': new_req,
@@ -170,8 +170,8 @@ class AgePolicy(BasePolicy):
             min_days = new_req
 
         if days_old < min_days:
-            urgent_hints = [x for x in self.hints.search('urgent', package=source_name)
-                            if source_data_srcdist[VERSION] == x.version]
+            urgent_hints = self.hints.search('urgent', package=source_name,
+                                             version=source_data_srcdist[VERSION])
             if urgent_hints:
                 age_info['age-requirement-reduced'] = {
                     'new-requirement': 0,

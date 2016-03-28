@@ -1032,7 +1032,7 @@ class Britney(object):
         # version in testing, then stop here and return False
         # (as a side effect, a removal may generate such excuses for both the source
         # package and its binary packages on each architecture)
-        for hint in [x for x in self.hints.search('remove', package=src) if source_t[VERSION] == x.version]:
+        for hint in self.hints.search('remove', package=src, version=source_t[VERSION]):
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
             excuse.addhtml("Not considered")
@@ -1435,7 +1435,7 @@ class Britney(object):
             update_candidate = False
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
-        forces = [x for x in self.hints.search('force', package=src) if source_u[VERSION] == x.version]
+        forces = self.hints.search('force', package=src, version=source_u[VERSION])
         if forces:
             excuse.dontinvalidate = True
         if not update_candidate and forces:
