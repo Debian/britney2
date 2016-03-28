@@ -216,10 +216,8 @@ class Excuse(object):
         excusedata["source"] = self.name
         excusedata["old-version"] = self.ver[0]
         excusedata["new-version"] = self.ver[1]
-        excusedata["age"] = self.daysold
-        excusedata["age-needed"] = self.mindays
-        excusedata["new-bugs"] = sorted(self.newbugs)
-        excusedata["old-bugs"] = sorted(self.oldbugs)
+        if self.policy_info:
+            excusedata['policy_info'] = self.policy_info
         if self.forced:
             excusedata["forced-reason"] = sorted(list(self.reason.keys()))
             excusedata["reason"] = []
