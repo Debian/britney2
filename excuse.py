@@ -173,24 +173,10 @@ class Excuse(object):
         """"adding reason"""
         self.reason[reason] = 1
 
-    # TODO merge with html()
-    def text(self):
+    # TODO: remove
+    def _text(self):
         """Render the excuse in text"""
         res = []
-        res.append("%s (%s to %s)" % \
-            (self.name, self.ver[0], self.ver[1]))
-        if self.maint:
-            maint = self.maint
-            res.append("Maintainer: %s" % maint)
-        if self.section and self.section.find("/") > -1:
-            res.append("Section: %s" % (self.section))
-        if self.daysold != None:
-            if self.daysold < self.mindays:
-                res.append(("Too young, only %d of %d days old" %
-                (self.daysold, self.mindays)))
-            else:
-                res.append(("%d days old (needed %d days)" %
-                (self.daysold, self.mindays)))
         for x in self.htmlline:
             res.append("" + x + "")
         lastdep = ""
@@ -205,17 +191,19 @@ class Excuse(object):
         for (n,a) in self.break_deps:
             if n not in self.deps:
                 res.append("Ignoring %s depends: %s" % (a, n))
-        if self.is_valid:
-            res.append("Valid candidate")
         return res
 
     def excusedata(self):
         """Render the excuse in as key-value data"""
         excusedata = {}
-        excusedata["excuses"] = self.text()
+        excusedata["excuses"] = self._text()
         excusedata["source"] = self.name
         excusedata["old-version"] = self.ver[0]
         excusedata["new-version"] = self.ver[1]
+        if self.maint:
+            excusedata['maintainer'] = self.maint
+        if self.section and self.section.find("/") > -1:
+            excusedata['component'] = self.section.split('/')[0]
         if self.policy_info:
             excusedata['policy_info'] = self.policy_info
         if self.forced:
