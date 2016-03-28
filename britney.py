@@ -997,7 +997,6 @@ class Britney(object):
         for hint in self.hints.search('block', package=pkg, removal=True):
             excuse.addhtml("Not touching package, as requested by %s "
                 "(check https://release.debian.org/testing/freeze_policy.html if update is needed)" % hint.user)
-            excuse.addhtml("Not considered")
             excuse.addreason("block")
             self.excuses[excuse.name] = excuse
             return False
@@ -1035,7 +1034,6 @@ class Britney(object):
         for hint in self.hints.search('remove', package=src, version=source_t[VERSION]):
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
-            excuse.addhtml("Not considered")
             excuse.addreason("remove")
             self.excuses[excuse.name] = excuse
             return False
@@ -1152,7 +1150,6 @@ class Britney(object):
             return True
         # else if there is something worth doing (but something wrong, too) this package won't be considered
         elif anyworthdoing:
-            excuse.addhtml("Not considered")
             self.excuses[excuse.name] = excuse
 
         # otherwise, return False
@@ -1446,10 +1443,6 @@ class Britney(object):
         # if the package can be updated, it is a valid candidate
         if update_candidate:
             excuse.is_valid = True
-        # else it won't be considered
-        else:
-            # TODO
-            excuse.addhtml("Not considered")
 
         self.excuses[excuse.name] = excuse
         return update_candidate
@@ -1502,7 +1495,6 @@ class Britney(object):
                     p = valid.index(x)
                     invalid.append(valid.pop(p))
                     excuses[x].addhtml("Invalidated by dependency")
-                    excuses[x].addhtml("Not considered")
                     excuses[x].addreason("depends")
                     excuses[x].is_valid = False
             i = i + 1

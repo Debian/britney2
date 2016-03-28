@@ -161,6 +161,8 @@ class Excuse(object):
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)
         if self.is_valid:
             res += "<li>Valid candidate\n"
+        else:
+            res += "<li>Not considered\n"
         res = res + "</ul>\n"
         return res
 
