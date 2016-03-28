@@ -1058,7 +1058,9 @@ class Britney(object):
 
             # if the new binary package is architecture-independent, then skip it
             if binary_u[ARCHITECTURE] == 'all':
-                excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg_name, binary_u[VERSION], pkgsv))
+                if pkg_id not in source_t[BINARIES]:
+                    # only add a note if the arch:all does not match the expected version
+                    excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg_name, binary_u[VERSION], pkgsv))
                 continue
 
             # if the new binary package is not from the same source as the testing one, then skip it
@@ -1127,7 +1129,9 @@ class Britney(object):
                     # if the package is architecture-independent, then ignore it
                     tpkg_data = packages_t_a[pkg]
                     if tpkg_data[ARCHITECTURE] == 'all':
-                        excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
+                        if pkg_id not in source_u[BINARIES]:
+                            # only add a note if the arch:all does not match the expected version
+                            excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                         continue
                     # if the package is not produced by the new source package, then remove it from testing
                     if pkg not in packages_s_a:
