@@ -203,18 +203,6 @@ class Excuse(object):
         res = []
         for x in self.htmlline:
             res.append("" + x + "")
-        lastdep = ""
-        for x in sorted(self.deps, key=lambda x: x.split('/')[0]):
-            dep = x.split('/')[0]
-            if dep == lastdep: continue
-            lastdep = dep
-            if x in self.invalid_deps:
-                res.append("Depends: %s %s (not considered)" % (self.name, dep))
-            else:
-                res.append("Depends: %s %s" % (self.name, dep))
-        for (n,a) in self.break_deps:
-            if n not in self.deps:
-                res.append("Ignoring %s depends: %s" % (a, n))
         return res
 
     def excusedata(self):
@@ -241,6 +229,17 @@ class Excuse(object):
                 'on-architectures': sorted(self.missing_builds),
                 'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
             }
+        if self.deps or self.invalid_deps or self.break_deps:
+            excusedata['dependencies'] = dep_data = {}
+            migrate_after = sorted(x for x in self.deps if x not in self.invalid_deps)
+            break_deps = [x for x, _ in self.break_deps if x not in self.deps]
+
+            if self.invalid_deps:
+                dep_data['blocked-by'] = sorted(self.invalid_deps)
+            if migrate_after:
+                dep_data['migrate-after'] = migrate_after
+            if break_deps:
+                dep_data['unimportant-dependencies'] = sorted(break_deps)
         if self.needs_approval:
             status = 'not-approved'
             for h in self.hints:
