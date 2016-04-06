@@ -188,7 +188,7 @@ import optparse
 
 import apt_pkg
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 from functools import reduce
 from itertools import chain, product
 from operator import attrgetter
@@ -226,6 +226,19 @@ check_field_name = dict((globals()[fn], fn) for fn in
                         )
 
 check_fields = sorted(check_field_name)
+
+BinaryPackage = namedtuple('BinaryPackage', [
+                               'version',
+                               'section',
+                               'source',
+                               'source_version',
+                               'architecture',
+                               'multi_arch',
+                               'depends',
+                               'conflicts',
+                               'provides',
+                               'is_essential',
+                           ])
 
 class Britney(object):
     """Britney, the Debian testing updater script
@@ -702,7 +715,7 @@ class Britney(object):
             else:
                 provides = []
 
-            dpkg = [version,
+            dpkg = BinaryPackage(version,
                     intern(get_field('Section')),
                     source,
                     source_version,
@@ -712,7 +725,7 @@ class Britney(object):
                     ', '.join(final_conflicts_list) or None,
                     provides,
                     ess,
-                   ]
+                   )
 
             # if the source package is available in the distribution, then register this binary package
             if source in srcdist:
