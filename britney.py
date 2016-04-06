@@ -291,7 +291,6 @@ class Britney(object):
         self.binaries['pu'] = {}
 
         for arch in self.options.architectures:
-            self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
             self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
             if hasattr(self.options, 'pu'):
@@ -301,6 +300,9 @@ class Britney(object):
                 # properly initialised, so insert two empty dicts
                 # here.
                 self.binaries['pu'][arch] = ({}, {})
+            # Load testing last as some live-data tests have more complete information in
+            # unstable
+            self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
 
         self.log("Compiling Installability tester", type="I")
         self._build_installability_tester(self.options.architectures)
@@ -351,8 +353,7 @@ class Britney(object):
             raise ValueError("Invalid data set")
 
         # Merge ESSENTIAL if necessary
-        if pkg_entry2[ESSENTIAL]:
-            pkg_entry1[ESSENTIAL] = True
+        assert pkg_entry1[ESSENTIAL] or not pkg_entry2[ESSENTIAL]
 
     def __parse_arguments(self):
         """Parse the command line arguments
