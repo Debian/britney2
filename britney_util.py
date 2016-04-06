@@ -32,7 +32,7 @@ from migrationitem import MigrationItem, UnversionnedMigrationItem
 
 from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
                     ARCHITECTURE, SECTION,
-                    SOURCE, SOURCEVER, MAINTAINER, MULTIARCH,
+                    SOURCE, MAINTAINER, MULTIARCH,
                     ESSENTIAL)
 
 
@@ -132,7 +132,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
                     except KeyError:
                         # If this happens, pkg_id must be a cruft item that
                         # was *not* migrated.
-                        assert source_data[VERSION] != all_binary_packages[pkg_id][VERSION]
+                        assert source_data[VERSION] != all_binary_packages[pkg_id].version
                         assert not inst_tester.any_of_these_are_in_testing((pkg_id,))
                     inst_tester.remove_testing_binary(pkg_id)
 
@@ -143,17 +143,17 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
         for p in undo['binaries']:
             binary, arch = p
             if binary[0] == "-":
-                version = binaries["testing"][arch][0][binary][VERSION]
+                version = binaries["testing"][arch][0][binary].version
                 del binaries['testing'][arch][0][binary[1:]]
                 inst_tester.remove_testing_binary(binary, version, arch)
             else:
                 binaries_t_a = binaries['testing'][arch][0]
                 if p in binaries_t_a:
                     rmpkgdata = binaries_t_a[p]
-                    inst_tester.remove_testing_binary((binary, rmpkgdata[VERSION], arch))
+                    inst_tester.remove_testing_binary((binary, rmpkgdata.version, arch))
                 pkgdata = all_binary_packages[undo['binaries'][p]]
                 binaries_t_a[binary] = pkgdata
-                inst_tester.add_testing_binary((binary, pkgdata[VERSION], arch))
+                inst_tester.add_testing_binary((binary, pkgdata.version, arch))
 
     # STEP 4
     # undo all changes to virtual packages
@@ -266,7 +266,7 @@ def eval_uninst(architectures, nuninst):
 
 def write_heidi(filename, sources_t, packages_t,
                 VERSION=VERSION, SECTION=SECTION,
-                ARCHITECTURE=ARCHITECTURE, sorted=sorted):
+                sorted=sorted):
     """Write the output HeidiResult
 
     This method write the output for Heidi, which contains all the
@@ -289,11 +289,11 @@ def write_heidi(filename, sources_t, packages_t,
             binaries = packages_t[arch][0]
             for pkg_name in sorted(binaries):
                 pkg = binaries[pkg_name]
-                pkgv = pkg[VERSION]
-                pkgarch = pkg[ARCHITECTURE] or 'all'
-                pkgsec = pkg[SECTION] or 'faux'
-                if pkg[SOURCEVER] and pkgarch == 'all' and \
-                    pkg[SOURCEVER] != sources_t[pkg[SOURCE]][VERSION]:
+                pkgv = pkg.version
+                pkgarch = pkg.architecture or 'all'
+                pkgsec = pkg.section or 'faux'
+                if pkg.source_version and pkgarch == 'all' and \
+                    pkg.source_version != sources_t[pkg.source][VERSION]:
                     # when architectures are marked as "fucked", their binary
                     # versions may be lower than those of the associated
                     # source package in testing. the binary package list for
@@ -439,17 +439,17 @@ def write_controlfiles(sources, packages, suite, basedir):
                     if not bin_data[key]:
                         continue
                     if key == SOURCE:
-                        src = bin_data[SOURCE]
+                        src = bin_data.source
                         if sources_s[src][MAINTAINER]:
                             output += ("Maintainer: " + sources_s[src][MAINTAINER] + "\n")
 
-                        if bin_data[SOURCE] == pkg:
-                            if bin_data[SOURCEVER] != bin_data[VERSION]:
-                                source = src + " (" + bin_data[SOURCEVER] + ")"
+                        if src == pkg:
+                            if bin_data.source_version != bin_data.version:
+                                source = src + " (" + bin_data.source_version + ")"
                             else: continue
                         else:
-                            if bin_data[SOURCEVER] != bin_data[VERSION]:
-                                source = src + " (" + bin_data[SOURCEVER] + ")"
+                            if bin_data.source_version != bin_data.version:
+                                source = src + " (" + bin_data.source_version + ")"
                             else:
                                 source = src
                         output += (k + ": " + source + "\n")
@@ -483,9 +483,9 @@ def old_libraries(sources, packages, fucked_arches=frozenset()):
     for arch in testing:
         for pkg_name in testing[arch][0]:
             pkg = testing[arch][0][pkg_name]
-            if sources_t[pkg[SOURCE]][VERSION] != pkg[SOURCEVER] and \
+            if sources_t[pkg.source][VERSION] != pkg.source_version and \
                 (arch not in fucked_arches or pkg_name not in unstable[arch][0]):
-                migration = "-" + "/".join((pkg_name, arch, pkg[SOURCEVER]))
+                migration = "-" + "/".join((pkg_name, arch, pkg.source_version))
                 removals.append(MigrationItem(migration))
     return removals
 
@@ -562,10 +562,10 @@ def check_installability(inst_tester, binaries, arch, affected, check_archall, n
         if name not in packages_t_a:
             continue
         pkgdata = packages_t_a[name]
-        if version != pkgdata[VERSION]:
+        if version != pkgdata.version:
             # Not the version in testing right now, ignore
             continue
-        actual_arch = pkgdata[ARCHITECTURE]
+        actual_arch = pkgdata.architecture
         nuninst_arch = None
         # only check arch:all packages if requested
         if check_archall or actual_arch != 'all':

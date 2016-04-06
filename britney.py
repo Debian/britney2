@@ -208,8 +208,8 @@ from britney_util import (old_libraries_format, undo_changes,
                           clone_nuninst, check_installability)
 from policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
-                   SOURCE, SOURCEVER, ARCHITECTURE, DEPENDS, CONFLICTS,
-                   PROVIDES, MULTIARCH, ESSENTIAL)
+                   SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS,
+                   PROVIDES, MULTIARCH)
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -360,13 +360,13 @@ class Britney(object):
 
         if bad:
             self.log("Mismatch found %s %s %s differs" % (
-                package, pkg_entry1[VERSION], parch), type="E")
+                package, pkg_entry1.version, parch), type="E")
             for f, v1, v2 in bad:
                 self.log(" ... %s %s != %s" % (check_field_name[f], v1, v2))
             raise ValueError("Invalid data set")
 
         # Merge ESSENTIAL if necessary
-        assert pkg_entry1[ESSENTIAL] or not pkg_entry2[ESSENTIAL]
+        assert pkg_entry1.is_essential or not pkg_entry2.is_essential
 
     def __parse_arguments(self):
         """Parse the command line arguments
@@ -487,10 +487,9 @@ class Britney(object):
             testing = (dist == 'testing')
             for pkgname in binaries[dist][arch][0]:
                 pkgdata = binaries[dist][arch][0][pkgname]
-                version = pkgdata[VERSION]
+                version = pkgdata.version
                 t = (pkgname, version, arch)
-                essential = pkgdata[ESSENTIAL]
-                if not builder.add_binary(t, essential=essential,
+                if not builder.add_binary(t, essential=pkgdata.is_essential,
                                           in_testing=testing):
                     continue
 
@@ -499,11 +498,11 @@ class Britney(object):
                 possible_dep_ranges = {}
 
                 # We do not differentiate between depends and pre-depends
-                if pkgdata[DEPENDS]:
-                    depends.extend(apt_pkg.parse_depends(pkgdata[DEPENDS], False))
+                if pkgdata.depends:
+                    depends.extend(apt_pkg.parse_depends(pkgdata.depends, False))
 
-                if pkgdata[CONFLICTS]:
-                    conflicts = apt_pkg.parse_depends(pkgdata[CONFLICTS], False)
+                if pkgdata.conflicts:
+                    conflicts = apt_pkg.parse_depends(pkgdata.conflicts, False)
 
                 with builder.relation_builder(t) as relations:
 
@@ -521,7 +520,7 @@ class Britney(object):
                                     # the package name extracted from the field and it is therefore
                                     # not interned.
                                     pdata = dep_packages_s_a[0][p]
-                                    pt = (sys.intern(p), pdata[VERSION], arch)
+                                    pt = (sys.intern(p), pdata.version, arch)
                                     if dep:
                                         sat.add(pt)
                                     elif t != pt:
@@ -647,9 +646,9 @@ class Britney(object):
 
             if pkg in packages:
                 old_pkg_data = packages[pkg]
-                if apt_pkg.version_compare(old_pkg_data[VERSION], version) > 0:
+                if apt_pkg.version_compare(old_pkg_data.version, version) > 0:
                     continue
-                old_pkg_id = (pkg, old_pkg_data[VERSION], arch)
+                old_pkg_id = (pkg, old_pkg_data.version, arch)
                 old_src_binaries = srcdist[old_pkg_data[SOURCE]][BINARIES]
                 old_src_binaries.remove(old_pkg_id)
                 # This may seem weird at first glance, but the current code rely
@@ -905,8 +904,8 @@ class Britney(object):
                 package = binaries_s_a[name]
                 # check the versioned dependency and architecture qualifier
                 # (if present)
-                if (op == '' and version == '') or apt_pkg.check_dep(package[VERSION], op, version):
-                    if archqual is None or (archqual == 'any' and package[MULTIARCH] == 'allowed'):
+                if (op == '' and version == '') or apt_pkg.check_dep(package.version, op, version):
+                    if archqual is None or (archqual == 'any' and package.multi_arch == 'allowed'):
                         packages.append(name)
 
             # look for the package in the virtual packages list and loop on them
@@ -946,9 +945,9 @@ class Britney(object):
         get_dependency_solvers = self.get_dependency_solvers
 
         # analyze the dependency fields (if present)
-        if not binary_u[DEPENDS]:
+        deps = binary_u.depends
+        if not deps:
             return
-        deps = binary_u[DEPENDS]
 
         # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
@@ -958,12 +957,12 @@ class Britney(object):
                 for p in packages:
                     if p not in package_s_a[0]:
                         continue
-                    excuse.add_sane_dep(package_s_a[0][p][SOURCE])
+                    excuse.add_sane_dep(package_s_a[0][p].source)
                 continue
 
             # check if the block can be satisfied in the source suite, and list the solving packages
             packages = get_dependency_solvers(block, package_s_a)
-            packages = [package_s_a[0][p][SOURCE] for p in packages]
+            packages = [package_s_a[0][p].source for p in packages]
 
             # if the dependency can be satisfied by the same source package, skip the block:
             # obviously both binary packages will enter testing together
@@ -1072,20 +1071,20 @@ class Britney(object):
             binary_u = packages_s_a[pkg_name]
 
             # this is the source version for the new binary package
-            pkgsv = binary_u[SOURCEVER]
+            pkgsv = binary_u.source_version
 
             # if the new binary package is architecture-independent, then skip it
-            if binary_u[ARCHITECTURE] == 'all':
+            if binary_u.architecture == 'all':
                 if pkg_id not in source_t[BINARIES]:
                     # only add a note if the arch:all does not match the expected version
-                    excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg_name, binary_u[VERSION], pkgsv))
+                    excuse.addhtml("Ignoring %s %s (from %s) as it is arch: all" % (pkg_name, binary_u.version, pkgsv))
                 continue
 
             # if the new binary package is not from the same source as the testing one, then skip it
             # this implies that this binary migration is part of a source migration
             if source_u[VERSION] == pkgsv and source_t[VERSION] != pkgsv:
                 anywrongver = True
-                excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_t[VERSION]))
+                excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u.version, pkgsv, source_t[VERSION]))
                 continue
 
             # cruft in unstable
@@ -1101,7 +1100,7 @@ class Britney(object):
             # (the binaries are now out-of-date)
             if source_t[VERSION] == pkgsv and source_t[VERSION] != source_u[VERSION]:
                 anywrongver = True
-                excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u[VERSION], pkgsv, source_u[VERSION]))
+                excuse.addhtml("From wrong source: %s %s (%s not %s)" % (pkg_name, binary_u.version, pkgsv, source_u[VERSION]))
                 continue
 
             # find unsatisfied dependencies for the new binary package
@@ -1110,22 +1109,22 @@ class Britney(object):
             # if the binary is not present in testing, then it is a new binary;
             # in this case, there is something worth doing
             if not binary_t:
-                excuse.addhtml("New binary: %s (%s)" % (pkg_name, binary_u[VERSION]))
+                excuse.addhtml("New binary: %s (%s)" % (pkg_name, binary_u.version))
                 anyworthdoing = True
                 continue
 
             # at this point, the binary package is present in testing, so we can compare
             # the versions of the packages ...
-            vcompare = apt_pkg.version_compare(binary_t[VERSION], binary_u[VERSION])
+            vcompare = apt_pkg.version_compare(binary_t.version, binary_u.version)
 
             # ... if updating would mean downgrading, then stop here: there is something wrong
             if vcompare > 0:
                 anywrongver = True
-                excuse.addhtml("Not downgrading: %s (%s to %s)" % (pkg_name, binary_t[VERSION], binary_u[VERSION]))
+                excuse.addhtml("Not downgrading: %s (%s to %s)" % (pkg_name, binary_t.version, binary_u.version))
                 break
             # ... if updating would mean upgrading, then there is something worth doing
             elif vcompare < 0:
-                excuse.addhtml("Updated binary: %s (%s to %s)" % (pkg_name, binary_t[VERSION], binary_u[VERSION]))
+                excuse.addhtml("Updated binary: %s (%s to %s)" % (pkg_name, binary_t.version, binary_u.version))
                 anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing or the source
@@ -1146,14 +1145,14 @@ class Britney(object):
                     pkg = pkg_id[0]
                     # if the package is architecture-independent, then ignore it
                     tpkg_data = packages_t_a[pkg]
-                    if tpkg_data[ARCHITECTURE] == 'all':
+                    if tpkg_data.version == 'all':
                         if pkg_id not in source_u[BINARIES]:
                             # only add a note if the arch:all does not match the expected version
                             excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
                         continue
                     # if the package is not produced by the new source package, then remove it from testing
                     if pkg not in packages_s_a:
-                        excuse.addhtml("Removed binary: %s %s" % (pkg, tpkg_data[VERSION]))
+                        excuse.addhtml("Removed binary: %s %s" % (pkg, tpkg_data.version))
                         # the removed binary is only interesting if this is a binary-only migration,
                         # as otherwise the updated source will already cause the binary packages
                         # to be updated
@@ -1349,7 +1348,7 @@ class Britney(object):
                 # if the package in testing has no binaries on this
                 # architecture, it can't be out-of-date
                 if not any(x for x in source_t[BINARIES]
-                           if x[2] == arch and all_binaries[x][ARCHITECTURE] != 'all'):
+                           if x[2] == arch and all_binaries[x].architecture != 'all'):
                     continue
 
                 # if the (t-)p-u package has produced any binaries on
@@ -1357,8 +1356,8 @@ class Britney(object):
                 # uploads to (t-)p-u which intentionally drop binary
                 # packages
                 if any(x for x in self.binaries[suite][arch][0].values() \
-                          if x[SOURCE] == src and x[SOURCEVER] == source_u[VERSION] and \
-                             x[ARCHITECTURE] != 'all'):
+                          if x.source == src and x.source_version == source_u[VERSION] and \
+                             x.architecture != 'all'):
                     continue
 
                 if suite == 'tpu':
@@ -1390,7 +1389,7 @@ class Britney(object):
 
                 # retrieve the binary package and its source version
                 binary_u = all_binaries[pkg_id]
-                pkgsv = binary_u[SOURCEVER]
+                pkgsv = binary_u.source_version
 
                 # if it wasn't built by the same source, it is out-of-date
                 # if there is at least one binary on this arch which is
@@ -1404,12 +1403,12 @@ class Britney(object):
                 else:
                     # if the binary is arch all, it doesn't count as
                     # up-to-date for this arch
-                    if binary_u[ARCHITECTURE] == arch:
+                    if binary_u.architecture == arch:
                         uptodatebins = True
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
-                if binary_u[ARCHITECTURE] != 'all' or arch in self.options.nobreakall_arches:
+                if binary_u.architecture != 'all' or arch in self.options.nobreakall_arches:
                     self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
 
             # if there are out-of-date packages, warn about them in the excuse and set update_candidate
@@ -1692,7 +1691,7 @@ class Britney(object):
             nuninst[arch] = set()
             for pkg_name in binaries[arch][0]:
                 pkgdata = binaries[arch][0][pkg_name]
-                pkg_id = (pkg_name, pkgdata[VERSION], arch)
+                pkg_id = (pkg_name, pkgdata.version, arch)
                 r = inst_tester.is_installable(pkg_id)
                 if not r:
                     nuninst[arch].add(pkg_name)
@@ -1702,7 +1701,7 @@ class Britney(object):
             if not check_archall:
                 for pkg in nuninst[arch + "+all"]:
                     bpkg = binaries[arch][0][pkg]
-                    if bpkg[ARCHITECTURE] == 'all':
+                    if bpkg.architecture == 'all':
                         nuninst[arch].remove(pkg)
 
         # return the dictionary with the results
@@ -1816,7 +1815,7 @@ class Britney(object):
                         continue
 
                     # Do not include hijacked binaries
-                    if binaries_t[parch][0][binary][SOURCE] != source_name:
+                    if binaries_t[parch][0][binary].source != source_name:
                         continue
                     bins.append(pkg_id)
 
@@ -1826,7 +1825,7 @@ class Britney(object):
                     if allow_smooth_updates and suite == 'unstable' and \
                        binary not in self.binaries[suite][parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
-                        binaries_t[parch][0][binary][SECTION] in self.options.smooth_updates):
+                        binaries_t[parch][0][binary].section in self.options.smooth_updates):
 
                         # if the package has reverse-dependencies which are
                         # built from other sources, it's a valid candidate for
@@ -1878,7 +1877,7 @@ class Britney(object):
                     # migration so will end up missing from testing
                     if migration_architecture != 'source' and \
                          suite != 'unstable' and \
-                         binaries_t[parch][0][binary][ARCHITECTURE] == 'all':
+                         binaries_t[parch][0][binary].architecture == 'all':
                         continue
                     else:
                         rms.add(pkg_id)
@@ -1886,7 +1885,7 @@ class Britney(object):
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
         elif source_name in binaries_t[migration_architecture][0]:
-            version = binaries_t[migration_architecture][0][source_name][VERSION]
+            version = binaries_t[migration_architecture][0][source_name].version
             rms.add((source_name, version, migration_architecture))
 
         # add the new binary packages (if we are not removing)
@@ -1897,7 +1896,7 @@ class Britney(object):
                 if migration_architecture not in ['source', parch]:
                     continue
 
-                if self.binaries[suite][parch][0][binary][SOURCE] != source_name:
+                if self.binaries[suite][parch][0][binary].source != source_name:
                     # This binary package has been hijacked by some other source.
                     # So don't add it as part of this update.
                     #
@@ -1911,7 +1910,7 @@ class Britney(object):
 
                 # Don't add the binary if it is old cruft that is no longer in testing
                 if (parch not in self.options.fucked_arches and
-                    source_data[VERSION] != self.binaries[suite][parch][0][binary][SOURCEVER] and
+                    source_data[VERSION] != self.binaries[suite][parch][0][binary].source_version and
                     binary not in binaries_t[parch][0]):
                     continue
 
@@ -1992,7 +1991,7 @@ class Britney(object):
                         affected.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
                     # remove the provided virtual packages
-                    for j, prov_version, _ in pkg_data[PROVIDES]:
+                    for j, prov_version, _ in pkg_data.provides:
                         key = (j, parch)
                         if key not in undo['virtual']:
                             undo['virtual'][key] = provides_t_a[j].copy()
@@ -2014,7 +2013,7 @@ class Britney(object):
         # updates but not supported as a manual hint
         elif item.package in packages_t[item.architecture][0]:
             binaries_t_a = packages_t[item.architecture][0]
-            version = binaries_t_a[item.package][VERSION]
+            version = binaries_t_a[item.package].version
             pkg_id = (item.package, version, item.architecture)
             undo['binaries'][(item.package, item.architecture)] = pkg_id
             affected.update(inst_tester.reverse_dependencies_of(pkg_id))
@@ -2040,7 +2039,7 @@ class Britney(object):
                 # all of its reverse dependencies as affected
                 if binary in binaries_t_a:
                     old_pkg_data = binaries_t_a[binary]
-                    old_version = old_pkg_data[VERSION]
+                    old_version = old_pkg_data.version
                     old_pkg_id = (binary, old_version, parch)
                     # save the old binary package
                     undo['binaries'][key] = old_pkg_id
@@ -2070,7 +2069,7 @@ class Britney(object):
                 binaries_t_a[binary] = new_pkg_data
                 inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
-                for j, prov_version, _ in new_pkg_data[PROVIDES]:
+                for j, prov_version, _ in new_pkg_data.provides:
                     key = (j, parch)
                     if j not in provides_t_a:
                         undo['nvirtual'].append(key)
@@ -2459,7 +2458,7 @@ class Britney(object):
         # local copies for performance
         sources = self.sources['testing']
         binaries = self.binaries['testing']
-        used = set(binaries[arch][0][binary][SOURCE]
+        used = set(binaries[arch][0][binary].source
                      for arch in binaries
                      for binary in binaries[arch][0]
                   )
@@ -2721,7 +2720,7 @@ class Britney(object):
         all = defaultdict(set)
         for p in nuninst[arch]:
             pkg = self.binaries['testing'][arch][0][p]
-            all[(pkg[SOURCE], pkg[SOURCEVER])].add(p)
+            all[(pkg.source, pkg.source_version)].add(p)
 
         print('* %s' % arch)
 
