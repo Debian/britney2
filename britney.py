@@ -668,10 +668,20 @@ class Britney(object):
             breaks = get_field('Breaks')
             if breaks:
                 final_conflicts_list.append(breaks)
+
+            source = pkg
+            source_version = version
+            # retrieve the name and the version of the source package
+            source_raw = get_field('Source')
+            if source_raw:
+                source = intern(source_raw.split(" ")[0])
+                if "(" in source_raw:
+                    source_version = intern(source_raw[source_raw.find("(")+1:source_raw.find(")")])
+
             dpkg = [version,
                     intern(get_field('Section')),
-                    pkg,
-                    version,
+                    source,
+                    source_version,
                     intern(get_field('Architecture')),
                     get_field('Multi-Arch'),
                     deps,
@@ -680,26 +690,19 @@ class Britney(object):
                     ess,
                    ]
 
-            # retrieve the name and the version of the source package
-            source = get_field('Source')
-            if source:
-                dpkg[SOURCE] = intern(source.split(" ")[0])
-                if "(" in source:
-                    dpkg[SOURCEVER] = intern(source[source.find("(")+1:source.find(")")])
-
             # if the source package is available in the distribution, then register this binary package
-            if dpkg[SOURCE] in srcdist:
+            if source in srcdist:
                 # There may be multiple versions of any arch:all packages
                 # (in unstable) if some architectures have out-of-date
                 # binaries.  We only want to include the package in the
                 # source -> binary mapping once. It doesn't matter which
                 # of the versions we include as only the package name and
                 # architecture are recorded.
-                if pkg_id not in srcdist[dpkg[SOURCE]][BINARIES]:
-                    srcdist[dpkg[SOURCE]][BINARIES].append(pkg_id)
+                if pkg_id not in srcdist[source][BINARIES]:
+                    srcdist[source][BINARIES].append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[dpkg[SOURCE]] = [dpkg[SOURCEVER], 'faux', [pkg_id], None, True]
+                srcdist[source] = [source_version, 'faux', [pkg_id], None, True]
 
             if dpkg[PROVIDES]:
                 parts = apt_pkg.parse_depends(dpkg[PROVIDES], False)
