@@ -947,7 +947,8 @@ class Britney(object):
         # analyze the dependency fields (if present)
         deps = binary_u.depends
         if not deps:
-            return
+            return True
+        is_all_ok = True
 
         # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
@@ -972,6 +973,8 @@ class Britney(object):
             if not packages:
                 excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
                 excuse.addreason("depends")
+                if arch not in self.options.break_arches:
+                    is_all_ok = False
                 continue
 
             # for the solving packages, update the excuse to add the dependencies
@@ -983,6 +986,7 @@ class Britney(object):
                         excuse.add_dep(p, arch)
                 else:
                     excuse.add_break_dep(p, arch)
+        return is_all_ok
 
     # Package analysis methods
     # ------------------------
@@ -1409,7 +1413,9 @@ class Britney(object):
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
                 if binary_u.architecture != 'all' or arch in self.options.nobreakall_arches:
-                    self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
+                    is_valid = self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
+                    if not is_valid and not source_t:
+                        update_candidate = False
 
             # if there are out-of-date packages, warn about them in the excuse and set update_candidate
             # to False to block the update; if the architecture where the package is out-of-date is
