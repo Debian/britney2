@@ -1945,7 +1945,8 @@ class Britney(object):
         """
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
-        affected = set()
+        affected_pos = set()
+        affected_remain = set()
 
         # local copies for better performance
         sources = self.sources
@@ -1993,8 +1994,8 @@ class Britney(object):
                     if pkey not in eqv_set:
                         # all the reverse dependencies are affected by
                         # the change
-                        affected.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
-                        affected.update(inst_tester.negative_dependencies_of(rm_pkg_id))
+                        affected_pos.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
+                        affected_remain.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
                     # remove the provided virtual packages
                     for j, prov_version, _ in pkg_data.provides:
@@ -2022,7 +2023,7 @@ class Britney(object):
             version = binaries_t_a[item.package].version
             pkg_id = (item.package, version, item.architecture)
             undo['binaries'][(item.package, item.architecture)] = pkg_id
-            affected.update(inst_tester.reverse_dependencies_of(pkg_id))
+            affected_pos.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
             inst_tester.remove_testing_binary(pkg_id)
 
@@ -2037,8 +2038,8 @@ class Britney(object):
                 equivalent_replacement = key in eqv_set
 
                 # obviously, added/modified packages are affected
-                if not equivalent_replacement and updated_pkg_id not in affected:
-                    affected.add(updated_pkg_id)
+                if not equivalent_replacement:
+                    affected_pos.add(updated_pkg_id)
                 # if the binary already exists in testing, it is currently
                 # built by another source package. we therefore remove the
                 # version built by the other source package, after marking
@@ -2051,8 +2052,8 @@ class Britney(object):
                     undo['binaries'][key] = old_pkg_id
                     if not equivalent_replacement:
                         # all the reverse conflicts
-                        affected.update(inst_tester.reverse_dependencies_of(old_pkg_id))
-                        affected.update(inst_tester.negative_dependencies_of(old_pkg_id))
+                        affected_pos.update(inst_tester.reverse_dependencies_of(old_pkg_id))
+                        affected_remain.update(inst_tester.negative_dependencies_of(old_pkg_id))
                     inst_tester.remove_testing_binary(old_pkg_id)
                 elif hint_undo:
                     # the binary isn't in testing, but it may have been at
@@ -2068,7 +2069,7 @@ class Britney(object):
                     for (tundo, tpkg) in hint_undo:
                         if key in tundo['binaries']:
                             tpkg_id = tundo['binaries'][key]
-                            affected.update(inst_tester.reverse_dependencies_of(tpkg_id))
+                            affected_pos.update(inst_tester.reverse_dependencies_of(tpkg_id))
 
                 # add/update the binary package from the source suite
                 new_pkg_data = packages_s[parch][0][binary]
@@ -2085,17 +2086,18 @@ class Britney(object):
                     provides_t_a[j].add((binary, prov_version))
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
-                    affected.add(updated_pkg_id)
-                    affected.update(inst_tester.negative_dependencies_of(updated_pkg_id))
+                    affected_pos.add(updated_pkg_id)
+                    affected_remain.update(inst_tester.negative_dependencies_of(updated_pkg_id))
 
             # add/update the source package
             if item.architecture == 'source':
                 sources['testing'][item.package] = sources[item.suite][item.package]
 
         # Also include the transitive rdeps of the packages found so far
-        compute_reverse_tree(inst_tester, affected)
+        compute_reverse_tree(inst_tester, affected_pos)
+        compute_reverse_tree(inst_tester, affected_remain)
         # return the package name, the suite, the list of affected packages and the undo dictionary
-        return (affected, undo)
+        return (affected_pos, affected_remain, undo)
 
     def try_migration(self, actions, nuninst_now, lundo=None, automatic_revert=True):
         is_accepted = True
@@ -2111,7 +2113,7 @@ class Britney(object):
         if len(actions) == 1:
             item = actions[0]
             # apply the changes
-            affected, undo = self.doop_source(item, hint_undo=lundo)
+            affected_pos, affected_remain, undo = self.doop_source(item, hint_undo=lundo)
             undo_list = [(undo, item)]
             if item.architecture == 'source':
                 affected_architectures = set(self.options.architectures)
@@ -2120,7 +2122,8 @@ class Britney(object):
         else:
             undo_list = []
             removals = set()
-            affected = set()
+            affected_pos = set()
+            affected_remain = set()
             for item in actions:
                 _, rms, _ = self._compute_groups(item.package, item.suite,
                                                  item.architecture,
@@ -2133,11 +2136,22 @@ class Britney(object):
                 affected_architectures = set(self.options.architectures)
 
             for item in actions:
-                item_affected, undo = self.doop_source(item,
-                                                       hint_undo=lundo,
-                                                       removals=removals)
-                affected.update(item_affected)
+                item_affected_pos, item_affected_remain, undo = self.doop_source(item,
+                                                                                 hint_undo=lundo,
+                                                                                 removals=removals)
+                affected_pos.update(item_affected_pos)
+                affected_remain.update(item_affected_remain)
                 undo_list.append((undo, item))
+
+        # Optimise the test if we may revert directly.
+        # - The automatic-revert is needed since some callers (notably via hints) may
+        #   accept the outcome of this migration and expect nuninst to be updated.
+        #   (e.g. "force-hint" or "hint")
+        if automatic_revert:
+            affected_remain -= affected_pos
+        else:
+            affected_remain |= affected_pos
+            affected_pos = set()
 
         # Copy nuninst_comp - we have to deep clone affected
         # architectures.
@@ -2152,7 +2166,8 @@ class Britney(object):
         for arch in affected_architectures:
             check_archall = arch in nobreakall_arches
 
-            check_installability(self._inst_tester, packages_t, arch, affected, check_archall, nuninst_after)
+            check_installability(self._inst_tester, packages_t, arch, affected_pos, affected_remain,
+                                 check_archall, nuninst_after)
 
             # if the uninstallability counter is worse than before, break the loop
             if automatic_revert and len(nuninst_after[arch]) > len(nuninst_now[arch]):
