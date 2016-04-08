@@ -2178,8 +2178,8 @@ class Britney(object):
         final result is successful, otherwise (None, []).
         """
         group_info = {}
-        maybe_rescheduled = packages
-        changed = True
+        rescheduled_packages = packages
+        maybe_rescheduled_packages = []
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
@@ -2196,11 +2196,10 @@ class Britney(object):
         nuninst_last_accepted = nuninst_orig
 
         self.output_write("recur: [] %s %d/0\n" % (",".join(x.uvname for x in selected), len(packages)))
-        while changed:
-            changed = False
-            groups = {group_info[x] for x in maybe_rescheduled}
+        while rescheduled_packages:
+            groups = {group_info[x] for x in rescheduled_packages}
             worklist = self._inst_tester.solve_groups(groups)
-            maybe_rescheduled = []
+            rescheduled_packages = []
 
             worklist.reverse()
 
@@ -2211,7 +2210,6 @@ class Britney(object):
                 accepted, nuninst_after, comp_undo, failed_arch = self.try_migration(comp, nuninst_last_accepted, lundo)
                 if accepted:
                     selected.extend(comp)
-                    changed = True
                     if lundo is not None:
                         lundo.extend(comp_undo)
                     self.output_write("accepted: %s\n" % comp_name)
@@ -2223,6 +2221,8 @@ class Britney(object):
                     else:
                         self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
                     nuninst_last_accepted = nuninst_after
+                    rescheduled_packages.extend(maybe_rescheduled_packages)
+                    maybe_rescheduled_packages.clear()
                 else:
                     broken = sorted(b for b in nuninst_after[failed_arch]
                                     if b not in nuninst_last_accepted[failed_arch])
@@ -2230,7 +2230,8 @@ class Britney(object):
                     if any(item for item in comp if item.architecture != 'source'):
                         compare_nuninst = nuninst_last_accepted
                     # NB: try_migration already reverted this for us, so just print the results and move on
-                    self.output_write("skipped: %s (%d, %d)\n" % (comp_name, len(maybe_rescheduled), len(worklist)))
+                    self.output_write("skipped: %s (%d, %d, %d)\n" % (comp_name, len(rescheduled_packages),
+                                                                      len(maybe_rescheduled_packages), len(worklist)))
                     self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst_after, compare_nuninst)))
                     self.output_write("    * %s: %s\n" % (failed_arch, ", ".join(broken)))
 
@@ -2238,7 +2239,7 @@ class Britney(object):
                         self.output_write("    - splitting the component into single items and retrying them\n")
                         worklist.extend([item] for item in comp)
                     else:
-                        maybe_rescheduled.append(comp[0])
+                        maybe_rescheduled_packages.append(comp[0])
 
         self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
@@ -2247,7 +2248,7 @@ class Britney(object):
                                       newly_uninst(self.nuninst_orig, nuninst_last_accepted)))
         self.output_write("\n")
 
-        return (nuninst_last_accepted, maybe_rescheduled)
+        return (nuninst_last_accepted, maybe_rescheduled_packages)
 
 
     def do_all(self, hinttype=None, init=None, actions=None):
