@@ -629,11 +629,25 @@ class Britney(object):
             # (in unstable) if some architectures have out-of-date
             # binaries.  We only ever consider the package with the
             # largest version for migration.
-            if pkg in packages and apt_pkg.version_compare(packages[pkg][0], version) > 0:
-                continue
             pkg = intern(pkg)
             version = intern(version)
             pkg_id = (pkg, version, arch)
+
+            if pkg in packages:
+                old_pkg_data = packages[pkg]
+                if apt_pkg.version_compare(old_pkg_data[VERSION], version) > 0:
+                    continue
+                old_pkg_id = (pkg, old_pkg_data[VERSION], arch)
+                old_src_binaries = srcdist[old_pkg_data[SOURCE]][BINARIES]
+                old_src_binaries.remove(old_pkg_id)
+                # This may seem weird at first glance, but the current code rely
+                # on this behaviour to avoid issues like #709460.  Admittedly it
+                # is a special case, but Britney will attempt to remove the
+                # arch:all packages without this.  Even then, this particular
+                # stop-gap relies on the packages files being sorted by name
+                # and the version, so it is not particularly resilient.
+                if pkg_id not in old_src_binaries:
+                    old_src_binaries.append(pkg_id)
 
             # Merge Pre-Depends with Depends and Conflicts with
             # Breaks. Britney is not interested in the "finer
