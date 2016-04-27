@@ -123,10 +123,17 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
     # undo all new binaries (consequence of the above)
     for (undo, item) in lundo:
         if not item.is_removal and item.package in sources[item.suite]:
-            for pkg_id in sources[item.suite][item.package][BINARIES]:
+            source_data = sources[item.suite][item.package]
+            for pkg_id in source_data[BINARIES]:
                 binary, _, arch = pkg_id
                 if item.architecture in ['source', arch]:
-                    del binaries["testing"][arch][0][binary]
+                    try:
+                        del binaries["testing"][arch][0][binary]
+                    except KeyError:
+                        # If this happens, pkg_id must be a cruft item that
+                        # was *not* migrated.
+                        assert source_data[VERSION] != all_binary_packages[pkg_id][VERSION]
+                        assert not inst_tester.any_of_these_are_in_testing((pkg_id,))
                     inst_tester.remove_testing_binary(pkg_id)
 
 
