@@ -148,9 +148,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
                 inst_tester.remove_testing_binary(binary, version, arch)
             else:
                 binaries_t_a = binaries['testing'][arch][0]
-                if p in binaries_t_a:
-                    rmpkgdata = binaries_t_a[p]
-                    inst_tester.remove_testing_binary((binary, rmpkgdata.version, arch))
+                assert binary not in binaries_t_a
                 pkgdata = all_binary_packages[undo['binaries'][p]]
                 binaries_t_a[binary] = pkgdata
                 inst_tester.add_testing_binary((binary, pkgdata.version, arch))
