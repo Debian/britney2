@@ -506,6 +506,10 @@ class Britney(object):
         no = 0
         faux_version = sys.intern('1')
         faux_section = sys.intern('faux')
+        keep_installable = []
+        constraints = {
+            'keep-installable': keep_installable
+        }
 
         while step():
             no += 1
@@ -535,6 +539,7 @@ class Britney(object):
                         ]
             self.sources['testing'][pkg_name] = src_data
             self.sources['unstable'][pkg_name] = src_data
+            keep_installable.append(pkg_name)
             for arch in self.options.architectures:
                 deps = []
                 for pkg_spec in pkg_list:
@@ -572,6 +577,8 @@ class Britney(object):
                 self.binaries['testing'][arch][0][pkg_name] = bin_data
                 self.binaries['unstable'][arch][0][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data
+
+        return constraints
 
     def _build_installability_tester(self, archs):
         """Create the installability tester"""
@@ -2258,6 +2265,7 @@ class Britney(object):
         # removed by the item would still be counted.
 
         nuninst_after = clone_nuninst(nuninst_now, packages_t, affected_architectures)
+        must_be_installable = self.constraints['keep-installable']
 
         # check the affected packages on all the architectures
         for arch in affected_architectures:
@@ -2267,10 +2275,17 @@ class Britney(object):
                                  check_archall, nuninst_after)
 
             # if the uninstallability counter is worse than before, break the loop
-            if automatic_revert and len(nuninst_after[arch]) > len(nuninst_now[arch]):
+            if automatic_revert:
+                worse = False
+                if len(nuninst_after[arch]) > len(nuninst_now[arch]):
+                    worse = True
+                else:
+                    regression = nuninst_after[arch] - nuninst_now[arch]
+                    if not regression.isdisjoint(must_be_installable):
+                        worse = True
                 # ... except for a few special cases
-                if (item.architecture != 'source' and arch not in new_arches) or \
-                   (arch not in break_arches):
+                if worse and ((item.architecture != 'source' and arch not in new_arches) or
+                   (arch not in break_arches)):
                     is_accepted = False
                     break
 
@@ -2446,7 +2461,8 @@ class Britney(object):
                 # do not allow any regressions on these architectures.
                 # This usually only happens with hints
                 break_arches = set()
-            better = is_nuninst_asgood_generous(self.options.architectures,
+            better = is_nuninst_asgood_generous(self.constraints,
+                                                self.options.architectures,
                                                 self.nuninst_orig,
                                                 nuninst_end,
                                                 break_arches)

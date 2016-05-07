@@ -488,17 +488,21 @@ def old_libraries(sources, packages, fucked_arches=frozenset()):
     return removals
 
 
-def is_nuninst_asgood_generous(architectures, old, new, break_arches=frozenset()):
-    """Compares the nuninst counters to see if they improved
+def is_nuninst_asgood_generous(constraints, architectures, old, new, break_arches=frozenset()):
+    """Compares the nuninst counters and constraints to see if they improved
 
-    Given a list of architecters, the previous and the current nuninst
+    Given a list of architectures, the previous and the current nuninst
     counters, this function determines if the current nuninst counter
     is better than the previous one.  Optionally it also accepts a set
     of "break_arches", the nuninst counter for any architecture listed
     in this set are completely ignored.
 
+    If the nuninst counters are equal or better, then the constraints
+    are checked for regressions (ignoring break_arches).
+
     Returns True if the new nuninst counter is better than the
-    previous.  Returns False otherwise.
+    previous and there are no constraint regressions (ignoring Break-archs).
+    Returns False otherwise.
 
     """
     diff = 0
@@ -506,7 +510,16 @@ def is_nuninst_asgood_generous(architectures, old, new, break_arches=frozenset()
         if arch in break_arches:
             continue
         diff = diff + (len(new[arch]) - len(old[arch]))
-    return diff <= 0
+    if diff > 0:
+        return False
+    must_be_installable = constraints['keep-installable']
+    for arch in architectures:
+        if arch in break_arches:
+            continue
+        regression = new[arch] - old[arch]
+        if not regression.isdisjoint(must_be_installable):
+            return False
+    return True
 
 
 def clone_nuninst(nuninst, packages_s, architectures):
