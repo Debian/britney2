@@ -277,11 +277,11 @@ class RCBugPolicy(BasePolicy):
     The RCBugPolicy's decision is influenced by the following:
 
     State files:
-     * ${UNSTABLE}/BugsV: File containing RC bugs for packages in the
-      source suite.
+     * ${STATE_DIR}/rc-bugs-unstable: File containing RC bugs for packages in
+       the source suite.
        - This file needs to be updated externally.
-     * ${TESTING}/BugsV: File containing RC bugs for packages in the
-       target suite.
+     * ${STATE_DIR}/rc-bugs-testing: File containing RC bugs for packages in
+       the target suite.
        - This file needs to be updated externally.
     """
 
@@ -291,8 +291,20 @@ class RCBugPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
-        self._bugs['unstable'] = self._read_bugs(self.options.unstable)
-        self._bugs['testing'] = self._read_bugs(self.options.testing)
+        fallback_unstable = os.path.join(self.options.unstable, 'BugsV')
+        fallback_testing = os.path.join(self.options.testing, 'BugsV')
+        try:
+            filename_unstable = os.path.join(self.options.state_dir, 'rc-bugs-unstable')
+            filename_testing = os.path.join(self.options.state_dir, 'rc-bugs-testing')
+            if not os.path.exists(filename_unstable) and not os.path.exists(filename_testing) and \
+               os.path.exists(fallback_unstable) and os.path.exists(fallback_testing):
+                filename_unstable = fallback_unstable
+                filename_testing = fallback_testing
+        except AttributeError:
+            filename_unstable = fallback_unstable
+            filename_testing = fallback_testing
+        self._bugs['unstable'] = self._read_bugs(filename_unstable)
+        self._bugs['testing'] = self._read_bugs(filename_testing)
 
     def apply_policy(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
         # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
@@ -336,12 +348,10 @@ class RCBugPolicy(BasePolicy):
             return PolicyVerdict.PASS
         return PolicyVerdict.REJECTED_PERMANENTLY
 
-    def _read_bugs(self, basedir):
-        """Read the release critical bug summary from the specified directory
+    def _read_bugs(self, filename):
+        """Read the release critical bug summary from the specified file
 
-        The RC bug summaries are read from the `BugsV' file within the
-        directory specified in the `basedir' parameter. The file contains
-        rows with the format:
+        The file contains rows with the format:
 
         <package-name> <bug number>[,<bug number>...]
 
@@ -349,7 +359,6 @@ class RCBugPolicy(BasePolicy):
         name and the value is the list of open RC bugs for it.
         """
         bugs = {}
-        filename = os.path.join(basedir, "BugsV")
         self.log("Loading RC bugs data from %s" % filename)
         for line in open(filename, encoding='ascii'):
             l = line.split()
