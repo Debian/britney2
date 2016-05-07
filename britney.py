@@ -317,6 +317,21 @@ class Britney(object):
             # unstable
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
 
+        try:
+            constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
+        except AttributeError:
+            self.log("The static_input_dir option is not set", type='I')
+            constraints_file = None
+        if constraints_file is not None and os.path.exists(constraints_file):
+            self.log("Loading constraints from %s" % constraints_file, type='I')
+            self.constraints = self._load_constraints(constraints_file)
+        else:
+            if constraints_file is not None:
+                self.log("No constraints as %s does not exist" % constraints_file, type='I')
+            self.constraints = {
+                'keep-installable': [],
+            }
+
         self.log("Compiling Installability tester", type="I")
         self._build_installability_tester(self.options.architectures)
 
@@ -475,6 +490,88 @@ class Britney(object):
         """
         if self.options.verbose or type in ("E", "W"):
             print("%s: [%s] - %s" % (type, time.asctime(), msg))
+
+    def _load_constraints(self, constraints_file):
+        """Loads configurable constraints
+
+        The constraints file can contain extra rules that Britney should attempt
+        to satisfy.  Examples can be "keep package X in testing and ensure it is
+        installable".
+
+        :param constraints_file: Path to the file containing the constraints
+        """
+        tag_file = apt_pkg.TagFile(constraints_file)
+        get_field = tag_file.section.get
+        step = tag_file.step
+        no = 0
+        faux_version = sys.intern('1')
+        faux_section = sys.intern('faux')
+
+        while step():
+            no += 1
+            pkg_name = get_field('Fake-Package-Name', None)
+            if pkg_name is None:
+                raise ValueError("Missing Fake-Package-Name field in paragraph %d (file %s)" % (no, constraints_file))
+            pkg_name = sys.intern(pkg_name)
+
+            def mandatory_field(x):
+                v = get_field(x, None)
+                if v is None:
+                    raise ValueError("Missing %s field for %s (file %s)" % (x, pkg_name, constraints_file))
+                return v
+
+            constraint = mandatory_field('Constraint')
+            if constraint not in {'present-and-installable'}:
+                raise ValueError("Unsupported constraint %s for %s (file %s)" % (constraint, pkg_name, constraints_file))
+
+            self.log(" - constraint %s" % pkg_name, type='I')
+
+            pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '']
+            src_data = [faux_version,
+                        faux_section,
+                        [],
+                        None,
+                        True,
+                        ]
+            self.sources['testing'][pkg_name] = src_data
+            self.sources['unstable'][pkg_name] = src_data
+            for arch in self.options.architectures:
+                deps = []
+                for pkg_spec in pkg_list:
+                    s = pkg_spec.split(None, 2)
+                    if len(s) == 1:
+                        deps.append(s[0])
+                    else:
+                        pkg, arch_res = s
+                        if not (arch_res.startswith('[') and arch_res.endswith(']')):
+                            raise ValueError("Invalid arch-restriction on %s - should be [arch1 arch2] (for %s file %s)"
+                                             % (pkg, pkg_name, constraints_file))
+                        arch_res = arch_res[1:-1].split()
+                        if not arch_res:
+                            msg = "Empty arch-restriction for %s: Uses comma or negation (for %s file %s)"
+                            raise ValueError(msg % (pkg, pkg_name, constraints_file))
+                        for a in arch_res:
+                            if a == arch:
+                                deps.append(pkg)
+                            elif ',' in a or '!' in a:
+                                msg = "Invalid arch-restriction for %s: Uses comma or negation (for %s file %s)"
+                                raise ValueError(msg % (pkg, pkg_name, constraints_file))
+                pkg_id = (pkg_name, faux_version, arch)
+                bin_data = BinaryPackage(faux_version,
+                                         faux_section,
+                                         pkg_name,
+                                         faux_version,
+                                         arch,
+                                         'no',
+                                         ', '.join(deps),
+                                         None,
+                                         [],
+                                         False,
+                                         )
+                src_data[BINARIES].append(pkg_id)
+                self.binaries['testing'][arch][0][pkg_name] = bin_data
+                self.binaries['unstable'][arch][0][pkg_name] = bin_data
+                self.all_binaries[pkg_id] = bin_data
 
     def _build_installability_tester(self, archs):
         """Create the installability tester"""
