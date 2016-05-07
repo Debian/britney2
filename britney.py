@@ -724,6 +724,26 @@ class Britney(object):
 
         return sources
 
+    def _parse_provides(self, pkg_id, provides_raw):
+        parts = apt_pkg.parse_depends(provides_raw, False)
+        nprov = []
+        for or_clause in parts:
+            if len(or_clause) != 1:
+                msg = "Ignoring invalid provides in %s: Alternatives [%s]" % (str(pkg_id), str(or_clause))
+                self.log(msg, type='W')
+                continue
+            for part in or_clause:
+                provided, provided_version, op = part
+                if op != '' and op != '=':
+                    msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, provided_version)
+                    self.log(msg, type='W')
+                    continue
+                provided = sys.intern(provided)
+                provided_version = sys.intern(provided_version)
+                part = (provided, provided_version, sys.intern(op))
+                nprov.append(part)
+        return nprov
+
     def _read_packages_file(self, filename, arch, srcdist, packages=None, intern=sys.intern):
         self.log("Loading binary packages from %s" % filename)
 
@@ -797,24 +817,7 @@ class Britney(object):
 
             provides_raw = get_field('Provides')
             if provides_raw:
-                parts = apt_pkg.parse_depends(provides_raw, False)
-                nprov = []
-                for or_clause in parts:
-                    if len(or_clause) != 1:
-                        msg = "Ignoring invalid provides in %s: Alternatives [%s]" % (str(pkg_id), str(or_clause))
-                        self.log(msg, type='W')
-                        continue
-                    for part in or_clause:
-                        provided, provided_version, op = part
-                        if op != '' and op != '=':
-                            msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, version)
-                            self.log(msg, type='W')
-                            continue
-                        provided = intern(provided)
-                        provided_version = intern(provided_version)
-                        part = (provided, provided_version, intern(op))
-                        nprov.append(part)
-                provides = nprov
+                provides = self._parse_provides(pkg_id, provides_raw)
             else:
                 provides = []
 
