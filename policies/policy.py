@@ -91,7 +91,8 @@ class AgePolicy(BasePolicy):
          will simply use the default urgency (see the "Config" section below)
        - In Debian, these values are taken from the .changes file, but that is
          not a requirement for Britney.
-     * ${TESTING}/Dates: File containing the age of all source packages.
+     * ${STATE_DIR}/age-policy-dates: File containing the age of all source
+       packages.
        - The policy will automatically update this file.
     Config:
      * DEFAULT_URGENCY: Name of the urgency used for packages without an urgency
@@ -185,7 +186,14 @@ class AgePolicy(BasePolicy):
     def _read_dates_file(self):
         """Parse the dates file"""
         dates = self._dates
-        filename = os.path.join(self.options.testing, 'Dates')
+        fallback_filename = os.path.join(self.options.testing, 'Dates')
+        try:
+            filename = os.path.join(self.options.state_dir, 'age-policy-dates')
+            if not os.path.exists(filename) and os.path.exists(fallback_filename):
+                filename = fallback_filename
+        except AttributeError:
+            filename = fallback_filename
+
         with open(filename, encoding='utf-8') as fd:
             for line in fd:
                 # <source> <version> <date>
@@ -232,14 +240,24 @@ class AgePolicy(BasePolicy):
 
     def _write_dates_file(self):
         dates = self._dates
-        directory = self.options.testing
-        filename = os.path.join(directory, 'Dates')
-        filename_tmp = os.path.join(directory, 'Dates_new')
+        try:
+            directory = self.options.state_dir
+            basename = 'age-policy-dates'
+            old_file = os.path.join(self.options.testing, 'Dates')
+        except AttributeError:
+            directory = self.options.testing
+            basename = 'Dates'
+            old_file = None
+        filename = os.path.join(directory, basename)
+        filename_tmp = os.path.join(directory, '%s_new' % basename)
         with open(filename_tmp, 'w', encoding='utf-8') as fd:
             for pkg in sorted(dates):
                 version, date = dates[pkg]
                 fd.write("%s %s %d\n" % (pkg, version, date))
         os.rename(filename_tmp, filename)
+        if old_file is not None and os.path.exists(old_file):
+            self.log("Removing old age-policy-dates file %s" % old_file)
+            os.unlink(old_file)
 
 
 class RCBugPolicy(BasePolicy):
