@@ -83,9 +83,9 @@ class AgePolicy(BasePolicy):
     The AgePolicy's decision is influenced by the following:
 
     State files:
-     * ${TESTING}/Urgency: File containing urgencies for source packages.
-       Note that urgencies are "sticky" and the most "urgent" urgency will be
-       used (i.e. the one with lowest age-requirements).
+     * ${STATE_DIR}/age-policy-urgencies: File containing urgencies for source
+       packages. Note that urgencies are "sticky" and the most "urgent" urgency
+       will be used (i.e. the one with lowest age-requirements).
        - This file needs to be updated externally, if the policy should take
          urgencies into consideration.  If empty (or not updated), the policy
          will simply use the default urgency (see the "Config" section below)
@@ -207,8 +207,15 @@ class AgePolicy(BasePolicy):
 
     def _read_urgencies_file(self, britney):
         urgencies = self._urgencies
-        filename = os.path.join(self.options.testing, 'Urgency')
         min_days_default = self._min_days_default
+        fallback_filename = os.path.join(self.options.testing, 'Urgency')
+        try:
+            filename = os.path.join(self.options.state_dir, 'age-policy-urgencies')
+            if not os.path.exists(filename) and os.path.exists(fallback_filename):
+                filename = fallback_filename
+        except AttributeError:
+            filename = fallback_filename
+
         with open(filename, errors='surrogateescape', encoding='ascii') as fd:
             for line in fd:
                 # <source> <version> <urgency>
