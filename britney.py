@@ -319,9 +319,17 @@ class Britney(object):
 
         try:
             constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
+            faux_packages = os.path.join(self.options.static_input_dir, 'faux-packages')
         except AttributeError:
             self.log("The static_input_dir option is not set", type='I')
             constraints_file = None
+            faux_packages = None
+        if faux_packages is not None and os.path.exists(faux_packages):
+            self.log("Loading faux packages from %s" % faux_packages, type='I')
+            self._load_faux_packages(faux_packages)
+        else:
+            self.log("No Faux packages as %s does not exist" % faux_packages, type='I')
+
         if constraints_file is not None and os.path.exists(constraints_file):
             self.log("Loading constraints from %s" % constraints_file, type='I')
             self.constraints = self._load_constraints(constraints_file)
@@ -490,6 +498,71 @@ class Britney(object):
         """
         if self.options.verbose or type in ("E", "W"):
             print("%s: [%s] - %s" % (type, time.asctime(), msg))
+
+    def _load_faux_packages(self, faux_packages_file):
+        """Loads fake packages
+
+        In rare cases, it is useful to create a "fake" package that can be used to satisfy
+        dependencies.  This is usually needed for packages that are not shipped directly
+        on this mirror but is a prerequisite for using this mirror (e.g. some vendors provide
+        non-distributable "setup" packages and contrib/non-free packages depend on these).
+
+        :param faux_packages_file: Path to the file containing the fake package definitions
+        """
+        tag_file = apt_pkg.TagFile(faux_packages_file)
+        get_field = tag_file.section.get
+        step = tag_file.step
+        no = 0
+
+        while step():
+            no += 1
+            pkg_name = get_field('Package', None)
+            if pkg_name is None:
+                raise ValueError("Missing Fake-Package-Name field in paragraph %d (file %s)" % (no, faux_packages_file))
+            pkg_name = sys.intern(pkg_name)
+            version = sys.intern(get_field('Version', '1.0-1'))
+            provides_raw = get_field('Provides')
+            archs_raw = get_field('Architecture', None)
+            component = get_field('Component', 'main')
+            if archs_raw:
+                archs = archs_raw.split()
+            else:
+                archs = self.options.architectures
+            faux_section = 'faux'
+            if component != 'main':
+                faux_section = "%s/faux" % component
+            src_data = [version,
+                        sys.intern(faux_section),
+                        [],
+                        None,
+                        True,
+                        ]
+
+            self.sources['testing'][pkg_name] = src_data
+            self.sources['unstable'][pkg_name] = src_data
+
+            for arch in archs:
+                pkg_id = (pkg_name, version, arch)
+                if provides_raw:
+                    provides = self._parse_provides(pkg_id, provides_raw)
+                else:
+                    provides = []
+                bin_data = BinaryPackage(version,
+                                         faux_section,
+                                         pkg_name,
+                                         version,
+                                         arch,
+                                         get_field('Multi-Arch'),
+                                         None,
+                                         None,
+                                         provides,
+                                         False,
+                                         )
+
+                src_data[BINARIES].append(pkg_id)
+                self.binaries['testing'][arch][0][pkg_name] = bin_data
+                self.binaries['unstable'][arch][0][pkg_name] = bin_data
+                self.all_binaries[pkg_id] = bin_data
 
     def _load_constraints(self, constraints_file):
         """Loads configurable constraints
