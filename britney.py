@@ -200,7 +200,7 @@ from excuse import Excuse
 from migrationitem import MigrationItem
 from hints import HintParser
 from britney_util import (old_libraries_format, undo_changes,
-                          compute_reverse_tree,
+                          compute_reverse_tree, possibly_compressed,
                           read_nuninst, write_nuninst, write_heidi,
                           eval_uninst, newly_uninst, make_migrationitem,
                           write_excuses, write_heidi_delta, write_controlfiles,
@@ -790,6 +790,7 @@ class Britney(object):
             sources = {}
             for component in self.options.components:
                 filename = os.path.join(basedir, component, "source", "Sources")
+                filename = possibly_compressed(filename)
                 self._read_sources_file(filename, sources)
         else:
             filename = os.path.join(basedir, "Sources")
@@ -970,6 +971,7 @@ class Britney(object):
             for component in self.options.components:
                 filename = os.path.join(basedir,
                              component, "binary-%s" % arch, "Packages")
+                filename = possibly_compressed(filename)
                 self._read_packages_file(filename, arch,
                       self.sources[distribution], packages)
         else:

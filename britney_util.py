@@ -27,6 +27,7 @@ from itertools import filterfalse
 import os
 import time
 import yaml
+import errno
 
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
@@ -626,3 +627,24 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
             nuninst[parch].discard(name)
         test_installability(inst_tester, name, pkg_id, broken, nuninst_arch)
 
+
+def possibly_compressed(path, permitted_compressesion=None):
+    """Find and select a (possibly compressed) variant of a path
+
+    If the given path exists, it will be returned
+
+    :param path The base path.
+    :param permitted_compressesion An optional list of alternative extensions to look for.
+      Defaults to "gz" and "xz".
+    :returns The path given possibly with one of the permitted extensions.  Will raise a
+     FileNotFoundError
+    """
+    if os.path.exists(path):
+        return path
+    if permitted_compressesion is None:
+        permitted_compressesion = ['gz', 'xz']
+    for ext in permitted_compressesion:
+        cpath = "%s.%s" % (path, ext)
+        if os.path.exists(cpath):
+            return cpath
+    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
