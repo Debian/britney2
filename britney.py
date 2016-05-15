@@ -1443,10 +1443,11 @@ class Britney(object):
                 blocked['block-udeb'] = hint
                 excuse.add_hint(hint)
         if 'block' not in blocked:
-            for hint in self.hints.search(type='block-all', package='source'):
-                blocked['block'] = hint
-                excuse.add_hint(hint)
-                break
+            for hint in self.hints.search(type='block-all'):
+                if hint.package == 'source' or (not source_t and hint.package == 'new-source'):
+                    blocked['block'] = hint
+                    excuse.add_hint(hint)
+                    break
         if suite in ('pu', 'tpu'):
             blocked['block'] = '%s-block' % (suite)
             excuse.needs_approval = True
