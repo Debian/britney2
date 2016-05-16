@@ -182,10 +182,10 @@ class InstallabilityTester(object):
                 # Re-add broken packages as some of them may now be installable
                 self._testing |= self._cache_broken
                 self._cache_broken = set()
-            if pkg_id in self._essentials and pkg_id[2] in self._cache_ess:
+            if pkg_id in self._essentials and pkg_id.architecture in self._cache_ess:
                 # Adds new essential => "pseudo-essential" set needs to be
                 # recomputed
-                del self._cache_ess[pkg_id[2]]
+                del self._cache_ess[pkg_id.architecture]
 
         return True
 
@@ -204,9 +204,9 @@ class InstallabilityTester(object):
 
         if pkg_id in self._testing:
             self._testing.remove(pkg_id)
-            if pkg_id[2] in self._cache_ess and pkg_id in self._cache_ess[pkg_id[2]][0]:
+            if pkg_id.architecture in self._cache_ess and pkg_id in self._cache_ess[pkg_id.architecture][0]:
                 # Removes a package from the "pseudo-essential set"
-                del self._cache_ess[pkg_id[2]]
+                del self._cache_ess[pkg_id.architecture]
 
             if pkg_id not in self._revuniverse:
                 # no reverse relations - safe
@@ -297,12 +297,12 @@ class InstallabilityTester(object):
 
         if len(musts) == 1:
             # Include the essential packages in testing as a starting point.
-            if t[2] not in self._cache_ess:
+            if t.architecture not in self._cache_ess:
                 # The minimal essential set cache is not present -
                 # compute it now.
-                (start, ess_never) = self._get_min_pseudo_ess_set(t[2])
+                (start, ess_never) = self._get_min_pseudo_ess_set(t.architecture)
             else:
-                (start, ess_never) = self._cache_ess[t[2]]
+                (start, ess_never) = self._cache_ess[t.architecture]
 
             if t in ess_never:
                 # t conflicts with something in the essential set or the essential
@@ -601,7 +601,7 @@ class InstallabilityTester(object):
             universe = self._universe
             stats = self._stats
 
-            ess_base = set(x for x in self._essentials if x[2] == arch and x in testing)
+            ess_base = set(x for x in self._essentials if x.architecture == arch and x in testing)
             start = set(ess_base)
             ess_never = set()
             ess_choices = set()
@@ -648,7 +648,7 @@ class InstallabilityTester(object):
             arch_stats.nodes += 1
 
             if pkg in eqv_table and pkg not in seen_eqv[pkg_arch]:
-                eqv = [e for e in eqv_table[pkg] if e[2] == pkg_arch]
+                eqv = [e for e in eqv_table[pkg] if e.architecture == pkg_arch]
                 arch_stats.eqv_nodes += len(eqv)
 
             arch_stats.add_dep_edges(deps)

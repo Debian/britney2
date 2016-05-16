@@ -582,7 +582,7 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
     improvement = 0
 
     # broken packages (first round)
-    for pkg_id in (x for x in updates if x[2] == arch):
+    for pkg_id in (x for x in updates if x.architecture == arch):
         name, version, parch = pkg_id
         if name not in packages_t_a:
             continue
@@ -616,7 +616,7 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
         # The early round is sufficient to disprove the situation
         return
 
-    for pkg_id in (x for x in affected if x[2] == arch):
+    for pkg_id in (x for x in affected if x.architecture == arch):
         name, version, parch = pkg_id
         if name not in packages_t_a:
             continue

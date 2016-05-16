@@ -1266,8 +1266,8 @@ class Britney(object):
         packages_s_a = self.binaries[suite][arch][0]
 
         # for every binary package produced by this source in unstable for this architecture
-        for pkg_id in sorted(x for x in source_u[BINARIES] if x[2] == arch):
-            pkg_name = pkg_id[0]
+        for pkg_id in sorted(x for x in source_u[BINARIES] if x.architecture == arch):
+            pkg_name = pkg_id.package_name
 
             # retrieve the testing (if present) and unstable corresponding binary packages
             binary_t = pkg_name in packages_t_a and packages_t_a[pkg_name] or None
@@ -1344,8 +1344,8 @@ class Britney(object):
                                                         arch,
                                                         False)
 
-                for pkg_id in sorted(x for x in source_t[BINARIES] if x[2] == arch):
-                    pkg = pkg_id[0]
+                for pkg_id in sorted(x for x in source_t[BINARIES] if x.architecture == arch):
+                    pkg = pkg_id.package_name
                     # if the package is architecture-independent, then ignore it
                     tpkg_data = packages_t_a[pkg]
                     if tpkg_data.version == 'all':
@@ -1551,7 +1551,7 @@ class Britney(object):
                 # if the package in testing has no binaries on this
                 # architecture, it can't be out-of-date
                 if not any(x for x in source_t[BINARIES]
-                           if x[2] == arch and all_binaries[x].architecture != 'all'):
+                           if x.architecture == arch and all_binaries[x].architecture != 'all'):
                     continue
 
                 # if the (t-)p-u package has produced any binaries on
@@ -1585,8 +1585,8 @@ class Britney(object):
             oodbins = {}
             uptodatebins = False
             # for every binary package produced by this source in the suite for this architecture
-            for pkg_id in sorted(x for x in source_u[BINARIES] if x[2] == arch):
-                pkg = pkg_id[0]
+            for pkg_id in sorted(x for x in source_u[BINARIES] if x.architecture == arch):
+                pkg = pkg_id.package_name
                 if pkg not in pkgs: pkgs[pkg] = []
                 pkgs[pkg].append(arch)
 
