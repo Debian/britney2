@@ -227,6 +227,12 @@ check_field_name = dict((globals()[fn], fn) for fn in
 
 check_fields = sorted(check_field_name)
 
+BinaryPackageId = namedtuple('BinaryPackageId', [
+                               'package_name',
+                               'version',
+                               'architecture',
+                           ])
+
 BinaryPackage = namedtuple('BinaryPackage', [
                                'version',
                                'section',
@@ -543,7 +549,7 @@ class Britney(object):
             self.sources['unstable'][pkg_name] = src_data
 
             for arch in archs:
-                pkg_id = (pkg_name, version, arch)
+                pkg_id = BinaryPackageId(pkg_name, version, arch)
                 if provides_raw:
                     provides = self._parse_provides(pkg_id, provides_raw)
                 else:
@@ -636,7 +642,7 @@ class Britney(object):
                             elif ',' in a or '!' in a:
                                 msg = "Invalid arch-restriction for %s: Uses comma or negation (for %s file %s)"
                                 raise ValueError(msg % (pkg, pkg_name, constraints_file))
-                pkg_id = (pkg_name, faux_version, arch)
+                pkg_id = BinaryPackageId(pkg_name, faux_version, arch)
                 bin_data = BinaryPackage(faux_version,
                                          faux_section,
                                          pkg_name,
@@ -842,7 +848,7 @@ class Britney(object):
             # largest version for migration.
             pkg = intern(pkg)
             version = intern(version)
-            pkg_id = (pkg, version, arch)
+            pkg_id = BinaryPackageId(pkg, version, arch)
 
             if pkg in packages:
                 old_pkg_data = packages[pkg]
