@@ -190,7 +190,7 @@ import apt_pkg
 
 from collections import defaultdict, namedtuple
 from functools import reduce
-from itertools import chain, product
+from itertools import product
 from operator import attrgetter
 
 from urllib.parse import quote
