@@ -667,9 +667,8 @@ class Britney(object):
             testing = (dist == 'testing')
             for pkgname in binaries[dist][arch][0]:
                 pkgdata = binaries[dist][arch][0][pkgname]
-                version = pkgdata.version
-                t = (pkgname, version, arch)
-                if not builder.add_binary(t, essential=pkgdata.is_essential,
+                pkg_id = pkgdata.pkg_id
+                if not builder.add_binary(pkg_id, essential=pkgdata.is_essential,
                                           in_testing=testing):
                     continue
 
@@ -684,7 +683,7 @@ class Britney(object):
                 if pkgdata.conflicts:
                     conflicts = apt_pkg.parse_depends(pkgdata.conflicts, False)
 
-                with builder.relation_builder(t) as relations:
+                with builder.relation_builder(pkg_id) as relations:
 
                     for (al, dep) in [(depends, True), \
                                       (conflicts, False)]:
@@ -700,14 +699,14 @@ class Britney(object):
                                     # the package name extracted from the field and it is therefore
                                     # not interned.
                                     pdata = dep_packages_s_a[0][p]
-                                    pt = (sys.intern(p), pdata.version, arch)
+                                    dep_pkg_id = pdata.pkg_id
                                     if dep:
-                                        sat.add(pt)
-                                    elif t != pt:
+                                        sat.add(dep_pkg_id)
+                                    elif pkg_id != dep_pkg_id:
                                         # if t satisfies its own
                                         # conflicts relation, then it
                                         # is using §7.6.2
-                                        relations.add_breaks(pt)
+                                        relations.add_breaks(dep_pkg_id)
                             if dep:
                                 if len(block) != 1:
                                     relations.add_dependency_clause(sat)
@@ -849,7 +848,7 @@ class Britney(object):
                 old_pkg_data = packages[pkg]
                 if apt_pkg.version_compare(old_pkg_data.version, version) > 0:
                     continue
-                old_pkg_id = (pkg, old_pkg_data.version, arch)
+                old_pkg_id = old_pkg_data.pkg_id
                 old_src_binaries = srcdist[old_pkg_data[SOURCE]][BINARIES]
                 old_src_binaries.remove(old_pkg_id)
                 # This may seem weird at first glance, but the current code rely
@@ -1891,8 +1890,7 @@ class Britney(object):
             nuninst[arch] = set()
             for pkg_name in binaries[arch][0]:
                 pkgdata = binaries[arch][0][pkg_name]
-                pkg_id = (pkg_name, pkgdata.version, arch)
-                r = inst_tester.is_installable(pkg_id)
+                r = inst_tester.is_installable(pkgdata.pkg_id)
                 if not r:
                     nuninst[arch].add(pkg_name)
 
@@ -2162,17 +2160,17 @@ class Britney(object):
 
                 eqv_table = {}
 
-                for binary, version, parch in rms:
+                for rm_pkg_id in rms:
+                    binary, _, parch = rm_pkg_id
                     key = (binary, parch)
-                    eqv_table[key] = version
+                    eqv_table[key] = rm_pkg_id
 
-                for p1 in updates:
-                    binary, _, parch = p1
+                for new_pkg_id in updates:
+                    binary, _, parch = new_pkg_id
                     key = (binary, parch)
-                    old_version = eqv_table.get(key)
-                    if old_version is not None:
-                        p2 = (binary, old_version, parch)
-                        if inst_tester.are_equivalent(p1, p2):
+                    old_pkg_id = eqv_table.get(key)
+                    if old_pkg_id is not None:
+                        if inst_tester.are_equivalent(new_pkg_id, old_pkg_id):
                             eqv_set.add(key)
 
                 # remove all the binaries which aren't being smooth updated
@@ -2214,8 +2212,7 @@ class Britney(object):
         # updates but not supported as a manual hint
         elif item.package in packages_t[item.architecture][0]:
             binaries_t_a = packages_t[item.architecture][0]
-            version = binaries_t_a[item.package].version
-            pkg_id = (item.package, version, item.architecture)
+            pkg_id = binaries_t_a[item.package].pkg_id
             undo['binaries'][(item.package, item.architecture)] = pkg_id
             affected_pos.update(inst_tester.reverse_dependencies_of(pkg_id))
             del binaries_t_a[item.package]
@@ -2240,8 +2237,7 @@ class Britney(object):
                 # all of its reverse dependencies as affected
                 if binary in binaries_t_a:
                     old_pkg_data = binaries_t_a[binary]
-                    old_version = old_pkg_data.version
-                    old_pkg_id = (binary, old_version, parch)
+                    old_pkg_id = old_pkg_data.pkg_id
                     # save the old binary package
                     undo['binaries'][key] = old_pkg_id
                     if not equivalent_replacement:

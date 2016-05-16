@@ -152,7 +152,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
                 assert binary not in binaries_t_a
                 pkgdata = all_binary_packages[undo['binaries'][p]]
                 binaries_t_a[binary] = pkgdata
-                inst_tester.add_testing_binary((binary, pkgdata.version, arch))
+                inst_tester.add_testing_binary(pkgdata.pkg_id)
 
     # STEP 4
     # undo all changes to virtual packages
