@@ -238,6 +238,7 @@ BinaryPackage = namedtuple('BinaryPackage', [
                                'conflicts',
                                'provides',
                                'is_essential',
+                               'pkg_id',
                            ])
 
 class Britney(object):
@@ -557,6 +558,7 @@ class Britney(object):
                                          None,
                                          provides,
                                          False,
+                                         pkg_id,
                                          )
 
                 src_data[BINARIES].append(pkg_id)
@@ -645,6 +647,7 @@ class Britney(object):
                                          None,
                                          [],
                                          False,
+                                         pkg_id,
                                          )
                 src_data[BINARIES].append(pkg_id)
                 self.binaries['testing'][arch][0][pkg_name] = bin_data
@@ -905,6 +908,7 @@ class Britney(object):
                     ', '.join(final_conflicts_list) or None,
                     provides,
                     ess,
+                    pkg_id,
                    )
 
             # if the source package is available in the distribution, then register this binary package
