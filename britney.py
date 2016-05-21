@@ -603,7 +603,7 @@ class Britney(object):
 
             self.log(" - constraint %s" % pkg_name, type='I')
 
-            pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '']
+            pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '' and not x.strip().startswith("#")]
             src_data = [faux_version,
                         faux_section,
                         [],
