@@ -523,7 +523,7 @@ class Britney(object):
             version = sys.intern(get_field('Version', '1.0-1'))
             provides_raw = get_field('Provides')
             archs_raw = get_field('Architecture', None)
-            component = get_field('Component', 'main')
+            component = get_field('Component', 'non-free')
             if archs_raw:
                 archs = archs_raw.split()
             else:
