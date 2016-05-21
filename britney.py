@@ -518,7 +518,7 @@ class Britney(object):
             no += 1
             pkg_name = get_field('Package', None)
             if pkg_name is None:
-                raise ValueError("Missing Fake-Package-Name field in paragraph %d (file %s)" % (no, faux_packages_file))
+                raise ValueError("Missing Package field in paragraph %d (file %s)" % (no, faux_packages_file))
             pkg_name = sys.intern(pkg_name)
             version = sys.intern(get_field('Version', '1.0-1'))
             provides_raw = get_field('Provides')
