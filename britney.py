@@ -616,7 +616,7 @@ class Britney(object):
             for arch in self.options.architectures:
                 deps = []
                 for pkg_spec in pkg_list:
-                    s = pkg_spec.split(None, 2)
+                    s = pkg_spec.split(None, 1)
                     if len(s) == 1:
                         deps.append(s[0])
                     else:
