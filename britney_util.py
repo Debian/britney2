@@ -291,6 +291,9 @@ def write_heidi(filename, sources_t, packages_t,
                 pkgv = pkg.version
                 pkgarch = pkg.architecture or 'all'
                 pkgsec = pkg.section or 'faux'
+                if pkgsec == 'faux' or pkgsec.endswith('/faux'):
+                    # Faux package; not really a part of testing
+                    continue
                 if pkg.source_version and pkgarch == 'all' and \
                     pkg.source_version != sources_t[pkg.source][VERSION]:
                     # when architectures are marked as "fucked", their binary
@@ -307,6 +310,9 @@ def write_heidi(filename, sources_t, packages_t,
             src = sources_t[src_name]
             srcv = src[VERSION]
             srcsec = src[SECTION] or 'unknown'
+            if srcsec == 'faux' or srcsec.endswith('/faux'):
+                # Faux package; not really a part of testing
+                continue
             f.write('%s %s source %s\n' % (src_name, srcv, srcsec))
 
 
