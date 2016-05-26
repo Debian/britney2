@@ -327,7 +327,7 @@ class Britney(object):
         if faux_packages is not None and os.path.exists(faux_packages):
             self.log("Loading faux packages from %s" % faux_packages, type='I')
             self._load_faux_packages(faux_packages)
-        else:
+        elif faux_packages is not None:
             self.log("No Faux packages as %s does not exist" % faux_packages, type='I')
 
         if constraints_file is not None and os.path.exists(constraints_file):
