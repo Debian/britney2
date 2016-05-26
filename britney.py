@@ -278,7 +278,7 @@ class Britney(object):
         try:
             self.hints = self.read_hints(self.options.hintsdir)
         except AttributeError:
-            self.hints = self.read_hints(self.options.unstable)
+            self.hints = self.read_hints(os.path.join(self.options.unstable, 'Hints'))
 
         if self.options.nuninst_cache:
             self.log("Not building the list of non-installable packages, as requested", type="I")
@@ -999,11 +999,11 @@ class Britney(object):
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
 
-    def read_hints(self, basedir):
+    def read_hints(self, hintsdir):
         """Read the hint commands from the specified directory
         
-        The hint commands are read from the files contained in the `Hints'
-        directory within the directory specified as `basedir' parameter. 
+        The hint commands are read from the files contained in the directory
+        specified by the `hintsdir' parameter.
         The names of the files have to be the same as the authorized users
         for the hints.
         
@@ -1022,7 +1022,7 @@ class Britney(object):
                 filename = '<cmd-line>'
                 hint_parser.parse_hints(who, self.HINTS[who], filename, lines)
             else:
-                filename = os.path.join(basedir, "Hints", who)
+                filename = os.path.join(hintsdir, who)
                 if not os.path.isfile(filename):
                     self.log("Cannot read hints list from %s, no such file!" % filename, type="E")
                     continue
