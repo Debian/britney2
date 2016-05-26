@@ -969,11 +969,19 @@ class Britney(object):
         if self.options.components:
             packages = {}
             for component in self.options.components:
+                binary_dir = "binary-%s" % arch
                 filename = os.path.join(basedir,
-                             component, "binary-%s" % arch, "Packages")
+                             component, binary_dir, 'Packages')
                 filename = possibly_compressed(filename)
+                udeb_filename =  os.path.join(basedir,
+                                   component, "debian-installer",
+                                              binary_dir, "Packages")
+                udeb_filename = possibly_compressed(filename)
                 self._read_packages_file(filename, arch,
                       self.sources[distribution], packages)
+                self._read_packages_file(udeb_filename, arch,
+                      self.sources[distribution], packages)
+
         else:
             filename = os.path.join(basedir, "Packages_%s" % arch)
             packages = self._read_packages_file(filename, arch,
