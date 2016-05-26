@@ -976,7 +976,7 @@ class Britney(object):
                 udeb_filename =  os.path.join(basedir,
                                    component, "debian-installer",
                                               binary_dir, "Packages")
-                udeb_filename = possibly_compressed(filename)
+                udeb_filename = possibly_compressed(udeb_filename)
                 self._read_packages_file(filename, arch,
                       self.sources[distribution], packages)
                 self._read_packages_file(udeb_filename, arch,
