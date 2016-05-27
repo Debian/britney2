@@ -2882,17 +2882,14 @@ class Britney(object):
                         for name, excuse in excuses.items() if name in valid_excuses}
 
         def find_related(e, hint, circular_first=False):
-            if e not in valid_excuses:
-                return False
             excuse = excuses[e]
-            if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
-                return True
             if not circular_first:
                 hint[e] = excuse.ver[1]
             if not excuse.deps:
                 return hint
-            for p in excuse.deps:
-                if p in hint: continue
+            for p in excuses_deps[e]:
+                if p in hint or p not in valid_excuses:
+                    continue
                 if not find_related(p, hint):
                     return False
             return hint
@@ -2903,8 +2900,6 @@ class Britney(object):
         seen_hints = set()
         for e in valid_excuses:
             excuse = excuses[e]
-            if e in sources_t and sources_t[e][VERSION] == excuse.ver[1]:
-                continue
             if excuse.deps:
                 hint = find_related(e, {}, True)
                 if isinstance(hint, dict) and e in hint:
