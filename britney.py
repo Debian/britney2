@@ -2919,9 +2919,9 @@ class Britney(object):
 
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
-                    new_items = [(x, excuses[x].ver[1]) for x in valid_excuses if \
-                       (item in excuses_deps[x] or x in excuses_deps[item]) \
-                       and (x, excuses[x].ver[1]) not in seen_items]
+                    new_items = set((x, excuses[x].ver[1]) for x in valid_excuses if
+                                    (item in excuses_deps[x] or x in excuses_deps[item]) and
+                                    (x, excuses[x].ver[1]) not in seen_items)
                     items.extend(new_items)
                     seen_items.update(new_items)
 
