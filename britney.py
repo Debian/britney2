@@ -2870,14 +2870,16 @@ class Britney(object):
         excuses relationships. If they build a circular dependency, which we already
         know as not-working with the standard do_all algorithm, try to `easy` them.
         """
-        self.log("> Processing hints from the auto hinter",
-                   type="I")
+        self.log("> Processing hints from the auto hinter", type="I")
 
-        # consider only excuses which are valid candidates
-        valid_excuses = frozenset(y.uvname for y in self.upgrade_me)
-        excuses = self.excuses
-        excuses_deps = dict((name, set(excuse.deps)) for name, excuse in excuses.items() if name in valid_excuses)
         sources_t = self.sources['testing']
+        excuses = self.excuses
+
+        # consider only excuses which are valid candidates and still relevant.
+        valid_excuses = frozenset(y.uvname for y in self.upgrade_me
+                                  if y not in sources_t or sources_t[y][VERSION] != excuses[y].ver[1])
+        excuses_deps = {name: valid_excuses.intersection(excuse.deps)
+                        for name, excuse in excuses.items() if name in valid_excuses}
 
         def find_related(e, hint, circular_first=False):
             if e not in valid_excuses:
