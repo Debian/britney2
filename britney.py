@@ -2880,6 +2880,10 @@ class Britney(object):
                                   if y not in sources_t or sources_t[y][VERSION] != excuses[y].ver[1])
         excuses_deps = {name: valid_excuses.intersection(excuse.deps)
                         for name, excuse in excuses.items() if name in valid_excuses}
+        excuses_rdeps = defaultdict(set)
+        for name, deps in excuses_deps.items():
+            for dep in deps:
+                excuses_rdeps[dep].add(name)
 
         def find_related(e, hint, circular_first=False):
             excuse = excuses[e]
@@ -2916,9 +2920,9 @@ class Britney(object):
 
                 for item, ver in items:
                     # excuses which depend on "item" or are depended on by it
-                    new_items = set((x, excuses[x].ver[1]) for x in valid_excuses if
-                                    (item in excuses_deps[x] or x in excuses_deps[item]) and
-                                    (x, excuses[x].ver[1]) not in seen_items)
+                    new_items = set((x, excuses[x].ver[1]) for x in excuses_deps[item])
+                    new_items.update((x, excuses[x].ver[1]) for x in excuses_rdeps[item])
+                    new_items -= seen_items
                     items.extend(new_items)
                     seen_items.update(new_items)
 
