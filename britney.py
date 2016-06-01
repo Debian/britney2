@@ -298,12 +298,11 @@ class Britney(object):
         # read the source and binary packages for the involved distributions
         self.sources['testing'] = self.read_sources(self.options.testing)
         self.sources['unstable'] = self.read_sources(self.options.unstable)
-        self.sources['tpu'] = self.read_sources(self.options.tpu)
-
-        if hasattr(self.options, 'pu'):
-            self.sources['pu'] = self.read_sources(self.options.pu)
-        else:
-            self.sources['pu'] = {}
+        for suite in ('tpu', 'pu'):
+            if hasattr(self.options, suite):
+                self.sources[suite] = self.read_sources(getattr(self.options, suite))
+            else:
+                self.sources[suite] = {}
 
         self.binaries['testing'] = {}
         self.binaries['unstable'] = {}
@@ -312,14 +311,14 @@ class Britney(object):
 
         for arch in self.options.architectures:
             self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
-            self.binaries['tpu'][arch] = self.read_binaries(self.options.tpu, "tpu", arch)
-            if hasattr(self.options, 'pu'):
-                self.binaries['pu'][arch] = self.read_binaries(self.options.pu, "pu", arch)
-            else:
-                # _build_installability_tester relies on it being
-                # properly initialised, so insert two empty dicts
-                # here.
-                self.binaries['pu'][arch] = ({}, {})
+            for suite in ('tpu', 'pu'):
+                if hasattr(self.options, suite):
+                    self.binaries[suite][arch] = self.read_binaries(getattr(self.options, suite), suite, arch)
+                else:
+                    # _build_installability_tester relies on this being
+                    # properly initialised, so insert two empty dicts
+                    # here.
+                    self.binaries[suite][arch] = ({}, {})
             # Load testing last as some live-data tests have more complete information in
             # unstable
             self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)

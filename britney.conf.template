@@ -5,9 +5,8 @@
 # themselves.
 UNSTABLE          = /path/to/source/suite
 TESTING           = /path/to/target/suite
-# Items in these two suites will require manual approval
-TPU               = /path/to/secondary-source/suite
-# Optional suite
+# Items in these two (optional) suites will require manual approval
+# TPU               = /path/to/secondary-source/suite
 # PU                = /path/to/another-source/suite
 
 # List of components to work with
