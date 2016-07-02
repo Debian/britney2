@@ -133,12 +133,13 @@ class Hint(object):
 
 def age_day_hint(hints, who, hint_name, new_age, *args):
     for package in args:
-        hints.add_hint('%s %s %s' % (hint_name, new_age, package), who)
+        h = [hint_name, new_age] + package.split(' ')
+        hints.add_hint(h, who)
 
 
 def split_into_one_hint_per_package(hints, who, hint_name, *args):
     for package in args:
-        hints.add_hint('%s %s' % (hint_name, package), who)
+        hints.add_hint([hint_name, package], who)
 
 
 def single_hint_taking_list_of_packages(hints, who, *args):
