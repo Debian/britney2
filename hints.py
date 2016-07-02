@@ -48,23 +48,11 @@ class HintCollection(object):
 class Hint(object):
     NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
 
-    def __init__(self, user, hint):
-        self._hint = hint
+    def __init__(self, user, hint_type, packages):
         self._user = user
         self._active = True
-        self._days = None
-        if isinstance(hint, list) or isinstance(hint, tuple):
-            self._type = hint[0]
-            self._packages = hint[1:]
-        else:
-            self._type, self._packages = hint.split(' ', 1)
-
-        if self._type == 'age-days':
-            if isinstance(hint, list):
-                self._days = self._packages[0]
-                self._packages = self._packages[1:]
-            else:
-                self._days, self._packages = self._packages.split(' ', 1)
+        self._type = hint_type
+        self._packages = packages
 
         if isinstance(self._packages, str):
             self._packages = self._packages.split(' ')
@@ -86,12 +74,13 @@ class Hint(object):
         self._active = active
 
     def __str__(self):
-        return self._hint
+        if self.type in self.__class__.NO_VERSION:
+            return '%s %s' % (self._type, ' '.join(x.uvname for x in self._packages))
+        else:
+            return '%s %s' % (self._type, ' '.join(x.name for x in self._packages))
 
     def __eq__(self, other):
         if self.type != other.type:
-            return False
-        elif self.type == 'age-days' and self.days != other.days:
             return False
         else:
             return frozenset(self.packages) == frozenset(other.packages)
@@ -113,10 +102,6 @@ class Hint(object):
         return self._user
 
     @property
-    def days(self):
-        return self._days
-
-    @property
     def package(self):
         if self.packages:
             assert len(self.packages) == 1, self.packages
@@ -133,19 +118,34 @@ class Hint(object):
             return None
 
 
+class AgeDayHint(Hint):
+
+    def __init__(self, user, hint_type, days, packages):
+        super().__init__(user, hint_type, packages)
+        self._days = days
+
+    def __eq__(self, other):
+        if self.type != other.type or self.days != other.days:
+            return False
+        return super.__eq__(other)
+
+    @property
+    def days(self):
+        return self._days
+
+
 def age_day_hint(hints, who, hint_name, new_age, *args):
     for package in args:
-        h = [hint_name, new_age] + package.split(' ')
-        hints.add_hint(Hint(who, h))
+        hints.add_hint(AgeDayHint(who, hint_name, int(new_age), package))
 
 
 def split_into_one_hint_per_package(hints, who, hint_name, *args):
     for package in args:
-        hints.add_hint(Hint(who, [hint_name, package]))
+        hints.add_hint(Hint(who, hint_name, package))
 
 
-def single_hint_taking_list_of_packages(hints, who, *args):
-    hints.add_hint(Hint(who, args))
+def single_hint_taking_list_of_packages(hints, who, hint_type, *args):
+    hints.add_hint(Hint(who, hint_type, args))
 
 
 class HintParser(object):
