@@ -281,11 +281,12 @@ class Britney(object):
         self.binaries = {}
         self.all_selected = []
         self.excuses = {}
+        self._hint_parser = HintParser(self)
 
         try:
-            self.hints = self.read_hints(self.options.hintsdir)
+            self.read_hints(self.options.hintsdir)
         except AttributeError:
-            self.hints = self.read_hints(os.path.join(self.options.unstable, 'Hints'))
+            self.read_hints(os.path.join(self.options.unstable, 'Hints'))
 
         if self.options.nuninst_cache:
             self.log("Not building the list of non-installable packages, as requested", type="I")
@@ -492,6 +493,10 @@ class Britney(object):
 
         self.policies.append(AgePolicy(self.options, MINDAYS))
         self.policies.append(RCBugPolicy(self.options))
+
+    @property
+    def hints(self):
+        return self._hint_parser.hints
 
     def log(self, msg, type="I"):
         """Print info messages according to verbosity level
@@ -1030,13 +1035,12 @@ class Britney(object):
         The method returns a dictionary where the key is the command, and
         the value is the list of affected packages.
         """
-        hint_parser = HintParser(self)
 
         for who in self.HINTS.keys():
             if who == 'command-line':
                 lines = self.options.hints and self.options.hints.split(';') or ()
                 filename = '<cmd-line>'
-                hint_parser.parse_hints(who, self.HINTS[who], filename, lines)
+                self._hint_parser.parse_hints(who, self.HINTS[who], filename, lines)
             else:
                 filename = os.path.join(hintsdir, who)
                 if not os.path.isfile(filename):
@@ -1044,9 +1048,9 @@ class Britney(object):
                     continue
                 self.log("Loading hints list from %s" % filename)
                 with open(filename, encoding='utf-8') as f:
-                    hint_parser.parse_hints(who, self.HINTS[who], filename, f)
+                    self._hint_parser.parse_hints(who, self.HINTS[who], filename, f)
 
-        hints = hint_parser.hints
+        hints = self._hint_parser.hints
 
         for x in ["block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
             z = {}
@@ -1077,8 +1081,6 @@ class Britney(object):
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
             self.log("WARNING: No block hints at all, not even udeb ones!", type="W")
-
-        return hints
 
 
     # Utility methods for package analysis
@@ -2804,7 +2806,7 @@ class Britney(object):
             elif user_input and user_input[0] in ('remove', 'approve', 'urgent', 'age-days',
                                         'block', 'block-udeb', 'unblock', 'unblock-udeb',
                                         'block-all', 'force'):
-                self.hints.add_hint('hint-tester', ' '.join(user_input))
+                self._hint_parser.parse_hints('hint-tester', Britney.HINTS_ALL, '<stdin>', [' '.join(user_input)])
                 self.write_excuses()
             # run a hint
             elif user_input and user_input[0] in ('easy', 'hint', 'force-hint'):
