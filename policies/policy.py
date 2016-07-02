@@ -66,6 +66,13 @@ class BasePolicy(object):
         if self.options.verbose or type in ("E", "W"):
             print("%s: [%s] - %s" % (type, time.asctime(), msg))
 
+    def register_hints(self, hint_parser):
+        """Register new hints that this policy accepts
+
+        :param hint_parser: An instance of HintParser (see HintParser.register_hint_type)
+        """
+        pass
+
     def initialise(self, britney):
         """Called once to make the policy initialise any data structures
 

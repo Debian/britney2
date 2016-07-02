@@ -496,6 +496,9 @@ class Britney(object):
         self.policies.append(AgePolicy(self.options, MINDAYS))
         self.policies.append(RCBugPolicy(self.options))
 
+        for policy in self.policies:
+            policy.register_hints(self._hint_parser)
+
     @property
     def hints(self):
         return self._hint_parser.hints
