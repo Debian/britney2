@@ -38,7 +38,7 @@ class Completer(object):
         # - it might contain too many items, but meh
         complete = []
         tpu = []
-        for e in britney.excuses:
+        for e in britney.excuses.values():
             pkg = e.name
             suite = 'unstable'
             if pkg[0] == '-':
