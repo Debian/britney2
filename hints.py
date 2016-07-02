@@ -41,8 +41,8 @@ class HintCollection(object):
                  (removal is None or removal == hint.packages[0].is_removal)
                ]
 
-    def add_hint(self, user, hint):
-        self._hints.append(Hint(user, hint))
+    def add_hint(self, hint):
+        self._hints.append(hint)
 
 
 class Hint(object):
@@ -136,16 +136,16 @@ class Hint(object):
 def age_day_hint(hints, who, hint_name, new_age, *args):
     for package in args:
         h = [hint_name, new_age] + package.split(' ')
-        hints.add_hint(who, h)
+        hints.add_hint(Hint(who, h))
 
 
 def split_into_one_hint_per_package(hints, who, hint_name, *args):
     for package in args:
-        hints.add_hint(who, [hint_name, package])
+        hints.add_hint(Hint(who, [hint_name, package]))
 
 
 def single_hint_taking_list_of_packages(hints, who, *args):
-    hints.add_hint(who, args)
+    hints.add_hint(Hint(who, args))
 
 
 class HintParser(object):
