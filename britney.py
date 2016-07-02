@@ -1528,16 +1528,16 @@ class Britney(object):
             excuse.setbugs(old_bugs, new_bugs)
 
             if new_bugs:
-                excuse.addhtml("%s <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                excuse.addhtml("%s <a href=\"https://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
                                "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
                                "target=\"_blank\">has new bugs</a>!" % (src, quote(src)))
                 excuse.addhtml("Updating %s introduces new bugs: %s" % (src, ", ".join(
-                    ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
+                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
                 update_candidate = False
 
             if old_bugs:
                 excuse.addhtml("Updating %s fixes old bugs: %s" % (src, ", ".join(
-                    ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
+                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
             if new_bugs and len(old_bugs) > len(new_bugs):
                 excuse.addhtml("%s introduces new bugs, so still ignored (even "
                                "though it fixes more than it introduces, whine at debian-release)" % src)
@@ -1567,7 +1567,7 @@ class Britney(object):
                     base = 'testing'
                 else:
                     base = 'stable'
-                text = "Not yet built on <a href=\"http://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u[VERSION]), base, arch)
+                text = "Not yet built on <a href=\"https://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u[VERSION]), base, arch)
 
                 if arch in self.options.fucked_arches:
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
@@ -1623,15 +1623,15 @@ class Britney(object):
                 oodtxt = ""
                 for v in oodbins.keys():
                     if oodtxt: oodtxt = oodtxt + "; "
-                    oodtxt = oodtxt + "%s (from <a href=\"http://buildd.debian.org/status/logs.php?" \
+                    oodtxt = oodtxt + "%s (from <a href=\"https://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
                         (", ".join(sorted(oodbins[v])), quote(arch), quote(src), quote(v), v)
                 if uptodatebins:
-                    text = "old binaries left on <a href=\"http://buildd.debian.org/status/logs.php?" \
+                    text = "old binaries left on <a href=\"https://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
                         (quote(arch), quote(src), quote(source_u[VERSION]), arch, oodtxt)
                 else:
-                    text = "missing build on <a href=\"http://buildd.debian.org/status/logs.php?" \
+                    text = "missing build on <a href=\"https://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
                         (quote(arch), quote(src), quote(source_u[VERSION]), arch, oodtxt)
 
