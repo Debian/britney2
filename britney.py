@@ -1529,7 +1529,7 @@ class Britney(object):
 
             if new_bugs:
                 excuse.addhtml("%s <a href=\"http://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                               "pkg=src:%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                               "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
                                "target=\"_blank\">has new bugs</a>!" % (src, quote(src)))
                 excuse.addhtml("Updating %s introduces new bugs: %s" % (src, ", ".join(
                     ["<a href=\"http://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
