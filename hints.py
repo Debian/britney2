@@ -118,27 +118,6 @@ class Hint(object):
             return None
 
 
-class AgeDayHint(Hint):
-
-    def __init__(self, user, hint_type, days, packages):
-        super().__init__(user, hint_type, packages)
-        self._days = days
-
-    def __eq__(self, other):
-        if self.type != other.type or self.days != other.days:
-            return False
-        return super.__eq__(other)
-
-    @property
-    def days(self):
-        return self._days
-
-
-def age_day_hint(hints, who, hint_name, new_age, *args):
-    for package in args:
-        hints.add_hint(AgeDayHint(who, hint_name, int(new_age), package))
-
-
 def split_into_one_hint_per_package(hints, who, hint_name, *args):
     for package in args:
         hints.add_hint(Hint(who, hint_name, package))
@@ -160,10 +139,6 @@ class HintParser(object):
             'easy': (2, single_hint_taking_list_of_packages), # Easy needs at least 2 to make sense
             'force-hint': (1, single_hint_taking_list_of_packages),
             'hint': (1, single_hint_taking_list_of_packages),
-
-            # Age / urgent
-            'urgent': (1, split_into_one_hint_per_package),
-            'age-days': (2, age_day_hint),
 
             # Block / freeze related hints
             'block': (1, split_into_one_hint_per_package),

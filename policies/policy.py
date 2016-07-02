@@ -5,6 +5,7 @@ import os
 import time
 
 from consts import VERSION, BINARIES
+from hints import Hint, split_into_one_hint_per_package
 
 
 @unique
@@ -131,6 +132,35 @@ class BasePolicy(object):
         pass
 
 
+class SimplePolicyHint(Hint):
+
+    def __init__(self, user, hint_type, policy_parameter, packages):
+        super().__init__(user, hint_type, packages)
+        self._policy_parameter = policy_parameter
+
+    def __eq__(self, other):
+        if self.type != other.type or self._policy_parameter != other._policy_parameter:
+            return False
+        return super.__eq__(other)
+
+    def str(self):
+        return '%s %s %s' % (self._type, str(self._policy_parameter), ' '.join(x.name for x in self._packages))
+
+
+class AgeDayHint(SimplePolicyHint):
+
+    @property
+    def days(self):
+        return self._policy_parameter
+
+
+def simple_policy_hint_parser_function(class_name, converter):
+    def f(hints, who, hint_name, policy_parameter, *args):
+        for package in args:
+            hints.add_hint(class_name(who, hint_name, converter(policy_parameter), package))
+    return f
+
+
 class AgePolicy(BasePolicy):
     """Configurable Aging policy for source migrations
 
@@ -178,6 +208,10 @@ class AgePolicy(BasePolicy):
         self._dates = {}
         self._urgencies = {}
 
+    def register_hints(self, hint_parser):
+        hint_parser.register_hint_type('age-days', simple_policy_hint_parser_function(AgeDayHint, int), min_args=2)
+        hint_parser.register_hint_type('urgent', split_into_one_hint_per_package)
+
     def initialise(self, britney):
         super().initialise(britney)
         self._read_dates_file()
@@ -215,7 +249,7 @@ class AgePolicy(BasePolicy):
 
         for age_days_hint in self.hints.search('age-days', package=source_name,
                                                version=source_data_srcdist[VERSION]):
-            new_req = int(age_days_hint.days)
+            new_req = age_days_hint.days
             age_info['age-requirement-reduced'] = {
                 'new-requirement': new_req,
                 'changed-by': age_days_hint.user
