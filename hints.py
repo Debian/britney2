@@ -39,14 +39,14 @@ class HintCollection(object):
                  (removal is None or removal == hint.packages[0].is_removal)
                ]
 
-    def add_hint(self, hint, user):
-        self._hints.append(Hint(hint, user))
+    def add_hint(self, user, hint):
+        self._hints.append(Hint(user, hint))
 
 
 class Hint(object):
     NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
 
-    def __init__(self, hint, user):
+    def __init__(self, user, hint):
         self._hint = hint
         self._user = user
         self._active = True
@@ -134,16 +134,16 @@ class Hint(object):
 def age_day_hint(hints, who, hint_name, new_age, *args):
     for package in args:
         h = [hint_name, new_age] + package.split(' ')
-        hints.add_hint(h, who)
+        hints.add_hint(who, h)
 
 
 def split_into_one_hint_per_package(hints, who, hint_name, *args):
     for package in args:
-        hints.add_hint([hint_name, package], who)
+        hints.add_hint(who, [hint_name, package])
 
 
 def single_hint_taking_list_of_packages(hints, who, *args):
-    hints.add_hint(args, who)
+    hints.add_hint(who, args)
 
 
 class HintParser(object):

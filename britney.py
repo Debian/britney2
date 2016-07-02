@@ -2804,7 +2804,7 @@ class Britney(object):
             elif user_input and user_input[0] in ('remove', 'approve', 'urgent', 'age-days',
                                         'block', 'block-udeb', 'unblock', 'unblock-udeb',
                                         'block-all', 'force'):
-                self.hints.add_hint(' '.join(user_input), 'hint-tester')
+                self.hints.add_hint('hint-tester', ' '.join(user_input))
                 self.write_excuses()
             # run a hint
             elif user_input and user_input[0] in ('easy', 'hint', 'force-hint'):
