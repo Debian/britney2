@@ -14,6 +14,8 @@
 
 from __future__ import print_function
 
+from itertools import chain
+
 from migrationitem import MigrationItem
 
 
@@ -178,6 +180,46 @@ class HintParser(object):
             'approve': 'unblock',
         }
 
+    @property
+    def registered_hints(self):
+        """A set of all known hints (and aliases thereof)"""
+        return set(chain(self._hint_table.keys(), self._aliases.keys()))
+
+    def register_hint_type(self, hint_name, parser_function, *, min_args=1, aliases=None):
+        """Register a new hint that is supported by the parser
+
+        This registers a new hint that can be parsed by the hint parser.  All hints are single words with a
+        space-separated list of arguments (on a single line).  The hint parser will do some basic processing,
+        the permission checking and minor validation on the hint before passing it on to the parser function
+        given.
+
+        The parser_function will receive the following arguments:
+         * A hint collection
+         * Identifier of the entity providing the hint
+         * The hint_name (aliases will be mapped to the hint_name)
+         * Zero or more string arguments for the hint (so the function needs to use *args)
+
+        The parser_function will then have to process the arguments and call the hint collection's "add_hint"
+        as needed.  Example implementations include "split_into_one_hint_per_package", which is used by almost
+        all policy hints.
+
+        :param hint_name: The name of the hint
+        :param parser_function: A function to add the hint
+        :param min_args: An optional positive integer (or 0) denoting the number of arguments the hint takes.
+        :param aliases: An optional iterable of aliases to the hint (use only for backwards compatibility)
+        """
+        if min_args < 1:
+            raise ValueError("min_args must be at least 1")
+        if hint_name in self._hint_table:
+            raise ValueError("The hint type %s is already registered" % hint_name)
+        if hint_name in self._aliases:
+            raise ValueError("The hint type %s is already registered as an alias of %s" % (
+                hint_name, self._aliases[hint_name]))
+        self._hint_table[hint_name] = (min_args, parser_function)
+        if aliases:
+            for alias in aliases:
+                self._aliases[alias] = hint_name
+
     def parse_hints(self, who, permitted_hints, filename, lines):
         hint_table = self._hint_table
         line_no = 0
@@ -198,7 +240,7 @@ class HintParser(object):
             if hint_name not in hint_table:
                 self.log("Unknown hint found in %s (line %d): '%s'" % (filename, line_no, line), type="W")
                 continue
-            if hint_name not in permitted_hints:
+            if hint_name not in permitted_hints and 'ALL' not in permitted_hints:
                 reason = 'The hint is not a part of the permitted hints for ' + who
                 self.log("Ignoring \"%s\" hint from %s found in %s (line %d): %s" % (
                     hint_name, who, filename, line_no, reason), type="I")

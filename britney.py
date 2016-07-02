@@ -69,7 +69,7 @@ instead explained in the chapter "Excuses Generation".
 = Excuses =
 
 An excuse is a detailed explanation of why a package can or cannot
-be updated in the testing distribution from a newer package in 
+be updated in the testing distribution from a newer package in
 another distribution (like for example unstable). The main purpose
 of the excuses is to be written in an HTML file which will be 
 published over HTTP. The maintainers will be able to parse it manually
@@ -259,9 +259,10 @@ class Britney(object):
     For more documentation on this script, please read the Developers Reference.
     """
 
-    HINTS_HELPERS = ("easy", "hint", "remove", "block", "block-udeb", "unblock", "unblock-udeb", "approve")
+    HINTS_HELPERS = ("easy", "hint", "remove", "block", "block-udeb", "unblock", "unblock-udeb", "approve", "remark")
     HINTS_STANDARD = ("urgent", "age-days") + HINTS_HELPERS
-    HINTS_ALL = ("force", "force-hint", "block-all") + HINTS_STANDARD
+    # ALL = {"force", "force-hint", "block-all"} | HINTS_STANDARD | registered policy hints (not covered above)
+    HINTS_ALL = ('ALL')
 
     def __init__(self):
         """Class constructor
@@ -272,6 +273,7 @@ class Britney(object):
 
         # parse the command line arguments
         self.policies = []
+        self._hint_parser = HintParser(self)
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
 
@@ -281,7 +283,6 @@ class Britney(object):
         self.binaries = {}
         self.all_selected = []
         self.excuses = {}
-        self._hint_parser = HintParser(self)
 
         try:
             self.read_hints(self.options.hintsdir)
@@ -442,6 +443,7 @@ class Britney(object):
         # minimum days for unstable-testing transition and the list of hints
         # are handled as an ad-hoc case
         MINDAYS = {}
+
         self.HINTS = {'command-line': self.HINTS_ALL}
         with open(self.options.config, encoding='utf-8') as config:
             for line in config:
@@ -2790,6 +2792,8 @@ class Britney(object):
         # so ensure readline does not split on these characters.
         readline.set_completer_delims(readline.get_completer_delims().replace('-', '').replace('/', ''))
 
+        known_hints = self._hint_parser.registered_hints
+
         while True:
             # read the command from the command line
             try:
@@ -2803,19 +2807,18 @@ class Britney(object):
             # quit the hint tester
             if user_input and user_input[0] in ('quit', 'exit'):
                 break
-            elif user_input and user_input[0] in ('remove', 'approve', 'urgent', 'age-days',
-                                        'block', 'block-udeb', 'unblock', 'unblock-udeb',
-                                        'block-all', 'force'):
-                self._hint_parser.parse_hints('hint-tester', Britney.HINTS_ALL, '<stdin>', [' '.join(user_input)])
-                self.write_excuses()
-            # run a hint
+                # run a hint
             elif user_input and user_input[0] in ('easy', 'hint', 'force-hint'):
                 try:
                     self.do_hint(user_input[0], 'hint-tester',
-                        [k.rsplit("/", 1) for k in user_input[1:] if "/" in k])
+                                 [k.rsplit("/", 1) for k in user_input[1:] if "/" in k])
                     self.printuninstchange()
                 except KeyboardInterrupt:
                     continue
+            elif user_input and user_input[0] in known_hints:
+                self._hint_parser.parse_hints('hint-tester', self.HINTS_ALL, '<stdin>', [' '.join(user_input)])
+                self.write_excuses()
+
         try:
             readline.write_history_file(histfile)
         except IOError as e:
