@@ -154,6 +154,13 @@ class AgeDayHint(SimplePolicyHint):
         return self._policy_parameter
 
 
+class IgnoreRCBugHint(SimplePolicyHint):
+
+    @property
+    def ignored_rcbugs(self):
+        return self._policy_parameter
+
+
 def simple_policy_hint_parser_function(class_name, converter):
     def f(hints, who, hint_name, policy_parameter, *args):
         for package in args:
@@ -376,6 +383,12 @@ class RCBugPolicy(BasePolicy):
         super().__init__('rc-bugs', options, {'unstable'})
         self._bugs = {}
 
+    def register_hints(self, hint_parser):
+        f = simple_policy_hint_parser_function(IgnoreRCBugHint, lambda x: frozenset(x.split(',')))
+        hint_parser.register_hint_type('ignore-rc-bugs',
+                                       f,
+                                       min_args=2)
+
     def initialise(self, britney):
         super().initialise(britney)
         fallback_unstable = os.path.join(self.options.unstable, 'BugsV')
@@ -421,12 +434,36 @@ class RCBugPolicy(BasePolicy):
         #   (https://tracker.debian.org/news/415935)
         assert not bugs_t or source_data_tdist, "%s had bugs in testing but is not in testing" % source_name
 
+        success_verdict = PolicyVerdict.PASS
+
+        for ignore_hint in self.hints.search('ignore-rc-bugs', package=source_name,
+                                             version=source_data_srcdist[VERSION]):
+            ignored_bugs = ignore_hint.ignored_rcbugs
+
+            # Only handle one hint for now
+            if 'ignored-bugs' in rcbugs_info:
+                self.log("Ignoring ignore-rc-bugs hint from %s on %s due to another hint from %s" % (
+                    ignore_hint.user, source_name, rcbugs_info['ignored-bugs']['issued-by']
+                ))
+                continue
+            if not ignored_bugs.isdisjoint(bugs_u):
+                bugs_u -= ignored_bugs
+                rcbugs_info['ignored-bugs'] = {
+                    'bugs': sorted(ignored_bugs),
+                    'issued-by': ignore_hint.user
+                }
+                success_verdict = PolicyVerdict.PASS_HINTED
+            else:
+                self.log("Ignoring ignore-rc-bugs hint from %s on %s as none of %s affect the package" % (
+                    ignore_hint.user, source_name, str(ignored_bugs)
+                ))
+
         rcbugs_info['shared-bugs'] = sorted(bugs_u & bugs_t)
         rcbugs_info['unique-source-bugs'] = sorted(bugs_u - bugs_t)
         rcbugs_info['unique-target-bugs'] = sorted(bugs_t - bugs_u)
 
         if not bugs_u or bugs_u <= bugs_t:
-            return PolicyVerdict.PASS
+            return success_verdict
         return PolicyVerdict.REJECTED_PERMANENTLY
 
     def _read_bugs(self, filename):
