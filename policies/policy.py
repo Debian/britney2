@@ -37,6 +37,14 @@ class PolicyVerdict(Enum):
 class BasePolicy(object):
 
     def __init__(self, options, applicable_suites):
+        """The BasePolicy constructor
+
+        :param options The options member of Britney with all the
+        config options.
+
+        :param applicable_suites A set of suite names where this
+        policy applies.
+        """
         self.options = options
         self.applicable_suites = applicable_suites
         self.hints = None
@@ -58,6 +66,8 @@ class BasePolicy(object):
         """Called once to make the policy initialise any data structures
 
         This is useful for e.g. parsing files or other "heavy do-once" work.
+
+        :param britney This is the instance of the "Britney" class.
         """
         pass
 
@@ -66,11 +76,39 @@ class BasePolicy(object):
 
         Note this will *not* be called for "dry-runs" as such runs should not change
         the state.
+
+        :param britney This is the instance of the "Britney" class.
         """
         pass
 
     @abstractmethod
     def apply_policy(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+        """Apply a policy on a given source migration
+
+        Britney will call this method on a given source package, when
+        Britney is considering to migrate it from the given source
+        suite to the target suite.  The policy will then evaluate the
+        the migration and then return a verdict.
+
+        :param policy_info A dictionary of all policy results.  The
+        policy can add a value stored in a key related to its name.
+        (e.g. policy_info['age'] = {...}).  This will go directly into
+        the "excuses.yaml" output.
+
+        :param suite The name of the suite from where the source is
+        migrating from.
+
+        :param source_data_tdist Information about the source package
+        in the target distribution (e.g. "testing").  This is the
+        data structure in Britney.sources['testing'][source_name]
+
+        :param source_data_srcdist Information about the source
+        package in the source distribution (e.g. "unstable" or "tpu").
+        This is the data structure in
+        Britney.sources[suite][source_name]
+
+        :return A Policy Verdict (e.g. PolicyVerdict.PASS)
+        """
         pass
 
 
