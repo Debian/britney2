@@ -2598,19 +2598,28 @@ class Britney(object):
         self._inst_tester.compute_testing_installability()
         computed_nuninst = self.get_nuninst(build=True)
         if cached_nuninst != computed_nuninst:
+            only_on_break_archs = True
             self.log("==================== NUNINST OUT OF SYNC =========================", type="E")
             for arch in self.options.architectures:
                 expected_nuninst = set(cached_nuninst[arch])
                 actual_nuninst = set(computed_nuninst[arch])
                 false_negatives = actual_nuninst - expected_nuninst
                 false_positives = expected_nuninst - actual_nuninst
+                # Britney does not quite work correctly with
+                # break/fucked arches, so ignore issues there for now.
+                if arch not in self.options.break_arches:
+                    only_on_break_archs = False
                 if false_negatives:
                     self.log(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)), type="E")
                 if false_positives:
                     self.log(" %s - invalid nuninst: %s" % (arch, str(false_positives)), type="E")
                 self.log(" %s - actual nuninst: %s" % (arch, str(actual_nuninst)), type="I")
                 self.log("==================== NUNINST OUT OF SYNC =========================", type="E")
-            raise AssertionError("NUNINST OUT OF SYNC")
+            if not only_on_break_arches:
+                raise AssertionError("NUNINST OUT OF SYNC")
+            else:
+                self.log("Nuninst is out of sync on some break arches",
+                         type="W")
 
         self.log("> All non-installability counters are ok", type="I")
 
