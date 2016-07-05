@@ -36,8 +36,11 @@ class PolicyVerdict(Enum):
 
 class BasePolicy(object):
 
-    def __init__(self, options, applicable_suites):
+    def __init__(self, policy_id, options, applicable_suites):
         """The BasePolicy constructor
+
+        :param policy_id An string identifying the policy.  It will
+        determine the key used for the excuses.yaml etc.
 
         :param options The options member of Britney with all the
         config options.
@@ -45,6 +48,7 @@ class BasePolicy(object):
         :param applicable_suites A set of suite names where this
         policy applies.
         """
+        self.policy_id = policy_id
         self.options = options
         self.applicable_suites = applicable_suites
         self.hints = None
@@ -81,8 +85,16 @@ class BasePolicy(object):
         """
         pass
 
+
+    def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+        if 'age' not in general_policy_info:
+            general_policy_info['age'] = pinfo = {}
+        else:
+            pinfo = general_policy_info['age']
+        return self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist)
+
     @abstractmethod
-    def apply_policy(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+    def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
         """Apply a policy on a given source migration
 
         Britney will call this method on a given source package, when
@@ -149,7 +161,7 @@ class AgePolicy(BasePolicy):
     """
 
     def __init__(self, options, mindays):
-        super().__init__(options, {'unstable'})
+        super().__init__('age', options, {'unstable'})
         self._min_days = mindays
         if options.default_urgency not in mindays:
             raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
@@ -168,13 +180,9 @@ class AgePolicy(BasePolicy):
         super().save_state(britney)
         self._write_dates_file()
 
-    def apply_policy(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+    def apply_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist):
         # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
         urgency = self._urgencies.get(source_name, self.options.default_urgency)
-        if 'age' not in policy_info:
-            policy_info['age'] = age_info = {}
-        else:
-            age_info = policy_info['age']
 
         if urgency not in self._min_days:
             age_info['unknown-urgency'] = urgency
@@ -324,7 +332,7 @@ class RCBugPolicy(BasePolicy):
     """
 
     def __init__(self, options):
-        super().__init__(options, {'unstable'})
+        super().__init__('rc-bugs', options, {'unstable'})
         self._bugs = {}
 
     def initialise(self, britney):
@@ -344,13 +352,7 @@ class RCBugPolicy(BasePolicy):
         self._bugs['unstable'] = self._read_bugs(filename_unstable)
         self._bugs['testing'] = self._read_bugs(filename_testing)
 
-    def apply_policy(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
-        # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
-        if 'rc-bugs' not in policy_info:
-            policy_info['rc-bugs'] = rcbugs_info = {}
-        else:
-            rcbugs_info = policy_info['rc-bugs']
-
+    def apply_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist):
         bugs_t = set()
         bugs_u = set()
 
