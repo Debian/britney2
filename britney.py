@@ -1649,7 +1649,8 @@ class Britney(object):
                         update_candidate = False
                         excuse.missing_build_on_arch(arch)
 
-                if 'age' in policy_info and policy_info['age']['current-age']:
+                if 'age' in policy_info and (policy_info['age']['current-age'] or
+                                             not policy_info['age']['age-requirement']):
                     excuse.addhtml(text)
 
         # if the source package has no binaries, set update_candidate to False to block the update
