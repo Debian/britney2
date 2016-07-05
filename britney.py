@@ -2614,7 +2614,7 @@ class Britney(object):
                     self.log(" %s - invalid nuninst: %s" % (arch, str(false_positives)), type="E")
                 self.log(" %s - actual nuninst: %s" % (arch, str(actual_nuninst)), type="I")
                 self.log("==================== NUNINST OUT OF SYNC =========================", type="E")
-            if not only_on_break_arches:
+            if not only_on_break_archs:
                 raise AssertionError("NUNINST OUT OF SYNC")
             else:
                 self.log("Nuninst is out of sync on some break arches",
