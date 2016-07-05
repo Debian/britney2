@@ -1207,7 +1207,6 @@ class Britney(object):
         src = self.sources['testing'][pkg]
         excuse = Excuse("-" + pkg)
         excuse.addhtml("Package not in unstable, will try to remove")
-        excuse.addreason("remove")
         excuse.set_vers(src[VERSION], None)
         src[MAINTAINER] and excuse.set_maint(src[MAINTAINER].strip())
         src[SECTION] and excuse.set_section(src[SECTION].strip())
@@ -1251,9 +1250,9 @@ class Britney(object):
         # (as a side effect, a removal may generate such excuses for both the source
         # package and its binary packages on each architecture)
         for hint in self.hints.search('remove', package=src, version=source_t[VERSION]):
+            excuse.add_hint(hint)
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Trying to remove package, not update it")
-            excuse.addreason("remove")
             self.excuses[excuse.name] = excuse
             return False
 
@@ -1424,12 +1423,12 @@ class Britney(object):
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
-        for item in self.hints.search('remove', package=src):
-            if source_t and source_t[VERSION] == item.version or \
-               source_u[VERSION] == item.version:
-                excuse.addhtml("Removal request by %s" % (item.user))
+        for hint in self.hints.search('remove', package=src):
+            if source_t and source_t[VERSION] == hint.version or \
+               source_u[VERSION] == hint.version:
+                excuse.add_hint(hint)
+                excuse.addhtml("Removal request by %s" % (hint.user))
                 excuse.addhtml("Trying to remove package, not update it")
-                excuse.addreason("remove")
                 update_candidate = False
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
@@ -1784,24 +1783,24 @@ class Britney(object):
                     upgrade_me.append("%s_%s" % (pkg, suite))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
-        for item in self.hints['remove']:
-            src = item.package
+        for hint in self.hints['remove']:
+            src = hint.package
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
             if src not in sources['testing']: continue
 
             # check if the version specified in the hint is the same as the considered package
             tsrcv = sources['testing'][src][VERSION]
-            if tsrcv != item.version:
+            if tsrcv != hint.version:
                 continue
 
             # add the removal of the package to upgrade_me and build a new excuse
             upgrade_me.append("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
-            excuse.addhtml("Removal request by %s" % (item.user))
+            excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Package is broken, will try to remove")
-            excuse.addreason("remove")
+            excuse.add_hint(hint)
             excuses[excuse.name] = excuse
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me
