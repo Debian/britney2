@@ -986,15 +986,13 @@ class Britney(object):
                     if arch not in self.options.new_arches:
                         raise
                     self.log("Ignoring missing file for new arch %s: %s" % (arch, filename))
+                    continue
                 udeb_filename =  os.path.join(basedir,
                                    component, "debian-installer",
                                               binary_dir, "Packages")
-                try:
-                    udeb_filename = possibly_compressed(udeb_filename)
-                except FileNotFoundError as e:
-                    if arch not in self.options.new_arches:
-                        raise
-                    self.log("Ignoring missing file for new arch %s: %s" % (arch, udeb_filename))
+                # We assume the udeb Packages file is present if the
+                # regular one is present
+                udeb_filename = possibly_compressed(udeb_filename)
                 self._read_packages_file(filename, arch,
                       self.sources[distribution], packages)
                 self._read_packages_file(udeb_filename, arch,
