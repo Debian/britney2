@@ -2614,7 +2614,7 @@ class Britney(object):
                 false_positives = expected_nuninst - actual_nuninst
                 # Britney does not quite work correctly with
                 # break/fucked arches, so ignore issues there for now.
-                if arch not in self.options.break_arches:
+                if (false_negatives or false_positives) and arch not in self.options.break_arches:
                     only_on_break_archs = False
                 if false_negatives:
                     self.log(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)), type="E")
