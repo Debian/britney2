@@ -1816,6 +1816,7 @@ class Britney(object):
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Package is broken, will try to remove")
             excuse.add_hint(hint)
+            excuse.is_valid = True
             excuses[excuse.name] = excuse
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me
