@@ -1758,59 +1758,63 @@ class Britney(object):
         should_upgrade_srcarch = self.should_upgrade_srcarch
         should_upgrade_src = self.should_upgrade_src
 
+        unstable = sources['unstable']
+        testing = sources['testing']
+
         # this list will contain the packages which are valid candidates;
         # if a package is going to be removed, it will have a "-" prefix
         upgrade_me = []
+        upgrade_me_append = upgrade_me.append  # Every . in a loop slows it down
 
         excuses = self.excuses = {}
 
         # for every source package in testing, check if it should be removed
-        for pkg in sources['testing']:
+        for pkg in testing:
             if should_remove_source(pkg):
-                upgrade_me.append("-" + pkg)
+                upgrade_me_append("-" + pkg)
 
         # for every source package in unstable check if it should be upgraded
-        for pkg in sources['unstable']:
-            if sources['unstable'][pkg][FAKESRC]: continue
+        for pkg in unstable:
+            if unstable[pkg][FAKESRC]: continue
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if pkg in sources['testing'] and not sources['testing'][pkg][FAKESRC]:
+            if pkg in testing and not testing[pkg][FAKESRC]:
                 for arch in architectures:
                     if should_upgrade_srcarch(pkg, arch, 'unstable'):
-                        upgrade_me.append("%s/%s" % (pkg, arch))
+                        upgrade_me_append("%s/%s" % (pkg, arch))
 
             # check if the source package should be upgraded
             if should_upgrade_src(pkg, 'unstable'):
-                upgrade_me.append(pkg)
+                upgrade_me_append(pkg)
 
         # for every source package in *-proposed-updates, check if it should be upgraded
         for suite in ['pu', 'tpu']:
             for pkg in sources[suite]:
                 # if the source package is already present in testing,
                 # check if it should be upgraded for every binary package
-                if pkg in sources['testing']:
+                if pkg in testing:
                     for arch in architectures:
                         if should_upgrade_srcarch(pkg, arch, suite):
-                            upgrade_me.append("%s/%s_%s" % (pkg, arch, suite))
+                            upgrade_me_append("%s/%s_%s" % (pkg, arch, suite))
 
                 # check if the source package should be upgraded
                 if should_upgrade_src(pkg, suite):
-                    upgrade_me.append("%s_%s" % (pkg, suite))
+                    upgrade_me_append("%s_%s" % (pkg, suite))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for hint in self.hints['remove']:
             src = hint.package
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
-            if src not in sources['testing']: continue
+            if src not in testing: continue
 
             # check if the version specified in the hint is the same as the considered package
-            tsrcv = sources['testing'][src][VERSION]
+            tsrcv = testing[src][VERSION]
             if tsrcv != hint.version:
                 continue
 
             # add the removal of the package to upgrade_me and build a new excuse
-            upgrade_me.append("-%s" % (src))
+            upgrade_me_append("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
             excuse.addhtml("Removal request by %s" % (hint.user))
