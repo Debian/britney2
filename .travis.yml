@@ -1,0 +1,18 @@
+language: c
+sudo: required
+dist: trusty
+before_install:
+    # maybe add php ppa to provide sufficient pkg-php-tools
+    # - sudo add-apt-repository -y ppa:ondrej/php5
+    # update package list
+    - sudo apt-get update -qq
+    - git clone https://anonscm.debian.org/cgit/collab-maint/britney2-tests.git britney2-tests
+
+install:
+    # install build dependencies
+    - sudo apt-get install -qq --no-install-recommends python3 python3-apt python3-yaml rsync libclass-accessor-perl
+
+script:
+    - britney2-tests/bin/runtests ./britney.py britney2-tests/t test-out
+#notifications:
+#  email: false
