@@ -1150,9 +1150,10 @@ class Britney(object):
         as parameter.
         """
         # retrieve the binary package from the specified suite and arch
-        package_s_a = self.binaries[suite][arch]
-        package_t_a = self.binaries['testing'][arch]
-        binary_u = package_s_a[0][pkg]
+        packages_s_a = self.binaries[suite][arch]
+        packages_t_a = self.binaries['testing'][arch]
+        binaries_s_a = packages_s_a[0]
+        binary_u = binaries_s_a[pkg]
 
         # local copies for better performance
         parse_depends = apt_pkg.parse_depends
@@ -1164,20 +1165,21 @@ class Britney(object):
             return True
         is_all_ok = True
 
+
         # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
             # if the block is satisfied in testing, then skip the block
-            packages = get_dependency_solvers(block, package_t_a)
+            packages = get_dependency_solvers(block, packages_t_a)
             if packages:
                 for p in packages:
-                    if p not in package_s_a[0]:
+                    if p not in binaries_s_a:
                         continue
-                    excuse.add_sane_dep(package_s_a[0][p].source)
+                    excuse.add_sane_dep(binaries_s_a[p].source)
                 continue
 
             # check if the block can be satisfied in the source suite, and list the solving packages
-            packages = get_dependency_solvers(block, package_s_a)
-            packages = [package_s_a[0][p].source for p in packages]
+            packages = get_dependency_solvers(block, packages_s_a)
+            packages = [packages_s_a[0][p].source for p in packages]
 
             # if the dependency can be satisfied by the same source package, skip the block:
             # obviously both binary packages will enter testing together
