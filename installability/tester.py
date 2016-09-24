@@ -605,7 +605,7 @@ class InstallabilityTester(object):
             start = set(ess_base)
             ess_never = set()
             ess_choices = set()
-            not_satisified = partial(filter, start.isdisjoint)
+            not_satisfied = partial(filter, start.isdisjoint)
 
             while ess_base:
                 self._check_loop(universe, testing, eqv_table, stats,
@@ -614,11 +614,11 @@ class InstallabilityTester(object):
                 if ess_choices:
                     # Try to break choices where possible
                     nchoice = set()
-                    for choice in not_satisified(ess_choices):
+                    for choice in not_satisfied(ess_choices):
                         b = False
                         for c in choice:
                             if universe[c][1] <= ess_never and \
-                                    not any(not_satisified(universe[c][0])):
+                                    not any(not_satisfied(universe[c][0])):
                                 ess_base.add(c)
                                 b = True
                                 break
