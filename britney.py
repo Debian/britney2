@@ -313,19 +313,19 @@ class Britney(object):
         self.binaries['tpu'] = {}
         self.binaries['pu'] = {}
 
-        for arch in self.options.architectures:
-            self.binaries['unstable'][arch] = self.read_binaries(self.options.unstable, "unstable", arch)
-            for suite in ('tpu', 'pu'):
-                if hasattr(self.options, suite):
-                    self.binaries[suite][arch] = self.read_binaries(getattr(self.options, suite), suite, arch)
-                else:
-                    # _build_installability_tester relies on this being
-                    # properly initialised, so insert two empty dicts
-                    # here.
+        self.binaries['unstable'] = self.read_binaries(self.options.unstable, "unstable", self.options.architectures)
+        for suite in ('tpu', 'pu'):
+            if hasattr(self.options, suite):
+                self.binaries[suite] = self.read_binaries(getattr(self.options, suite), suite, self.options.architectures)
+            else:
+                # _build_installability_tester relies on this being
+                # properly initialised, so insert two empty dicts
+                # here.
+                for arch in self.options.architectures:
                     self.binaries[suite][arch] = ({}, {})
-            # Load testing last as some live-data tests have more complete information in
-            # unstable
-            self.binaries['testing'][arch] = self.read_binaries(self.options.testing, "testing", arch)
+        # Load testing last as some live-data tests have more complete information in
+        # unstable
+        self.binaries['testing'] = self.read_binaries(self.options.testing, "testing", self.options.architectures)
 
         try:
             constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
@@ -953,73 +953,78 @@ class Britney(object):
 
         return packages
 
-    def read_binaries(self, basedir, distribution, arch):
+    def read_binaries(self, basedir, distribution, architectures):
         """Read the list of binary packages from the specified directory
 
-        The binary packages are read from the `Packages' files for `arch'.
+        This method reads all the binary packages for a given distribution,
+        which is expected to be in the directory denoted by the "base_dir"
+        parameter.
 
-        If components are specified, the files
-        for each component are loaded according to the usual Debian mirror
-        layout.
-
-        If no components are specified, a single file named
-        `Packages_${arch}' is expected to be within the directory
-        specified as `basedir' parameter, replacing ${arch} with the
-        value of the arch parameter.
+        If the "components" config parameter is set, the directory should
+        be the "suite" directory of a local mirror (i.e. the one containing
+        the "InRelease" file).  Otherwise, Britney will read the packages
+        information from all the "Packages_${arch}" files referenced by
+        the "architectures" parameter.
 
         Considering the
         large amount of memory needed, not all the fields are loaded
         in memory. The available fields are Version, Source, Multi-Arch,
         Depends, Conflicts, Provides and Architecture.
 
-        After reading the packages, reverse dependencies are computed
-        and saved in the `rdepends' keys, and the `Provides' field is
-        used to populate the virtual packages list.
+        The `Provides' field is used to populate the virtual packages list.
 
-        The dependencies are parsed with the apt_pkg.parse_depends method,
-        and they are stored both as the format of its return value and
-        text.
-
-        The method returns a tuple. The first element is a list where
-        every item represents a binary package as a dictionary; the second
-        element is a dictionary which maps virtual packages to real
-        packages that provide them.
+        The method returns a dict mapping an architecture name to a 2-element
+        tuple.  The first element in the tuple is a map from binary package
+        names to "BinaryPackage" objects; the second element is a dictionary
+        which maps virtual packages to real packages that provide them.
         """
+        arch2packages = {}
 
         if self.options.components:
-            packages = {}
-            for component in self.options.components:
-                binary_dir = "binary-%s" % arch
-                filename = os.path.join(basedir,
-                             component, binary_dir, 'Packages')
-                try:
-                    filename = possibly_compressed(filename)
-                except FileNotFoundError as e:
-                    if arch not in self.options.new_arches:
-                        raise
-                    self.log("Ignoring missing file for new arch %s: %s" % (arch, filename))
-                    continue
-                udeb_filename =  os.path.join(basedir,
-                                   component, "debian-installer",
-                                              binary_dir, "Packages")
-                # We assume the udeb Packages file is present if the
-                # regular one is present
-                udeb_filename = possibly_compressed(udeb_filename)
-                self._read_packages_file(filename, arch,
-                      self.sources[distribution], packages)
-                self._read_packages_file(udeb_filename, arch,
-                      self.sources[distribution], packages)
-
+            for arch in architectures:
+                packages = {}
+                for component in self.options.components:
+                    binary_dir = "binary-%s" % arch
+                    filename = os.path.join(basedir,
+                                            component,
+                                            binary_dir,
+                                            'Packages')
+                    try:
+                        filename = possibly_compressed(filename)
+                    except FileNotFoundError:
+                        if arch not in self.options.new_arches:
+                            raise
+                        self.log("Ignoring missing file for new arch %s: %s" % (arch, filename))
+                        continue
+                    udeb_filename = os.path.join(basedir,
+                                                 component,
+                                                 "debian-installer",
+                                                 binary_dir,
+                                                 "Packages")
+                    # We assume the udeb Packages file is present if the
+                    # regular one is present
+                    udeb_filename = possibly_compressed(udeb_filename)
+                    self._read_packages_file(filename,
+                                             arch,
+                                             self.sources[distribution],
+                                             packages)
+                    self._read_packages_file(udeb_filename,
+                                             arch,
+                                             self.sources[distribution],
+                                             packages)
+                # create provides
+                provides = create_provides_map(packages)
+                arch2packages[arch] = (packages, provides)
         else:
-            filename = os.path.join(basedir, "Packages_%s" % arch)
-            packages = self._read_packages_file(filename, arch,
-                             self.sources[distribution])
+            for arch in architectures:
+                filename = os.path.join(basedir, "Packages_%s" % arch)
+                packages = self._read_packages_file(filename,
+                                                    arch,
+                                                    self.sources[distribution])
+                provides = create_provides_map(packages)
+                arch2packages[arch] = (packages, provides)
 
-        # create provides
-        provides = create_provides_map(packages)
-
-        # return a tuple with the list of real and virtual packages
-        return (packages, provides)
+        return arch2packages
 
     def read_hints(self, hintsdir):
         """Read the hint commands from the specified directory
