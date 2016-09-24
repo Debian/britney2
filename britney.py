@@ -229,6 +229,21 @@ check_field_name = dict((globals()[fn], fn) for fn in
 
 check_fields = sorted(check_field_name)
 
+
+class SourcePackage(object):
+
+    __slots__ = ['version', 'section', 'binaries', 'maintainer', 'is_fakesrc']
+
+    def __init__(self, version, section, binaries, maintainer, is_fakesrc):
+        self.version = version
+        self.section = section
+        self.binaries = binaries
+        self.maintainer = maintainer
+        self.is_fakesrc = is_fakesrc
+
+    def __getitem__(self, item):
+        return getattr(self, self.__slots__[item])
+
 BinaryPackageId = namedtuple('BinaryPackageId', [
                                'package_name',
                                'version',
@@ -549,12 +564,12 @@ class Britney(object):
             faux_section = 'faux'
             if component != 'main':
                 faux_section = "%s/faux" % component
-            src_data = [version,
+            src_data = SourcePackage(version,
                         sys.intern(faux_section),
                         [],
                         None,
                         True,
-                        ]
+                        )
 
             self.sources['testing'][pkg_name] = src_data
             self.sources['unstable'][pkg_name] = src_data
@@ -623,12 +638,12 @@ class Britney(object):
             self.log(" - constraint %s" % pkg_name, type='I')
 
             pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '' and not x.strip().startswith("#")]
-            src_data = [faux_version,
+            src_data = SourcePackage(faux_version,
                         faux_section,
                         [],
                         None,
                         True,
-                        ]
+                        )
             self.sources['testing'][pkg_name] = src_data
             self.sources['unstable'][pkg_name] = src_data
             keep_installable.append(pkg_name)
@@ -785,12 +800,12 @@ class Britney(object):
             # largest version for migration.
             if pkg in sources and apt_pkg.version_compare(sources[pkg][0], ver) > 0:
                 continue
-            sources[intern(pkg)] = [intern(ver),
+            sources[intern(pkg)] = SourcePackage(intern(ver),
                             intern(get_field('Section')),
                             [],
                             get_field('Maintainer'),
                             False,
-                           ]
+                            )
         return sources
 
     def read_sources(self, basedir):
@@ -939,7 +954,7 @@ class Britney(object):
                     srcdist[source][BINARIES].append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[source] = [source_version, 'faux', [pkg_id], None, True]
+                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True)
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
