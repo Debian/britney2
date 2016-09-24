@@ -207,7 +207,7 @@ from britney2.utils import (old_libraries_format, undo_changes,
                             write_excuses, write_heidi_delta, write_controlfiles,
                             old_libraries, is_nuninst_asgood_generous,
                             clone_nuninst, check_installability,
-                            create_provides_map,
+                            create_provides_map, read_release_file,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -999,21 +999,21 @@ class Britney(object):
         arch2packages = {}
 
         if self.options.components:
+            release_file = read_release_file(basedir)
+            listed_archs = set(release_file['Architectures'].split())
             for arch in architectures:
                 packages = {}
+                if arch not in listed_archs:
+                    self.log("Skipping arch %s for %s: It is not listed in the Release file" % (arch, distribution))
+                    arch2packages[arch] = ({}, {})
+                    continue
                 for component in self.options.components:
                     binary_dir = "binary-%s" % arch
                     filename = os.path.join(basedir,
                                             component,
                                             binary_dir,
                                             'Packages')
-                    try:
-                        filename = possibly_compressed(filename)
-                    except FileNotFoundError:
-                        if arch not in self.options.new_arches:
-                            raise
-                        self.log("Ignoring missing file for new arch %s: %s" % (arch, filename))
-                        continue
+                    filename = possibly_compressed(filename)
                     udeb_filename = os.path.join(basedir,
                                                  component,
                                                  "debian-installer",

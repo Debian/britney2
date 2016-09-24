@@ -21,6 +21,7 @@
 # GNU General Public License for more details.
 
 
+import apt_pkg
 import errno
 import os
 import time
@@ -670,3 +671,18 @@ def create_provides_map(packages):
             provides[provided_pkg].add((pkg, provided_version))
 
     return provides
+
+
+def read_release_file(suite_dir):
+    """Parses a given "Release" file
+
+    :param suite_dir: The directory to the suite
+    :return: A dict of the first (and only) paragraph in an Release file
+    """
+    release_file = os.path.join(suite_dir, 'Release')
+    with open(release_file) as fd:
+        tag_file = iter(apt_pkg.TagFile(fd))
+        result = next(tag_file)
+        if next(tag_file, None) is not None:
+            raise TypeError("%s has more than one paragraph" % release_file)
+    return result
