@@ -21,6 +21,7 @@
 # GNU General Public License for more details.
 
 
+from collections import defaultdict
 from functools import partial
 from datetime import datetime
 from itertools import filterfalse
@@ -654,3 +655,21 @@ def possibly_compressed(path, permitted_compressesion=None):
         if os.path.exists(cpath):
             return cpath
     raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+
+
+def create_provides_map(packages):
+    """Create a provides map from a map binary package names and thier BinaryPackage objects
+
+    :param packages: A dict mapping binary package names to their BinaryPackage object
+    :return: A provides map
+    """
+    # create provides
+    provides = defaultdict(set)
+
+    for pkg, dpkg in packages.items():
+        # register virtual packages and real packages that provide
+        # them
+        for provided_pkg, provided_version, _ in dpkg[PROVIDES]:
+            provides[provided_pkg].add((pkg, provided_version))
+
+    return provides

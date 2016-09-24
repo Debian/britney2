@@ -205,7 +205,9 @@ from britney_util import (old_libraries_format, undo_changes,
                           eval_uninst, newly_uninst, make_migrationitem,
                           write_excuses, write_heidi_delta, write_controlfiles,
                           old_libraries, is_nuninst_asgood_generous,
-                          clone_nuninst, check_installability)
+                          clone_nuninst, check_installability,
+                          create_provides_map,
+                          )
 from policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
 from consts import (VERSION, SECTION, BINARIES, MAINTAINER, FAKESRC,
                    SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS,
@@ -1014,13 +1016,7 @@ class Britney(object):
                              self.sources[distribution])
 
         # create provides
-        provides = defaultdict(set)
-
-        for pkg, dpkg in packages.items():
-            # register virtual packages and real packages that provide
-            # them
-            for provided_pkg, provided_version, _ in dpkg[PROVIDES]:
-                provides[provided_pkg].add((pkg, provided_version))
+        provides = create_provides_map(packages)
 
         # return a tuple with the list of real and virtual packages
         return (packages, provides)
