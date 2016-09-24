@@ -281,23 +281,37 @@ class AgePolicy(BasePolicy):
         """Parse the dates file"""
         dates = self._dates
         fallback_filename = os.path.join(self.options.testing, 'Dates')
+        using_new_name = False
         try:
             filename = os.path.join(self.options.state_dir, 'age-policy-dates')
             if not os.path.exists(filename) and os.path.exists(fallback_filename):
                 filename = fallback_filename
+            else:
+                using_new_name = True
         except AttributeError:
-            filename = fallback_filename
+            if os.path.exists(fallback_filename):
+                filename = fallback_filename
+            else:
+                raise RuntimeError("Please set STATE_DIR in the britney configuration")
 
-        with open(filename, encoding='utf-8') as fd:
-            for line in fd:
-                # <source> <version> <date>
-                l = line.split()
-                if len(l) != 3:
-                    continue
-                try:
-                    dates[l[0]] = (l[1], int(l[2]))
-                except ValueError:
-                    pass
+        try:
+            with open(filename, encoding='utf-8') as fd:
+                for line in fd:
+                    # <source> <version> <date>
+                    l = line.split()
+                    if len(l) != 3:
+                        continue
+                    try:
+                        dates[l[0]] = (l[1], int(l[2]))
+                    except ValueError:
+                        pass
+        except FileNotFoundError:
+            if not using_new_name:
+                # If we using the legacy name, then just give up
+                raise
+            self.log("%s does not appear to exist.  Creating it" % filename)
+            with open(filename, mode='wx', encoding='utf-8'):
+                pass
 
     def _read_urgencies_file(self, britney):
         urgencies = self._urgencies
