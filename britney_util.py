@@ -32,7 +32,7 @@ import errno
 
 from migrationitem import MigrationItem, UnversionnedMigrationItem
 
-from consts import (VERSION, BINARIES, PROVIDES, DEPENDS, CONFLICTS,
+from consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
                     ARCHITECTURE, SECTION,
                     SOURCE, MAINTAINER, MULTIARCH,
                     ESSENTIAL)
@@ -90,8 +90,7 @@ def iter_except(func, exception, first=None):
         pass
 
 
-def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
-                 BINARIES=BINARIES):
+def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
     """Undoes one or more changes to testing
 
     * lundo is a list of (undo, item)-tuples
@@ -126,7 +125,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
     for (undo, item) in lundo:
         if not item.is_removal and item.package in sources[item.suite]:
             source_data = sources[item.suite][item.package]
-            for pkg_id in source_data[BINARIES]:
+            for pkg_id in source_data.binaries:
                 binary, _, arch = pkg_id
                 if item.architecture in ['source', arch]:
                     try:
@@ -134,7 +133,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages,
                     except KeyError:
                         # If this happens, pkg_id must be a cruft item that
                         # was *not* migrated.
-                        assert source_data[VERSION] != all_binary_packages[pkg_id].version
+                        assert source_data.version != all_binary_packages[pkg_id].version
                         assert not inst_tester.any_of_these_are_in_testing((pkg_id,))
                     inst_tester.remove_testing_binary(pkg_id)
 
@@ -264,9 +263,7 @@ def eval_uninst(architectures, nuninst):
     return "".join(parts)
 
 
-def write_heidi(filename, sources_t, packages_t,
-                VERSION=VERSION, SECTION=SECTION,
-                sorted=sorted):
+def write_heidi(filename, sources_t, packages_t, sorted=sorted):
     """Write the output HeidiResult
 
     This method write the output for Heidi, which contains all the
@@ -296,7 +293,7 @@ def write_heidi(filename, sources_t, packages_t,
                     # Faux package; not really a part of testing
                     continue
                 if pkg.source_version and pkgarch == 'all' and \
-                    pkg.source_version != sources_t[pkg.source][VERSION]:
+                    pkg.source_version != sources_t[pkg.source].version:
                     # when architectures are marked as "fucked", their binary
                     # versions may be lower than those of the associated
                     # source package in testing. the binary package list for
@@ -309,8 +306,8 @@ def write_heidi(filename, sources_t, packages_t,
         # write sources
         for src_name in sorted(sources_t):
             src = sources_t[src_name]
-            srcv = src[VERSION]
-            srcsec = src[SECTION] or 'unknown'
+            srcv = src.version
+            srcsec = src.section or 'unknown'
             if srcsec == 'faux' or srcsec.endswith('/faux'):
                 # Faux package; not really a part of testing
                 continue
@@ -352,7 +349,7 @@ def make_migrationitem(package, sources, VERSION=VERSION):
     """
     
     item = UnversionnedMigrationItem(package)
-    return MigrationItem("%s/%s" % (item.uvname, sources[item.suite][item.package][VERSION]))
+    return MigrationItem("%s/%s" % (item.uvname, sources[item.suite][item.package].version))
 
 
 def write_excuses(excuselist, dest_file, output_format="yaml"):
@@ -446,8 +443,8 @@ def write_controlfiles(sources, packages, suite, basedir):
                         continue
                     if key == SOURCE:
                         src = bin_data.source
-                        if sources_s[src][MAINTAINER]:
-                            output += ("Maintainer: " + sources_s[src][MAINTAINER] + "\n")
+                        if sources_s[src].maintainer:
+                            output += ("Maintainer: " + sources_s[src].maintainer + "\n")
 
                         if src == pkg:
                             if bin_data.source_version != bin_data.version:
@@ -489,7 +486,7 @@ def old_libraries(sources, packages, fucked_arches=frozenset()):
     for arch in testing:
         for pkg_name in testing[arch][0]:
             pkg = testing[arch][0][pkg_name]
-            if sources_t[pkg.source][VERSION] != pkg.source_version and \
+            if sources_t[pkg.source].version != pkg.source_version and \
                 (arch not in fucked_arches or pkg_name not in unstable[arch][0]):
                 migration = "-" + "/".join((pkg_name, arch, pkg.source_version))
                 removals.append(MigrationItem(migration))

@@ -21,9 +21,9 @@
 # source package
 VERSION = 0
 SECTION = 1
-BINARIES = 2
+# BINARIES = 2 - value reversed, but const is no longer used
 MAINTAINER = 3
-FAKESRC = 4
+# FAKESRC = 4 - value reserved, but const is no longer used
 
 # binary package
 SOURCE = 2

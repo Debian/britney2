@@ -4,7 +4,6 @@ import apt_pkg
 import os
 import time
 
-from consts import VERSION, BINARIES
 from hints import Hint, split_into_one_hint_per_package
 
 
@@ -245,9 +244,9 @@ class AgePolicy(BasePolicy):
                 urgency = self.options.default_urgency
 
         if source_name not in self._dates:
-            self._dates[source_name] = (source_data_srcdist[VERSION], self._date_now)
-        elif self._dates[source_name][0] != source_data_srcdist[VERSION]:
-            self._dates[source_name] = (source_data_srcdist[VERSION], self._date_now)
+            self._dates[source_name] = (source_data_srcdist.version, self._date_now)
+        elif self._dates[source_name][0] != source_data_srcdist.version:
+            self._dates[source_name] = (source_data_srcdist.version, self._date_now)
 
         days_old = self._date_now - self._dates[source_name][1]
         min_days = self._min_days[urgency]
@@ -255,7 +254,7 @@ class AgePolicy(BasePolicy):
         age_info['current-age'] = days_old
 
         for age_days_hint in self.hints.search('age-days', package=source_name,
-                                               version=source_data_srcdist[VERSION]):
+                                               version=source_data_srcdist.version):
             new_req = age_days_hint.days
             age_info['age-requirement-reduced'] = {
                 'new-requirement': new_req,
@@ -265,7 +264,7 @@ class AgePolicy(BasePolicy):
 
         if days_old < min_days:
             urgent_hints = self.hints.search('urgent', package=source_name,
-                                             version=source_data_srcdist[VERSION])
+                                             version=source_data_srcdist.version)
             if urgent_hints:
                 age_info['age-requirement-reduced'] = {
                     'new-requirement': 0,
@@ -342,12 +341,12 @@ class AgePolicy(BasePolicy):
 
                 # if the package exists in testing and it is more recent, do nothing
                 tsrcv = britney.sources['testing'].get(l[0], None)
-                if tsrcv and apt_pkg.version_compare(tsrcv[VERSION], l[1]) >= 0:
+                if tsrcv and apt_pkg.version_compare(tsrcv.version, l[1]) >= 0:
                     continue
 
                 # if the package doesn't exist in unstable or it is older, do nothing
                 usrcv = britney.sources['unstable'].get(l[0], None)
-                if not usrcv or apt_pkg.version_compare(usrcv[VERSION], l[1]) < 0:
+                if not usrcv or apt_pkg.version_compare(usrcv.version, l[1]) < 0:
                     continue
 
                 # update the urgency for the package
@@ -430,11 +429,11 @@ class RCBugPolicy(BasePolicy):
             if src_key in self._bugs['unstable']:
                 bugs_u.update(self._bugs['unstable'][src_key])
 
-        for pkg, _, _ in source_data_srcdist[BINARIES]:
+        for pkg, _, _ in source_data_srcdist.binaries:
             if pkg in self._bugs['unstable']:
                 bugs_u |= self._bugs['unstable'][pkg]
         if source_data_tdist:
-            for pkg, _, _ in source_data_tdist[BINARIES]:
+            for pkg, _, _ in source_data_tdist.binaries:
                 if pkg in self._bugs['testing']:
                     bugs_t |= self._bugs['testing'][pkg]
 
@@ -451,7 +450,7 @@ class RCBugPolicy(BasePolicy):
         success_verdict = PolicyVerdict.PASS
 
         for ignore_hint in self.hints.search('ignore-rc-bugs', package=source_name,
-                                             version=source_data_srcdist[VERSION]):
+                                             version=source_data_srcdist.version):
             ignored_bugs = ignore_hint.ignored_rcbugs
 
             # Only handle one hint for now
