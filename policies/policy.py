@@ -93,15 +93,15 @@ class BasePolicy(object):
         pass
 
 
-    def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+    def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         if self.policy_id not in general_policy_info:
             general_policy_info[self.policy_id] = pinfo = {}
         else:
             pinfo = general_policy_info[self.policy_id]
-        return self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist)
+        return self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
 
     @abstractmethod
-    def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist):
+    def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         """Apply a policy on a given source migration
 
         Britney will call this method on a given source package, when
@@ -227,7 +227,7 @@ class AgePolicy(BasePolicy):
         super().save_state(britney)
         self._write_dates_file()
 
-    def apply_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist):
+    def apply_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
         urgency = self._urgencies.get(source_name, self.options.default_urgency)
 
@@ -419,7 +419,7 @@ class RCBugPolicy(BasePolicy):
         self._bugs['unstable'] = self._read_bugs(filename_unstable)
         self._bugs['testing'] = self._read_bugs(filename_testing)
 
-    def apply_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist):
+    def apply_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         bugs_t = set()
         bugs_u = set()
 

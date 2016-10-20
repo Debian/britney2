@@ -1613,7 +1613,7 @@ class Britney(object):
         policy_verdict = PolicyVerdict.PASS
         for policy in self.policies:
             if suite in policy.applicable_suites:
-                v = policy.apply_policy(policy_info, suite, src, source_t, source_u)
+                v = policy.apply_policy(policy_info, suite, src, source_t, source_u, excuse)
                 if v.value > policy_verdict.value:
                     policy_verdict = v
 
