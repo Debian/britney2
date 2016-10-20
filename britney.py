@@ -1525,101 +1525,10 @@ class Britney(object):
                     excuse.addreason("block")
                 update_candidate = False
 
-        # if the suite is unstable, then we have to check the urgency and the minimum days of
-        # permanence in unstable before updating testing; if the source package is too young,
-        # the check fails and we set update_candidate to False to block the update; consider
-        # the age-days hint, if specified for the package
-        policy_info = excuse.policy_info
-        policy_verdict = PolicyVerdict.PASS
-        for policy in self.policies:
-            if suite in policy.applicable_suites:
-                v = policy.apply_policy(policy_info, suite, src, source_t, source_u)
-                if v.value > policy_verdict.value:
-                    policy_verdict = v
-
-        if policy_verdict.is_rejected:
-            update_candidate = False
-
-        # Joggle some things into excuses
-        # - remove once the YAML is the canonical source for this information
-        if 'age' in policy_info:
-            age_info = policy_info['age']
-            age_hint = age_info.get('age-requirement-reduced', None)
-            age_min_req = age_info['age-requirement']
-            if age_hint:
-                new_req = age_hint['new-requirement']
-                who = age_hint['changed-by']
-                if new_req:
-                    excuse.addhtml("Overriding age needed from %d days to %d by %s" % (
-                        age_min_req, new_req, who))
-                else:
-                    excuse.addhtml("Too young, but urgency pushed by %s" % who)
-            excuse.setdaysold(age_info['current-age'], age_min_req)
-
-        # if the suite is unstable, then we have to check the release-critical bug lists before
-        # updating testing; if the unstable package has RC bugs that do not apply to the testing
-        # one, the check fails and we set update_candidate to False to block the update
-        if 'rc-bugs' in policy_info:
-            rcbugs_info = policy_info['rc-bugs']
-            new_bugs = rcbugs_info['unique-source-bugs']
-            old_bugs = rcbugs_info['unique-target-bugs']
-
-            excuse.setbugs(old_bugs, new_bugs)
-
-            if new_bugs:
-                excuse.addhtml("%s <a href=\"https://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                               "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                               "target=\"_blank\">has new bugs</a>!" % (src, quote(src)))
-                excuse.addhtml("Updating %s introduces new bugs: %s" % (src, ", ".join(
-                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
-                update_candidate = False
-
-            if old_bugs:
-                excuse.addhtml("Updating %s fixes old bugs: %s" % (src, ", ".join(
-                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
-            if new_bugs and len(old_bugs) > len(new_bugs):
-                excuse.addhtml("%s introduces new bugs, so still ignored (even "
-                               "though it fixes more than it introduces, whine at debian-release)" % src)
-
-        all_binaries = self.all_binaries
-
-        if suite in ('pu', 'tpu') and source_t:
-            # o-o-d(ish) checks for (t-)p-u
-            # This only makes sense if the package is actually in testing.
-            for arch in self.options.architectures:
-                # if the package in testing has no binaries on this
-                # architecture, it can't be out-of-date
-                if not any(x for x in source_t.binaries
-                           if x.architecture == arch and all_binaries[x].architecture != 'all'):
-                    continue
-
-                # if the (t-)p-u package has produced any binaries on
-                # this architecture then we assume it's ok. this allows for
-                # uploads to (t-)p-u which intentionally drop binary
-                # packages
-                if any(x for x in self.binaries[suite][arch][0].values() \
-                          if x.source == src and x.source_version == source_u.version and \
-                             x.architecture != 'all'):
-                    continue
-
-                if suite == 'tpu':
-                    base = 'testing'
-                else:
-                    base = 'stable'
-                text = "Not yet built on <a href=\"https://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u.version), base, arch)
-
-                if arch in self.options.outofsync_arches:
-                    text = text + " (but %s isn't keeping up, so never mind)" % (arch)
-                    excuse.missing_build_on_ood_arch(arch)
-                else:
-                    update_candidate = False
-                    excuse.missing_build_on_arch(arch)
-
-                excuse.addhtml(text)
-
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
         pkgs = {src: ["source"]}
+        all_binaries = self.all_binaries
         for arch in self.options.architectures:
             oodbins = {}
             uptodatebins = False
@@ -1688,15 +1597,103 @@ class Britney(object):
                         update_candidate = False
                         excuse.missing_build_on_arch(arch)
 
-                if 'age' in policy_info and (policy_info['age']['current-age'] or
-                                             not policy_info['age']['age-requirement']):
-                    excuse.addhtml(text)
+                excuse.addhtml(text)
 
         # if the source package has no binaries, set update_candidate to False to block the update
         if not source_u.binaries:
             excuse.addhtml("%s has no binaries on any arch" % src)
             excuse.addreason("no-binaries")
             update_candidate = False
+
+        # if the suite is unstable, then we have to check the urgency and the minimum days of
+        # permanence in unstable before updating testing; if the source package is too young,
+        # the check fails and we set update_candidate to False to block the update; consider
+        # the age-days hint, if specified for the package
+        policy_info = excuse.policy_info
+        policy_verdict = PolicyVerdict.PASS
+        for policy in self.policies:
+            if suite in policy.applicable_suites:
+                v = policy.apply_policy(policy_info, suite, src, source_t, source_u)
+                if v.value > policy_verdict.value:
+                    policy_verdict = v
+
+        if policy_verdict.is_rejected:
+            update_candidate = False
+
+        # Joggle some things into excuses
+        # - remove once the YAML is the canonical source for this information
+        if 'age' in policy_info:
+            age_info = policy_info['age']
+            age_hint = age_info.get('age-requirement-reduced', None)
+            age_min_req = age_info['age-requirement']
+            if age_hint:
+                new_req = age_hint['new-requirement']
+                who = age_hint['changed-by']
+                if new_req:
+                    excuse.addhtml("Overriding age needed from %d days to %d by %s" % (
+                        age_min_req, new_req, who))
+                else:
+                    excuse.addhtml("Too young, but urgency pushed by %s" % who)
+            excuse.setdaysold(age_info['current-age'], age_min_req)
+
+        # if the suite is unstable, then we have to check the release-critical bug lists before
+        # updating testing; if the unstable package has RC bugs that do not apply to the testing
+        # one, the check fails and we set update_candidate to False to block the update
+        if 'rc-bugs' in policy_info:
+            rcbugs_info = policy_info['rc-bugs']
+            new_bugs = rcbugs_info['unique-source-bugs']
+            old_bugs = rcbugs_info['unique-target-bugs']
+
+            excuse.setbugs(old_bugs, new_bugs)
+
+            if new_bugs:
+                excuse.addhtml("%s <a href=\"https://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                               "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                               "target=\"_blank\">has new bugs</a>!" % (src, quote(src)))
+                excuse.addhtml("Updating %s introduces new bugs: %s" % (src, ", ".join(
+                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
+                update_candidate = False
+
+            if old_bugs:
+                excuse.addhtml("Updating %s fixes old bugs: %s" % (src, ", ".join(
+                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
+            if new_bugs and len(old_bugs) > len(new_bugs):
+                excuse.addhtml("%s introduces new bugs, so still ignored (even "
+                               "though it fixes more than it introduces, whine at debian-release)" % src)
+
+        if suite in ('pu', 'tpu') and source_t:
+            # o-o-d(ish) checks for (t-)p-u
+            # This only makes sense if the package is actually in testing.
+            for arch in self.options.architectures:
+                # if the package in testing has no binaries on this
+                # architecture, it can't be out-of-date
+                if not any(x for x in source_t.binaries
+                           if x.architecture == arch and all_binaries[x].architecture != 'all'):
+                    continue
+
+                # if the (t-)p-u package has produced any binaries on
+                # this architecture then we assume it's ok. this allows for
+                # uploads to (t-)p-u which intentionally drop binary
+                # packages
+                if any(x for x in self.binaries[suite][arch][0].values() \
+                          if x.source == src and x.source_version == source_u.version and \
+                             x.architecture != 'all'):
+                    continue
+
+                if suite == 'tpu':
+                    base = 'testing'
+                else:
+                    base = 'stable'
+                text = "Not yet built on <a href=\"https://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u.version), base, arch)
+
+                if arch in self.options.outofsync_arches:
+                    text = text + " (but %s isn't keeping up, so never mind)" % (arch)
+                    excuse.missing_build_on_ood_arch(arch)
+                else:
+                    update_candidate = False
+                    excuse.missing_build_on_arch(arch)
+
+                excuse.addhtml(text)
 
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
         forces = self.hints.search('force', package=src, version=source_u.version)
