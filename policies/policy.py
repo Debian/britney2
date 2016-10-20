@@ -3,6 +3,7 @@ from enum import Enum, unique
 import apt_pkg
 import os
 import time
+from urllib.parse import quote
 
 from hints import Hint, split_into_one_hint_per_package
 
@@ -262,6 +263,8 @@ class AgePolicy(BasePolicy):
             }
             min_days = new_req
 
+        res = PolicyVerdict.PASS
+
         if days_old < min_days:
             urgent_hints = self.hints.search('urgent', package=source_name,
                                              version=source_data_srcdist.version)
@@ -270,11 +273,24 @@ class AgePolicy(BasePolicy):
                     'new-requirement': 0,
                     'changed-by': urgent_hints[0].user
                 }
-                return PolicyVerdict.PASS_HINTED
+                res = PolicyVerdict.PASS_HINTED
             else:
-                return PolicyVerdict.REJECTED_TEMPORARILY
+                res = PolicyVerdict.REJECTED_TEMPORARILY
 
-        return PolicyVerdict.PASS
+        # update excuse
+        age_hint = age_info.get('age-requirement-reduced', None)
+        age_min_req = age_info['age-requirement']
+        if age_hint:
+            new_req = age_hint['new-requirement']
+            who = age_hint['changed-by']
+            if new_req:
+                excuse.addhtml("Overriding age needed from %d days to %d by %s" % (
+                    age_min_req, new_req, who))
+            else:
+                excuse.addhtml("Too young, but urgency pushed by %s" % who)
+        excuse.setdaysold(age_info['current-age'], age_min_req)
+
+        return res
 
     def _read_dates_file(self):
         """Parse the dates file"""
@@ -474,6 +490,24 @@ class RCBugPolicy(BasePolicy):
         rcbugs_info['shared-bugs'] = sorted(bugs_u & bugs_t)
         rcbugs_info['unique-source-bugs'] = sorted(bugs_u - bugs_t)
         rcbugs_info['unique-target-bugs'] = sorted(bugs_t - bugs_u)
+
+        # update excuse
+        new_bugs = rcbugs_info['unique-source-bugs']
+        old_bugs = rcbugs_info['unique-target-bugs']
+        excuse.setbugs(old_bugs, new_bugs)
+        if new_bugs:
+            excuse.addhtml("%s <a href=\"https://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
+                           "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
+                           "target=\"_blank\">has new bugs</a>!" % (source_name, quote(source_name)))
+            excuse.addhtml("Updating %s introduces new bugs: %s" % (source_name, ", ".join(
+                ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
+
+        if old_bugs:
+            excuse.addhtml("Updating %s fixes old bugs: %s" % (source_name, ", ".join(
+                ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
+        if new_bugs and len(old_bugs) > len(new_bugs):
+            excuse.addhtml("%s introduces new bugs, so still ignored (even "
+                           "though it fixes more than it introduces, whine at debian-release)" % source_name)
 
         if not bugs_u or bugs_u <= bugs_t:
             return success_verdict

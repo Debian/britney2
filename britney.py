@@ -1620,46 +1620,11 @@ class Britney(object):
         if policy_verdict.is_rejected:
             update_candidate = False
 
-        # Joggle some things into excuses
-        # - remove once the YAML is the canonical source for this information
-        if 'age' in policy_info:
-            age_info = policy_info['age']
-            age_hint = age_info.get('age-requirement-reduced', None)
-            age_min_req = age_info['age-requirement']
-            if age_hint:
-                new_req = age_hint['new-requirement']
-                who = age_hint['changed-by']
-                if new_req:
-                    excuse.addhtml("Overriding age needed from %d days to %d by %s" % (
-                        age_min_req, new_req, who))
-                else:
-                    excuse.addhtml("Too young, but urgency pushed by %s" % who)
-            excuse.setdaysold(age_info['current-age'], age_min_req)
-
         # if the suite is unstable, then we have to check the release-critical bug lists before
         # updating testing; if the unstable package has RC bugs that do not apply to the testing
         # one, the check fails and we set update_candidate to False to block the update
-        if 'rc-bugs' in policy_info:
-            rcbugs_info = policy_info['rc-bugs']
-            new_bugs = rcbugs_info['unique-source-bugs']
-            old_bugs = rcbugs_info['unique-target-bugs']
-
-            excuse.setbugs(old_bugs, new_bugs)
-
-            if new_bugs:
-                excuse.addhtml("%s <a href=\"https://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                               "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                               "target=\"_blank\">has new bugs</a>!" % (src, quote(src)))
-                excuse.addhtml("Updating %s introduces new bugs: %s" % (src, ", ".join(
-                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
-                update_candidate = False
-
-            if old_bugs:
-                excuse.addhtml("Updating %s fixes old bugs: %s" % (src, ", ".join(
-                    ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in old_bugs])))
-            if new_bugs and len(old_bugs) > len(new_bugs):
-                excuse.addhtml("%s introduces new bugs, so still ignored (even "
-                               "though it fixes more than it introduces, whine at debian-release)" % src)
+        if excuse.newbugs:
+            update_candidate = False
 
         if suite in ('pu', 'tpu') and source_t:
             # o-o-d(ish) checks for (t-)p-u
