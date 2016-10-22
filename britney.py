@@ -1620,12 +1620,6 @@ class Britney(object):
         if policy_verdict.is_rejected:
             update_candidate = False
 
-        # if the suite is unstable, then we have to check the release-critical bug lists before
-        # updating testing; if the unstable package has RC bugs that do not apply to the testing
-        # one, the check fails and we set update_candidate to False to block the update
-        if excuse.newbugs:
-            update_candidate = False
-
         if suite in ('pu', 'tpu') and source_t:
             # o-o-d(ish) checks for (t-)p-u
             # This only makes sense if the package is actually in testing.
