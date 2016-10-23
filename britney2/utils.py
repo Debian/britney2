@@ -21,21 +21,21 @@
 # GNU General Public License for more details.
 
 
-from collections import defaultdict
-from functools import partial
-from datetime import datetime
-from itertools import filterfalse
+import errno
 import os
 import time
+from collections import defaultdict
+from datetime import datetime
+from functools import partial
+from itertools import filterfalse
+
 import yaml
-import errno
 
-from migrationitem import MigrationItem, UnversionnedMigrationItem
-
-from consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
-                    ARCHITECTURE, SECTION,
-                    SOURCE, MAINTAINER, MULTIARCH,
-                    ESSENTIAL)
+from britney2.consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
+                             ARCHITECTURE, SECTION,
+                             SOURCE, MAINTAINER, MULTIARCH,
+                             ESSENTIAL)
+from britney2.migrationitem import MigrationItem, UnversionnedMigrationItem
 
 
 def ifilter_except(container, iterable=None):

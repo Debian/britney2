@@ -16,7 +16,7 @@ from __future__ import print_function
 
 from itertools import chain
 
-from migrationitem import MigrationItem
+from britney2.migrationitem import MigrationItem
 
 
 class MalformedHintException(Exception):

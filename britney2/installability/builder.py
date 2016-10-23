@@ -15,8 +15,9 @@
 from collections import defaultdict
 from contextlib import contextmanager
 
-from britney_util import ifilter_except, iter_except
-from installability.solver import InstallabilitySolver
+from britney2.utils import ifilter_except, iter_except
+from britney2.installability.solver import InstallabilitySolver
+
 
 class _RelationBuilder(object):
     """Private helper class to "build" relations"""

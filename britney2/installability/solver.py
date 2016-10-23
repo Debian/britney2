@@ -19,8 +19,8 @@ from __future__ import print_function
 import os
 from collections import deque
 
-from installability.tester import InstallabilityTester
-from britney_util import (ifilter_only, iter_except)
+from britney2.utils import (ifilter_only, iter_except)
+from britney2.installability.tester import InstallabilityTester
 
 
 class InstallabilitySolver(InstallabilityTester):

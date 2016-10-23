@@ -16,7 +16,7 @@ from collections import defaultdict
 from functools import partial
 from itertools import chain, filterfalse
 
-from britney_util import iter_except
+from britney2.utils import iter_except
 
 
 class InstallabilityTester(object):

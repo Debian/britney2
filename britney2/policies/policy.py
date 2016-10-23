@@ -1,11 +1,12 @@
-from abc import abstractmethod
-from enum import Enum, unique
-import apt_pkg
 import os
 import time
+from abc import abstractmethod
+from enum import Enum, unique
 from urllib.parse import quote
 
-from hints import Hint, split_into_one_hint_per_package
+import apt_pkg
+
+from britney2.hints import Hint, split_into_one_hint_per_package
 
 
 @unique
@@ -92,7 +93,6 @@ class BasePolicy(object):
         :param britney This is the instance of the "Britney" class.
         """
         pass
-
 
     def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         if self.policy_id not in general_policy_info:

@@ -181,38 +181,34 @@ does for the generation of the update excuses.
 """
 from __future__ import print_function
 
+import optparse
 import os
 import sys
 import time
-import optparse
-
-import apt_pkg
-
 from collections import defaultdict, namedtuple
 from functools import reduce
 from itertools import product
 from operator import attrgetter
-
 from urllib.parse import quote
 
-from installability.builder import InstallabilityTesterBuilder
-from excuse import Excuse
-from migrationitem import MigrationItem
-from hints import HintParser
-from britney_util import (old_libraries_format, undo_changes,
-                          compute_reverse_tree, possibly_compressed,
-                          read_nuninst, write_nuninst, write_heidi,
-                          eval_uninst, newly_uninst, make_migrationitem,
-                          write_excuses, write_heidi_delta, write_controlfiles,
-                          old_libraries, is_nuninst_asgood_generous,
-                          clone_nuninst, check_installability,
-                          create_provides_map,
-                          )
-from policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
+import apt_pkg
 
 # Check the "check_field_name" reflection before removing an import here.
-from consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS,
-                   PROVIDES, MULTIARCH)
+from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS, PROVIDES, MULTIARCH)
+from britney2.excuse import Excuse
+from britney2.hints import HintParser
+from britney2.installability.builder import InstallabilityTesterBuilder
+from britney2.migrationitem import MigrationItem
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
+from britney2.utils import (old_libraries_format, undo_changes,
+                            compute_reverse_tree, possibly_compressed,
+                            read_nuninst, write_nuninst, write_heidi,
+                            eval_uninst, newly_uninst, make_migrationitem,
+                            write_excuses, write_heidi_delta, write_controlfiles,
+                            old_libraries, is_nuninst_asgood_generous,
+                            clone_nuninst, check_installability,
+                            create_provides_map,
+                            )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
 __version__ = '2.0'
@@ -1642,7 +1638,7 @@ class Britney(object):
                 # uploads to (t-)p-u which intentionally drop binary
                 # packages
                 if any(x for x in self.binaries[suite][arch][0].values() \
-                          if x.source == src and x.source_version == source_u.version and \
+                         if x.source == src and x.source_version == source_u.version and \
                              x.architecture != 'all'):
                     continue
 
@@ -2778,7 +2774,7 @@ class Britney(object):
         self.nuninst_orig_save = self.get_nuninst()
 
         import readline
-        from completer import Completer
+        from britney2.completer import Completer
 
         histfile = os.path.expanduser('~/.britney2_history')
         if os.path.exists(histfile):

@@ -144,6 +144,7 @@ class MigrationItem(object):
     def uvname(self):
         return self._uvname
 
+
 class UnversionnedMigrationItem(MigrationItem):
     def __init__(self, name=None):
         super().__init__(name=name, versionned=False)
