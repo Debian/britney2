@@ -337,7 +337,7 @@ def write_heidi_delta(filename, all_selected):
                                            item.version, item.architecture))
 
 
-def make_migrationitem(package, sources, VERSION=VERSION):
+def make_migrationitem(package, sources):
     """Convert a textual package specification to a MigrationItem
     
     sources is a list of source packages in each suite, used to determine
