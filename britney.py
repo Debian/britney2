@@ -473,9 +473,18 @@ class Britney(object):
                     elif not hasattr(self.options, k.lower()) or \
                          not getattr(self.options, k.lower()):
                         setattr(self.options, k.lower(), v)
+        try:
+            release_file = read_release_file(self.options.testing)
+            self.log("Found a Release file in testing - using that for defaults")
+        except FileNotFoundError:
+            self.log("Testing does not have a Release file.")
+            release_file = None
 
         if getattr(self.options, "components", None):
             self.options.components = [s.strip() for s in self.options.components.split(",")]
+        elif release_file and not self.options.control_files:
+            self.options.components = release_file['Components'].split()
+            self.log("Using components listed in Release file: %s" % ' '.join(self.options.components))
         else:
             self.options.components = None
 
@@ -493,8 +502,17 @@ class Britney(object):
         self.options.break_arches = self.options.break_arches.split()
         self.options.new_arches = self.options.new_arches.split()
 
-        # Sort the architecture list
-        allarches = sorted(self.options.architectures.split())
+        if getattr(self.options, "architectures", None):
+            # Sort the architecture list
+            allarches = sorted(self.options.architectures.split())
+        else:
+            if not release_file:
+                self.log("No configured architectures and there is no release file for testing", type="E")
+                self.log("Please check if there is a \"Release\" file in %s" % self.options.testing, type="E")
+                self.log("or if the config file contains a non-empty \"ARCHITECTURES\" field", type="E")
+                sys.exit(1)
+            allarches = sorted(release_file['Architectures'].split())
+            self.log("Using architectures listed in Release file: %s" % ' '.join(allarches))
         arches = [x for x in allarches if x in self.options.nobreakall_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.outofsync_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
