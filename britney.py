@@ -1561,7 +1561,14 @@ class Britney(object):
                 # find unsatisfied dependencies for the binary package
                 if binary_u.architecture != 'all' or arch in self.options.nobreakall_arches:
                     is_valid = self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
-                    if not is_valid and not source_t:
+                    inst_tester = self._inst_tester
+                    if not is_valid and inst_tester.any_of_these_are_in_testing({binary_u.pkg_id}) \
+                            and not inst_tester.is_installable(binary_u.pkg_id):
+                        # Forgive uninstallable packages only when
+                        # they are already broken in testing ideally
+                        # we would not need to be forgiving at
+                        # all. However, due to how arch:all packages
+                        # are handled, we do run into occasionally.
                         update_candidate = False
 
             # if there are out-of-date packages, warn about them in the excuse and set update_candidate
