@@ -261,6 +261,13 @@ BinaryPackage = namedtuple('BinaryPackage', [
                                'pkg_id',
                            ])
 
+SuiteInfo = namedtuple('SuiteInfo', [
+    'name',
+    'path',
+    'excuses_suffix',
+])
+
+
 class Britney(object):
     """Britney, the Debian testing updater script
     
@@ -288,6 +295,7 @@ class Britney(object):
         # parse the command line arguments
         self.policies = []
         self._hint_parser = HintParser(self)
+        self.suite_info = {}
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
 
@@ -301,7 +309,7 @@ class Britney(object):
         try:
             self.read_hints(self.options.hintsdir)
         except AttributeError:
-            self.read_hints(os.path.join(self.options.unstable, 'Hints'))
+            self.read_hints(os.path.join(self.suite_info['unstable'].path, 'Hints'))
 
         if self.options.nuninst_cache:
             self.log("Not building the list of non-installable packages, as requested", type="I")
@@ -312,8 +320,8 @@ class Britney(object):
 
         self.all_binaries = {}
         # read the source and binary packages for the involved distributions
-        self.sources['testing'] = self.read_sources(self.options.testing)
-        self.sources['unstable'] = self.read_sources(self.options.unstable)
+        self.sources['testing'] = self.read_sources(self.suite_info['testing'].path)
+        self.sources['unstable'] = self.read_sources(self.suite_info['unstable'].path)
         for suite in ('tpu', 'pu'):
             if hasattr(self.options, suite):
                 self.sources[suite] = self.read_sources(getattr(self.options, suite))
@@ -325,10 +333,10 @@ class Britney(object):
         self.binaries['tpu'] = {}
         self.binaries['pu'] = {}
 
-        self.binaries['unstable'] = self.read_binaries(self.options.unstable, "unstable", self.options.architectures)
+        self.binaries['unstable'] = self.read_binaries(self.suite_info['unstable'].path, "unstable", self.options.architectures)
         for suite in ('tpu', 'pu'):
-            if hasattr(self.options, suite):
-                self.binaries[suite] = self.read_binaries(getattr(self.options, suite), suite, self.options.architectures)
+            if suite in self.suite_info:
+                self.binaries[suite] = self.read_binaries(self.suite_info[suite].path, suite, self.options.architectures)
             else:
                 # _build_installability_tester relies on this being
                 # properly initialised, so insert two empty dicts
@@ -337,7 +345,7 @@ class Britney(object):
                     self.binaries[suite][arch] = ({}, {})
         # Load testing last as some live-data tests have more complete information in
         # unstable
-        self.binaries['testing'] = self.read_binaries(self.options.testing, "testing", self.options.architectures)
+        self.binaries['testing'] = self.read_binaries(self.suite_info['testing'].path, "testing", self.options.architectures)
 
         try:
             constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
@@ -473,8 +481,20 @@ class Britney(object):
                     elif not hasattr(self.options, k.lower()) or \
                          not getattr(self.options, k.lower()):
                         setattr(self.options, k.lower(), v)
+
+        for suite in ('testing', 'unstable', 'pu', 'tpu'):
+            suffix = suite if suite in {'pu', 'tpu'} else ''
+            if hasattr(self.options, suite):
+                suite_path = getattr(self.options, suite)
+                self.suite_info[suite] = SuiteInfo(name=suite, path=suite_path, excuses_suffix=suffix)
+            else:
+                if suite in {'testing', 'unstable'}:
+                    self.log("Mandatory configuration %s is not set in the config" % suite.upper(), type='E')
+                    sys.exit(1)
+                self.log("Optional suite %s is not defined (config option: %s) " % (suite, suite.upper()))
+
         try:
-            release_file = read_release_file(self.options.testing)
+            release_file = read_release_file(self.suite_info['testing'].path)
             self.log("Found a Release file in testing - using that for defaults")
         except FileNotFoundError:
             self.log("Testing does not have a Release file.")
@@ -508,7 +528,7 @@ class Britney(object):
         else:
             if not release_file:
                 self.log("No configured architectures and there is no release file for testing", type="E")
-                self.log("Please check if there is a \"Release\" file in %s" % self.options.testing, type="E")
+                self.log("Please check if there is a \"Release\" file in %s" % self.suite_info['testing'].path, type="E")
                 self.log("or if the config file contains a non-empty \"ARCHITECTURES\" field", type="E")
                 sys.exit(1)
             allarches = sorted(release_file['Architectures'].split())
@@ -525,8 +545,8 @@ class Britney(object):
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
 
-        self.policies.append(AgePolicy(self.options, MINDAYS))
-        self.policies.append(RCBugPolicy(self.options))
+        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
+        self.policies.append(RCBugPolicy(self.options, self.suite_info))
 
         for policy in self.policies:
             policy.register_hints(self._hint_parser)
@@ -2752,9 +2772,9 @@ class Britney(object):
             # re-write control files
             if self.options.control_files:
                 self.log("Writing new testing control files to %s" %
-                           self.options.testing)
+                         self.suite_info['testing'].path)
                 write_controlfiles(self.sources, self.binaries,
-                                   'testing', self.options.testing)
+                                   'testing', self.suite_info['testing'].path)
 
             for policy in self.policies:
                 policy.save_state(self)

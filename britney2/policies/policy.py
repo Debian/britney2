@@ -38,7 +38,7 @@ class PolicyVerdict(Enum):
 
 class BasePolicy(object):
 
-    def __init__(self, policy_id, options, applicable_suites):
+    def __init__(self, policy_id, options, suite_info, applicable_suites):
         """The BasePolicy constructor
 
         :param policy_id An string identifying the policy.  It will
@@ -52,6 +52,7 @@ class BasePolicy(object):
         """
         self.policy_id = policy_id
         self.options = options
+        self.suite_info = suite_info
         self.applicable_suites = applicable_suites
         self.hints = None
 
@@ -204,8 +205,8 @@ class AgePolicy(BasePolicy):
 
     """
 
-    def __init__(self, options, mindays):
-        super().__init__('age', options, {'unstable'})
+    def __init__(self, options, suite_info, mindays):
+        super().__init__('age', options, suite_info, {'unstable'})
         self._min_days = mindays
         if options.default_urgency not in mindays:
             raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
@@ -295,7 +296,7 @@ class AgePolicy(BasePolicy):
     def _read_dates_file(self):
         """Parse the dates file"""
         dates = self._dates
-        fallback_filename = os.path.join(self.options.testing, 'Dates')
+        fallback_filename = os.path.join(self.suite_info['testing'].path, 'Dates')
         using_new_name = False
         try:
             filename = os.path.join(self.options.state_dir, 'age-policy-dates')
@@ -331,7 +332,7 @@ class AgePolicy(BasePolicy):
     def _read_urgencies_file(self, britney):
         urgencies = self._urgencies
         min_days_default = self._min_days_default
-        fallback_filename = os.path.join(self.options.testing, 'Urgency')
+        fallback_filename = os.path.join(self.suite_info['testing'].path, 'Urgency')
         try:
             filename = os.path.join(self.options.state_dir, 'age-policy-urgencies')
             if not os.path.exists(filename) and os.path.exists(fallback_filename):
@@ -373,9 +374,9 @@ class AgePolicy(BasePolicy):
         try:
             directory = self.options.state_dir
             basename = 'age-policy-dates'
-            old_file = os.path.join(self.options.testing, 'Dates')
+            old_file = os.path.join(self.suite_info['testing'].path, 'Dates')
         except AttributeError:
-            directory = self.options.testing
+            directory = self.suite_info['testing'].path
             basename = 'Dates'
             old_file = None
         filename = os.path.join(directory, basename)
@@ -408,8 +409,8 @@ class RCBugPolicy(BasePolicy):
        - This file needs to be updated externally.
     """
 
-    def __init__(self, options):
-        super().__init__('rc-bugs', options, {'unstable'})
+    def __init__(self, options, suite_info):
+        super().__init__('rc-bugs', options, suite_info, {'unstable'})
         self._bugs = {}
 
     def register_hints(self, hint_parser):
@@ -420,8 +421,8 @@ class RCBugPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
-        fallback_unstable = os.path.join(self.options.unstable, 'BugsV')
-        fallback_testing = os.path.join(self.options.testing, 'BugsV')
+        fallback_unstable = os.path.join(self.suite_info['unstable'].path, 'BugsV')
+        fallback_testing = os.path.join(self.suite_info['testing'].path, 'BugsV')
         try:
             filename_unstable = os.path.join(self.options.state_dir, 'rc-bugs-unstable')
             filename_testing = os.path.join(self.options.state_dir, 'rc-bugs-testing')
