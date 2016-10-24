@@ -1311,9 +1311,13 @@ class Britney(object):
         # retrieve the source packages for testing and suite
         source_t = self.sources['testing'][src]
         source_u = self.sources[suite][src]
+        suite_info = self.suite_info[suite]
+        suffix = ''
+        if suite_info.excuses_suffix:
+            suffix = "_%s" % suite_info.excuses_suffix
 
         # build the common part of the excuse, which will be filled by the code below
-        ref = "%s/%s%s" % (src, arch, suite != 'unstable' and "_" + suite or "")
+        ref = "%s/%s%s" % (src, arch, suffix)
         excuse = Excuse(ref)
         excuse.set_vers(source_t.version, source_t.version)
         source_u.maintainer and excuse.set_maint(source_u.maintainer)
@@ -1473,8 +1477,13 @@ class Britney(object):
         else:
             source_t = None
 
+        suite_info = self.suite_info[suite]
+        suffix = ''
+        if suite_info.excuses_suffix:
+            suffix = "_%s" % suite_info.excuses_suffix
+
         # build the common part of the excuse, which will be filled by the code below
-        ref = "%s%s" % (src, suite != 'unstable' and "_" + suite or "")
+        ref = "%s%s" % (src, suffix)
         excuse = Excuse(ref)
         excuse.set_vers(source_t and source_t.version or None, source_u.version)
         source_u.maintainer and excuse.set_maint(source_u.maintainer)
