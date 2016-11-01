@@ -1489,9 +1489,6 @@ class Britney(object):
         source_u.maintainer and excuse.set_maint(source_u.maintainer)
         source_u.section and excuse.set_section(source_u.section)
 
-        # the starting point is that we will update the candidate
-        update_candidate = True
-        
         # if the version in unstable is older, then stop here with a warning in the excuse and return False
         if source_t and apt_pkg.version_compare(source_u.version, source_t.version) < 0:
             excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t.version, source_u.version))
@@ -1499,10 +1496,13 @@ class Britney(object):
             excuse.addreason("newerintesting")
             return False
 
+        # the starting point is that we will update the candidate
+        excuse.is_valid = True
+
         # check if the source package really exists or if it is a fake one
         if source_u.is_fakesrc:
             excuse.addhtml("%s source package doesn't exist" % (src))
-            update_candidate = False
+            excuse.is_valid = False
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
@@ -1512,7 +1512,7 @@ class Britney(object):
                 excuse.add_hint(hint)
                 excuse.addhtml("Removal request by %s" % (hint.user))
                 excuse.addhtml("Trying to remove package, not update it")
-                update_candidate = False
+                excuse.is_valid = False
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
@@ -1566,7 +1566,7 @@ class Britney(object):
                 else:
                     excuse.addhtml("NEEDS APPROVAL BY RM")
                     excuse.addreason("block")
-                update_candidate = False
+                excuse.is_valid = False
 
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
@@ -1612,9 +1612,9 @@ class Britney(object):
                         # we would not need to be forgiving at
                         # all. However, due to how arch:all packages
                         # are handled, we do run into occasionally.
-                        update_candidate = False
+                        excuse.is_valid = False
 
-            # if there are out-of-date packages, warn about them in the excuse and set update_candidate
+            # if there are out-of-date packages, warn about them in the excuse and set excuse.is_valid
             # to False to block the update; if the architecture where the package is out-of-date is
             # in the `outofsync_arches' list, then do not block the update
             if oodbins:
@@ -1642,22 +1642,22 @@ class Britney(object):
                         if self.options.ignore_cruft:
                             text = text + " (but ignoring cruft, so nevermind)"
                         else:
-                            update_candidate = False
+                            excuse.is_valid = False
                     else:
-                        update_candidate = False
+                        excuse.is_valid = False
                         excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)
 
-        # if the source package has no binaries, set update_candidate to False to block the update
+        # if the source package has no binaries, set is_valid to False to block the update
         if not source_u.binaries:
             excuse.addhtml("%s has no binaries on any arch" % src)
             excuse.addreason("no-binaries")
-            update_candidate = False
+            excuse.is_valid = False
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
         # permanence in unstable before updating testing; if the source package is too young,
-        # the check fails and we set update_candidate to False to block the update; consider
+        # the check fails and we set is_valid to False to block the update; consider
         # the age-days hint, if specified for the package
         policy_info = excuse.policy_info
         policy_verdict = PolicyVerdict.PASS
@@ -1668,7 +1668,7 @@ class Britney(object):
                     policy_verdict = v
 
         if policy_verdict.is_rejected:
-            update_candidate = False
+            excuse.is_valid = False
 
         if suite in ('pu', 'tpu') and source_t:
             # o-o-d(ish) checks for (t-)p-u
@@ -1699,7 +1699,7 @@ class Britney(object):
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
                     excuse.missing_build_on_ood_arch(arch)
                 else:
-                    update_candidate = False
+                    excuse.is_valid = False
                     excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)
@@ -1708,17 +1708,13 @@ class Britney(object):
         forces = self.hints.search('force', package=src, version=source_u.version)
         if forces:
             excuse.dontinvalidate = True
-        if not update_candidate and forces:
+        if not excuse.is_valid and forces:
             excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
             excuse.force()
-            update_candidate = True
-
-        # if the package can be updated, it is a valid candidate
-        if update_candidate:
             excuse.is_valid = True
 
         self.excuses[excuse.name] = excuse
-        return update_candidate
+        return excuse.is_valid
 
     def reversed_exc_deps(self):
         """Reverse the excuses dependencies
