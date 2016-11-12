@@ -662,7 +662,7 @@ def create_provides_map(packages):
     for pkg, dpkg in packages.items():
         # register virtual packages and real packages that provide
         # them
-        for provided_pkg, provided_version, _ in dpkg[PROVIDES]:
+        for provided_pkg, provided_version, _ in dpkg.provides:
             provides[provided_pkg].add((pkg, provided_version))
 
     return provides
