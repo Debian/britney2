@@ -1018,7 +1018,7 @@ class Britney(object):
 
         If the "components" config parameter is set, the directory should
         be the "suite" directory of a local mirror (i.e. the one containing
-        the "InRelease" file).  Otherwise, Britney will read the packages
+        the "Release" file).  Otherwise, Britney will read the packages
         information from all the "Packages_${arch}" files referenced by
         the "architectures" parameter.
 
