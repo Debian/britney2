@@ -144,16 +144,11 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
     for (undo, item) in lundo:
         for p in undo['binaries']:
             binary, arch = p
-            if binary[0] == "-":
-                version = binaries["testing"][arch][0][binary].version
-                del binaries['testing'][arch][0][binary[1:]]
-                inst_tester.remove_testing_binary(binary, version, arch)
-            else:
-                binaries_t_a = binaries['testing'][arch][0]
-                assert binary not in binaries_t_a
-                pkgdata = all_binary_packages[undo['binaries'][p]]
-                binaries_t_a[binary] = pkgdata
-                inst_tester.add_testing_binary(pkgdata.pkg_id)
+            binaries_t_a = binaries['testing'][arch][0]
+            assert binary not in binaries_t_a
+            pkgdata = all_binary_packages[undo['binaries'][p]]
+            binaries_t_a[binary] = pkgdata
+            inst_tester.add_testing_binary(pkgdata.pkg_id)
 
     # STEP 4
     # undo all changes to virtual packages
