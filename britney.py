@@ -2042,6 +2042,7 @@ class Britney(object):
         """
         # local copies for better performances
         sources = self.sources
+        binaries_s = self.binaries[suite]
         binaries_t = self.binaries['testing']
         inst_tester = self._inst_tester
 
@@ -2078,7 +2079,7 @@ class Britney(object):
                     binary, _, parch = pkg_id
                     # if a smooth update is possible for the package, skip it
                     if allow_smooth_updates and suite == 'unstable' and \
-                       binary not in self.binaries[suite][parch][0] and \
+                       binary not in binaries_s[parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries_t[parch][0][binary].section in self.options.smooth_updates):
 
@@ -2151,7 +2152,7 @@ class Britney(object):
                 if migration_architecture not in ['source', parch]:
                     continue
 
-                if self.binaries[suite][parch][0][binary].source != source_name:
+                if binaries_s[parch][0][binary].source != source_name:
                     # This binary package has been hijacked by some other source.
                     # So don't add it as part of this update.
                     #
@@ -2165,7 +2166,7 @@ class Britney(object):
 
                 # Don't add the binary if it is old cruft that is no longer in testing
                 if (parch not in self.options.outofsync_arches and
-                    source_data.version != self.binaries[suite][parch][0][binary].source_version and
+                    source_data.version != binaries_s[parch][0][binary].source_version and
                     binary not in binaries_t[parch][0]):
                     continue
 
