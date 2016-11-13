@@ -65,7 +65,7 @@ class InstallabilitySolver(InstallabilityTester):
 
         try:  # pragma: no cover
             debug_solver = int(os.environ.get('BRITNEY_DEBUG', '0'))
-        except:
+        except:  # pragma: no cover
             pass
 
         # Build the tables
