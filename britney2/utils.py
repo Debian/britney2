@@ -153,12 +153,11 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
     # STEP 4
     # undo all changes to virtual packages
     for (undo, item) in lundo:
-        for p in undo['nvirtual']:
-            j, arch = p
-            del binaries['testing'][arch][1][j]
+        for provided_pkg, arch in undo['nvirtual']:
+            del binaries['testing'][arch][1][provided_pkg]
         for p in undo['virtual']:
-            j, arch = p
-            binaries['testing'][arch][1][j] = undo['virtual'][p]
+            provided_pkg, arch = p
+            binaries['testing'][arch][1][provided_pkg] = undo['virtual'][p]
 
 
 def old_libraries_format(libs):

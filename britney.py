@@ -2209,13 +2209,13 @@ class Britney(object):
                         affected_remain.update(inst_tester.negative_dependencies_of(rm_pkg_id))
 
                     # remove the provided virtual packages
-                    for j, prov_version, _ in pkg_data.provides:
-                        key = (j, parch)
+                    for provided_pkg, prov_version, _ in pkg_data.provides:
+                        key = (provided_pkg, parch)
                         if key not in undo['virtual']:
-                            undo['virtual'][key] = provides_t_a[j].copy()
-                        provides_t_a[j].remove((binary, prov_version))
-                        if not provides_t_a[j]:
-                            del provides_t_a[j]
+                            undo['virtual'][key] = provides_t_a[provided_pkg].copy()
+                        provides_t_a[provided_pkg].remove((binary, prov_version))
+                        if not provides_t_a[provided_pkg]:
+                            del provides_t_a[provided_pkg]
                     # finally, remove the binary package
                     del binaries_t_a[binary]
                     inst_tester.remove_testing_binary(rm_pkg_id)
@@ -2285,14 +2285,14 @@ class Britney(object):
                 binaries_t_a[binary] = new_pkg_data
                 inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
-                for j, prov_version, _ in new_pkg_data.provides:
-                    key = (j, parch)
-                    if j not in provides_t_a:
+                for provided_pkg, prov_version, _ in new_pkg_data.provides:
+                    key = (provided_pkg, parch)
+                    if provided_pkg not in provides_t_a:
                         undo['nvirtual'].append(key)
-                        provides_t_a[j] = set()
+                        provides_t_a[provided_pkg] = set()
                     elif key not in undo['virtual']:
-                        undo['virtual'][key] = provides_t_a[j].copy()
-                    provides_t_a[j].add((binary, prov_version))
+                        undo['virtual'][key] = provides_t_a[provided_pkg].copy()
+                    provides_t_a[provided_pkg].add((binary, prov_version))
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
                     affected_pos.add(updated_pkg_id)
