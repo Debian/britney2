@@ -586,7 +586,7 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
         # only check arch:all packages if requested
         if check_archall or actual_arch != 'all':
             nuninst_arch = nuninst[parch]
-        elif actual_arch == 'all':
+        else:
             nuninst[parch].discard(name)
         result = test_installability(inst_tester, name, pkg_id, broken, nuninst_arch)
         if improvement > 0 or not result:
