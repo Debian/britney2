@@ -7,10 +7,16 @@ from britney2.hints import HintParser
 from britney2.policies.policy import RCBugPolicy, PolicyVerdict
 
 POLICY_DATA_BASE_DIR = os.path.join(os.path.dirname(__file__), 'policy-test-data')
+TEST_HINTER = 'test-hinter'
+HINTS_ALL = ('ALL')
 
 
 def initialize_policy(test_name, policy_class, *args, **kwargs):
     test_dir = os.path.join(POLICY_DATA_BASE_DIR, test_name)
+    hints = []
+    if 'hints' in kwargs:
+        hints = kwargs['hints']
+        del kwargs['hints']
     options = MockObject(state_dir=test_dir, verbose=0, **kwargs)
     suite_info = {
         'testing': SuiteInfo('testing', os.path.join(test_dir, 'testing'), ''),
@@ -21,6 +27,7 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
     hint_parser = HintParser(fake_britney)
     policy.initialise(fake_britney)
     policy.register_hints(hint_parser)
+    hint_parser.parse_hints(TEST_HINTER, HINTS_ALL, 'test-%s' % test_name, hints)
     policy.hints = hint_parser.hints
     return policy
 
@@ -91,6 +98,19 @@ class TestRCBugsPolicy(unittest.TestCase):
         assert verdict == PolicyVerdict.PASS
         assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
         assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'123456'}
+        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+
+    def test_regression_with_hint(self):
+        src_name = 'regression'
+        hints = ['ignore-rc-bugs 123458 regression/2.0']
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.PASS_HINTED
+        assert set(policy_info['rc-bugs']['ignored-bugs']['bugs']) == {'123458'}
+        assert policy_info['rc-bugs']['ignored-bugs']['issued-by'] == TEST_HINTER
+        assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
+        assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
         assert set(policy_info['rc-bugs']['shared-bugs']) == set()
 
 if __name__ == '__main__':
