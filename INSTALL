@@ -7,3 +7,4 @@ Requirements:
   * Python 3                    aptitude install python3
   * Python APT/DPKG bindings    aptitude install python3-apt
   * Python YAML library         aptitude install python3-yaml
+  * Python nose tests (testing) aptitude install python3-nose

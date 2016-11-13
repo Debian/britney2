@@ -1,0 +1,6 @@
+[run]
+branch = True
+omit =
+  *_boot*.py
+  */dist-packages/*
+  */tests/*
