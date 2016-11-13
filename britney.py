@@ -2420,8 +2420,6 @@ class Britney(object):
             result = (y, frozenset(updates), frozenset(rms))
             group_info[y] = result
 
-        if selected is None:
-            selected = []
         if nuninst:
             nuninst_orig = nuninst
         else:
