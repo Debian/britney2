@@ -158,10 +158,7 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
             del binaries['testing'][arch][1][j]
         for p in undo['virtual']:
             j, arch = p
-            if j[0] == '-':
-                del binaries['testing'][arch][1][j[1:]]
-            else:
-                binaries['testing'][arch][1][j] = undo['virtual'][p]
+            binaries['testing'][arch][1][j] = undo['virtual'][p]
 
 
 def old_libraries_format(libs):
