@@ -675,6 +675,6 @@ def read_release_file(suite_dir):
     with open(release_file) as fd:
         tag_file = iter(apt_pkg.TagFile(fd))
         result = next(tag_file)
-        if next(tag_file, None) is not None:
+        if next(tag_file, None) is not None:  # pragma: no cover
             raise TypeError("%s has more than one paragraph" % release_file)
     return result

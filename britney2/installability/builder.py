@@ -156,7 +156,7 @@ class InstallabilityTesterBuilder(object):
         Note, this method is optimised to be called at most once per
         binary.
         """
-        if binary not in self._package_table:
+        if binary not in self._package_table:  # pragma: no cover
             raise ValueError("Binary %s/%s/%s does not exist" % binary)
         rel = _RelationBuilder(self, binary)
         yield rel
@@ -231,7 +231,7 @@ class InstallabilityTesterBuilder(object):
         #
         # At the same time, intern the rdep sets
         for pkg in reverse_package_table:
-            if pkg not in package_table:
+            if pkg not in package_table:  # pragma: no cover
                 raise RuntimeError("%s/%s/%s referenced but not added!" % pkg)
             deps, con = package_table[pkg]
             rdeps, rcon, rdep_relations = reverse_package_table[pkg]

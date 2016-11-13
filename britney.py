@@ -408,10 +408,10 @@ class Britney(object):
                           check_fields=check_fields, check_field_name=check_field_name):
         bad = []
         for f in check_fields:
-            if pkg_entry1[f] != pkg_entry2[f]:
+            if pkg_entry1[f] != pkg_entry2[f]:  # pragma: no cover
                 bad.append((f, pkg_entry1[f], pkg_entry2[f]))
 
-        if bad:
+        if bad:  # pragma: no cover
             self.log("Mismatch found %s %s %s differs" % (
                 package, pkg_entry1.version, parch), type="E")
             for f, v1, v2 in bad:
@@ -454,11 +454,11 @@ class Britney(object):
         (self.options, self.args) = parser.parse_args()
         
         # integrity checks
-        if self.options.nuninst_cache and self.options.print_uninst:
+        if self.options.nuninst_cache and self.options.print_uninst:  # pragma: no cover
             self.log("nuninst_cache and print_uninst are mutually exclusive!", type="E")
             sys.exit(1)
         # if the configuration file exists, then read it and set the additional options
-        elif not os.path.isfile(self.options.config):
+        elif not os.path.isfile(self.options.config):  # pragma: no cover
             self.log("Unable to read the configuration file (%s), exiting!" % self.options.config, type="E")
             sys.exit(1)
 
@@ -488,7 +488,7 @@ class Britney(object):
                 suite_path = getattr(self.options, suite)
                 self.suite_info[suite] = SuiteInfo(name=suite, path=suite_path, excuses_suffix=suffix)
             else:
-                if suite in {'testing', 'unstable'}:
+                if suite in {'testing', 'unstable'}:  # pragma: no cover
                     self.log("Mandatory configuration %s is not set in the config" % suite.upper(), type='E')
                     sys.exit(1)
                 self.log("Optional suite %s is not defined (config option: %s) " % (suite, suite.upper()))
@@ -508,7 +508,7 @@ class Britney(object):
         else:
             self.options.components = None
 
-        if self.options.control_files and self.options.components:
+        if self.options.control_files and self.options.components:  # pragma: no cover
             # We cannot regenerate the control files correctly when reading from an
             # actual mirror (we don't which package goes in what component etc.).
             self.log("Cannot use --control-files with mirror-layout (components)!", type="E")
@@ -526,7 +526,7 @@ class Britney(object):
             # Sort the architecture list
             allarches = sorted(self.options.architectures.split())
         else:
-            if not release_file:
+            if not release_file:  # pragma: no cover
                 self.log("No configured architectures and there is no release file for testing", type="E")
                 self.log("Please check if there is a \"Release\" file in %s" % self.suite_info['testing'].path, type="E")
                 self.log("or if the config file contains a non-empty \"ARCHITECTURES\" field", type="E")
@@ -585,7 +585,7 @@ class Britney(object):
         while step():
             no += 1
             pkg_name = get_field('Package', None)
-            if pkg_name is None:
+            if pkg_name is None:  # pragma: no cover
                 raise ValueError("Missing Package field in paragraph %d (file %s)" % (no, faux_packages_file))
             pkg_name = sys.intern(pkg_name)
             version = sys.intern(get_field('Version', '1.0-1'))
@@ -656,18 +656,18 @@ class Britney(object):
         while step():
             no += 1
             pkg_name = get_field('Fake-Package-Name', None)
-            if pkg_name is None:
+            if pkg_name is None:  # pragma: no cover
                 raise ValueError("Missing Fake-Package-Name field in paragraph %d (file %s)" % (no, constraints_file))
             pkg_name = sys.intern(pkg_name)
 
             def mandatory_field(x):
                 v = get_field(x, None)
-                if v is None:
+                if v is None:  # pragma: no cover
                     raise ValueError("Missing %s field for %s (file %s)" % (x, pkg_name, constraints_file))
                 return v
 
             constraint = mandatory_field('Constraint')
-            if constraint not in {'present-and-installable'}:
+            if constraint not in {'present-and-installable'}:  # pragma: no cover
                 raise ValueError("Unsupported constraint %s for %s (file %s)" % (constraint, pkg_name, constraints_file))
 
             self.log(" - constraint %s" % pkg_name, type='I')
@@ -690,17 +690,17 @@ class Britney(object):
                         deps.append(s[0])
                     else:
                         pkg, arch_res = s
-                        if not (arch_res.startswith('[') and arch_res.endswith(']')):
+                        if not (arch_res.startswith('[') and arch_res.endswith(']')):  # pragma: no cover
                             raise ValueError("Invalid arch-restriction on %s - should be [arch1 arch2] (for %s file %s)"
                                              % (pkg, pkg_name, constraints_file))
                         arch_res = arch_res[1:-1].split()
-                        if not arch_res:
+                        if not arch_res:  # pragma: no cover
                             msg = "Empty arch-restriction for %s: Uses comma or negation (for %s file %s)"
                             raise ValueError(msg % (pkg, pkg_name, constraints_file))
                         for a in arch_res:
                             if a == arch:
                                 deps.append(pkg)
-                            elif ',' in a or '!' in a:
+                            elif ',' in a or '!' in a:  # pragma: no cover
                                 msg = "Invalid arch-restriction for %s: Uses comma or negation (for %s file %s)"
                                 raise ValueError(msg % (pkg, pkg_name, constraints_file))
                 pkg_id = BinaryPackageId(pkg_name, faux_version, arch)
@@ -877,13 +877,13 @@ class Britney(object):
         parts = apt_pkg.parse_depends(provides_raw, False)
         nprov = []
         for or_clause in parts:
-            if len(or_clause) != 1:
+            if len(or_clause) != 1:  # pragma: no cover
                 msg = "Ignoring invalid provides in %s: Alternatives [%s]" % (str(pkg_id), str(or_clause))
                 self.log(msg, type='W')
                 continue
             for part in or_clause:
                 provided, provided_version, op = part
-                if op != '' and op != '=':
+                if op != '' and op != '=':  # pragma: no cover
                     msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, provided_version)
                     self.log(msg, type='W')
                     continue
@@ -2645,7 +2645,7 @@ class Britney(object):
         cached_nuninst = self.nuninst_orig
         self._inst_tester.compute_testing_installability()
         computed_nuninst = self.get_nuninst(build=True)
-        if cached_nuninst != computed_nuninst:
+        if cached_nuninst != computed_nuninst:  # pragma: no cover
             only_on_break_archs = True
             self.log("==================== NUNINST OUT OF SYNC =========================", type="E")
             for arch in self.options.architectures:

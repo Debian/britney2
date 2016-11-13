@@ -168,7 +168,7 @@ class InstallabilityTester(object):
         :param pkg_id The id of the package
         """
 
-        if pkg_id not in self._universe:
+        if pkg_id not in self._universe:  # pragma: no cover
             raise KeyError(str(pkg_id))
 
         if pkg_id in self._broken:
@@ -197,7 +197,7 @@ class InstallabilityTester(object):
         KeyError.
         """
 
-        if pkg_id not in self._universe:
+        if pkg_id not in self._universe:  # pragma: no cover
             raise KeyError(str(pkg_id))
 
         self._cache_broken.discard(pkg_id)
@@ -231,7 +231,7 @@ class InstallabilityTester(object):
 
         self._stats.is_installable_calls += 1
 
-        if pkg_id not in self._universe:
+        if pkg_id not in self._universe:  # pragma: no cover
             raise KeyError(str(pkg_id))
 
         if pkg_id not in self._testing or pkg_id in self._broken:

@@ -69,14 +69,14 @@ class BasePolicy(object):
         if self.options.verbose or type in ("E", "W"):
             print("%s: [%s] - %s" % (type, time.asctime(), msg))
 
-    def register_hints(self, hint_parser):
+    def register_hints(self, hint_parser):  # pragma: no cover
         """Register new hints that this policy accepts
 
         :param hint_parser: An instance of HintParser (see HintParser.register_hint_type)
         """
         pass
 
-    def initialise(self, britney):
+    def initialise(self, britney):  # pragma: no cover
         """Called once to make the policy initialise any data structures
 
         This is useful for e.g. parsing files or other "heavy do-once" work.
@@ -85,7 +85,7 @@ class BasePolicy(object):
         """
         pass
 
-    def save_state(self, britney):
+    def save_state(self, britney):  # pragma: no cover
         """Called once at the end of the run to make the policy save any persistent data
 
         Note this will *not* be called for "dry-runs" as such runs should not change
@@ -103,7 +103,7 @@ class BasePolicy(object):
         return self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
 
     @abstractmethod
-    def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
         """Apply a policy on a given source migration
 
         Britney will call this method on a given source package, when
@@ -208,7 +208,7 @@ class AgePolicy(BasePolicy):
     def __init__(self, options, suite_info, mindays):
         super().__init__('age', options, suite_info, {'unstable'})
         self._min_days = mindays
-        if options.default_urgency not in mindays:
+        if options.default_urgency not in mindays:  # pragma: no cover
             raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
         self._min_days_default = mindays[options.default_urgency]
         # britney's "day" begins at 3pm
