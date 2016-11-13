@@ -44,7 +44,6 @@ class Excuse(object):
         self.name = name
         self.ver = ("-", "-")
         self.maint = None
-        self.urgency = None
         self.daysold = None
         self.mindays = None
         self.section = None
@@ -101,10 +100,6 @@ class Excuse(object):
     def set_section(self, section):
         """Set the section of the package"""
         self.section = section
-
-    def set_urgency(self, date):
-        """Set the urgency of upload of the package"""
-        self.urgency = date
 
     def add_dep(self, name, arch):
         """Add a dependency"""
