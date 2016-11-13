@@ -478,6 +478,7 @@ class RCBugPolicy(BasePolicy):
                 continue
             if not ignored_bugs.isdisjoint(bugs_u):
                 bugs_u -= ignored_bugs
+                bugs_t -= ignored_bugs
                 rcbugs_info['ignored-bugs'] = {
                     'bugs': sorted(ignored_bugs),
                     'issued-by': ignore_hint.user

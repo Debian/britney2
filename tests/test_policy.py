@@ -80,6 +80,16 @@ class TestRCBugsPolicy(unittest.TestCase):
         assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
         assert set(policy_info['rc-bugs']['shared-bugs']) == set()
 
+    def test_regression_but_fixes_more_bugs(self):
+        src_name = 'regression-but-fixes-more-bugs'
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
+        assert set(policy_info['rc-bugs']['unique-source-bugs']) == {'100003'}
+        assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'100001', '100002'}
+        assert set(policy_info['rc-bugs']['shared-bugs']) == {'100000'}
+
     def test_not_a_regression(self):
         src_name = 'not-a-regression'
         src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
@@ -111,6 +121,20 @@ class TestRCBugsPolicy(unittest.TestCase):
         assert policy_info['rc-bugs']['ignored-bugs']['issued-by'] == TEST_HINTER
         assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
         assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
+        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+
+    def test_regression_but_fixes_more_bugs_bad_hint(self):
+        src_name = 'regression-but-fixes-more-bugs'
+        hints = ['ignore-rc-bugs 100000 regression-but-fixes-more-bugs/2.0']
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
+        print(str(policy_info['rc-bugs']))
+        assert set(policy_info['rc-bugs']['unique-source-bugs']) == {'100003'}
+        assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'100001', '100002'}
+        assert set(policy_info['rc-bugs']['ignored-bugs']['bugs']) == {'100000'}
+        assert policy_info['rc-bugs']['ignored-bugs']['issued-by'] == TEST_HINTER
         assert set(policy_info['rc-bugs']['shared-bugs']) == set()
 
 if __name__ == '__main__':
