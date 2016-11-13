@@ -970,11 +970,16 @@ class Britney(object):
             else:
                 provides = []
 
+            raw_arch = intern(get_field('Architecture'))
+            if raw_arch not in {'all', arch}:  # pragma: no cover
+                raise AssertionError("%s has wrong architecture (%s) - should be either %s or all" % (
+                    str(pkg_id), raw_arch, arch))
+
             dpkg = BinaryPackage(version,
                     intern(get_field('Section')),
                     source,
                     source_version,
-                    intern(get_field('Architecture')),
+                    raw_arch,
                     get_field('Multi-Arch'),
                     deps,
                     ', '.join(final_conflicts_list) or None,
