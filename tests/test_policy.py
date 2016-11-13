@@ -4,11 +4,12 @@ import os
 from britney2 import SuiteInfo, SourcePackage
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
-from britney2.policies.policy import RCBugPolicy, PolicyVerdict
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
 
 POLICY_DATA_BASE_DIR = os.path.join(os.path.dirname(__file__), 'policy-test-data')
 TEST_HINTER = 'test-hinter'
 HINTS_ALL = ('ALL')
+DEFAULT_URGENCY = 'medium'
 
 
 def initialize_policy(test_name, policy_class, *args, **kwargs):
@@ -17,7 +18,7 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
     if 'hints' in kwargs:
         hints = kwargs['hints']
         del kwargs['hints']
-    options = MockObject(state_dir=test_dir, verbose=0, **kwargs)
+    options = MockObject(state_dir=test_dir, verbose=0, default_urgency=DEFAULT_URGENCY, **kwargs)
     suite_info = {
         'testing': SuiteInfo('testing', os.path.join(test_dir, 'testing'), ''),
         'unstable': SuiteInfo('unstable', os.path.join(test_dir, 'unstable'), ''),
@@ -136,6 +137,34 @@ class TestRCBugsPolicy(unittest.TestCase):
         assert set(policy_info['rc-bugs']['ignored-bugs']['bugs']) == {'100000'}
         assert policy_info['rc-bugs']['ignored-bugs']['issued-by'] == TEST_HINTER
         assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+
+
+class TestAgePolicy(unittest.TestCase):
+
+    DEFAULT_MIN_DAYS = {
+        'emergency': 0,
+        'critical': 0,
+        'high': 2,
+        'medium': 5,
+        'low': 10,
+    }
+
+    def test_missing_age_file(self):
+        age_file = os.path.join(POLICY_DATA_BASE_DIR, 'age', 'missing-age-file', 'age-policy-dates')
+        assert not os.path.exists(age_file)
+
+        try:
+            src_name = 'unlisted-source-package'
+            src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+            policy = initialize_policy('age/missing-age-file', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
+            verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+            assert os.path.exists(age_file)
+            assert verdict == PolicyVerdict.REJECTED_TEMPORARILY
+            assert policy_info['age']['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+            assert policy_info['age']['current-age'] == 0
+        finally:
+            if os.path.exists(age_file):
+                os.unlink(age_file)
 
 if __name__ == '__main__':
     unittest.main()

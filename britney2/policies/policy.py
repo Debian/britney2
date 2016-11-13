@@ -326,7 +326,7 @@ class AgePolicy(BasePolicy):
                 # If we using the legacy name, then just give up
                 raise
             self.log("%s does not appear to exist.  Creating it" % filename)
-            with open(filename, mode='wx', encoding='utf-8'):
+            with open(filename, mode='x', encoding='utf-8'):
                 pass
 
     def _read_urgencies_file(self, britney):
