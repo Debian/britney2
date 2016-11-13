@@ -2101,7 +2101,8 @@ class Britney(object):
 
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
-        elif source_name in binaries_t[migration_architecture][0]:
+        else:
+            assert source_name in binaries_t[migration_architecture][0]
             version = binaries_t[migration_architecture][0][source_name].version
             rms.add((source_name, version, migration_architecture))
 
@@ -2229,7 +2230,8 @@ class Britney(object):
 
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
-        elif item.package in packages_t[item.architecture][0]:
+        else:
+            assert item.package in packages_t[item.architecture][0]
             binaries_t_a = packages_t[item.architecture][0]
             pkg_id = binaries_t_a[item.package].pkg_id
             undo['binaries'][(item.package, item.architecture)] = pkg_id
