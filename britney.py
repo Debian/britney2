@@ -185,7 +185,7 @@ import optparse
 import os
 import sys
 import time
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from functools import reduce
 from itertools import product
 from operator import attrgetter
@@ -194,6 +194,7 @@ from urllib.parse import quote
 import apt_pkg
 
 # Check the "check_field_name" reflection before removing an import here.
+from britney2 import SuiteInfo, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS, PROVIDES, MULTIARCH)
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
@@ -225,47 +226,6 @@ check_field_name = dict((globals()[fn], fn) for fn in
                         )
 
 check_fields = sorted(check_field_name)
-
-
-class SourcePackage(object):
-
-    __slots__ = ['version', 'section', 'binaries', 'maintainer', 'is_fakesrc']
-
-    def __init__(self, version, section, binaries, maintainer, is_fakesrc):
-        self.version = version
-        self.section = section
-        self.binaries = binaries
-        self.maintainer = maintainer
-        self.is_fakesrc = is_fakesrc
-
-    def __getitem__(self, item):
-        return getattr(self, self.__slots__[item])
-
-BinaryPackageId = namedtuple('BinaryPackageId', [
-                               'package_name',
-                               'version',
-                               'architecture',
-                           ])
-
-BinaryPackage = namedtuple('BinaryPackage', [
-                               'version',
-                               'section',
-                               'source',
-                               'source_version',
-                               'architecture',
-                               'multi_arch',
-                               'depends',
-                               'conflicts',
-                               'provides',
-                               'is_essential',
-                               'pkg_id',
-                           ])
-
-SuiteInfo = namedtuple('SuiteInfo', [
-    'name',
-    'path',
-    'excuses_suffix',
-])
 
 
 class Britney(object):
