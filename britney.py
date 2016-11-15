@@ -2170,75 +2170,66 @@ class Britney(object):
                                                item.is_removal,
                                                removals=removals)
 
-        # remove all binary packages (if the source already exists)
-        if item.architecture == 'source' or not item.is_removal:
+        # Handle the source package
+        if item.architecture == 'source':
             if item.package in sources['testing']:
                 source = sources['testing'][item.package]
-
-
-                eqv_table = {}
-
-                for rm_pkg_id in rms:
-                    binary, _, parch = rm_pkg_id
-                    key = (binary, parch)
-                    eqv_table[key] = rm_pkg_id
-
-                for new_pkg_id in updates:
-                    binary, _, parch = new_pkg_id
-                    key = (binary, parch)
-                    old_pkg_id = eqv_table.get(key)
-                    if old_pkg_id is not None:
-                        if inst_tester.are_equivalent(new_pkg_id, old_pkg_id):
-                            eqv_set.add(key)
-
-                # remove all the binaries which aren't being smooth updated
-                for rm_pkg_id in rms:
-                    binary, version, parch = rm_pkg_id
-                    p = (binary, parch)
-                    binaries_t_a, provides_t_a = packages_t[parch]
-                    pkey = (binary, parch)
-
-                    pkg_data = binaries_t_a[binary]
-                    # save the old binary for undo
-                    undo['binaries'][p] = rm_pkg_id
-                    if pkey not in eqv_set:
-                        # all the reverse dependencies are affected by
-                        # the change
-                        affected_pos.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
-                        affected_remain.update(inst_tester.negative_dependencies_of(rm_pkg_id))
-
-                    # remove the provided virtual packages
-                    for provided_pkg, prov_version, _ in pkg_data.provides:
-                        key = (provided_pkg, parch)
-                        if key not in undo['virtual']:
-                            undo['virtual'][key] = provides_t_a[provided_pkg].copy()
-                        provides_t_a[provided_pkg].remove((binary, prov_version))
-                        if not provides_t_a[provided_pkg]:
-                            del provides_t_a[provided_pkg]
-                    # finally, remove the binary package
-                    del binaries_t_a[binary]
-                    inst_tester.remove_testing_binary(rm_pkg_id)
-                # remove the source package
-                if item.architecture == 'source':
-                    undo['sources'][item.package] = source
-                    del sources['testing'][item.package]
+                undo['sources'][item.package] = source
+                del sources['testing'][item.package]
             else:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + item.package] = True
 
-        # single binary removal; used for clearing up after smooth
-        # updates but not supported as a manual hint
-        else:
-            assert item.package in packages_t[item.architecture][0]
-            binaries_t_a = packages_t[item.architecture][0]
-            pkg_id = binaries_t_a[item.package].pkg_id
-            undo['binaries'][(item.package, item.architecture)] = pkg_id
-            affected_pos.update(inst_tester.reverse_dependencies_of(pkg_id))
-            del binaries_t_a[item.package]
-            inst_tester.remove_testing_binary(pkg_id)
+            # add/update the source package
+            if not item.is_removal:
+                sources['testing'][item.package] = sources[item.suite][item.package]
 
-        # add the new binary packages (if we are not removing)
-        if not item.is_removal:
+        # If we are removing *and* updating packages, then check for eqv. packages
+        if rms and updates:
+            eqv_table = {}
+            for rm_pkg_id in rms:
+                binary, _, parch = rm_pkg_id
+                key = (binary, parch)
+                eqv_table[key] = rm_pkg_id
+
+            for new_pkg_id in updates:
+                binary, _, parch = new_pkg_id
+                key = (binary, parch)
+                old_pkg_id = eqv_table.get(key)
+                if old_pkg_id is not None:
+                    if inst_tester.are_equivalent(new_pkg_id, old_pkg_id):
+                        eqv_set.add(key)
+
+        # remove all the binaries which aren't being smooth updated
+        for rm_pkg_id in rms:
+            binary, version, parch = rm_pkg_id
+            p = (binary, parch)
+            binaries_t_a, provides_t_a = packages_t[parch]
+            pkey = (binary, parch)
+
+            pkg_data = binaries_t_a[binary]
+            # save the old binary for undo
+            undo['binaries'][p] = rm_pkg_id
+            if pkey not in eqv_set:
+                # all the reverse dependencies are affected by
+                # the change
+                affected_pos.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
+                affected_remain.update(inst_tester.negative_dependencies_of(rm_pkg_id))
+
+            # remove the provided virtual packages
+            for provided_pkg, prov_version, _ in pkg_data.provides:
+                key = (provided_pkg, parch)
+                if key not in undo['virtual']:
+                    undo['virtual'][key] = provides_t_a[provided_pkg].copy()
+                provides_t_a[provided_pkg].remove((binary, prov_version))
+                if not provides_t_a[provided_pkg]:
+                    del provides_t_a[provided_pkg]
+            # finally, remove the binary package
+            del binaries_t_a[binary]
+            inst_tester.remove_testing_binary(rm_pkg_id)
+
+        # Add/Update binary packages in testing
+        if updates:
             packages_s = self.binaries[item.suite]
 
             for updated_pkg_id in updates:
@@ -2297,10 +2288,6 @@ class Britney(object):
                     # all the reverse dependencies are affected by the change
                     affected_pos.add(updated_pkg_id)
                     affected_remain.update(inst_tester.negative_dependencies_of(updated_pkg_id))
-
-            # add/update the source package
-            if item.architecture == 'source':
-                sources['testing'][item.package] = sources[item.suite][item.package]
 
         # Also include the transitive rdeps of the packages found so far
         compute_reverse_tree(inst_tester, affected_pos)
