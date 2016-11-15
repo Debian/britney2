@@ -1457,9 +1457,8 @@ class Britney(object):
                 v = policy.apply_policy(policy_info, suite, src, source_t, source_u, excuse)
                 if v.value > policy_verdict.value:
                     policy_verdict = v
-
-        if policy_verdict.is_rejected:
-            excuse.is_valid = False
+                    if policy_verdict.is_rejected:
+                        excuse.is_valid = False
 
         if suite in ('pu', 'tpu') and source_t:
             # o-o-d(ish) checks for (t-)p-u
