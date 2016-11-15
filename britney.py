@@ -2101,8 +2101,8 @@ class Britney(object):
         # updates but not supported as a manual hint
         else:
             assert source_name in binaries_t[migration_architecture][0]
-            version = binaries_t[migration_architecture][0][source_name].version
-            rms.add((source_name, version, migration_architecture))
+            pkg_id = binaries_t[migration_architecture][0][source_name].pkg_id
+            rms.add(pkg_id)
 
         # add the new binary packages (if we are not removing)
         if not is_removal:
