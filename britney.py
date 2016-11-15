@@ -179,8 +179,6 @@ does for the generation of the update excuses.
 
  * The excuses are written in an HTML file.
 """
-from __future__ import print_function
-
 import optparse
 import os
 import sys
