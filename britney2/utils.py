@@ -24,6 +24,7 @@
 import apt_pkg
 import errno
 import os
+import sys
 import time
 from collections import defaultdict
 from datetime import datetime
@@ -32,6 +33,7 @@ from itertools import filterfalse
 
 import yaml
 
+from britney2 import SourcePackage
 from britney2.consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
                              ARCHITECTURE, SECTION,
                              SOURCE, MAINTAINER, MULTIARCH,
@@ -677,3 +679,51 @@ def read_release_file(suite_dir):
         if next(tag_file, None) is not None:  # pragma: no cover
             raise TypeError("%s has more than one paragraph" % release_file)
     return result
+
+
+def read_sources_file(filename, sources=None, intern=sys.intern):
+    """Parse a single Sources file into a hash
+
+    Parse a single Sources file into a dict mapping a source package
+    name to a SourcePackage object.  If there are multiple source
+    packages with the same version, then highest versioned source
+    package (that is not marked as "Extra-Source-Only") is the
+    version kept in the dict.
+
+    :param filename: Path to the Sources file.  Can be compressed by any algorithm supported by apt_pkg.TagFile
+    :param sources: Optional dict to add the packages to.  If given, this is also the value returned.
+    :param intern: Internal optimisation / implementation detail to avoid python's "LOAD_GLOBAL" instruction in a loop
+    :return a dict mapping a name to a source package
+    """
+    if sources is None:
+        sources = {}
+
+    tag_file = apt_pkg.TagFile(filename)
+    get_field = tag_file.section.get
+    step = tag_file.step
+
+    while step():
+        if get_field('Extra-Source-Only', 'no') == 'yes':
+            # Ignore sources only referenced by Built-Using
+            continue
+        pkg = get_field('Package')
+        ver = get_field('Version')
+        # There may be multiple versions of the source package
+        # (in unstable) if some architectures have out-of-date
+        # binaries.  We only ever consider the source with the
+        # largest version for migration.
+        if pkg in sources and apt_pkg.version_compare(sources[pkg][0], ver) > 0:
+            continue
+        maint = get_field('Maintainer')
+        if maint:
+            maint = intern(maint.strip())
+        section = get_field('Section')
+        if section:
+            section = intern(section.strip())
+        sources[intern(pkg)] = SourcePackage(intern(ver),
+                                             section,
+                                             [],
+                                             maint,
+                                             False,
+                                             )
+    return sources

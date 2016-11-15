@@ -207,6 +207,7 @@ from britney2.utils import (old_libraries_format, undo_changes,
                             old_libraries, is_nuninst_asgood_generous,
                             clone_nuninst, check_installability,
                             create_provides_map, read_release_file,
+                            read_sources_file,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -767,45 +768,8 @@ class Britney(object):
 
         self._inst_tester = builder.build()
 
-
     # Data reading/writing methods
     # ----------------------------
-
-    def _read_sources_file(self, filename, sources=None, intern=sys.intern):
-        if sources is None:
-            sources = {}
-
-        self.log("Loading source packages from %s" % filename)
-
-        Packages = apt_pkg.TagFile(filename)
-        get_field = Packages.section.get
-        step = Packages.step
-
-        while step():
-            if get_field('Extra-Source-Only', 'no') == 'yes':
-                # Ignore sources only referenced by Built-Using
-                continue
-            pkg = get_field('Package')
-            ver = get_field('Version')
-            # There may be multiple versions of the source package
-            # (in unstable) if some architectures have out-of-date
-            # binaries.  We only ever consider the source with the
-            # largest version for migration.
-            if pkg in sources and apt_pkg.version_compare(sources[pkg][0], ver) > 0:
-                continue
-            maint = get_field('Maintainer')
-            if maint:
-                maint = intern(maint.strip())
-            section = get_field('Section')
-            if section:
-                section = intern(section.strip())
-            sources[intern(pkg)] = SourcePackage(intern(ver),
-                            section,
-                            [],
-                            maint,
-                            False,
-                            )
-        return sources
 
     def read_sources(self, basedir):
         """Read the list of source packages from the specified directory
@@ -824,10 +788,12 @@ class Britney(object):
             for component in self.options.components:
                 filename = os.path.join(basedir, component, "source", "Sources")
                 filename = possibly_compressed(filename)
-                self._read_sources_file(filename, sources)
+                self.log("Loading source packages from %s" % filename)
+                read_sources_file(filename, sources)
         else:
             filename = os.path.join(basedir, "Sources")
-            sources = self._read_sources_file(filename)
+            self.log("Loading source packages from %s" % filename)
+            sources = read_sources_file(filename)
 
         return sources
 
