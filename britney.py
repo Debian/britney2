@@ -185,7 +185,6 @@ import sys
 import time
 from collections import defaultdict
 from functools import reduce
-from itertools import product
 from operator import attrgetter
 from urllib.parse import quote
 
@@ -196,7 +195,7 @@ from britney2 import SuiteInfo, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS, PROVIDES, MULTIARCH)
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
-from britney2.installability.builder import InstallabilityTesterBuilder
+from britney2.installability.builder import build_installability_tester
 from britney2.migrationitem import MigrationItem
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
 from britney2.utils import (old_libraries_format, undo_changes,
@@ -330,7 +329,7 @@ class Britney(object):
             }
 
         self.log("Compiling Installability tester", type="I")
-        self._build_installability_tester(self.options.architectures)
+        self._inst_tester = build_installability_tester(self.binaries, self.options.architectures)
 
         if not self.options.nuninst_cache:
             self.log("Building the list of non-installable packages for the full archive", type="I")
@@ -681,92 +680,6 @@ class Britney(object):
                 self.all_binaries[pkg_id] = bin_data
 
         return constraints
-
-    def _build_installability_tester(self, archs):
-        """Create the installability tester"""
-
-        solvers = get_dependency_solvers
-        binaries = self.binaries
-        builder = InstallabilityTesterBuilder()
-
-        for (dist, arch) in product(binaries, archs):
-            testing = (dist == 'testing')
-            for pkgname in binaries[dist][arch][0]:
-                pkgdata = binaries[dist][arch][0][pkgname]
-                pkg_id = pkgdata.pkg_id
-                if not builder.add_binary(pkg_id, essential=pkgdata.is_essential,
-                                          in_testing=testing):
-                    continue
-
-                depends = []
-                conflicts = []
-                possible_dep_ranges = {}
-
-                # We do not differentiate between depends and pre-depends
-                if pkgdata.depends:
-                    depends.extend(apt_pkg.parse_depends(pkgdata.depends, False))
-
-                if pkgdata.conflicts:
-                    conflicts = apt_pkg.parse_depends(pkgdata.conflicts, False)
-
-                with builder.relation_builder(pkg_id) as relations:
-
-                    for (al, dep) in [(depends, True), \
-                                      (conflicts, False)]:
-
-                        for block in al:
-                            sat = set()
-
-                            for dep_dist in binaries:
-                                dep_binaries_s_a, dep_provides_s_a = binaries[dep_dist][arch]
-                                pkgs = solvers(block, dep_binaries_s_a, dep_provides_s_a)
-                                for p in pkgs:
-                                    # version and arch is already interned, but solvers use
-                                    # the package name extracted from the field and it is therefore
-                                    # not interned.
-                                    pdata = dep_binaries_s_a[p]
-                                    dep_pkg_id = pdata.pkg_id
-                                    if dep:
-                                        sat.add(dep_pkg_id)
-                                    elif pkg_id != dep_pkg_id:
-                                        # if t satisfies its own
-                                        # conflicts relation, then it
-                                        # is using §7.6.2
-                                        relations.add_breaks(dep_pkg_id)
-                            if dep:
-                                if len(block) != 1:
-                                    relations.add_dependency_clause(sat)
-                                else:
-                                    # This dependency might be a part
-                                    # of a version-range a la:
-                                    #
-                                    #   Depends: pkg-a (>= 1),
-                                    #            pkg-a (<< 2~)
-                                    #
-                                    # In such a case we want to reduce
-                                    # that to a single clause for
-                                    # efficiency.
-                                    #
-                                    # In theory, it could also happen
-                                    # with "non-minimal" dependencies
-                                    # a la:
-                                    #
-                                    #   Depends: pkg-a, pkg-a (>= 1)
-                                    #
-                                    # But dpkg is known to fix that up
-                                    # at build time, so we will
-                                    # probably only see "ranges" here.
-                                    key = block[0][0]
-                                    if key in possible_dep_ranges:
-                                        possible_dep_ranges[key] &= sat
-                                    else:
-                                        possible_dep_ranges[key] = sat
-
-                        if dep:
-                            for clause in possible_dep_ranges.values():
-                                relations.add_dependency_clause(clause)
-
-        self._inst_tester = builder.build()
 
     # Data reading/writing methods
     # ----------------------------
