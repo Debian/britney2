@@ -207,6 +207,7 @@ from britney2.utils import (old_libraries_format, undo_changes,
                             clone_nuninst, check_installability,
                             create_provides_map, read_release_file,
                             read_sources_file, get_dependency_solvers,
+                            invalidate_excuses,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -1507,58 +1508,6 @@ class Britney(object):
 
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
-
-    def reversed_exc_deps(self):
-        """Reverse the excuses dependencies
-
-        This method returns a dictionary where the keys are the package names
-        and the values are the excuse names which depend on it.
-        """
-        res = defaultdict(list)
-        for exc in self.excuses.values():
-            for d in exc.deps:
-                res[d].append(exc.name)
-        return res
-
-    def invalidate_excuses(self, valid, invalid):
-        """Invalidate impossible excuses
-
-        This method invalidates the impossible excuses, which depend
-        on invalid excuses. The two parameters contains the list of
-        `valid' and `invalid' excuses.
-        """
-        excuses = self.excuses
-
-        # build the reverse dependencies
-        revdeps = self.reversed_exc_deps()
-
-        # loop on the invalid excuses
-        i = 0
-        while i < len(invalid):
-            # if there is no reverse dependency, skip the item
-            if invalid[i] not in revdeps:
-                i += 1
-                continue
-            # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
-            if (invalid[i] + "_tpu") in valid:
-                i += 1
-                continue
-            # loop on the reverse dependencies
-            for x in revdeps[invalid[i]]:
-                # if the item is valid and it is marked as `dontinvalidate', skip the item
-                if x in valid and excuses[x].dontinvalidate:
-                    continue
-
-                # otherwise, invalidate the dependency and mark as invalidated and
-                # remove the depending excuses
-                excuses[x].invalidate_dep(invalid[i])
-                if x in valid:
-                    p = valid.index(x)
-                    invalid.append(valid.pop(p))
-                    excuses[x].addhtml("Invalidated by dependency")
-                    excuses[x].addreason("depends")
-                    excuses[x].is_valid = False
-            i = i + 1
  
     def write_excuses(self):
         """Produce and write the update excuses
@@ -1678,7 +1627,7 @@ class Britney(object):
                 if not ok:
                     e.addhtml("Impossible dependency: %s -> %s" % (e.name, d))
                     e.addreason("depends")
-        self.invalidate_excuses(upgrade_me, unconsidered)
+        invalidate_excuses(excuses, upgrade_me, unconsidered)
 
         # sort the list of candidates
         self.upgrade_me = sorted( make_migrationitem(x, self.sources) for x in upgrade_me )

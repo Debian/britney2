@@ -776,3 +776,46 @@ def get_dependency_solvers(block, binaries_s_a, provides_s_a, *, empty_set=froze
                 packages.append(prov)
 
     return packages
+
+
+def invalidate_excuses(excuses, valid, invalid):
+    """Invalidate impossible excuses
+
+    This method invalidates the impossible excuses, which depend
+    on invalid excuses. The two parameters contains the list of
+    `valid' and `invalid' excuses.
+    """
+
+    # build the reverse dependencies
+    revdeps = defaultdict(list)
+    for exc in excuses.values():
+        for d in exc.deps:
+            revdeps[d].append(exc.name)
+
+    # loop on the invalid excuses
+    i = 0
+    while i < len(invalid):
+        # if there is no reverse dependency, skip the item
+        if invalid[i] not in revdeps:
+            i += 1
+            continue
+        # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
+        if (invalid[i] + "_tpu") in valid:
+            i += 1
+            continue
+        # loop on the reverse dependencies
+        for x in revdeps[invalid[i]]:
+            # if the item is valid and it is marked as `dontinvalidate', skip the item
+            if x in valid and excuses[x].dontinvalidate:
+                continue
+
+            # otherwise, invalidate the dependency and mark as invalidated and
+            # remove the depending excuses
+            excuses[x].invalidate_dep(invalid[i])
+            if x in valid:
+                p = valid.index(x)
+                invalid.append(valid.pop(p))
+                excuses[x].addhtml("Invalidated by dependency")
+                excuses[x].addreason("depends")
+                excuses[x].is_valid = False
+        i += 1
