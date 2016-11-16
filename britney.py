@@ -1499,10 +1499,10 @@ class Britney(object):
         forces = self.hints.search('force', package=src, version=source_u.version)
         if forces:
             excuse.dontinvalidate = True
-        if not excuse.is_valid and forces:
-            excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
-            excuse.force()
-            excuse.is_valid = True
+            if not excuse.is_valid:
+                excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
+                excuse.force()
+                excuse.is_valid = True
 
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
