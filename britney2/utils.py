@@ -815,3 +815,37 @@ def invalidate_excuses(excuses, valid, invalid):
                 excuses[x].addhtml("Invalidated by dependency")
                 excuses[x].addreason("depends")
                 excuses[x].is_valid = False
+
+
+def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
+    """Compile a nuninst dict from the current testing
+
+    :param binaries_t: Britney's binaries data structure for testing
+    :param inst_tester: Britney's installability tester
+    :param architectures: List of architectures
+    :param nobreakall_arches: List of architectures where arch:all packages must be installable
+    """
+    nuninst = {}
+
+    # for all the architectures
+    for arch in architectures:
+        # if it is in the nobreakall ones, check arch-independent packages too
+        check_archall = arch in nobreakall_arches
+
+        # check all the packages for this architecture
+        nuninst[arch] = set()
+        packages_t_a = binaries_t[arch][0]
+        for pkg_name, pkg_data in packages_t_a.items():
+            r = inst_tester.is_installable(pkg_data.pkg_id)
+            if not r:
+                nuninst[arch].add(pkg_name)
+
+        # if they are not required, remove architecture-independent packages
+        nuninst[arch + "+all"] = nuninst[arch].copy()
+        if not check_archall:
+            for pkg_name in nuninst[arch + "+all"]:
+                pkg_data = packages_t_a[pkg_name]
+                if pkg_data.architecture == 'all':
+                    nuninst[arch].remove(pkg_name)
+
+    return nuninst

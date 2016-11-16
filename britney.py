@@ -207,7 +207,7 @@ from britney2.utils import (old_libraries_format, undo_changes,
                             clone_nuninst, check_installability,
                             create_provides_map, read_release_file,
                             read_sources_file, get_dependency_solvers,
-                            invalidate_excuses,
+                            invalidate_excuses, compile_nuninst,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -335,12 +335,9 @@ class Britney(object):
 
         if not self.options.nuninst_cache:
             self.log("Building the list of non-installable packages for the full archive", type="I")
-            nuninst = {}
             self._inst_tester.compute_testing_installability()
+            nuninst = self.get_nuninst(build=True)
             for arch in self.options.architectures:
-                self.log("> Checking for non-installable packages for architecture %s" % arch, type="I")
-                result = self.get_nuninst(arch, build=True)
-                nuninst.update(result)
                 self.log("> Found %d non-installable packages" % len(nuninst[arch]), type="I")
                 if self.options.print_uninst:
                     self.nuninst_arch_report(nuninst, arch)
@@ -1648,8 +1645,7 @@ class Britney(object):
     # Upgrade run
     # -----------
 
-
-    def get_nuninst(self, requested_arch=None, build=False):
+    def get_nuninst(self, build=False):
         """Return the uninstallability statistic for all the architectures
 
         To calculate the uninstallability counters, the method checks the
@@ -1660,44 +1656,16 @@ class Britney(object):
 
         It returns a dictionary with the architectures as keys and the list
         of uninstallable packages as values.
-
-        NB: If build is False, requested_arch is ignored.
         """
         # if we are not asked to build the nuninst, read it from the cache
         if not build:
             return read_nuninst(self.options.noninst_status,
                                 self.options.architectures)
 
-        nuninst = {}
-
-        # local copies for better performance
-        binaries = self.binaries['testing']
-        inst_tester = self._inst_tester
-
-        # for all the architectures
-        for arch in self.options.architectures:
-            if requested_arch and arch != requested_arch: continue
-            # if it is in the nobreakall ones, check arch-independent packages too
-            check_archall = arch in self.options.nobreakall_arches
-
-            # check all the packages for this architecture
-            nuninst[arch] = set()
-            for pkg_name in binaries[arch][0]:
-                pkgdata = binaries[arch][0][pkg_name]
-                r = inst_tester.is_installable(pkgdata.pkg_id)
-                if not r:
-                    nuninst[arch].add(pkg_name)
-
-            # if they are not required, remove architecture-independent packages
-            nuninst[arch + "+all"] = nuninst[arch].copy()
-            if not check_archall:
-                for pkg in nuninst[arch + "+all"]:
-                    bpkg = binaries[arch][0][pkg]
-                    if bpkg.architecture == 'all':
-                        nuninst[arch].remove(pkg)
-
-        # return the dictionary with the results
-        return nuninst
+        return compile_nuninst(self.binaries['testing'],
+                               self._inst_tester,
+                               self.options.architectures,
+                               self.options.nobreakall_arches)
 
     def eval_nuninst(self, nuninst, original=None):
         """Return a string which represents the uninstallability counters
