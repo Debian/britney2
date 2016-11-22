@@ -16,6 +16,7 @@
 import readline
 import bisect
 
+
 class Completer(object):
     """Completer class
 
@@ -48,14 +49,14 @@ class Completer(object):
                 (pkg, suite) = pkg.split("_")
             if "/" in pkg:
                 pkg = pkg.split("/")[0]
-            name = "%s/%s" % (e.name, britney.sources[suite][pkg][0]) # 0 == VERSION
+            name = "%s/%s" % (e.name, britney.sources[suite][pkg].version)
             complete.append(name)
             if suite == 'tpu':
                 tpu.append(name)
         self.packages = sorted(complete)
         self.tpu_packages = sorted(tpu)
         testing = britney.sources['testing']
-        self.testing_packages = sorted("%s/%s" % (pkg, testing[pkg][0]) for pkg in testing)
+        self.testing_packages = sorted("%s/%s" % (pkg, testing[pkg].version) for pkg in testing)
         
     def completer(self, text, state):
         """readline completer (see the readline API)"""
@@ -86,4 +87,3 @@ class Completer(object):
         if len(self.matches) > state:
             return self.matches[state]
         return None
-
