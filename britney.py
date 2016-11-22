@@ -272,6 +272,7 @@ class Britney(object):
         if self.options.nuninst_cache:
             self.log("Not building the list of non-installable packages, as requested", type="I")
             if self.options.print_uninst:
+                nuninst = self.get_nuninst(build=False)
                 print('* summary')
                 print('\n'.join('%4d %s' % (len(nuninst[x]), x) for x in self.options.architectures))
                 return
