@@ -793,29 +793,25 @@ def invalidate_excuses(excuses, valid, invalid):
             revdeps[d].append(exc.name)
 
     # loop on the invalid excuses
-    i = 0
-    while i < len(invalid):
+    for i, ename in enumerate(invalid):
         # if there is no reverse dependency, skip the item
-        if invalid[i] not in revdeps:
-            i += 1
+        if ename not in revdeps:
             continue
         # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
-        if (invalid[i] + "_tpu") in valid:
-            i += 1
+        if (ename + "_tpu") in valid:
             continue
         # loop on the reverse dependencies
-        for x in revdeps[invalid[i]]:
+        for x in revdeps[ename]:
             # if the item is valid and it is marked as `dontinvalidate', skip the item
             if x in valid and excuses[x].dontinvalidate:
                 continue
 
             # otherwise, invalidate the dependency and mark as invalidated and
             # remove the depending excuses
-            excuses[x].invalidate_dep(invalid[i])
+            excuses[x].invalidate_dep(ename)
             if x in valid:
                 p = valid.index(x)
                 invalid.append(valid.pop(p))
                 excuses[x].addhtml("Invalidated by dependency")
                 excuses[x].addreason("depends")
                 excuses[x].is_valid = False
-        i += 1
