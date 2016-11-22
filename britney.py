@@ -759,7 +759,7 @@ class Britney(object):
                 if apt_pkg.version_compare(old_pkg_data.version, version) > 0:
                     continue
                 old_pkg_id = old_pkg_data.pkg_id
-                old_src_binaries = srcdist[old_pkg_data[SOURCE]].binaries
+                old_src_binaries = srcdist[old_pkg_data.source].binaries
                 old_src_binaries.remove(old_pkg_id)
                 # This may seem weird at first glance, but the current code rely
                 # on this behaviour to avoid issues like #709460.  Admittedly it
