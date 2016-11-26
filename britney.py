@@ -197,7 +197,7 @@ from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.installability.builder import build_installability_tester
 from britney2.migrationitem import MigrationItem
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
 from britney2.utils import (old_libraries_format, undo_changes,
                             compute_reverse_tree, possibly_compressed,
                             read_nuninst, write_nuninst, write_heidi,
@@ -504,6 +504,7 @@ class Britney(object):
 
         self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
+        self.policies.append(PiupartsPolicy(self.options, self.suite_info))
 
         for policy in self.policies:
             policy.register_hints(self._hint_parser)

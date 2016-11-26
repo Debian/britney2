@@ -4,7 +4,7 @@ import os
 from britney2 import SuiteInfo, SourcePackage
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PolicyVerdict
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
 
 POLICY_DATA_BASE_DIR = os.path.join(os.path.dirname(__file__), 'policy-test-data')
 TEST_HINTER = 'test-hinter'
@@ -131,7 +131,6 @@ class TestRCBugsPolicy(unittest.TestCase):
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
         verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
         assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
-        print(str(policy_info['rc-bugs']))
         assert set(policy_info['rc-bugs']['unique-source-bugs']) == {'100003'}
         assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'100001', '100002'}
         assert set(policy_info['rc-bugs']['ignored-bugs']['bugs']) == {'100000'}
@@ -165,6 +164,56 @@ class TestAgePolicy(unittest.TestCase):
         finally:
             if os.path.exists(age_file):
                 os.unlink(age_file)
+
+
+class TestPiupartsPolicy(unittest.TestCase):
+
+    def test_passes(self):
+        src_name = 'pass'
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('piuparts/basic', PiupartsPolicy)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.PASS
+        assert policy_info['piuparts']['test-results'] == 'pass'
+        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/p/pass.html'
+
+    def test_regression(self):
+        src_name = 'regression'
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('piuparts/basic', PiupartsPolicy)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
+        assert policy_info['piuparts']['test-results'] == 'regression'
+        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
+
+    def test_regression_hinted(self):
+        src_name = 'regression'
+        hints = ['ignore-piuparts regression/2.0']
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('piuparts/basic', PiupartsPolicy, hints=hints)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.PASS_HINTED
+        assert policy_info['piuparts']['test-results'] == 'regression'
+        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
+        assert policy_info['piuparts']['ignored-piuparts']['issued-by'] == TEST_HINTER
+
+    def test_not_tested_yet(self):
+        src_name = 'not-tested-yet'
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('piuparts/basic', PiupartsPolicy)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.REJECTED_TEMPORARILY
+        assert policy_info['piuparts']['test-results'] == 'waiting-for-test-results'
+        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/n/not-tested-yet.html'
+
+    def test_failed_not_regression(self):
+        src_name = 'failed-not-regression'
+        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
+        policy = initialize_policy('piuparts/basic', PiupartsPolicy)
+        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+        assert verdict == PolicyVerdict.PASS
+        assert policy_info['piuparts']['test-results'] == 'failed'
+        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/f/failed-not-regression.html'
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from abc import abstractmethod
@@ -537,3 +538,101 @@ class RCBugPolicy(BasePolicy):
                 bugs[pkg] = set()
             bugs[pkg].update(l[1].split(","))
         return bugs
+
+
+class PiupartsPolicy(BasePolicy):
+
+    def __init__(self, options, suite_info):
+        super().__init__('piuparts', options, suite_info, {'unstable'})
+        self._piuparts = {
+            'unstable': None,
+            'testing': None,
+        }
+
+    def register_hints(self, hint_parser):
+        hint_parser.register_hint_type('ignore-piuparts', split_into_one_hint_per_package)
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        try:
+            filename_unstable = os.path.join(self.options.state_dir, 'piuparts-summary-unstable.json')
+            filename_testing = os.path.join(self.options.state_dir, 'piuparts-summary-testing.json')
+        except AttributeError as e:  # pragma: no cover
+            raise RuntimeError("Please set STATE_DIR in the britney configuration") from e
+        self._piuparts['unstable'] = self._read_piuparts_summary(filename_unstable, keep_url=True)
+        self._piuparts['testing'] = self._read_piuparts_summary(filename_testing, keep_url=False)
+
+    def apply_policy_impl(self, piuparts_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+        if source_name in self._piuparts['testing']:
+            testing_state = self._piuparts['testing'][source_name][0]
+        else:
+            testing_state = 'X'
+        if source_name in self._piuparts['unstable']:
+            unstable_state, url = self._piuparts['unstable'][source_name]
+        else:
+            unstable_state = 'X'
+            url = None
+
+        if unstable_state == 'P':
+            # Not a regression
+            msg = 'Piuparts tested OK - {0}'.format(url)
+            result = PolicyVerdict.PASS
+            piuparts_info['test-results'] = 'pass'
+        elif unstable_state == 'F':
+            if testing_state != unstable_state:
+                piuparts_info['test-results'] = 'regression'
+                msg = 'Rejected due to piuparts regression - {0}'.format(url)
+                result = PolicyVerdict.REJECTED_PERMANENTLY
+            else:
+                piuparts_info['test-results'] = 'failed'
+                msg = 'Ignoring piuparts failure (Not a regression) - {0}'.format(url)
+                result = PolicyVerdict.PASS
+        elif unstable_state == 'W':
+            msg = 'Waiting for piuparts test results (stalls testing migration) - {0}'.format(url)
+            result = PolicyVerdict.REJECTED_TEMPORARILY
+            piuparts_info['test-results'] = 'waiting-for-test-results'
+        else:
+            msg = 'Cannot be tested (not a blocker) - {0}'.format(url)
+            piuparts_info['test-results'] = 'cannot-be-tested'
+            result = PolicyVerdict.PASS
+
+        piuparts_info['piuparts-test-url'] = url
+        excuse.addhtml(msg)
+
+        if result.is_rejected:
+            for ignore_hint in self.hints.search('ignore-piuparts',
+                                                 package=source_name,
+                                                 version=source_data_srcdist.version):
+                piuparts_info['ignored-piuparts'] = {
+                    'issued-by': ignore_hint.user
+                }
+                result = PolicyVerdict.PASS_HINTED
+                excuse.addhtml("Ignoring piuparts issue as requested by {0}".format(ignore_hint.user))
+                break
+
+        return result
+
+    def _read_piuparts_summary(self, filename, keep_url=True):
+        summary = {}
+        self.log("Loading piuparts report from {0}".format(filename))
+        with open(filename) as fd:
+            if os.fstat(fd.fileno()).st_size < 1:
+                return summary
+            data = json.load(fd)
+        try:
+            if data['_id'] != 'Piuparts Package Test Results Summary' or data['_version'] != '1.0':  # pragma: no cover
+                raise ValueError('Piuparts results in {0} does not have the correct ID or version'.format(filename))
+        except KeyError as e:  # pragma: no cover
+            raise ValueError('Piuparts results in {0} is missing id or version field'.format(filename)) from e
+        for source, suite_data in data['packages'].items():
+            if len(suite_data) != 1:  # pragma: no cover
+                raise ValueError('Piuparts results in {0}, the source {1} does not have exactly one result set'.format(
+                    filename, source
+                ))
+            item = next(iter(suite_data.values()))
+            state, _, url = item
+            if not keep_url:
+                keep_url = None
+            summary[source] = (state, url)
+
+        return summary

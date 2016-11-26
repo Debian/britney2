@@ -1,0 +1,37 @@
+{
+  "_comment": "Debian Piuparts Package Results - https://anonscm.debian.org/cgit/piuparts/piuparts.git/tree/piupartslib/pkgsummary.py",
+  "_date": "Thu Nov 24 01:24:25 UTC 2016",
+  "_id": "Piuparts Package Test Results Summary",
+  "_type": "source",
+  "_version": "1.0",
+  "packages": {
+    "pass": {
+      "sid": [
+        "P",
+        0,
+        "https://piuparts.debian.org/sid/source/p/pass.html"
+      ]
+    },
+    "regression": {
+      "sid": [
+        "F",
+        0,
+        "https://piuparts.debian.org/sid/source/r/regression.html"
+      ]
+    },
+    "failed-not-regression": {
+      "sid": [
+        "F",
+        0,
+        "https://piuparts.debian.org/sid/source/f/failed-not-regression.html"
+      ]
+    },
+    "not-tested-yet": {
+      "sid": [
+        "W",
+        0,
+        "https://piuparts.debian.org/sid/source/n/not-tested-yet.html"
+      ]
+    }
+  }
+}
