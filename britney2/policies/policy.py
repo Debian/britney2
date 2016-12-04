@@ -572,31 +572,35 @@ class PiupartsPolicy(BasePolicy):
         else:
             unstable_state = 'X'
             url = None
+        url_html = "(no link yet)"
+        if url is not None:
+            url_html = '<a href="{0}">{0}</a>'.format(url)
 
         if unstable_state == 'P':
             # Not a regression
-            msg = 'Piuparts tested OK - {0}'.format(url)
+            msg = 'Piuparts tested OK - {0}'.format(url_html)
             result = PolicyVerdict.PASS
             piuparts_info['test-results'] = 'pass'
         elif unstable_state == 'F':
             if testing_state != unstable_state:
                 piuparts_info['test-results'] = 'regression'
-                msg = 'Rejected due to piuparts regression - {0}'.format(url)
+                msg = 'Rejected due to piuparts regression - {0}'.format(url_html)
                 result = PolicyVerdict.REJECTED_PERMANENTLY
             else:
                 piuparts_info['test-results'] = 'failed'
-                msg = 'Ignoring piuparts failure (Not a regression) - {0}'.format(url)
+                msg = 'Ignoring piuparts failure (Not a regression) - {0}'.format(url_html)
                 result = PolicyVerdict.PASS
         elif unstable_state == 'W':
-            msg = 'Waiting for piuparts test results (stalls testing migration) - {0}'.format(url)
+            msg = 'Waiting for piuparts test results (stalls testing migration) - {0}'.format(url_html)
             result = PolicyVerdict.REJECTED_TEMPORARILY
             piuparts_info['test-results'] = 'waiting-for-test-results'
         else:
-            msg = 'Cannot be tested (not a blocker) - {0}'.format(url)
+            msg = 'Cannot be tested by piuparts (not a blocker) - {0}'.format(url_html)
             piuparts_info['test-results'] = 'cannot-be-tested'
             result = PolicyVerdict.PASS
 
-        piuparts_info['piuparts-test-url'] = url
+        if url is not None:
+            piuparts_info['piuparts-test-url'] = url
         excuse.addhtml(msg)
 
         if result.is_rejected:
