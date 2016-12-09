@@ -239,7 +239,7 @@ class Britney(object):
     For more documentation on this script, please read the Developers Reference.
     """
 
-    HINTS_HELPERS = ("easy", "hint", "remove", "block", "block-udeb", "unblock", "unblock-udeb", "approve", "remark")
+    HINTS_HELPERS = ("easy", "hint", "remove", "block", "block-udeb", "unblock", "unblock-udeb", "approve", "remark", "ignore-piuparts")
     HINTS_STANDARD = ("urgent", "age-days") + HINTS_HELPERS
     # ALL = {"force", "force-hint", "block-all"} | HINTS_STANDARD | registered policy hints (not covered above)
     HINTS_ALL = ('ALL')
