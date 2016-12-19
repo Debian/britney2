@@ -51,83 +51,76 @@ def create_policy_objects(source_name, target_version, source_version):
     )
 
 
+def apply_policy(policy, expected_verdict, src_name, *, suite='unstable', source_version='1.0', target_version='2.0'):
+    src_t, src_u, excuse, policy_info = create_policy_objects(src_name, source_version, target_version)
+    verdict = policy.apply_policy(policy_info, suite, src_name, src_t, src_u, excuse)
+    assert verdict == expected_verdict
+    return policy_info[policy.policy_id]
+
+
 class TestRCBugsPolicy(unittest.TestCase):
 
     def test_no_bugs(self):
         src_name = 'has-no-bugs'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
-        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        assert set(bug_policy_info['unique-source-bugs']) == set()
+        assert set(bug_policy_info['unique-target-bugs']) == set()
+        assert set(bug_policy_info['shared-bugs']) == set()
 
     def test_regression(self):
         src_name = 'regression'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == {'123458'}
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
-        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+        bug_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        assert set(bug_policy_info['unique-source-bugs']) == {'123458'}
+        assert set(bug_policy_info['unique-target-bugs']) == set()
+        assert set(bug_policy_info['shared-bugs']) == set()
 
     def test_regression_but_fixes_more_bugs(self):
         src_name = 'regression-but-fixes-more-bugs'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == {'100003'}
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'100001', '100002'}
-        assert set(policy_info['rc-bugs']['shared-bugs']) == {'100000'}
+        bug_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        assert set(bug_policy_info['unique-source-bugs']) == {'100003'}
+        assert set(bug_policy_info['unique-target-bugs']) == {'100001', '100002'}
+        assert set(bug_policy_info['shared-bugs']) == {'100000'}
 
     def test_not_a_regression(self):
         src_name = 'not-a-regression'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
-        assert set(policy_info['rc-bugs']['shared-bugs']) == {'123457'}
+        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        assert set(bug_policy_info['unique-source-bugs']) == set()
+        assert set(bug_policy_info['unique-target-bugs']) == set()
+        assert set(bug_policy_info['shared-bugs']) == {'123457'}
 
     def test_improvement(self):
         src_name = 'fixes-bug'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'123456'}
-        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        assert set(bug_policy_info['unique-source-bugs']) == set()
+        assert set(bug_policy_info['unique-target-bugs']) == {'123456'}
+        assert set(bug_policy_info['shared-bugs']) == set()
 
     def test_regression_with_hint(self):
         src_name = 'regression'
         hints = ['ignore-rc-bugs 123458 regression/2.0']
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS_HINTED
-        assert set(policy_info['rc-bugs']['ignored-bugs']['bugs']) == {'123458'}
-        assert policy_info['rc-bugs']['ignored-bugs']['issued-by'] == TEST_HINTER
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == set()
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == set()
-        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
+        assert set(bug_policy_info['ignored-bugs']['bugs']) == {'123458'}
+        assert bug_policy_info['ignored-bugs']['issued-by'] == TEST_HINTER
+        assert set(bug_policy_info['unique-source-bugs']) == set()
+        assert set(bug_policy_info['unique-target-bugs']) == set()
+        assert set(bug_policy_info['shared-bugs']) == set()
 
     def test_regression_but_fixes_more_bugs_bad_hint(self):
         src_name = 'regression-but-fixes-more-bugs'
         hints = ['ignore-rc-bugs 100000 regression-but-fixes-more-bugs/2.0']
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
-        assert set(policy_info['rc-bugs']['unique-source-bugs']) == {'100003'}
-        assert set(policy_info['rc-bugs']['unique-target-bugs']) == {'100001', '100002'}
-        assert set(policy_info['rc-bugs']['ignored-bugs']['bugs']) == {'100000'}
-        assert policy_info['rc-bugs']['ignored-bugs']['issued-by'] == TEST_HINTER
-        assert set(policy_info['rc-bugs']['shared-bugs']) == set()
+        bug_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        assert set(bug_policy_info['unique-source-bugs']) == {'100003'}
+        assert set(bug_policy_info['unique-target-bugs']) == {'100001', '100002'}
+        assert set(bug_policy_info['ignored-bugs']['bugs']) == {'100000'}
+        assert bug_policy_info['ignored-bugs']['issued-by'] == TEST_HINTER
+        assert set(bug_policy_info['shared-bugs']) == set()
 
 
 class TestAgePolicy(unittest.TestCase):
@@ -146,13 +139,11 @@ class TestAgePolicy(unittest.TestCase):
 
         try:
             src_name = 'unlisted-source-package'
-            src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
             policy = initialize_policy('age/missing-age-file', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
-            verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
+            age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
             assert os.path.exists(age_file)
-            assert verdict == PolicyVerdict.REJECTED_TEMPORARILY
-            assert policy_info['age']['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
-            assert policy_info['age']['current-age'] == 0
+            assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+            assert age_policy_info['current-age'] == 0
         finally:
             if os.path.exists(age_file):
                 os.unlink(age_file)
@@ -162,50 +153,40 @@ class TestPiupartsPolicy(unittest.TestCase):
 
     def test_passes(self):
         src_name = 'pass'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS
-        assert policy_info['piuparts']['test-results'] == 'pass'
-        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/p/pass.html'
+        piu_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        assert piu_policy_info['test-results'] == 'pass'
+        assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/p/pass.html'
 
     def test_regression(self):
         src_name = 'regression'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.REJECTED_PERMANENTLY
-        assert policy_info['piuparts']['test-results'] == 'regression'
-        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
+        piu_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        assert piu_policy_info['test-results'] == 'regression'
+        assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
 
     def test_regression_hinted(self):
         src_name = 'regression'
         hints = ['ignore-piuparts regression/2.0']
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('piuparts/basic', PiupartsPolicy, hints=hints)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS_HINTED
-        assert policy_info['piuparts']['test-results'] == 'regression'
-        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
-        assert policy_info['piuparts']['ignored-piuparts']['issued-by'] == TEST_HINTER
+        piu_policy_info = apply_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
+        assert piu_policy_info['test-results'] == 'regression'
+        assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
+        assert piu_policy_info['ignored-piuparts']['issued-by'] == TEST_HINTER
 
     def test_not_tested_yet(self):
         src_name = 'not-tested-yet'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.REJECTED_TEMPORARILY
-        assert policy_info['piuparts']['test-results'] == 'waiting-for-test-results'
-        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/n/not-tested-yet.html'
+        piu_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        assert piu_policy_info['test-results'] == 'waiting-for-test-results'
+        assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/n/not-tested-yet.html'
 
     def test_failed_not_regression(self):
         src_name = 'failed-not-regression'
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, '1.0', '2.0')
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        verdict = policy.apply_policy(policy_info, 'unstable', src_name, src_t, src_u, excuse)
-        assert verdict == PolicyVerdict.PASS
-        assert policy_info['piuparts']['test-results'] == 'failed'
-        assert policy_info['piuparts']['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/f/failed-not-regression.html'
+        piu_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        assert piu_policy_info['test-results'] == 'failed'
+        assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/f/failed-not-regression.html'
 
 if __name__ == '__main__':
     unittest.main()
