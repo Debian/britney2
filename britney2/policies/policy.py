@@ -99,7 +99,11 @@ class BasePolicy(object):
     def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         pinfo = {}
         general_policy_info[self.policy_id] = pinfo
-        return self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
+        verdict = self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
+        # The base policy provides this field, so the subclass should leave it blank
+        assert 'verdict' not in pinfo
+        pinfo['verdict'] = verdict.name
+        return verdict
 
     @abstractmethod
     def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover

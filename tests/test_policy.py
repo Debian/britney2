@@ -54,8 +54,10 @@ def create_policy_objects(source_name, target_version, source_version):
 def apply_policy(policy, expected_verdict, src_name, *, suite='unstable', source_version='1.0', target_version='2.0'):
     src_t, src_u, excuse, policy_info = create_policy_objects(src_name, source_version, target_version)
     verdict = policy.apply_policy(policy_info, suite, src_name, src_t, src_u, excuse)
+    pinfo = policy_info[policy.policy_id]
     assert verdict == expected_verdict
-    return policy_info[policy.policy_id]
+    assert pinfo['verdict'] == expected_verdict.name
+    return pinfo
 
 
 class TestRCBugsPolicy(unittest.TestCase):
