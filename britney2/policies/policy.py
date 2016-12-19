@@ -97,10 +97,8 @@ class BasePolicy(object):
         pass
 
     def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
-        if self.policy_id not in general_policy_info:
-            general_policy_info[self.policy_id] = pinfo = {}
-        else:
-            pinfo = general_policy_info[self.policy_id]
+        pinfo = {}
+        general_policy_info[self.policy_id] = pinfo
         return self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
 
     @abstractmethod
