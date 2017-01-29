@@ -12,9 +12,16 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import apt_pkg
+from collections import defaultdict
 from itertools import chain
 
 from britney2.migrationitem import MigrationItem
+
+
+THIS_REPLACES_OTHER = (True, False)
+OTHER_REPLACES_THIS = (False, True)
+HINTS_ARE_DISTINCT = (True, True)
 
 
 class MalformedHintException(Exception):
@@ -46,9 +53,49 @@ class HintCollection(object):
     def add_hint(self, hint):
         self._hints.append(hint)
 
+    def find_duplicate_hints(self):
+        """Scan the hint collection for duplicated active hints
+
+        :return: Generates 2-tuples, where the first element is the duplicate/obsolete hint and the
+          second element is the hint that supersedes it.
+        """
+        hint_table = defaultdict(list)
+        # If we yield an item and the caller does *not* disable it, then we will eventually generate
+        # the same pair again.  To solve this, we put duplicated hints in this set and ignore them
+        # in the second round
+        duplicated = set()
+        for hint in self._hints:
+            if not hint.active:
+                continue
+            hint_key = hint.deduplication_key
+            if hint_key is None or hint in duplicated:
+                continue
+            key = (hint.type, hint_key)
+            existing_hints = hint_table[key]
+            append_hint = True
+            for idx, ehint in enumerate(existing_hints):
+                # the objects cannot be the same on a reference level - the code below does not
+                # handle that.
+                assert hint is not ehint
+                verdict = hint.deduplicate(ehint)
+                assert verdict in {HINTS_ARE_DISTINCT, OTHER_REPLACES_THIS, THIS_REPLACES_OTHER}
+                if verdict == THIS_REPLACES_OTHER:
+                    existing_hints[idx] = hint
+                    duplicated.add(ehint)
+                    yield (ehint, hint)
+                    break
+                if verdict == OTHER_REPLACES_THIS:
+                    append_hint = False
+                    duplicated.add(hint)
+                    yield (hint, ehint)
+                    break
+            if append_hint:
+                existing_hints.append(hint)
+
 
 class Hint(object):
     NO_VERSION = [ 'block', 'block-all', 'block-udeb' ]
+    NO_FUZZY_DEDUPLICATION = ['easy', 'hint', 'force-hint']
 
     def __init__(self, user, hint_type, packages):
         self._user = user
@@ -80,6 +127,11 @@ class Hint(object):
             return '%s %s' % (self._type, ' '.join(x.uvname for x in self._packages))
         else:
             return '%s %s' % (self._type, ' '.join(x.name for x in self._packages))
+
+    def __hash__(self):
+        if self._type in self.__class__.NO_FUZZY_DEDUPLICATION:  # pragma: no cover
+            raise TypeError("Multi-item hints are unhashable")
+        return hash(self._type) ^ hash(self.package)
 
     def __eq__(self, other):
         if self.type != other.type:
@@ -118,6 +170,19 @@ class Hint(object):
             return self.packages[0].version
         else:
             return None
+
+    @property
+    def deduplication_key(self):
+        if self._type in self.__class__.NO_FUZZY_DEDUPLICATION:
+            return None
+        return (self.package,)
+
+    def deduplicate(self, other_hint):
+        if self.type == other_hint.type and self.package == other_hint.package:
+            if self.type in self.__class__.NO_VERSION or apt_pkg.version_compare(self.version, other_hint.version) >= 0:
+                return THIS_REPLACES_OTHER
+            return OTHER_REPLACES_THIS
+        return HINTS_ARE_DISTINCT
 
 
 def split_into_one_hint_per_package(hints, who, hint_name, *args):

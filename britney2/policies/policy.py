@@ -140,6 +140,9 @@ class SimplePolicyHint(Hint):
         super().__init__(user, hint_type, packages)
         self._policy_parameter = policy_parameter
 
+    def __hash__(self):
+        return hash(self._policy_parameter) ^ super().__hash__()
+
     def __eq__(self, other):
         if self.type != other.type or self._policy_parameter != other._policy_parameter:
             return False

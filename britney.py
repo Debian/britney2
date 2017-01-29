@@ -956,31 +956,13 @@ class Britney(object):
 
         hints = self._hint_parser.hints
 
-        for x in ["block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
-            z = {}
-            for hint in hints[x]:
-                package = hint.package
-                key = (hint, hint.user)
-                if package in z and z[package] != key:
-                    hint2 = z[package][0]
-                    if x in ['unblock', 'unblock-udeb']:
-                        if apt_pkg.version_compare(hint2.version, hint.version) < 0:
-                            # This hint is for a newer version, so discard the old one
-                            self.log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
-                               (x, package, hint2.version, hint2.user, hint.version, hint.user), type="W")
-                            hint2.set_active(False)
-                        else:
-                            # This hint is for an older version, so ignore it in favour of the new one
-                            self.log("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal" %
-                               (x, package, hint.version, hint.user, hint2.version, hint2.user), type="W")
-                            hint.set_active(False)
-                    else:
-                        self.log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
-                           (x, package, hint2.user, hint2, hint.user, hint),
-                           type="W")
-                        hint2.set_active(False)
-
-                z[package] = key
+        for duplicated_hint, useful_hint in hints.find_duplicate_hints():
+            duplicated_hint.set_active(False)
+            x = useful_hint.type
+            package = useful_hint.package
+            self.log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
+                     (x, package, duplicated_hint.user, duplicated_hint, useful_hint.user, useful_hint),
+                     type="W")
 
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
