@@ -25,6 +25,10 @@ class HintCollection(object):
     def __init__(self):
         self._hints = []
 
+    @property
+    def is_empty(self):
+        return not self._hints
+
     def __getitem__(self, type=None):
         return self.search(type)
 
