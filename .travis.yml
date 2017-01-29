@@ -19,5 +19,7 @@ script:
 after_success:
   - python3-coverage report
   - python3-coverage report -m
+  - python3-coverage xml -i
+  - bash <(curl -s https://codecov.io/bash)
 #notifications:
 #  email: false
