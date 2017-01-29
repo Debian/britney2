@@ -6,10 +6,9 @@ from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
 
+from . import MockObject, TEST_HINTER, HINTS_ALL, DEFAULT_URGENCY
+
 POLICY_DATA_BASE_DIR = os.path.join(os.path.dirname(__file__), 'policy-test-data')
-TEST_HINTER = 'test-hinter'
-HINTS_ALL = ('ALL')
-DEFAULT_URGENCY = 'medium'
 
 
 def initialize_policy(test_name, policy_class, *args, **kwargs):
@@ -50,13 +49,6 @@ def create_policy_objects(source_name, target_version, source_version):
         create_excuse(source_name),
         {},
     )
-
-
-class MockObject(object):
-
-    def __init__(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
 
 
 class TestRCBugsPolicy(unittest.TestCase):
