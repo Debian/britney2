@@ -975,9 +975,9 @@ class Britney(object):
                                (x, package, hint.version, hint.user, hint2.version, hint2.user), type="W")
                             hint.set_active(False)
                     else:
-                        self.log("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s', '%s', '%s')" %
-                           (x, package, hint2.version, hint2.user, hint2.days,
-                            hint.version, hint.user, hint.days), type="W")
+                        self.log("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
+                           (x, package, hint2.user, hint2, hint.user, hint),
+                           type="W")
                         hint2.set_active(False)
 
                 z[package] = key
