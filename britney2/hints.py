@@ -182,7 +182,7 @@ class HintParser(object):
 
         :param hint_name: The name of the hint
         :param parser_function: A function to add the hint
-        :param min_args: An optional positive integer (or 0) denoting the number of arguments the hint takes.
+        :param min_args: An optional positive integer (non-zero) denoting the number of arguments the hint takes.
         :param aliases: An optional iterable of aliases to the hint (use only for backwards compatibility)
         """
         if min_args < 1:
