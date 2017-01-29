@@ -143,7 +143,7 @@ class SimplePolicyHint(Hint):
     def __eq__(self, other):
         if self.type != other.type or self._policy_parameter != other._policy_parameter:
             return False
-        return super.__eq__(other)
+        return super().__eq__(other)
 
     def str(self):
         return '%s %s %s' % (self._type, str(self._policy_parameter), ' '.join(x.name for x in self._packages))
