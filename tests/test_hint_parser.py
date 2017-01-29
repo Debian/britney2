@@ -1,6 +1,6 @@
 import unittest
 
-from britney2.hints import HintParser
+from britney2.hints import HintParser, single_hint_taking_list_of_packages
 
 from . import MockObject, HINTS_ALL, TEST_HINTER
 
@@ -53,6 +53,26 @@ class HintParsing(unittest.TestCase):
             assert hint_parser.hints.is_empty
             hint_log.clear()
 
+    def test_alias(self):
+        hint_parser = new_hint_paser()
+        hint_parser.register_hint_type('real-name',
+                                       single_hint_taking_list_of_packages,
+                                       aliases=['alias1', 'alias2']
+                                       )
+        hint_parser.parse_hints(TEST_HINTER,
+                                HINTS_ALL,
+                                'test-parse-hint',
+                                [
+                                    'alias1 foo/1.0',
+                                    'alias2 bar/2.0',
+                                ])
+        hints = hint_parser.hints
+        # Aliased hints can be found by the real name
+        assert hints.search(type='real-name', package='foo', version='1.0')
+        assert hints.search(type='real-name', package='bar', version='2.0')
+        # But not by their alias
+        assert not hints.search(type='alias1', package='foo', version='1.0')
+        assert not hints.search(type='alias2', package='bar', version='2.0')
 
 if __name__ == '__main__':
     unittest.main()
