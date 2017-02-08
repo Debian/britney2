@@ -802,14 +802,14 @@ def invalidate_excuses(excuses, valid, invalid):
             continue
         # loop on the reverse dependencies
         for x in revdeps[ename]:
-            # if the item is valid and it is marked as `dontinvalidate', skip the item
-            if x in valid and excuses[x].dontinvalidate:
-                continue
-
-            # otherwise, invalidate the dependency and mark as invalidated and
-            # remove the depending excuses
-            excuses[x].invalidate_dep(ename)
             if x in valid:
+                # if the item is valid and it is marked as `forced', skip the item
+                if excuses[x].forced:
+                    continue
+
+                # otherwise, invalidate the dependency and mark as invalidated and
+                # remove the depending excuses
+                excuses[x].invalidate_dep(ename)
                 p = valid.index(x)
                 invalid.append(valid.pop(p))
                 excuses[x].addhtml("Invalidated by dependency")

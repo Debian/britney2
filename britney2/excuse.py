@@ -48,7 +48,6 @@ class Excuse(object):
         self.mindays = None
         self.section = None
         self._is_valid = False
-        self._dontinvalidate = False
         self.needs_approval = False
         self.hints = []
         self.forced = False
@@ -80,13 +79,7 @@ class Excuse(object):
     def is_valid(self, value):
         self._is_valid = value
 
-    @property
-    def dontinvalidate(self):
-        return self._dontinvalidate
 
-    @dontinvalidate.setter
-    def dontinvalidate(self, value):
-        self._dontinvalidate = value
 
     def set_vers(self, tver, uver):
         """Set the testing and unstable versions"""
@@ -127,6 +120,10 @@ class Excuse(object):
     def force(self):
         """Add force hint"""
         self.forced = True
+        if not self._is_valid:
+            self._is_valid = True
+            return True
+        return False
 
     def addhtml(self, note):
         """Add a note in HTML"""
