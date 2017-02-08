@@ -1304,6 +1304,7 @@ class Britney(object):
                 excuse.addhtml("Removal request by %s" % (hint.user))
                 excuse.addhtml("Trying to remove package, not update it")
                 excuse.is_valid = False
+                break
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
