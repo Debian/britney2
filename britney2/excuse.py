@@ -19,6 +19,26 @@ import re
 
 from britney2.policies.policy import PolicyVerdict
 
+VERDICT2DESC = {
+    PolicyVerdict.PASS:
+        'OK: Will attempt migration (Any information below is purely informational)',
+    PolicyVerdict.PASS_HINTED:
+        'OK: Will attempt migration due to a hint (Any information below is purely informational)',
+    PolicyVerdict.REJECTED_TEMPORARILY:
+        'WAITING: Waiting for test results, another package or too young (no action required now - check later)',
+    PolicyVerdict.REJECTED_WAITING_FOR_ANOTHER_ITEM:
+        'WAITING: Waiting for another item to be ready to migrate (no action required now - check later)',
+    PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM:
+        'BLOCKED: Cannot migrate due to another item, which is blocked (please check which dependencies are stuck)',
+    PolicyVerdict.REJECTED_NEEDS_APPROVAL:
+        'BLOCKED: Needs an approval (either due to a freeze or due to the source suite)',
+    PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT:
+        'BLOCKED: Maybe temporary, maybe blocked but Britney is missing information (check below or the buildds)',
+    PolicyVerdict.REJECTED_PERMANENTLY:
+        'BLOCKED: Rejected/introduces a regression (please see below)'
+}
+
+
 class Excuse(object):
     """Excuse class
     
@@ -154,16 +174,9 @@ class Excuse(object):
 
     def _format_verdict_summary(self):
         verdict = self._policy_verdict
-        if not verdict.is_rejected:
-            msg = 'OK: Will attempt migration'
-            if verdict == PolicyVerdict.PASS_HINTED:
-                msg = 'OK: Will attempt migration due to a hint'
-            msg += " (Any information below is purely informational)"
-            return msg
-        if verdict == PolicyVerdict.REJECTED_PERMANENTLY:
-            msg = "BLOCKED: Will not migrate (Please review if it introduces a regression or needs approval/unblock)"
-            return msg
-        return "TEMP-BLOCKED: Waiting for test results, another package or too young (no action required at this time)"
+        if verdict in VERDICT2DESC:
+            return VERDICT2DESC[verdict]
+        return "UNKNOWN: Missing description for {0} - Please file a bug against Britney".format(verdict.name)
 
     def html(self):
         """Render the excuse in HTML"""
