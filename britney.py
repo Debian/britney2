@@ -1498,11 +1498,10 @@ class Britney(object):
         # check if there is a `force' hint for this package, which allows it to go in even if it is not updateable
         forces = self.hints.search('force', package=src, version=source_u.version)
         if forces:
-            excuse.dontinvalidate = True
-            if not excuse.is_valid:
+            # force() updates the final verdict for us
+            changed_state = excuse.force()
+            if changed_state:
                 excuse.addhtml("Should ignore, but forced by %s" % (forces[0].user))
-                excuse.force()
-                excuse.is_valid = True
 
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
