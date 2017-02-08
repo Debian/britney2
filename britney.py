@@ -1358,7 +1358,7 @@ class Britney(object):
                 else:
                     excuse.addhtml("NEEDS APPROVAL BY RM")
                     excuse.addreason("block")
-                excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                excuse.policy_verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
 
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
@@ -1436,7 +1436,7 @@ class Britney(object):
                         else:
                             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
                     else:
-                        excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                        excuse.policy_verdict = PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT
                         excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)
@@ -1489,7 +1489,7 @@ class Britney(object):
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
                     excuse.missing_build_on_ood_arch(arch)
                 else:
-                    excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                    excuse.policy_verdict = PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT
                     excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)

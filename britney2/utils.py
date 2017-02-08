@@ -801,6 +801,11 @@ def invalidate_excuses(excuses, valid, invalid):
         # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
         if (ename + "_tpu") in valid:
             continue
+
+        rdep_verdict = PolicyVerdict.REJECTED_WAITING_FOR_ANOTHER_ITEM
+        if excuses[ename].policy_verdict.is_blocked:
+            rdep_verdict = PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM
+
         # loop on the reverse dependencies
         for x in revdeps[ename]:
             if x in valid:
@@ -815,8 +820,8 @@ def invalidate_excuses(excuses, valid, invalid):
                 invalid.append(valid.pop(p))
                 excuses[x].addhtml("Invalidated by dependency")
                 excuses[x].addreason("depends")
-                if excuses[x].policy_verdict.value < PolicyVerdict.REJECTED_TEMPORARILY.value:
-                    excuses[x].policy_verdict = PolicyVerdict.REJECTED_TEMPORARILY
+                if excuses[x].policy_verdict.value < rdep_verdict.value:
+                    excuses[x].policy_verdict = rdep_verdict
 
 
 def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
