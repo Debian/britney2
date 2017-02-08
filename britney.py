@@ -1259,8 +1259,12 @@ class Britney(object):
         the object attribute excuses.
         """
 
-        # retrieve the source packages for testing (if available) and suite
         source_u = self.sources[suite][src]
+        if source_u.is_fakesrc:
+            # it is a fake package created to satisfy Britney implementation details; silently ignore it
+            return False
+
+        # retrieve the source packages for testing (if available) and suite
         if src in self.sources['testing']:
             source_t = self.sources['testing'][src]
             # if testing and unstable have the same version, then this is a candidate for binary-NMUs only
@@ -1290,11 +1294,6 @@ class Britney(object):
 
         # the starting point is that we will update the candidate
         excuse.is_valid = True
-
-        # check if the source package really exists or if it is a fake one
-        if source_u.is_fakesrc:
-            excuse.addhtml("%s source package doesn't exist" % (src))
-            excuse.is_valid = False
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
