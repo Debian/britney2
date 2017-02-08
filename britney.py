@@ -1085,7 +1085,7 @@ class Britney(object):
             self.excuses[excuse.name] = excuse
             return False
 
-        excuse.is_valid = True
+        excuse.policy_verdict = PolicyVerdict.PASS
         self.excuses[excuse.name] = excuse
         return True
 
@@ -1237,7 +1237,7 @@ class Britney(object):
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
-            excuse.is_valid = True
+            excuse.policy_verdict = PolicyVerdict.PASS
             self.excuses[excuse.name] = excuse
             return True
         # else if there is something worth doing (but something wrong, too) this package won't be considered
@@ -1293,7 +1293,7 @@ class Britney(object):
             return False
 
         # the starting point is that we will update the candidate
-        excuse.is_valid = True
+        excuse.policy_verdict = PolicyVerdict.PASS
 
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
@@ -1303,7 +1303,7 @@ class Britney(object):
                 excuse.add_hint(hint)
                 excuse.addhtml("Removal request by %s" % (hint.user))
                 excuse.addhtml("Trying to remove package, not update it")
-                excuse.is_valid = False
+                excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
                 break
 
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
@@ -1358,7 +1358,7 @@ class Britney(object):
                 else:
                     excuse.addhtml("NEEDS APPROVAL BY RM")
                     excuse.addreason("block")
-                excuse.is_valid = False
+                excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
@@ -1404,7 +1404,7 @@ class Britney(object):
                         # we would not need to be forgiving at
                         # all. However, due to how arch:all packages
                         # are handled, we do run into occasionally.
-                        excuse.is_valid = False
+                        excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
             # if there are out-of-date packages, warn about them in the excuse and set excuse.is_valid
             # to False to block the update; if the architecture where the package is out-of-date is
@@ -1434,9 +1434,9 @@ class Britney(object):
                         if self.options.ignore_cruft:
                             text = text + " (but ignoring cruft, so nevermind)"
                         else:
-                            excuse.is_valid = False
+                            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
                     else:
-                        excuse.is_valid = False
+                        excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
                         excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)
@@ -1445,21 +1445,20 @@ class Britney(object):
         if not source_u.binaries:
             excuse.addhtml("%s has no binaries on any arch" % src)
             excuse.addreason("no-binaries")
-            excuse.is_valid = False
+            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
         # if the suite is unstable, then we have to check the urgency and the minimum days of
         # permanence in unstable before updating testing; if the source package is too young,
         # the check fails and we set is_valid to False to block the update; consider
         # the age-days hint, if specified for the package
+        policy_verdict = excuse.policy_verdict
         policy_info = excuse.policy_info
-        policy_verdict = PolicyVerdict.PASS
         for policy in self.policies:
             if suite in policy.applicable_suites:
                 v = policy.apply_policy(policy_info, suite, src, source_t, source_u, excuse)
                 if v.value > policy_verdict.value:
                     policy_verdict = v
-                    if policy_verdict.is_rejected:
-                        excuse.is_valid = False
+        excuse.policy_verdict = policy_verdict
 
         if suite in ('pu', 'tpu') and source_t:
             # o-o-d(ish) checks for (t-)p-u
@@ -1490,7 +1489,7 @@ class Britney(object):
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
                     excuse.missing_build_on_ood_arch(arch)
                 else:
-                    excuse.is_valid = False
+                    excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
                     excuse.missing_build_on_arch(arch)
 
                 excuse.addhtml(text)
@@ -1585,7 +1584,10 @@ class Britney(object):
             excuse.addhtml("Removal request by %s" % (hint.user))
             excuse.addhtml("Package is broken, will try to remove")
             excuse.add_hint(hint)
-            excuse.is_valid = True
+            # Using "PASS" here as "Created by a hint" != "accepted due to hint".  In a future
+            # where there might be policy checks on removals, it would make sense to distinguish
+            # those two states.  Not sure that future will ever be.
+            excuse.policy_verdict = PolicyVerdict.PASS
             excuses[excuse.name] = excuse
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me

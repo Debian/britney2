@@ -39,6 +39,7 @@ from britney2.consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
                              SOURCE, MAINTAINER, MULTIARCH,
                              ESSENTIAL)
 from britney2.migrationitem import MigrationItem, UnversionnedMigrationItem
+from britney2.policies.policy import PolicyVerdict
 
 
 def ifilter_except(container, iterable=None):
@@ -814,7 +815,8 @@ def invalidate_excuses(excuses, valid, invalid):
                 invalid.append(valid.pop(p))
                 excuses[x].addhtml("Invalidated by dependency")
                 excuses[x].addreason("depends")
-                excuses[x].is_valid = False
+                if excuses[x].policy_verdict.value < PolicyVerdict.REJECTED_TEMPORARILY.value:
+                    excuses[x].policy_verdict = PolicyVerdict.REJECTED_TEMPORARILY
 
 
 def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):

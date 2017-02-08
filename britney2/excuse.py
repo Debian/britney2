@@ -17,6 +17,7 @@
 from collections import defaultdict
 import re
 
+from britney2.policies.policy import PolicyVerdict
 
 class Excuse(object):
     """Excuse class
@@ -51,6 +52,7 @@ class Excuse(object):
         self.needs_approval = False
         self.hints = []
         self.forced = False
+        self._policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
         self.invalid_deps = []
         self.deps = {}
@@ -73,13 +75,19 @@ class Excuse(object):
 
     @property
     def is_valid(self):
-        return self._is_valid
+        return False if self._policy_verdict.is_rejected else True
 
-    @is_valid.setter
-    def is_valid(self, value):
-        self._is_valid = value
+    @property
+    def policy_verdict(self):
+        return self._policy_verdict
 
-
+    @policy_verdict.setter
+    def policy_verdict(self, value):
+        if value.is_rejected and self.forced:
+            # By virtue of being forced, the item was hinted to
+            # undo the rejection
+            value = PolicyVerdict.PASS_HINTED
+        self._policy_verdict = value
 
     def set_vers(self, tver, uver):
         """Set the testing and unstable versions"""
@@ -120,8 +128,8 @@ class Excuse(object):
     def force(self):
         """Add force hint"""
         self.forced = True
-        if not self._is_valid:
-            self._is_valid = True
+        if self._policy_verdict.is_rejected:
+            self._policy_verdict = PolicyVerdict.PASS_HINTED
             return True
         return False
 
@@ -144,10 +152,24 @@ class Excuse(object):
     def add_hint(self, hint):
         self.hints.append(hint)
 
+    def _format_verdict_summary(self):
+        verdict = self._policy_verdict
+        if not verdict.is_rejected:
+            msg = 'OK: Will attempt migration'
+            if verdict == PolicyVerdict.PASS_HINTED:
+                msg = 'OK: Will attempt migration due to a hint'
+            msg += " (Any information below is purely informational)"
+            return msg
+        if verdict == PolicyVerdict.REJECTED_PERMANENTLY:
+            msg = "BLOCKED: Will not migrate (Please review if it introduces a regression or needs approval/unblock)"
+            return msg
+        return "TEMP-BLOCKED: Waiting for test results, another package or too young (no action required at this time)"
+
     def html(self):
         """Render the excuse in HTML"""
         res = "<a id=\"%s\" name=\"%s\">%s</a> (%s to %s)\n<ul>\n" % \
             (self.name, self.name, self.name, self.ver[0], self.ver[1])
+        res += "<li>Migration status: %s" % self._format_verdict_summary()
         if self.maint:
             res = res + "<li>Maintainer: %s\n" % (self.maint)
         if self.section and self.section.find("/") > -1:
@@ -210,6 +232,7 @@ class Excuse(object):
         excusedata["excuses"] = self._text()
         excusedata["item-name"] = self.name
         excusedata["source"] = source
+        excusedata["migration-policy-verdict"] = self._policy_verdict
         excusedata["old-version"] = self.ver[0]
         excusedata["new-version"] = self.ver[1]
         if self.maint:
