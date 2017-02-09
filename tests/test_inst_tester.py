@@ -1,0 +1,392 @@
+import unittest
+
+from . import new_pkg_universe_builder
+
+
+class TestInstTester(unittest.TestCase):
+
+    def test_basic_inst_test(self):
+        builder = new_pkg_universe_builder()
+        universe = builder.new_package('lintian').depends_on('perl').depends_on_any_of('awk', 'mawk').\
+            new_package('perl-base').is_essential().\
+            new_package('dpkg').is_essential(). \
+            new_package('perl').\
+            new_package('awk').not_in_testing().\
+            new_package('mawk').\
+            build()
+        pkg_lintian = builder.pkg_id('lintian')
+        pkg_awk = builder.pkg_id('awk')
+        pkg_mawk = builder.pkg_id('mawk')
+        pkg_perl = builder.pkg_id('perl')
+        pkg_perl_base = builder.pkg_id('perl-base')
+        assert universe.is_installable(pkg_lintian)
+        assert universe.is_installable(pkg_perl)
+        assert universe.any_of_these_are_in_testing((pkg_lintian, pkg_perl))
+        assert not universe.is_installable(pkg_awk)
+        assert not universe.any_of_these_are_in_testing((pkg_awk,))
+        universe.remove_testing_binary(pkg_perl)
+        assert not universe.any_of_these_are_in_testing((pkg_perl,))
+        assert universe.any_of_these_are_in_testing((pkg_lintian,))
+        assert not universe.is_installable(pkg_lintian)
+        assert not universe.is_installable(pkg_perl)
+        universe.add_testing_binary(pkg_perl)
+        assert universe.is_installable(pkg_lintian)
+        assert universe.is_installable(pkg_perl)
+
+        assert universe.reverse_dependencies_of(pkg_perl) == {pkg_lintian}
+        assert universe.reverse_dependencies_of(pkg_lintian) == frozenset()
+
+        # awk and mawk are equivalent, but nothing else is eqv.
+        assert universe.are_equivalent(pkg_awk, pkg_mawk)
+        assert not universe.are_equivalent(pkg_lintian, pkg_mawk)
+        assert not universe.are_equivalent(pkg_lintian, pkg_perl)
+        assert not universe.are_equivalent(pkg_mawk, pkg_perl)
+
+        # Trivial test of the special case for adding and removing an essential package
+        universe.remove_testing_binary(pkg_perl_base)
+        universe.add_testing_binary(pkg_perl_base)
+
+        universe.add_testing_binary(pkg_awk)
+        assert universe.is_installable(pkg_lintian)
+
+    def test_basic_simple_choice(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        conflicting1 = builder.new_package('conflict1')
+        conflicting2 = builder.new_package('conflict2')
+        bottom1_pkg = builder.new_package('bottom1').conflicts_with(conflicting1)
+        bottom2_pkg = builder.new_package('bottom2').conflicts_with(conflicting2)
+
+        pkg1 = builder.new_package('pkg1').depends_on(bottom1_pkg)
+        pkg2 = builder.new_package('pkg2').depends_on(bottom2_pkg)
+
+        root_pkg.depends_on_any_of(pkg1, pkg2)
+
+        universe = builder.build()
+
+        # The dependencies of "root" are not equivalent (if they were, we would trigger
+        # an optimization, which takes another code path)
+        assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+
+        assert universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+
+    def test_basic_simple_choice_deadend(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        bottom1_pkg = builder.new_package('bottom1').conflicts_with(root_pkg)
+        bottom2_pkg = builder.new_package('bottom2').conflicts_with(root_pkg)
+
+        pkg1 = builder.new_package('pkg1').depends_on(bottom1_pkg)
+        pkg2 = builder.new_package('pkg2').depends_on(bottom2_pkg)
+
+        root_pkg.depends_on_any_of(pkg1, pkg2)
+
+        universe = builder.build()
+
+        # The dependencies of "root" are not equivalent (if they were, we would trigger
+        # an optimization, which takes another code path)
+        assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+
+        assert not universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+        # This case is simple enough that the installability tester will assert it does not
+        # need to recurse to reject the first option
+        assert universe.stats.backtrace_restore_point_used == 0
+        assert universe.stats.backtrace_last_option == 1
+
+    def test_basic_simple_choice_opt_no_restore_needed(self):
+        builder = new_pkg_universe_builder()
+        conflicting = builder.new_package('conflict')
+        root_pkg = builder.new_package('root').conflicts_with(conflicting)
+        bottom1_pkg = builder.new_package('bottom1').conflicts_with(conflicting)
+        bottom2_pkg = builder.new_package('bottom2').conflicts_with(conflicting)
+
+        # These two packages have (indirect) conflicts, so they cannot trigger the
+        # safe set optimization.  However, since "root" already have the same conflict
+        # it can use the "no restore point needed" optimization.
+        pkg1 = builder.new_package('pkg1').depends_on(bottom1_pkg)
+        pkg2 = builder.new_package('pkg2').depends_on(bottom2_pkg)
+
+        root_pkg.depends_on_any_of(pkg1, pkg2)
+
+        universe = builder.build()
+
+        # The dependencies of "root" are not equivalent (if they were, we would trigger
+        # an optimization, which takes another code path)
+        assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+
+        assert universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert universe.stats.backtrace_restore_point_used == 0
+        assert universe.stats.backtrace_last_option == 0
+        assert universe.stats.choice_resolved_without_restore_point == 1
+
+    def test_basic_simple_choice_opt_no_restore_needed_deadend(self):
+        builder = new_pkg_universe_builder()
+        conflicting1 = builder.new_package('conflict1').conflicts_with('conflict2')
+        conflicting2 = builder.new_package('conflict2').conflicts_with('conflict1')
+        root_pkg = builder.new_package('root')
+        bottom_pkg = builder.new_package('bottom').depends_on(conflicting1).depends_on(conflicting2)
+        mid1_pkg = builder.new_package('mid1').depends_on(bottom_pkg)
+        mid2_pkg = builder.new_package('mid2').depends_on(bottom_pkg)
+
+        # These two packages have (indirect) conflicts, so they cannot trigger the
+        # safe set optimization.  However, since "root" already have the same conflict
+        # it can use the "no restore point needed" optimization.
+        pkg1 = builder.new_package('pkg1').depends_on(mid1_pkg)
+        pkg2 = builder.new_package('pkg2').depends_on(mid2_pkg)
+
+        root_pkg.depends_on_any_of(pkg1, pkg2)
+
+        universe = builder.build()
+
+        # The dependencies of "root" are not equivalent (if they were, we would trigger
+        # an optimization, which takes another code path)
+        assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+
+        assert not universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert universe.stats.backtrace_restore_point_used == 0
+        assert universe.stats.choice_resolved_without_restore_point == 0
+        assert universe.stats.backtrace_last_option == 1
+
+    def test_basic_choice_deadend_restore_point_needed(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        bottom1_pkg = builder.new_package('bottom1').depends_on_any_of('bottom2', 'bottom3')
+        bottom2_pkg = builder.new_package('bottom2').conflicts_with(root_pkg)
+        bottom3_pkg = builder.new_package('bottom3').depends_on_any_of('bottom1', 'bottom2')
+
+        pkg1 = builder.new_package('pkg1').depends_on_any_of(bottom1_pkg, bottom2_pkg).conflicts_with('bottom3')
+        pkg2 = builder.new_package('pkg2').depends_on_any_of(bottom2_pkg, bottom3_pkg).conflicts_with('bottom1')
+
+        root_pkg.depends_on_any_of(pkg1, pkg2)
+
+        universe = builder.build()
+
+        # The dependencies of "root" are not equivalent (if they were, we would trigger
+        # an optimization, which takes another code path)
+        assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+
+        assert not universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+        # This case is simple enough that the installability tester will assert it does not
+        # need to recurse to reject the first option
+        assert universe.stats.backtrace_restore_point_used == 1
+        assert universe.stats.backtrace_last_option == 1
+
+    def test_corner_case_dependencies_inter_conflict(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root').depends_on('conflict1').depends_on('conflict2')
+        conflicting1 = builder.new_package('conflict1').conflicts_with('conflict2')
+        conflicting2 = builder.new_package('conflict2').conflicts_with('conflict1')
+
+        universe = builder.build()
+
+        # They should not be eqv.
+        assert not universe.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
+
+        # "root" should not be installable and we should trigger a special code path where
+        # the installability tester has both conflicting packages in its "check" set
+        # Technically, we cannot assert we hit that path with this test, but we can at least
+        # check it does not regress
+        assert not universe.is_installable(root_pkg.pkg_id)
+
+    def test_basic_choice_deadend_pre_solvable(self):
+        builder = new_pkg_universe_builder()
+        # This test is complicated by the fact that the inst-tester has a non-deterministic ordering.
+        # To ensure that it becomes predictable, we have to force it to see the choice before
+        # the part that eliminates it.  In practise, this is easiest to do by creating a symmetric
+        # graph where one solving one choice eliminates the other.
+
+        root_pkg = builder.new_package('root')
+
+        # These two packages are used to make options distinct; otherwise the eqv. optimisation will just
+        # collapse the choices.
+        nodep1 = builder.new_package('nodep1')
+        nodep2 = builder.new_package('nodep2')
+
+        path1a = builder.new_package('path1a').depends_on(nodep1).depends_on('end1')
+        path1b = builder.new_package('path1b').depends_on(nodep2).depends_on('end1')
+
+        path2a = builder.new_package('path2a').depends_on(nodep1).depends_on('end2')
+        path2b = builder.new_package('path2b').depends_on(nodep2).depends_on('end2')
+
+        builder.new_package('end1').conflicts_with(path2a, path2b)
+        builder.new_package('end2').conflicts_with(path1a, path1b)
+
+        root_pkg.depends_on_any_of(path1a, path1b).depends_on_any_of(path2a, path2b)
+
+        universe = builder.build()
+
+        assert not universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+
+        # The following numbers are observed due to:
+        #   * Pick an option from (pathXa | pathXb)
+        #   * First option -> obviously unsolvable
+        #   * Undo and do "last option" on the remaining
+        #   * "last option" -> obviously unsolvable
+        #   * unsolvable
+        assert universe.stats.backtrace_restore_point_used == 1
+        assert universe.stats.backtrace_last_option == 1
+        assert universe.stats.choice_presolved == 2
+
+    def test_basic_choice_pre_solvable(self):
+        builder = new_pkg_universe_builder()
+        # This test is complicated by the fact that the inst-tester has a non-deterministic ordering.
+        # To ensure that it becomes predictable, we have to force it to see the choice before
+        # the part that eliminates it.  In practise, this is easiest to do by creating a symmetric
+        # graph where one solving one choice eliminates the other.
+
+        root_pkg = builder.new_package('root')
+
+        nodep1 = builder.new_package('nodep1').conflicts_with('path1b', 'path2b')
+        nodep2 = builder.new_package('nodep2').conflicts_with('path1b', 'path2b')
+        end1 = builder.new_package('end1')
+        end2 = builder.new_package('end2')
+
+        path1a = builder.new_package('path1a').depends_on(nodep1).depends_on(end1)
+        path1b = builder.new_package('path1b').depends_on(nodep2).depends_on(end1)
+
+        path2a = builder.new_package('path2a').depends_on(nodep1).depends_on(end2)
+        path2b = builder.new_package('path2b').depends_on(nodep2).depends_on(end2)
+
+        root_pkg.depends_on_any_of(path1a, path1b).depends_on_any_of(path2a, path2b)
+
+        universe = builder.build()
+
+        assert universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 0
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 0
+
+        # After its first guess, the tester can pre-solve remaining choice
+        assert universe.stats.backtrace_restore_point_used == 0
+        assert universe.stats.choice_presolved == 1
+
+    def test_optimisation_simple_full_eqv_reduction(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        conflicting = builder.new_package('conflict')
+        bottom1_pkg = builder.new_package('bottom1').conflicts_with(conflicting)
+        # Row 1 is simple enough that it collapse into a single option immediately
+        # (Ergo eqv_table_reduced_to_one == 1)
+        row1 = ['pkg-%s' % x for x in range(1000)]
+
+        root_pkg.depends_on_any_of(*row1)
+        for pkg in row1:
+            builder.new_package(pkg).depends_on(bottom1_pkg)
+        universe = builder.build()
+
+        pkg_row1 = builder.pkg_id(row1[0])
+
+        # all items in a row are eqv.
+        for pkg in row1:
+            assert universe.are_equivalent(builder.pkg_id(pkg), pkg_row1)
+
+        assert universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 1
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 999
+        assert universe.stats.eqv_table_reduced_to_one == 1
+
+    def test_optimisation_simple_partial_eqv_reduction(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        conflicting = builder.new_package('conflict')
+        another_pkg = builder.new_package('another-pkg')
+        bottom1_pkg = builder.new_package('bottom1').conflicts_with(conflicting)
+        # Row 1 is simple enough that it collapse into a single option immediately
+        # but due to "another_pkg" the entire choice is only reduced into two
+        row1 = ['pkg-%s' % x for x in range(1000)]
+
+        root_pkg.depends_on_any_of(another_pkg, *row1)
+        for pkg in row1:
+            builder.new_package(pkg).depends_on(bottom1_pkg)
+        universe = builder.build()
+
+        pkg_row1 = builder.pkg_id(row1[0])
+
+        # all items in a row are eqv.
+        for pkg in row1:
+            assert universe.are_equivalent(builder.pkg_id(pkg), pkg_row1)
+
+        assert universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 1
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 999
+        assert universe.stats.eqv_table_reduced_to_one == 0
+
+    def test_optimisation_simple_zero_eqv_reduction(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        conflicting1 = builder.new_package('conflict1')
+        conflicting2 = builder.new_package('conflict2')
+        bottom1_pkg = builder.new_package('bottom1').conflicts_with(conflicting1)
+        bottom2_pkg = builder.new_package('bottom2').conflicts_with(conflicting2)
+
+        # To trigger a failed reduction, we have to create eqv. packages and ensure that only one
+        # of them are in testing.  Furthermore, the choice has to remain, so we create two pairs
+        # of them
+        pkg1_v1 = builder.new_package('pkg1', version='1.0-1').depends_on(bottom1_pkg)
+        pkg1_v2 = builder.new_package('pkg1', version='2.0-1').depends_on(bottom1_pkg).not_in_testing()
+        pkg2_v1 = builder.new_package('pkg2', version='1.0-1').depends_on(bottom2_pkg)
+        pkg2_v2 = builder.new_package('pkg2', version='2.0-1').depends_on(bottom2_pkg).not_in_testing()
+
+        root_pkg.depends_on_any_of(pkg1_v1, pkg1_v2, pkg2_v1, pkg2_v2)
+
+        universe = builder.build()
+
+        # The packages in the pairs are equivalent, but the two pairs are not
+        assert universe.are_equivalent(pkg1_v1.pkg_id, pkg1_v2.pkg_id)
+        assert universe.are_equivalent(pkg2_v1.pkg_id, pkg2_v2.pkg_id)
+        assert not universe.are_equivalent(pkg1_v1.pkg_id, pkg2_v1.pkg_id)
+
+        assert universe.is_installable(root_pkg.pkg_id)
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.eqv_table_times_used == 1
+        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert universe.stats.eqv_table_reduced_by_zero == 1
+
+if __name__ == '__main__':
+    unittest.main()
+
