@@ -49,6 +49,31 @@ class TestInstTester(unittest.TestCase):
         universe.add_testing_binary(pkg_awk)
         assert universe.is_installable(pkg_lintian)
 
+    def test_basic_essential_conflict(self):
+        builder = new_pkg_universe_builder()
+        pseudo_ess1 = builder.new_package('pseudo-essential1')
+        pseudo_ess2 = builder.new_package('pseudo-essential2')
+        essential_simple = builder.new_package('essential-simple').is_essential()
+        essential_with_deps = builder.new_package('essential-with-deps').is_essential().\
+            depends_on_any_of(pseudo_ess1, pseudo_ess2)
+        conflict1 = builder.new_package('conflict1').conflicts_with(essential_simple)
+        conflict2 = builder.new_package('conflict2').conflicts_with(pseudo_ess1, pseudo_ess2)
+        conflict_installable1 = builder.new_package('conflict-inst1').conflicts_with(pseudo_ess1)
+        conflict_installable2 = builder.new_package('conflict-inst2').conflicts_with(pseudo_ess2)
+
+        universe = builder.build()
+
+        assert universe.is_installable(essential_simple.pkg_id)
+        assert universe.is_installable(essential_with_deps.pkg_id)
+        assert universe.is_installable(conflict_installable1.pkg_id)
+        assert universe.is_installable(conflict_installable2.pkg_id)
+        assert not universe.is_installable(conflict1.pkg_id)
+        assert not universe.is_installable(conflict2.pkg_id)
+
+        for line in universe.stats.stats():
+            print(line)
+        assert universe.stats.conflicts_essential == 1
+
     def test_basic_simple_choice(self):
         builder = new_pkg_universe_builder()
         root_pkg = builder.new_package('root')

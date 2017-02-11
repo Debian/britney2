@@ -300,9 +300,9 @@ class InstallabilityTester(object):
             if t.architecture not in self._cache_ess:
                 # The minimal essential set cache is not present -
                 # compute it now.
-                (start, ess_never) = self._get_min_pseudo_ess_set(t.architecture)
+                (start, ess_never, ess_choices) = self._get_min_pseudo_ess_set(t.architecture)
             else:
-                (start, ess_never) = self._cache_ess[t.architecture]
+                (start, ess_never, ess_choices) = self._cache_ess[t.architecture]
 
             if t in ess_never:
                 # t conflicts with something in the essential set or the essential
@@ -313,6 +313,7 @@ class InstallabilityTester(object):
                 return False
             musts.update(start)
             never.update(ess_never)
+            choices.update(ess_choices)
 
         # curry check_loop
         check_loop = partial(self._check_loop, universe, testing,
@@ -630,7 +631,7 @@ class InstallabilityTester(object):
 
             for x in start:
                 ess_never.update(universe[x][1])
-            self._cache_ess[arch] = (frozenset(start), frozenset(ess_never))
+            self._cache_ess[arch] = (frozenset(start), frozenset(ess_never), frozenset(ess_choices))
 
         return self._cache_ess[arch]
 
