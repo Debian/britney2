@@ -1,3 +1,4 @@
 fixes-bug 123456
 not-a-regression 123457
-regression-but-fixes-more-bugs 100000,100001,100002
+regression-but-fixes-more-bugs 100000,100001
+regression-but-fixes-more-bugs 100002
