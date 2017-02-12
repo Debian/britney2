@@ -473,7 +473,10 @@ class InstallabilityTesterBuilder(object):
                 # it is not worth it)
                 continue
             deps, con = package_table[pkg]
-            ekey = (deps, con, rdeps)
+            con_key = con
+            if con:
+                con_key = self._intern_set(con | {pkg})
+            ekey = (deps, con_key, rdeps)
             find_eqv_table[ekey].append(pkg)
 
         for pkg_list in find_eqv_table.values():

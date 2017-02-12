@@ -412,6 +412,53 @@ class TestInstTester(unittest.TestCase):
         assert universe.stats.eqv_table_reduced_to_one == 0
         assert universe.stats.eqv_table_reduced_by_zero == 1
 
+    def test_eqv_pkg(self):
+        builder = new_pkg_universe_builder()
+        root_pkg = builder.new_package('root')
+        unrelated_pkg = builder.new_package('unrelated')
+        conflicting1 = builder.new_package('conflict1')
+        conflicting2 = builder.new_package('conflict2')
+        pkg1 = builder.new_package('pkg1').depends_on_any_of(conflicting1, conflicting2)
+        pkg2 = builder.new_package('pkg2').depends_on_any_of(conflicting1, conflicting2)
+
+        root_pkg.depends_on_any_of(pkg1, pkg2)
+
+        universe1 = builder.build()
+
+        conflicting1.conflicts_with(conflicting2)
+
+        universe2 = builder.build()
+
+        conflicting1.conflicts_with(unrelated_pkg)
+
+        universe3 = builder.build()
+
+        assert universe1.is_installable(root_pkg.pkg_id)
+        assert universe2.is_installable(root_pkg.pkg_id)
+        assert universe3.is_installable(root_pkg.pkg_id)
+
+        assert universe1.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+        assert universe2.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+        assert universe3.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
+
+        assert not universe1.are_equivalent(pkg1.pkg_id, conflicting1.pkg_id)
+        assert not universe2.are_equivalent(pkg1.pkg_id, conflicting1.pkg_id)
+        assert not universe3.are_equivalent(pkg1.pkg_id, conflicting1.pkg_id)
+
+        assert not universe1.are_equivalent(unrelated_pkg.pkg_id, conflicting1.pkg_id)
+        assert not universe2.are_equivalent(unrelated_pkg.pkg_id, conflicting1.pkg_id)
+        assert not universe3.are_equivalent(unrelated_pkg.pkg_id, conflicting1.pkg_id)
+
+        assert universe1.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
+
+        # TODO[improvement]; could be eqv. as the conflict is "local" between otherwise
+        # eqv. packages
+        # assert universe2.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
+
+        # In universe3, they are definitely not eqv. as one of them have a conflict relation
+        # with an unrelated package and the other one does not
+        assert not universe3.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
+
 if __name__ == '__main__':
     unittest.main()
 
