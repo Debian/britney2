@@ -451,9 +451,8 @@ class TestInstTester(unittest.TestCase):
 
         assert universe1.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
 
-        # TODO[improvement]; could be eqv. as the conflict is "local" between otherwise
-        # eqv. packages
-        # assert universe2.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
+        # They are eqv. as the conflict is "local" between otherwise eqv. packages
+        assert universe2.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
 
         # In universe3, they are definitely not eqv. as one of them have a conflict relation
         # with an unrelated package and the other one does not

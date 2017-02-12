@@ -475,6 +475,9 @@ class InstallabilityTesterBuilder(object):
             deps, con = package_table[pkg]
             con_key = con
             if con:
+                # Include pkg in the "conflict" if it is not empty.
+                # This way, mutually-exclusive packages can still
+                # be eqv.
                 con_key = self._intern_set(con | {pkg})
             ekey = (deps, con_key, rdeps)
             find_eqv_table[ekey].append(pkg)
