@@ -245,7 +245,7 @@ class Excuse(object):
         excusedata["excuses"] = self._text()
         excusedata["item-name"] = self.name
         excusedata["source"] = source
-        excusedata["migration-policy-verdict"] = self._policy_verdict
+        excusedata["migration-policy-verdict"] = self._policy_verdict.name
         excusedata["old-version"] = self.ver[0]
         excusedata["new-version"] = self.ver[1]
         if self.maint:
