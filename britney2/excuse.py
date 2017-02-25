@@ -182,7 +182,7 @@ class Excuse(object):
         """Render the excuse in HTML"""
         res = "<a id=\"%s\" name=\"%s\">%s</a> (%s to %s)\n<ul>\n" % \
             (self.name, self.name, self.name, self.ver[0], self.ver[1])
-        res += "<li>Migration status: %s" % self._format_verdict_summary()
+        res += "<li>Migration status: %s\n" % self._format_verdict_summary()
         if self.maint:
             res = res + "<li>Maintainer: %s\n" % (self.maint)
         if self.section and self.section.find("/") > -1:
