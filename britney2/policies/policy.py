@@ -316,6 +316,7 @@ class AgePolicy(BasePolicy):
             if new_req:
                 excuse.addhtml("Overriding age needed from %d days to %d by %s" % (
                     age_min_req, new_req, who))
+                age_min_req = new_req
             else:
                 excuse.addhtml("Too young, but urgency pushed by %s" % who)
         excuse.setdaysold(age_info['current-age'], age_min_req)
