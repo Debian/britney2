@@ -409,6 +409,10 @@ class Britney(object):
                                help="just print a summary of uninstallable packages")
         parser.add_option("", "--components", action="store", dest="components",
                                help="Sources/Packages are laid out by components listed (, sep)")
+        parser.add_option("", "--compute-migrations", action="store_true", dest="compute_migrations", default=True,
+                          help="Compute which packages can migrate (the default)")
+        parser.add_option("", "--no-compute-migrations", action="store_false", dest="compute_migrations",
+                          help="Do not compute which packages can migrate.")
         (self.options, self.args) = parser.parse_args()
         
         # integrity checks
@@ -2736,19 +2740,22 @@ class Britney(object):
         else:
             self.upgrade_me = self.options.actions.split()
 
-        with open(self.options.upgrade_output, 'w', encoding='utf-8') as f:
-            self.__output = f
+        if self.options.compute_migrations or self.options.hint_tester:
+            with open(self.options.upgrade_output, 'w', encoding='utf-8') as f:
+                self.__output = f
 
-            # run the hint tester
-            if self.options.hint_tester:
-                self.hint_tester()
-            # run the upgrade test
-            else:
-                self.upgrade_testing()
+                # run the hint tester
+                if self.options.hint_tester:
+                    self.hint_tester()
+                # run the upgrade test
+                else:
+                    self.upgrade_testing()
 
-            self.log('> Stats from the installability tester', type="I")
-            for stat in self._inst_tester.stats.stats():
-                self.log('>   %s' % stat, type="I")
+                self.log('> Stats from the installability tester', type="I")
+                for stat in self._inst_tester.stats.stats():
+                    self.log('>   %s' % stat, type="I")
+        else:
+            self.log('Migration computation skipped as requested.', type='I')
 
 
 if __name__ == '__main__':
