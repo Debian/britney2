@@ -240,8 +240,8 @@ class AgePolicy(BasePolicy):
         if options.default_urgency not in mindays:  # pragma: no cover
             raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
         self._min_days_default = mindays[options.default_urgency]
-        # britney's "day" begins at 3pm
-        self._date_now = int(((time.time() / (60*60)) - 15) / 24)
+        # britney's "day" begins at 7pm (we want aging to occur in the 22:00Z run and we run Britney 2-4 times a day)
+        self._date_now = int(((time.time() / (60*60)) - 19) / 24)
         self._dates = {}
         self._urgencies = {}
 
