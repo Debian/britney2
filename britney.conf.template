@@ -40,7 +40,7 @@ STATE_DIR          = /path/to/britey/state-dir
 NOBREAKALL_ARCHES = i386 amd64
 
 # if you're in this list, your packages may not stay in sync with the source
-FUCKED_ARCHES     =
+OUTOFSYNC_ARCHES  =
 
 # if you're in this list, your uninstallability count may increase
 BREAK_ARCHES      =
