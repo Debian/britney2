@@ -25,6 +25,8 @@ Britney instance.
     - $STATE_DIR/age-policy-urgencies
     - $STATE_DIR/rc-bugs-unstable
     - $STATE_DIR/rc-bugs-testing
+    - $STATE_DIR/piuparts-summary-testing.json
+    - $STATE_DIR/piuparts-summary-unstable.json
  * Run ```./britney.py -c $BRITNEY_CONF -v [--dry-run]``` to test the run
  * Use the resulting $HEIDI_OUTPUT (or $HEIDI_DELTA_OUTPUT) to update
    your target suite.
