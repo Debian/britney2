@@ -197,7 +197,7 @@ from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.installability.builder import build_installability_tester
 from britney2.migrationitem import MigrationItem
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict, BuildStatePolicy
 from britney2.utils import (old_libraries_format, undo_changes,
                             compute_reverse_tree, possibly_compressed,
                             read_nuninst, write_nuninst, write_heidi,
@@ -507,6 +507,7 @@ class Britney(object):
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
 
+        self.policies.append(BuildStatePolicy(self.options, self.suite_info))
         self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
         self.policies.append(PiupartsPolicy(self.options, self.suite_info))
@@ -1364,93 +1365,6 @@ class Britney(object):
                     excuse.addreason("block")
                 excuse.policy_verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
 
-        # at this point, we check the status of the builds on all the supported architectures
-        # to catch the out-of-date ones
-        pkgs = {src: ["source"]}
-        all_binaries = self.all_binaries
-        for arch in self.options.architectures:
-            oodbins = {}
-            uptodatebins = False
-            # for every binary package produced by this source in the suite for this architecture
-            for pkg_id in sorted(x for x in source_u.binaries if x.architecture == arch):
-                pkg = pkg_id.package_name
-                if pkg not in pkgs: pkgs[pkg] = []
-                pkgs[pkg].append(arch)
-
-                # retrieve the binary package and its source version
-                binary_u = all_binaries[pkg_id]
-                pkgsv = binary_u.source_version
-
-                # if it wasn't built by the same source, it is out-of-date
-                # if there is at least one binary on this arch which is
-                # up-to-date, there is a build on this arch
-                if source_u.version != pkgsv:
-                    if pkgsv not in oodbins:
-                        oodbins[pkgsv] = []
-                    oodbins[pkgsv].append(pkg)
-                    excuse.add_old_binary(pkg, pkgsv)
-                    continue
-                else:
-                    # if the binary is arch all, it doesn't count as
-                    # up-to-date for this arch
-                    if binary_u.architecture == arch:
-                        uptodatebins = True
-
-                # if the package is architecture-dependent or the current arch is `nobreakall'
-                # find unsatisfied dependencies for the binary package
-                if binary_u.architecture != 'all' or arch in self.options.nobreakall_arches:
-                    is_valid = self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
-                    inst_tester = self._inst_tester
-                    if not is_valid and inst_tester.any_of_these_are_in_testing({binary_u.pkg_id}) \
-                            and not inst_tester.is_installable(binary_u.pkg_id):
-                        # Forgive uninstallable packages only when
-                        # they are already broken in testing ideally
-                        # we would not need to be forgiving at
-                        # all. However, due to how arch:all packages
-                        # are handled, we do run into occasionally.
-                        excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
-
-            # if there are out-of-date packages, warn about them in the excuse and set excuse.is_valid
-            # to False to block the update; if the architecture where the package is out-of-date is
-            # in the `outofsync_arches' list, then do not block the update
-            if oodbins:
-                oodtxt = ""
-                for v in oodbins.keys():
-                    if oodtxt: oodtxt = oodtxt + "; "
-                    oodtxt = oodtxt + "%s (from <a href=\"https://buildd.debian.org/status/logs.php?" \
-                        "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
-                        (", ".join(sorted(oodbins[v])), quote(arch), quote(src), quote(v), v)
-                if uptodatebins:
-                    text = "old binaries left on <a href=\"https://buildd.debian.org/status/logs.php?" \
-                        "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
-                        (quote(arch), quote(src), quote(source_u.version), arch, oodtxt)
-                else:
-                    text = "missing build on <a href=\"https://buildd.debian.org/status/logs.php?" \
-                        "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
-                        (quote(arch), quote(src), quote(source_u.version), arch, oodtxt)
-
-                if arch in self.options.outofsync_arches:
-                    text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
-                    if not uptodatebins:
-                        excuse.missing_build_on_ood_arch(arch)
-                else:
-                    if uptodatebins:
-                        if self.options.ignore_cruft:
-                            text = text + " (but ignoring cruft, so nevermind)"
-                        else:
-                            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
-                    else:
-                        excuse.policy_verdict = PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT
-                        excuse.missing_build_on_arch(arch)
-
-                excuse.addhtml(text)
-
-        # if the source package has no binaries, set is_valid to False to block the update
-        if not source_u.binaries:
-            excuse.addhtml("%s has no binaries on any arch" % src)
-            excuse.addreason("no-binaries")
-            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
-
         # if the suite is unstable, then we have to check the urgency and the minimum days of
         # permanence in unstable before updating testing; if the source package is too young,
         # the check fails and we set is_valid to False to block the update; consider
@@ -1465,6 +1379,7 @@ class Britney(object):
         excuse.policy_verdict = policy_verdict
 
         if suite in ('pu', 'tpu') and source_t:
+            all_binaries = self.all_binaries
             # o-o-d(ish) checks for (t-)p-u
             # This only makes sense if the package is actually in testing.
             for arch in self.options.architectures:

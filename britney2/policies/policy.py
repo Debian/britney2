@@ -669,3 +669,115 @@ class PiupartsPolicy(BasePolicy):
             summary[source] = (state, url)
 
         return summary
+
+
+class BuildStatePolicy(BasePolicy):
+
+    def __init__(self, options, suite_info):
+        super().__init__('buildstate', options, suite_info, {'unstable', 'tpu', 'pu'})
+        self._architectures = options.architectures
+        self._nobreakall_arches = options.nobreakall_arches
+        self._ignore_cruft = options.ignore_cruft
+        self._outofsync_arches = options.outofsync_arches
+        self._inst_tester = None
+        self._all_binaries = None
+        self._excuse_unsat_deps = None
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        self._inst_tester = britney._inst_tester
+        self._all_binaries = britney.all_binaries
+        self._excuse_unsat_deps = britney.excuse_unsat_deps
+
+    def apply_policy_impl(self, buildstate_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+        verdict = PolicyVerdict.PASS
+        all_binaries = self._all_binaries
+        # at this point, we check the status of the builds on all the supported architectures
+        # to catch the out-of-date ones
+        pkgs = {source_name: ["source"]}
+        for arch in self._architectures:
+            oodbins = {}
+            uptodatebins = False
+
+            # for every binary package produced by this source in the suite for this architecture
+            for pkg_id in sorted(x for x in source_data_srcdist.binaries if x.architecture == arch):
+                pkg = pkg_id.package_name
+                if pkg not in pkgs:
+                    pkgs[pkg] = []
+                pkgs[pkg].append(arch)
+
+                # retrieve the binary package and its source version
+                binary_u = all_binaries[pkg_id]
+                pkgsv = binary_u.source_version
+
+                # if it wasn't built by the same source, it is out-of-date
+                # if there is at least one binary on this arch which is
+                # up-to-date, there is a build on this arch
+                if source_data_srcdist.version != pkgsv:
+                    if pkgsv not in oodbins:
+                        oodbins[pkgsv] = []
+                    oodbins[pkgsv].append(pkg)
+                    excuse.add_old_binary(pkg, pkgsv)
+                    continue
+                else:
+                    # if the binary is arch all, it doesn't count as
+                    # up-to-date for this arch
+                    if binary_u.architecture == arch:
+                        uptodatebins = True
+
+                # if the package is architecture-dependent or the current arch is `nobreakall'
+                # find unsatisfied dependencies for the binary package
+                if binary_u.architecture != 'all' or arch in self._nobreakall_arches:
+                    is_valid = self._excuse_unsat_deps(pkg, source_name, arch, suite, excuse)
+                    inst_tester = self._inst_tester
+                    if not is_valid and inst_tester.any_of_these_are_in_testing({binary_u.pkg_id}) \
+                            and not inst_tester.is_installable(binary_u.pkg_id):
+                        # Forgive uninstallable packages only when
+                        # they are already broken in testing ideally
+                        # we would not need to be forgiving at
+                        # all. However, due to how arch:all packages
+                        # are handled, we do run into occasionally.
+                        verdict = PolicyVerdict.REJECTED_PERMANENTLY
+
+            # if there are out-of-date packages, warn about them in the excuse and set excuse.is_valid
+            # to False to block the update; if the architecture where the package is out-of-date is
+            # in the `outofsync_arches' list, then do not block the update
+            if oodbins:
+                oodtxt = ""
+                for v in oodbins.keys():
+                    if oodtxt: oodtxt = oodtxt + "; "
+                    oodtxt = oodtxt + "%s (from <a href=\"https://buildd.debian.org/status/logs.php?" \
+                                      "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
+                                      (", ".join(sorted(oodbins[v])), quote(arch), quote(source_name), quote(v), v)
+                if uptodatebins:
+                    text = "old binaries left on <a href=\"https://buildd.debian.org/status/logs.php?" \
+                           "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
+                           (quote(arch), quote(source_name), quote(source_data_srcdist.version), arch, oodtxt)
+                else:
+                    text = "missing build on <a href=\"https://buildd.debian.org/status/logs.php?" \
+                           "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>: %s" % \
+                           (quote(arch), quote(source_name), quote(source_data_srcdist.version), arch, oodtxt)
+
+                if arch in self._outofsync_arches:
+                    text = text + " (but %s isn't keeping up, so nevermind)" % (arch)
+                    if not uptodatebins:
+                        excuse.missing_build_on_ood_arch(arch)
+                else:
+                    if uptodatebins:
+                        if self._ignore_cruft:
+                            text = text + " (but ignoring cruft, so nevermind)"
+                        else:
+                            verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                    else:
+                        verdict = PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT
+                        excuse.missing_build_on_arch(arch)
+
+                excuse.addhtml(text)
+
+        # if the source package has no binaries, set is_valid to False to block the update
+        if not source_data_srcdist.binaries:
+            excuse.addhtml("%s has no binaries on any arch" % source_name)
+            excuse.addreason("no-binaries")
+            verdict = PolicyVerdict.REJECTED_PERMANENTLY
+
+        return verdict
