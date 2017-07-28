@@ -221,6 +221,14 @@ class InstallabilitySolver(InstallabilityTester):
             order[node]['before'] = nbefore
             order[node]['after'] = nafter
 
+        for com in comps:
+            scc_id = com[0]
+
+            for other_scc_id in order[scc_id]['before']:
+                order[other_scc_id]['after'].add(scc_id)
+            for other_scc_id in order[scc_id]['after']:
+                order[other_scc_id]['before'].add(scc_id)
+
         if debug_solver:  # pragma: no cover
             print("N: -- PARTIAL ORDER --")
 

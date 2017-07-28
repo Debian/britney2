@@ -412,6 +412,57 @@ class TestInstTester(unittest.TestCase):
         assert universe.stats.eqv_table_reduced_to_one == 0
         assert universe.stats.eqv_table_reduced_by_zero == 1
 
+    def test_solver_simple_scc(self):
+        builder = new_pkg_universe_builder()
+
+        # SCC 1
+        pkga = builder.new_package('pkg-a').not_in_testing()
+        pkgb = builder.new_package('pkg-b').not_in_testing()
+        pkgc = builder.new_package('pkg-c').not_in_testing()
+
+        # SSC 2
+        pkgd = builder.new_package('pkg-d').not_in_testing()
+        pkge = builder.new_package('pkg-e').not_in_testing()
+        pkgf = builder.new_package('pkg-f').not_in_testing()
+        pkgg = builder.new_package('pkg-g').not_in_testing()
+        pkgh = builder.new_package('pkg-h').not_in_testing()
+
+        # SSC 3
+        pkgi = builder.new_package('pkg-i').not_in_testing()
+
+        # SSC 1 dependencies
+        pkga.depends_on(pkgb)
+        pkgb.depends_on(pkgc).depends_on(pkgd)
+        pkgc.depends_on(pkga).depends_on(pkge)
+
+        # SSC 2 dependencies
+        pkgd.depends_on(pkgf)
+        pkge.depends_on(pkgg).depends_on(pkgd)
+        pkgf.depends_on(pkgh)
+        pkgg.depends_on(pkgh)
+        pkgh.depends_on(pkge).depends_on(pkgi)
+
+        universe = builder.build()
+        expected = [
+            # SSC 3 first
+            {pkgi.pkg_id.package_name},
+            # Then SSC 2
+            {pkgd.pkg_id.package_name, pkge.pkg_id.package_name, pkgf.pkg_id.package_name,
+             pkgg.pkg_id.package_name, pkgh.pkg_id.package_name},
+            # Finally SSC 1
+            {pkga.pkg_id.package_name, pkgb.pkg_id.package_name, pkgc.pkg_id.package_name},
+        ]
+        groups = []
+        for ssc in expected:
+            for node in ssc:
+                groups.append((node, {builder.pkg_id(node)}, {}))
+
+        actual = [set(x) for x in universe.solve_groups(groups)]
+        print("EXPECTED: %s" % str(expected))
+        print("ACTUAL  : %s" % str(actual))
+        assert expected == actual
+
+
 if __name__ == '__main__':
     unittest.main()
 
