@@ -1,3 +1,4 @@
+import sys
 import unittest
 
 from . import new_pkg_universe_builder
@@ -411,6 +412,36 @@ class TestInstTester(unittest.TestCase):
         assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
         assert universe.stats.eqv_table_reduced_to_one == 0
         assert universe.stats.eqv_table_reduced_by_zero == 1
+
+    def test_solver_recursion_limit(self):
+        builder = new_pkg_universe_builder()
+        recursion_limit = 200
+        pkg_limit = recursion_limit + 20
+        orig_limit = sys.getrecursionlimit()
+        pkgs = [builder.new_package('pkg-%d' % i) for i in range(pkg_limit)]
+
+        for i, pkg in enumerate(pkgs):
+            # Intentionally -1 for the first package (wrap-around)
+            ni = i - 1
+            pkg.not_in_testing()
+            pkg.depends_on(pkgs[ni])
+
+        try:
+            sys.setrecursionlimit(recursion_limit)
+            universe = builder.build()
+            groups = []
+
+            for pkg in pkgs:
+                group = (pkg.pkg_id.package_name, {pkg.pkg_id}, set())
+                groups.append(group)
+
+            expected = {g[0] for g in groups}
+            actual = universe.solve_groups(groups)
+            assert actual
+            assert expected == set(actual[0])
+            assert len(actual) == 1
+        finally:
+            sys.setrecursionlimit(orig_limit)
 
     def test_solver_simple_scc(self):
         builder = new_pkg_universe_builder()
