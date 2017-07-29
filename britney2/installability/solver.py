@@ -21,6 +21,115 @@ from britney2.utils import (ifilter_only, iter_except)
 from britney2.installability.tester import InstallabilityTester
 
 
+def compute_scc(graph):
+    """Iterative algorithm for strongly-connected components
+
+    Iterative variant of Tarjan's algorithm for finding strongly-connected
+    components.
+
+    :param graph: Table of all nodes along which their edges (in "before" and "after")
+    :return: List of components (each component is a list of items)
+    """
+    result = []
+    low = {}
+    node_stack = []
+
+    def _handle_succ(parent, parent_num, successors_remaining):
+        while successors_remaining:
+            succ = successors_remaining.pop()
+            succ_num = low.get(succ, None)
+            if succ_num is not None:
+                if succ_num < parent_num:
+                    # These two nodes are part of the probably
+                    # same SSC (or succ is isolated
+                    low[parent] = parent_num = succ_num
+                continue
+            # It cannot be a part of a SCC if it does not have depends
+            # or reverse depends.
+            if not graph[succ]['before'] or not graph[succ]['after']:
+                # Short-cut obviously isolated component
+                result.append((succ,))
+                # Set the item number so high that no other item might
+                # mistakenly assume that they can form a component via
+                # this item.
+                # (Replaces the "is w on the stack check" for us from
+                #  the original algorithm)
+                low[succ] = len(graph) + 1
+                continue
+            succ_num = len(low)
+            low[succ] = succ_num
+            work_stack.append((succ, len(node_stack), succ_num, graph[succ]['before']))
+            node_stack.append(succ)
+            # "Recurse" into the child node first
+            return True
+        return False
+
+    for n in graph:
+        if n in low:
+            continue
+        # It cannot be a part of a SCC if it does not have depends
+        # or reverse depends.
+        if not graph[n]['before'] or not graph[n]['after']:
+            # Short-cut obviously isolated component
+            result.append((n,))
+            # Set the item number so high that no other item might
+            # mistakenly assume that they can form a component via
+            # this item.
+            # (Replaces the "is w on the stack check" for us from
+            #  the original algorithm)
+            low[n] = len(graph) + 1
+            continue
+
+        root_num = len(low)
+        low[n] = root_num
+        # DFS work-stack needed to avoid call recursion.  It (more or less)
+        # replaces the variables on the call stack in Tarjan's algorithm
+        work_stack = [(n, len(node_stack), root_num, graph[n]['before'])]
+        node_stack.append(n)
+        while work_stack:
+            node, stack_idx, orig_node_num, successors = work_stack[-1]
+            if successors and _handle_succ(node, low[node], successors):
+                # _handle_succ has pushed a new node on to work_stack
+                # and we need to "restart" the loop to handle that first
+                continue
+
+            # This node is done; remove it from the work stack
+            work_stack.pop()
+
+            # This node is out of successor.  Push up the "low" value
+            # (Exception: root node has no parent)
+            node_num = low[node]
+            if work_stack:
+                parent = work_stack[-1][0]
+                parent_num = low[parent]
+                if node_num <= parent_num:
+                    # This node is a part of a component with its parent.
+                    # We update the parent's node number and push the
+                    # responsibility of building the component unto the
+                    # parent.
+                    low[parent] = node_num
+                    continue
+                if node_num != orig_node_num:
+                    # The node is a part of an SCC with a ancestor (and parent)
+                    continue
+            # We got a component
+            component = tuple(node_stack[stack_idx:])
+            del node_stack[stack_idx:]
+            result.append(component)
+            # Re-number all items, so no other item might
+            # mistakenly assume that they can form a component via
+            # one of these items.
+            # (Replaces the "is w on the stack check" for us from
+            #  the original algorithm)
+            new_num = len(graph) + 1
+            for item in component:
+                low[item] = new_num
+
+    assert not node_stack
+
+    return result
+
+
 class InstallabilitySolver(InstallabilityTester):
 
     def __init__(self, universe, revuniverse, testing, broken, essentials,
@@ -182,7 +291,7 @@ class InstallabilitySolver(InstallabilityTester):
         #
         # Each one of those components will become an "easy" hint.
 
-        comps = self._compute_scc(order)
+        comps = compute_scc(order)
         merged = {}
         scc = {}
         # Now that we got the SSCs (in comps), we select on item from
@@ -266,93 +375,6 @@ class InstallabilitySolver(InstallabilityTester):
 
         if debug_solver:  # pragma: no cover
             print("N: -- END LINEARIZED ORDER --")
-
-        return result
-
-    def _compute_scc(self, order):
-        """Iterative algorithm for strongly-connected components
-
-        Iterative variant of Tarjan's algorithm for finding strongly-connected
-        components.
-
-        :param order: Table of all nodes along which their ordering constraints
-        :return: List of components (each component is a list of items)
-        """
-        result = []
-        low = {}
-        node_stack = []
-
-        def _handle_succ(parent, parent_num, successors_remaining):
-            while successors_remaining:
-                succ = successors_remaining.pop()
-                succ_num = low.get(succ, None)
-                if succ_num is not None:
-                    if succ_num < parent_num:
-                        low[parent] = parent_num = succ_num
-                    continue
-                succ_num = len(low)
-                low[succ] = succ_num
-                # It cannot be a part of a SCC if it does not have depends
-                # or reverse depends.
-                if not order[succ]['before'] or not order[succ]['after']:
-                    # Short-cut obviously isolated component
-                    result.append((succ,))
-                    continue
-                work_stack.append((succ, len(node_stack), succ_num, order[succ]['before']))
-                node_stack.append(succ)
-                # "Recurse" into the child node first
-                return True
-            return False
-
-        for n in order:
-            if n in low:
-                continue
-            root_num = len(low)
-            low[n] = root_num
-            # It cannot be a part of a SCC if it does not have depends
-            # or reverse depends.
-            if not order[n]['before'] or not order[n]['after']:
-                # Short-cut obviously isolated component
-                result.append((n,))
-                continue
-            # DFS work-stack needed to avoid call recursion.  It (more or less)
-            # replaces the variables on the call stack in Tarjan's algorithm
-            work_stack = [(n, len(node_stack), root_num, order[n]['before'])]
-            node_stack.append(n)
-            while work_stack:
-                node, stack_idx, orig_node_num, successors = work_stack[-1]
-                if successors and _handle_succ(node, low[node], successors):
-                    # _handle_succ has pushed a new node on to work_stack
-                    # and we need to "restart" the loop to handle that first
-                    continue
-
-                # This node is done; remove it from the work stack
-                work_stack.pop()
-
-                # This node is out of successor.  Push up the "low" value
-                # (Exception: root node has no parent)
-                node_num = low[node]
-                if work_stack:
-                    parent = work_stack[-1][0]
-                    parent_num = low[parent]
-                    if node_num <= parent_num:
-                        # This node is a part of a component with its parent.
-                        # We update the parent's node number and push the
-                        # responsibility of building the component unto the
-                        # parent.
-                        low[parent] = node_num
-                        continue
-                    if node_num != orig_node_num:
-                        # The node is a part of an SCC with a ancestor (and parent)
-                        continue
-                # We got a component
-                component = tuple(node_stack[stack_idx:])
-                del node_stack[stack_idx:]
-                result.append(component)
-                for item in component:
-                    low[item] = node_num
-
-        assert not node_stack
 
         return result
 
