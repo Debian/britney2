@@ -1,7 +1,10 @@
 import sys
 import unittest
 
+from collections import OrderedDict
+
 from . import new_pkg_universe_builder
+from britney2.installability.solver import compute_scc
 
 
 class TestInstTester(unittest.TestCase):
@@ -493,6 +496,65 @@ class TestInstTester(unittest.TestCase):
         print("ACTUAL  : %s" % str(actual))
         assert expected == actual
 
+    def test_solver_no_scc_stack_bug(self):
+        """
+        This whitebox test is designed to trigger a bug in Tarjan's algorithm
+        if you omit the "w is on stack of points" check from the pseudo code
+        (or it is wrong).  It makes tons of assumptions about how compute_scc
+        works, so it is very sensitive to even minor tweaks.
+
+        There is no strongly-connected component in this test, but if we
+        trigger the bug, the algorithm will think there is one.
+        """
+
+        graph = OrderedDict()
+
+        graph['A'] = {
+            'before': ['C', 'B'],
+            'after': ['A0'],
+        }
+        graph['B'] = {
+            'before': ['F'],
+            'after': ['A'],
+        }
+        graph['C'] = {
+            'before': ['E', 'D'],
+            'after': ['A'],
+        }
+        graph['D'] = {
+            'before': [],
+            'after': ['C']
+        }
+        graph['E'] = {
+            'before': ['B'],
+            'after': ['C']
+        }
+        graph['F'] = {
+            'before': [],
+            'after': ['B']
+        }
+        graph['A0'] = {
+            'before': ['A0'],
+            'after': []
+        }
+
+        # We also assert that the order is correct to ensure that
+        # nodes were visited in the order we expected (the bug is
+        # visit order sensitive).
+        expected = [
+            ('F',),
+            ('B',),
+            ('D',),
+            ('E',),
+            ('C',),
+            ('A',),
+            ('A0',)
+        ]
+
+        actual = compute_scc(graph)
+        print("EXPECTED: %s" % str(expected))
+        print("ACTUAL  : %s" % str(actual))
+        assert expected == actual
 
 if __name__ == '__main__':
     unittest.main()
