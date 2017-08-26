@@ -57,6 +57,8 @@ The following are common types of arguments for hints:
  * Versioned item, format: `<item name>/<version>`
  * Architecture-qualified versioned item: `<item name>/<version>/<architecture>`
 
+(The above-mentioned types correspond to britney migration item types)
+
 Generally, for hints, all item names will be names of source packages.
 Furthermore, some hints also accept a `-` before the item name.  This
 generally refers to the removal of said item rather than the migration
