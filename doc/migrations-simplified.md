@@ -5,7 +5,7 @@
 
 This is a technical introduction to how britney
 handles migrations.  Being an introduction, it deliberately
-oversimplify certain things at the expense of accuracy.
+oversimplifies certain things at the expense of accuracy.
 It also covers common migration issues and how to fix
 them.
 
@@ -24,48 +24,53 @@ Debian-based distribution practises and terminology (such as
 ## A high level overview of britney and migrations
 
 The purpose of britney is to (semi-)automatically select
-a number of package groups from a series of source suites
+a number of migration items from a series of source suites
 (e.g. Debian unstable) that are ready to migrate to
 the target suite (e.g. Debian testing).
 
 The definition of "ready" can be summarized as satisfying all
 of the following points:
 
- 1. The package groups pass a number of policies for the target
+ 1. The migration items pass a number of policies for the target
     suite.  Most of these policies are basically that the
-    package groups do not regress on selected QA checks.
-    * A group satisfying this part is called a `valid candiate`.
+    migration items do not regress on selected QA checks.
+    * An item satisfying this part is called a `valid candiate`.
  1. Installability will not regress as a result of
-    migrating the package groups.
-    * A group that (also) satisfy this will be selected for migration.
+    migrating the migration items.
+    * An item that (also) satisfies this part will be selected
+      for migration.
 
-The keyword in both points being *regress*.  If a package
-has an existing issue in the target suite, a group with the
-new version is generally allowed to migrate if it has the
-same issue (as it is not a regression).
+The keyword in both points being *regress*.  If a package has an
+existing issue in the target suite, the item including a new version
+of that package is generally allowed to migrate if it has the same
+issue (as it is not a regression).
 
-This only leaves the definition of a package group.  In britney,
-these groups are known as "migration items" and they come in
-several variants.  These will be explained in the next section
+This only leaves the definition of a migration items.  They come
+in several variants defined in the next section.
 
 ## Migration items
 
-Internally, britney groups packages into "migration items"
-based on a few rules.  Every upload of a source package will
-be associated with a *source migration item*.  As the binary
-packages are built and uploaded, they will be included into
-the migration item and various QA checks/policies will be
-applied to the item.
+Internally, britney groups packages into migration items based on a
+few rules.  There are several kinds of migration items and this
+document will only describe the source migration item.
+
+>  A source migration item is one upload of a source package, with
+>  associated binary packages once built.
+
+Once a new version of a source package appears in the source suite,
+britney will create track it with a source migration item.  As the
+binary packages are built and uploaded, they will be included into the
+migration item and various QA checks/policies will be applied to the
+item.
 
 Once britney deems the item ready, she will attempt to
 migrate the item (i.e. source with its binaries) to the 
 target suite.
 
 
-There are several other migration types.  But they are
-not covered in this document as the primary audience
-of this document will generally not need to know about
-them to begin with.
+As implied earlier, there are several other migration types.  But they
+are not covered in this document.  They deal with cases like removals,
+rebuilds of existing binaries, etc.
 
 ## Migration phase 1: Policies / Excuses
 
@@ -138,8 +143,8 @@ the excuses.
 ### Confirming a migration
 
 To start with; if a migration is accepted and "committed" (i.e. it will not
-be rolled back), britney will include in a line starting with `final:` a la
-this example:
+be rolled back), britney will include in a line starting with `final:` like
+in this example:
 
     Apparently successful
     final: -cwltool,-libtest-redisserver-perl,-pinfo,-webdis,hol88
