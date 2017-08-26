@@ -11,7 +11,7 @@ them.
 
 The document is primarily aimed at contributors for
 distributions that want to understand the basics of
-britney and her migration rules.
+britney and its migration rules.
 
 The documentation also aspires to be a general purpose document
 for britney that is applicable for multiple distributions.
@@ -63,7 +63,7 @@ binary packages are built and uploaded, they will be included into the
 migration item and various QA checks/policies will be applied to the
 item.
 
-Once britney deems the item ready, she will attempt to
+Once britney deems the item ready, it will attempt to
 migrate the item (i.e. source with its binaries) to the 
 target suite.
 
@@ -105,7 +105,7 @@ to the items themselves:
 For the first case, a common example would be a new RC bug.  When the
 package if first uploaded, no body filed an RC bug yet so britney may
 flag it as "passing" the RC bug policy.  Then before it migrates, someone
-files an RC bug.  Once britney becomes aware of this, she will change
+files an RC bug.  Once britney becomes aware of this, it will change
 the verdict from pass to a permanent failure.  If the bug is closed
 without an upload, downgraded or it is determined that the bug is not 
 a regression compared to the target suite, britney will update the
@@ -115,7 +115,7 @@ For the second case, there was a "hidden" example with the RC bug in
 the previous paragraph. :)  But another example would be that piuparts
 flags an item as having a regression due to a false positive.  The
 false-positive is then found, fixed and the test is rerun.  Once the
-updated test result reaches britney, she will update her verdict.
+updated test result reaches britney, it will update her verdict.
 
 Finally, the people running the britney instance can overrule any
 policy by applying a [britney hint](hints.html), if they deem it
@@ -265,7 +265,7 @@ without it appearing for the version(s) in the target suite.
 
 Please note that these data sets do not include versions, so
 britney is unable to tell exactly which versions are affected.
-The only thing, she can tell, is what suite the bug affects.
+The only thing, it can tell, is what suite the bug affects.
 
 There is a number of common cases, where this is observed:
 
