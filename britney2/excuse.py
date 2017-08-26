@@ -31,7 +31,7 @@ VERDICT2DESC = {
     PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM:
         'BLOCKED: Cannot migrate due to another item, which is blocked (please check which dependencies are stuck)',
     PolicyVerdict.REJECTED_NEEDS_APPROVAL:
-        'BLOCKED: Needs an approval (either due to a freeze or due to the source suite)',
+        'BLOCKED: Needs an approval (either due to a freeze, the source suite or a manual hint)',
     PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT:
         'BLOCKED: Maybe temporary, maybe blocked but Britney is missing information (check below or the buildds)',
     PolicyVerdict.REJECTED_PERMANENTLY:
