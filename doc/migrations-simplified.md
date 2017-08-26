@@ -102,20 +102,23 @@ to the items themselves:
  1. Items that passed originally may fail in a later britney run.
  1. Likewise, items may go from a "permanent failure" to a pass.
 
-For the first case, a common example would be a new RC bug.  When the
-package if first uploaded, no body filed an RC bug yet so britney may
-flag it as "passing" the RC bug policy.  Then before it migrates, someone
-files an RC bug.  Once britney becomes aware of this, it will change
-the verdict from pass to a permanent failure.  If the bug is closed
-without an upload, downgraded or it is determined that the bug is not 
-a regression compared to the target suite, britney will update the
-verdict again.
+This can be seen in the following example case:
 
-For the second case, there was a "hidden" example with the RC bug in
-the previous paragraph. :)  But another example would be that piuparts
-flags an item as having a regression due to a false positive.  The
-false-positive is then found, fixed and the test is rerun.  Once the
-updated test result reaches britney, it will update her verdict.
+ 1. A new version of package is uploaded.
+    * Britney processes the package and concludes that there no blocking bugs,
+      so the package passes the bug policy.
+ 1. Then before it migrates, someone files a blocking bug against
+    the new version.
+    * Britney reprocesses the package and now concludes it has a regression in
+      the bug policy (i.e. the policy verdict goes from "pass" to "permanent fail").
+ 1. The bug is examined and it is determined that the bug also affects the
+    version in the target suite.  The bug tracker is updated to reflect this.
+    * Britney reprocesses the package again and now concludes there is a blocking
+      bug, but it is not a regression (since it also affects the target suite).
+      This means the policy verdict now go from "fail" to "pass".
+
+This is also applicable to e.g. the piuparts policy, where if the test is
+rescheduled on the piuparts side and the result changes as a result of that.
 
 Finally, the people running the britney instance can overrule any
 policy by applying a [britney hint](hints.html), if they deem it
