@@ -726,6 +726,8 @@ def read_sources_file(filename, sources=None, intern=sys.intern):
                                              [],
                                              maint,
                                              False,
+                                             get_field('Testsuite', '').split(),
+                                             get_field('Testsuite-Triggers', '').replace(',', '').split(),
                                              )
     return sources
 
