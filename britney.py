@@ -1142,7 +1142,7 @@ class Britney(object):
             pkg_name = pkg_id.package_name
 
             # retrieve the testing (if present) and unstable corresponding binary packages
-            binary_t = pkg_name in packages_t_a and packages_t_a[pkg_name] or None
+            binary_t = packages_t_a[pkg_name] if pkg_name in packages_t_a else None
             binary_u = packages_s_a[pkg_name]
 
             # this is the source version for the new binary package
