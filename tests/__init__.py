@@ -162,10 +162,11 @@ class TestData:
         '''
         self.path = tempfile.mkdtemp(prefix='testarchive.')
         self.apt_source = 'deb file://%s /' % self.path
-        self.series = 'series'
-        self.dirs = {False: os.path.join(self.path, 'data', self.series),
-                     True: os.path.join(
-                         self.path, 'data', '%s-proposed' % self.series)}
+        self.suite_testing = 'series'
+        self.suite_unstable = 'unstable'
+        self.compute_migrations = ''
+        self.dirs = {False: os.path.join(self.path, 'data', self.suite_testing),
+                     True: os.path.join(self.path, 'data', self.suite_unstable)}
         os.makedirs(self.dirs[False])
         os.mkdir(self.dirs[True])
         self.added_sources = {False: set(), True: set()}
@@ -177,11 +178,11 @@ class TestData:
                 with open(os.path.join(dir, 'Packages_' + arch), 'w'):
                     pass
         for dir in self.dirs.values():
-            for fname in ['Dates', 'Blocks']:
+            for fname in ['Dates', 'Blocks', 'Urgency', 'BugsV']:
                 with open(os.path.join(dir, fname), 'w'):
                     pass
-            for dname in ['Hints']:
-                os.mkdir(os.path.join(dir, dname))
+        os.mkdir(os.path.join(self.path, 'data', 'hints'))
+        shutil.copytree(os.path.join(PROJECT_DIR, 'tests', 'policy-test-data', 'piuparts', 'basic'), os.path.join(self.dirs[False], 'state'))
 
         os.mkdir(os.path.join(self.path, 'output'))
 
@@ -268,6 +269,68 @@ Maintainer: Joe <joe@example.com>
             open(os.path.join(self.dirs[unstable], 'Packages_' + a), 'w').close()
         open(os.path.join(self.dirs[unstable], 'Sources'), 'w').close()
 
+    def add_default_packages(self, libc6=True, green=True, lightgreen=True, darkgreen=True, blue=True, black=True, grey=True):
+        '''To avoid duplication, add packages we need all the time'''
+
+        # libc6 (always)
+        self.add('libc6', False)
+        if (libc6 is True):
+            self.add('libc6', True)
+
+        # src:green
+        self.add('libgreen1', False, {'Source': 'green',
+                                          'Depends': 'libc6 (>= 0.9)'},
+                      testsuite='autopkgtest')
+        if (green is True):
+            self.add('libgreen1', True, {'Source': 'green',
+                                              'Depends': 'libc6 (>= 0.9)'},
+                          testsuite='autopkgtest')
+        self.add('green', False, {'Depends': 'libc6 (>= 0.9), libgreen1',
+                                       'Conflicts': 'blue'},
+                      testsuite='autopkgtest')
+        if (green is True):
+            self.add('green', True, {'Depends': 'libc6 (>= 0.9), libgreen1',
+                                           'Conflicts': 'blue'},
+                          testsuite='autopkgtest')
+
+        # lightgreen
+        self.add('lightgreen', False, {'Depends': 'libgreen1'},
+                      testsuite='autopkgtest')
+        if (lightgreen is True):
+            self.add('lightgreen', True, {'Depends': 'libgreen1'},
+                          testsuite='autopkgtest')
+
+        ## autodep8 or similar test
+        # darkgreen
+        self.add('darkgreen', False, {'Depends': 'libgreen1'},
+                      testsuite='autopkgtest-pkg-foo')
+        if (darkgreen is True):
+            self.add('darkgreen', True, {'Depends': 'libgreen1'},
+                          testsuite='autopkgtest-pkg-foo')
+
+        # blue
+        self.add('blue', False, {'Depends': 'libc6 (>= 0.9)',
+                                      'Conflicts': 'green'},
+                      testsuite='specialtest')
+        if blue is True:
+            self.add('blue', True, {'Depends': 'libc6 (>= 0.9)',
+                                         'Conflicts': 'green'},
+                          testsuite='specialtest')
+
+        # black
+        self.add('black', False, {},
+                      testsuite='autopkgtest')
+        if black is True:
+            self.add('black', True, {},
+                          testsuite='autopkgtest')
+
+        # grey
+        self.add('grey', False, {},
+                      testsuite='autopkgtest')
+        if grey is True:
+            self.add('grey', True, {},
+                          testsuite='autopkgtest')
+
 
 class TestBase(unittest.TestCase):
 
@@ -278,8 +341,58 @@ class TestBase(unittest.TestCase):
         self.britney = os.path.join(PROJECT_DIR, 'britney.py')
         # create temporary config so that tests can hack it
         self.britney_conf = os.path.join(self.data.path, 'britney.conf')
-        shutil.copy(os.path.join(PROJECT_DIR, 'britney.conf'), self.britney_conf)
+        with open(self.britney_conf, 'w') as f:
+            f.write('''
+TESTING           = data/series
+UNSTABLE          = data/unstable
+
+NONINST_STATUS    = data/series/non-installable-status
+EXCUSES_OUTPUT    = output/excuses.html
+EXCUSES_YAML_OUTPUT = output/excuses.yaml
+UPGRADE_OUTPUT    = output/output.txt
+HEIDI_OUTPUT      = output/HeidiResult
+
+STATIC_INPUT_DIR  = data/series/input
+STATE_DIR         = data/series/state
+
+ARCHITECTURES     = amd64 arm64 armhf i386 powerpc ppc64el
+NOBREAKALL_ARCHES = amd64 arm64 armhf i386 powerpc ppc64el
+OUTOFSYNC_ARCHES  =
+BREAK_ARCHES      =
+NEW_ARCHES        =
+
+MINDAYS_LOW       = 0
+MINDAYS_MEDIUM    = 0
+MINDAYS_HIGH      = 0
+MINDAYS_CRITICAL  = 0
+MINDAYS_EMERGENCY = 0
+DEFAULT_URGENCY   = medium
+
+HINTSDIR = data/hints
+
+HINTS_AUTOPKGTEST = ALL
+HINTS_FREEZE      = block block-all block-udeb
+HINTS_FREEZE-EXCEPTION = unblock unblock-udeb
+HINTS_SATBRITNEY  = easy
+HINTS_AUTO-REMOVALS = remove
+
+SMOOTH_UPDATES    = badgers
+
+IGNORE_CRUFT      = 0
+
+REMOVE_OBSOLETE   = no
+
+ADT_ENABLE        = yes
+ADT_ARCHES        = amd64 i386
+ADT_AMQP          = file://output/debci.input
+ADT_PPAS          =
+ADT_SHARED_RESULTS_CACHE =
+
+# TODO: remove next line
+ADT_SWIFT_URL     = overwritten_by_the_test_anyways
+''')
         assert os.path.exists(self.britney)
+
 
     def tearDown(self):
         del self.data
@@ -291,8 +404,7 @@ class TestBase(unittest.TestCase):
         Return (excuses.yaml, excuses.html, britney_out).
         '''
         britney = subprocess.Popen([self.britney, '-v', '-c', self.britney_conf,
-                                    '--distribution=ubuntu',
-                                    '--series=%s' % self.data.series],
+                                   '%s' % self.data.compute_migrations],
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
                                    cwd=self.data.path,
@@ -301,10 +413,10 @@ class TestBase(unittest.TestCase):
         self.assertEqual(britney.returncode, 0, out + err)
         self.assertEqual(err, '')
 
-        with open(os.path.join(self.data.path, 'output', self.data.series,
+        with open(os.path.join(self.data.path, 'output',
                                'excuses.yaml')) as f:
             yaml = f.read()
-        with open(os.path.join(self.data.path, 'output', self.data.series,
+        with open(os.path.join(self.data.path, 'output',
                                'excuses.html')) as f:
             html = f.read()
 
@@ -314,7 +426,7 @@ class TestBase(unittest.TestCase):
         '''Create a hint file for the given username and content'''
 
         hints_path = os.path.join(
-            self.data.path, 'data', self.data.series + '-proposed', 'Hints', username)
+            self.data.path, 'data', 'hints', username)
         with open(hints_path, 'a') as fd:
             fd.write(content)
             fd.write('\n')
