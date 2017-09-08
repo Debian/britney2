@@ -131,14 +131,14 @@ class AutopkgtestPolicy(BasePolicy):
         amqp_url = self.options.adt_amqp
 
         if amqp_url.startswith('amqp://'):
-            # in production mode, connect to AMQP server
+            # depending on the setup we connect to a AMQP server
             creds = urllib.parse.urlsplit(amqp_url, allow_fragments=False)
             self.amqp_con = amqp.Connection(creds.hostname, userid=creds.username,
                                             password=creds.password)
             self.amqp_channel = self.amqp_con.channel()
             self.log('Connected to AMQP server')
         elif amqp_url.startswith('file://'):
-            # in testing mode, adt_amqp will be a file:// URL
+            # or in Debian and in testing mode, adt_amqp will be a file:// URL
             self.amqp_file = amqp_url[7:]
         else:
             raise RuntimeError('Unknown ADT_AMQP schema %s' % amqp_url.split(':', 1)[0])
@@ -177,6 +177,7 @@ class AutopkgtestPolicy(BasePolicy):
         for arch in self.adt_arches:
             # request tests (unless they were already requested earlier or have a result)
             tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
+            # TODO: this value should be an option
             is_huge = len(tests) > 20
             for (testsrc, testver) in tests:
                 self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
@@ -185,6 +186,7 @@ class AutopkgtestPolicy(BasePolicy):
 
         # add test result details to Excuse
         verdict = PolicyVerdict.PASS
+        # TODO: should be generic / an option
         cloud_url = "http://autopkgtest.ubuntu.com/packages/%(h)s/%(s)s/%(r)s/%(a)s"
         for (testsrc, testver) in sorted(pkg_arch_result):
             arch_results = pkg_arch_result[(testsrc, testver)]
