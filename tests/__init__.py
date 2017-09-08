@@ -162,7 +162,7 @@ class TestData:
         '''
         self.path = tempfile.mkdtemp(prefix='testarchive.')
         self.apt_source = 'deb file://%s /' % self.path
-        self.suite_testing = 'series'
+        self.suite_testing = 'testing'
         self.suite_unstable = 'unstable'
         self.compute_migrations = ''
         self.dirs = {False: os.path.join(self.path, 'data', self.suite_testing),
@@ -343,17 +343,17 @@ class TestBase(unittest.TestCase):
         self.britney_conf = os.path.join(self.data.path, 'britney.conf')
         with open(self.britney_conf, 'w') as f:
             f.write('''
-TESTING           = data/series
+TESTING           = data/testing
 UNSTABLE          = data/unstable
 
-NONINST_STATUS    = data/series/non-installable-status
+NONINST_STATUS    = data/testing/non-installable-status
 EXCUSES_OUTPUT    = output/excuses.html
 EXCUSES_YAML_OUTPUT = output/excuses.yaml
 UPGRADE_OUTPUT    = output/output.txt
 HEIDI_OUTPUT      = output/HeidiResult
 
-STATIC_INPUT_DIR  = data/series/input
-STATE_DIR         = data/series/state
+STATIC_INPUT_DIR  = data/testing/input
+STATE_DIR         = data/testing/state
 
 ARCHITECTURES     = amd64 arm64 armhf i386 powerpc ppc64el
 NOBREAKALL_ARCHES = amd64 arm64 armhf i386 powerpc ppc64el

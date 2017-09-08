@@ -422,7 +422,7 @@ class Britney(object):
                           help="Compute which packages can migrate (the default)")
         parser.add_option("", "--no-compute-migrations", action="store_false", dest="compute_migrations",
                           help="Do not compute which packages can migrate.")
-        parser.add_option("", "--series", action="store", dest="series", default='series',
+        parser.add_option("", "--series", action="store", dest="series", default='testing',
                                help="set distribution series name")
         (self.options, self.args) = parser.parse_args()
         

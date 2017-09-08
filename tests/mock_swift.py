@@ -156,15 +156,15 @@ class AutoPkgTestSwiftServer:
 
 if __name__ == '__main__':
     srv = AutoPkgTestSwiftServer()
-    srv.set_results({'autopkgtest-series': {
-        'series/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1'),
-        'series/i386/g/green/20150101_100000@': (0, 'green 1', {'custom_environment': ['ADT_TEST_TRIGGERS=green']}),
-        'series/i386/l/lightgreen/20150101_100000@': (0, 'lightgreen 1'),
-        'series/i386/l/lightgreen/20150101_100101@': (4, 'lightgreen 2'),
-        'series/i386/l/lightgreen/20150101_100102@': (0, 'lightgreen 3'),
+    srv.set_results({'autopkgtest-testing': {
+        'testing/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1'),
+        'testing/i386/g/green/20150101_100000@': (0, 'green 1', {'custom_environment': ['ADT_TEST_TRIGGERS=green']}),
+        'testing/i386/l/lightgreen/20150101_100000@': (0, 'lightgreen 1'),
+        'testing/i386/l/lightgreen/20150101_100101@': (4, 'lightgreen 2'),
+        'testing/i386/l/lightgreen/20150101_100102@': (0, 'lightgreen 3'),
     }})
     srv.start()
-    print('Running on http://localhost:8080/autopkgtest-series')
+    print('Running on http://localhost:8080/autopkgtest-testing')
     print('Press Enter to quit.')
     sys.stdin.readline()
     srv.stop()
