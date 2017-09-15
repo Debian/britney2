@@ -10,12 +10,13 @@ before_install:
 
 install:
     # install build dependencies
-    - sudo apt-get install -qq --no-install-recommends python3 python3-apt python3-yaml python3-coverage python3-nose rsync libclass-accessor-perl
+    - sudo apt-get install -qq --no-install-recommends python3 python3-apt python3-yaml python3-coverage python3-nose rsync libclass-accessor-perl python3-amqplib
 
 script:
     - nosetests3 -v --with-coverage
     - britney2-tests/bin/runtests ./ci/britney-coverage.sh britney2-tests/t test-out
     - britney2-tests/bin/runtests ./britney.py britney2-tests/live-data test-out-live-data
+    - britney2-tests/bin/runtests ./tests/test_autopkgtest.py
 after_success:
   - python3-coverage report
   - python3-coverage report -m
