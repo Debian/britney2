@@ -118,6 +118,21 @@ class AutopkgtestPolicy(BasePolicy):
             self.log('%s does not exist, re-downloading all results from swift' %
                      self.results_cache_file)
 
+        # read in the new results
+        if self.options.adt_swift_url.startswith('file://'):
+            debci_file = self.options.adt_swift_url[7:]
+            if os.path.exists(debci_file):
+                with open(debci_file) as f:
+                    test_results = json.load(f)
+                self.log('Read new results from %s' % debci_file)
+                for result in test_results:
+                    (trigger, src, arch, ver, passed, stamp) = result
+                    self.remove_from_pending(trigger, src, arch)
+                    self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
+            else:
+                self.log('%s does not exist, no new data will be processed' %
+                             debci_file)
+
         # we need sources, binaries, and installability tester, so for now
         # remember the whole britney object
         self.britney = britney
@@ -557,35 +572,41 @@ class AutopkgtestPolicy(BasePolicy):
 
         # remove matching test requests
         for trigger in result_triggers:
-            try:
-                arch_list = self.pending_tests[trigger][src]
-                arch_list.remove(arch)
-                if not arch_list:
-                    del self.pending_tests[trigger][src]
-                if not self.pending_tests[trigger]:
-                    del self.pending_tests[trigger]
-                self.log('-> matches pending request %s/%s for trigger %s' % (src, arch, trigger))
-            except (KeyError, ValueError):
-                self.log('-> does not match any pending request for %s/%s' % (src, arch))
+            self.remove_from_pending(trigger, src, arch)
 
         # add this result
         for trigger in result_triggers:
-            # If a test runs because of its own package (newer version), ensure
-            # that we got a new enough version; FIXME: this should be done more
-            # generically by matching against testpkg-versions
-            (trigsrc, trigver) = trigger.split('/', 1)
-            if trigsrc == src and apt_pkg.version_compare(ver, trigver) < 0:
-                self.log('test trigger %s, but run for older version %s, ignoring' % (trigger, ver), 'E')
-                continue
+            self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
 
-            result = self.test_results.setdefault(trigger, {}).setdefault(
-                src, {}).setdefault(arch, [False, None, ''])
+    def remove_from_pending(self, trigger, src, arch):
+        try:
+            arch_list = self.pending_tests[trigger][src]
+            arch_list.remove(arch)
+            if not arch_list:
+                del self.pending_tests[trigger][src]
+            if not self.pending_tests[trigger]:
+                del self.pending_tests[trigger]
+            self.log('-> matches pending request %s/%s for trigger %s' % (src, arch, trigger))
+        except (KeyError, ValueError):
+            self.log('-> does not match any pending request for %s/%s' % (src, arch))
 
-            # don't clobber existing passed results with failures from re-runs
-            if passed or not result[0]:
-                result[0] = passed
-                result[1] = ver
-                result[2] = stamp
+    def add_trigger_to_results(self, trigger, src, ver, arch, stamp, passed):
+        # If a test runs because of its own package (newer version), ensure
+        # that we got a new enough version; FIXME: this should be done more
+        # generically by matching against testpkg-versions
+        (trigsrc, trigver) = trigger.split('/', 1)
+        if trigsrc == src and apt_pkg.version_compare(ver, trigver) < 0:
+            self.log('test trigger %s, but run for older version %s, ignoring' % (trigger, ver), 'E')
+            return
+    
+        result = self.test_results.setdefault(trigger, {}).setdefault(
+            src, {}).setdefault(arch, [False, None, ''])
+    
+        # don't clobber existing passed results with failures from re-runs
+        if passed or not result[0]:
+            result[0] = passed
+            result[1] = ver
+            result[2] = stamp
 
     def send_test_request(self, src, arch, trigger, huge=False):
         '''Send out AMQP request for testing src/arch for trigger
@@ -628,6 +649,8 @@ class AutopkgtestPolicy(BasePolicy):
         # Don't re-request if we already have a result
         try:
             passed = self.test_results[trigger][src][arch][0]
+            if self.options.adt_swift_url.startswith('file://'):
+                return
             if passed:
                 self.log('%s/%s triggered by %s already passed' % (src, arch, trigger))
                 return
@@ -635,6 +658,10 @@ class AutopkgtestPolicy(BasePolicy):
                              (src, arch, trigger))
             raise KeyError  # fall through
         except KeyError:
+            # Without swift we don't expect new results
+            if self.options.adt_swift_url.startswith('file://'):
+                pass
+
             self.fetch_swift_results(self.options.adt_swift_url, src, arch)
             # do we have one now?
             try:

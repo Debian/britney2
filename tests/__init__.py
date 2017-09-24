@@ -388,8 +388,7 @@ ADT_AMQP          = file://output/debci.input
 ADT_PPAS          =
 ADT_SHARED_RESULTS_CACHE =
 
-# TODO: remove next line
-ADT_SWIFT_URL     = overwritten_by_the_test_anyways
+ADT_SWIFT_URL     = http://localhost:18085
 ''')
         assert os.path.exists(self.britney)
 

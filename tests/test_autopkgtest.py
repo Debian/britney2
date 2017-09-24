@@ -48,10 +48,6 @@ class T(TestBase):
         for line in fileinput.input(self.britney_conf, inplace=True):
             if 'ADT_AMQP' in line:
                 print('ADT_AMQP = file://%s' % self.fake_amqp)
-            elif 'ADT_SWIFT_URL' in line:
-                print('ADT_SWIFT_URL = http://localhost:18085')
-            elif 'ADT_ARCHES' in line:
-                print('ADT_ARCHES = amd64 i386')
             else:
                 sys.stdout.write(line)
 
@@ -2392,6 +2388,75 @@ class T(TestBase):
 ###             'red': [('reason', 'source-ppa')]}
 ###        )[1]
 ###        self.assertEqual(exc['red']['policy_info']['source-ppa'], {'red': ppa, 'green': ppa})
+
+
+    def test_swift_url_is_file(self):
+        '''Run without swift but with debci file (as Debian does)'''
+        '''Based on test_multi_rdepends_with_tests_regression'''
+        '''Multiple reverse dependencies with tests (regression)'''
+
+        debci_file = os.path.join(self.data.path, 'debci.output')
+
+        # Don't use swift but debci output file
+        for line in fileinput.input(self.britney_conf, inplace=True):
+            if line.startswith('ADT_SWIFT_URL'):
+                print('ADT_SWIFT_URL     = file://%s' % debci_file)
+            else:
+                sys.stdout.write(line)
+
+        with open(debci_file, 'w') as f:
+            f.write('''
+[
+  ["green/2", "darkgreen",  "i386",  "1", true,  "20170917_100000"],
+  ["green/2", "darkgreen",  "amd64", "1", true,  "20170917_100000"],
+  ["green/1", "lightgreen", "i386",  "1", true,  "20170917_101000"],
+  ["green/2", "lightgreen", "i386",  "1", false, "20170917_101001"],
+  ["green/1", "lightgreen", "amd64", "1", true,  "20170917_101000"],
+  ["green/2", "lightgreen", "amd64", "1", false, "20170917_101001"],
+  ["green/2", "green",      "i386",  "2", true,  "20170917_102000"],
+  ["green/1", "green",      "amd64", "2", true,  "20170917_102000"],
+  ["green/2", "green",      "amd64", "2", false, "20170917_102001"]
+]
+''')
+
+        self.data.add_default_packages(green=False)
+
+        out, exc, _ = self.do_test(
+            [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
+            {'green': (False, {'green/2': {'amd64': 'REGRESSION', 'i386': 'PASS'},
+                               'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
+                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
+                              })
+            },
+            {'green': [('old-version', '1'), ('new-version', '2')]}
+        )
+
+        # should have links to log and history, but no artifacts (as this is
+        # not a PPA)
+        self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][0],
+                         'REGRESSION')
+        link = urllib.parse.urlparse(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][1])
+        self.assertEqual(link.path, os.path.join(debci_file, 'autopkgtest-testing/testing/amd64/l/lightgreen/20170917_101001/log.gz'))
+        self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][2:4],
+                         ['http://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
+                          None])
+
+        # should have retry link for the regressions (not a stable URL, test
+        # separately)
+        link = urllib.parse.urlparse(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][4])
+        self.assertEqual(link.netloc, 'autopkgtest.ubuntu.com')
+        self.assertEqual(link.path, '/request.cgi')
+        self.assertEqual(urllib.parse.parse_qs(link.query),
+                         {'release': ['testing'], 'arch': ['amd64'],
+                          'package': ['lightgreen'], 'trigger': ['green/2']})
+
+        # we already had all results before the run, so this should not trigger
+        # any new requests
+        self.assertEqual(self.amqp_requests, set())
+        self.assertEqual(self.pending_requests, {})
+
+        # not expecting any failures to retrieve from swift
+        self.assertNotIn('Failure', out, out)
 
 
 if __name__ == '__main__':
