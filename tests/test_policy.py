@@ -39,7 +39,7 @@ def create_excuse(name):
 def create_source_package(version, section='devel', binaries=None):
     if binaries is None:
         binaries = []
-    return SourcePackage(version, section, binaries, 'Random tester', False)
+    return SourcePackage(version, section, binaries, 'Random tester', False, '', '')
 
 
 def create_policy_objects(source_name, target_version, source_version):
