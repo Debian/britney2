@@ -6,8 +6,8 @@
 This document describes the "britney hints".  These are basically
 small instructions to britney.  The vast majority of them involve
 overriding a quality gating policy in britney.  However, there are a
-few hints that assist britney into finding solutions that she cannot
-compute herself.
+few hints that assist britney into finding solutions that it cannot
+compute itself.
 
 
 ## Related configuration
@@ -18,7 +18,7 @@ configurations that defines a "hint file" and the related hint
 permissions for it.
 
 For each `HINTS_<NAME>` configuration, britney will attempt to read
-`<HINTSDIR>/<name>`.  Note that she lowercases `<NAME>` when looking
+`<HINTSDIR>/<name>`.  Note that it lowercases `<NAME>` when looking
 for the file.
 
 
@@ -215,7 +215,7 @@ compared to the original situation, the action is committed.
 
 This hint is primarily useful if britney fails to compute a valid
 solution for a concrete problem with a valid solution.  Although, in
-many cases, Britney will generally figure out the solution on her own.
+many cases, Britney will generally figure out the solution on its own.
 
 Note that for `easy` the `<action list>` must have at least two
 elements.  There is no use-case where a single element for easy will
@@ -239,7 +239,7 @@ rather expensive and should be used sparingly.
 
 This hint is primarily useful if britney fails to compute a valid
 solution for a concrete problem with a valid solution.  Although, in
-many cases, Britney will generally figure out the solution on her own.
+many cases, Britney will generally figure out the solution on its own.
 
 *Caveat*: Due to "uninstallability trading", this hint may cause
 undesireable changes to the target suite.  In practise, this is rather
