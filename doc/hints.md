@@ -210,7 +210,7 @@ entire hint is rejected as invalid.
 ### easy `<action list>`
 
 Perform all the migrations and removals denoted by `<action list>` as if
-it was a single migration group.  If the end result is equal or better
+it were a single migration group.  If the end result is equal or better
 compared to the original situation, the action is committed.
 
 This hint is primarily useful if britney fails to compute a valid
@@ -224,7 +224,7 @@ make sense (as britney always tries those).
 ### hint `<action list>`
 
 Perform all the migrations and removals denoted by `<action list>` as if
-it was a single migration group.  After that, process all remaining
+it were a single migration group.  After that, process all remaining
 (unmigrated) items and accept any that can now be processed.  If the
 end result is equal or better compared to the original situation, the
 result is committed.  Otherwise, all actions triggered by the hint are
