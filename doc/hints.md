@@ -215,7 +215,7 @@ compared to the original situation, the action is committed.
 
 This hint is primarily useful if britney fails to compute a valid
 solution for a concrete problem with a valid solution.  Although, in
-many cases, Britney will generally figure out the solution on its own.
+many cases, britney will generally figure out the solution on its own.
 
 Note that for `easy` the `<action list>` must have at least two
 elements.  There is no use-case where a single element for easy will
@@ -239,7 +239,7 @@ rather expensive and should be used sparingly.
 
 This hint is primarily useful if britney fails to compute a valid
 solution for a concrete problem with a valid solution.  Although, in
-many cases, Britney will generally figure out the solution on its own.
+many cases, britney will generally figure out the solution on its own.
 
 *Caveat*: Due to "uninstallability trading", this hint may cause
 undesireable changes to the target suite.  In practise, this is rather
