@@ -30,7 +30,7 @@ Configuration example:
     HINTS_FREEZE = block block-all block-udeb
     HINTS_AUTO-REMOVALS = remove
 
-There is no fixed rules for how to use hints files.  Though usually,
+There are no fixed rules for how to use hints files.  Though usually,
 each person with permissions to give hints to britney will have their
 own hint file along with write permissions for that file.  It can also
 make sense to create hint files for "roles".  Like in the above
