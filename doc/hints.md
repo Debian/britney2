@@ -31,7 +31,7 @@ Configuration example:
     HINTS_AUTO-REMOVALS = remove
 
 There is no fixed rules for how to use hints files.  Though usually,
-each person with permissions to give hints to Britney will have their
+each person with permissions to give hints to britney will have their
 own hint file along with write permissions for that file.  It can also
 make sense to create hint files for "roles".  Like in the above
 example there are two human hints (anna and john) plus two non-human
@@ -77,7 +77,7 @@ There are the following type of hints:
 ## Policy override hints
 
 The policy override hints are used to disable or tweak various
-policies in Britney.  Their effects are generally very precise ways of
+policies in britney.  Their effects are generally very precise ways of
 accepting specific regressions or disabling various checks.
 
 Some of these items are built-in while others are related to specific
