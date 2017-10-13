@@ -210,13 +210,13 @@ class T(TestBase):
         self.assertEqual(exc['darkgreen']['policy_info']['autopkgtest'],
                          {'darkgreen': {
                              'amd64': ['RUNNING-ALWAYSFAIL',
-                                       'http://autopkgtest.ubuntu.com/running',
-                                       'http://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/amd64',
+                                       'https://autopkgtest.ubuntu.com/running',
+                                       'https://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/amd64',
                                        None,
                                        None],
                              'i386': ['RUNNING-ALWAYSFAIL',
-                                      'http://autopkgtest.ubuntu.com/running',
-                                      'http://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/i386',
+                                      'https://autopkgtest.ubuntu.com/running',
+                                      'https://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/i386',
                                       None,
                                       None]},
                          'verdict': 'PASS'})
@@ -499,7 +499,7 @@ class T(TestBase):
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][:4],
                          ['REGRESSION',
                           'http://localhost:18085/autopkgtest-testing/testing/amd64/l/lightgreen/20150101_100101@/log.gz',
-                          'http://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
+                          'https://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
                           None])
 
         # should have retry link for the regressions (not a stable URL, test
@@ -2217,12 +2217,12 @@ class T(TestBase):
         self.assertEqual(exc['lightgreen']['policy_info']['autopkgtest'],
                          {'lightgreen': {
                              'amd64': ['RUNNING-ALWAYSFAIL',
-                                       'http://autopkgtest.ubuntu.com/running',
+                                       'https://autopkgtest.ubuntu.com/running',
                                        None,
                                        None,
                                        None],
                              'i386': ['RUNNING-ALWAYSFAIL',
-                                      'http://autopkgtest.ubuntu.com/running',
+                                      'https://autopkgtest.ubuntu.com/running',
                                       None,
                                       None,
                                       None]},
@@ -2438,7 +2438,7 @@ class T(TestBase):
         link = urllib.parse.urlparse(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][1])
         self.assertEqual(link.path, os.path.join(debci_file, 'autopkgtest-testing/testing/amd64/l/lightgreen/20170917_101001/log.gz'))
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][2:4],
-                         ['http://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
+                         ['https://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
                           None])
 
         # should have retry link for the regressions (not a stable URL, test

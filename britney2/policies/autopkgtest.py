@@ -201,8 +201,7 @@ class AutopkgtestPolicy(BasePolicy):
 
         # add test result details to Excuse
         verdict = PolicyVerdict.PASS
-        # TODO: should be generic / an option
-        cloud_url = "http://autopkgtest.ubuntu.com/packages/%(h)s/%(s)s/%(r)s/%(a)s"
+        cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
         for (testsrc, testver) in sorted(pkg_arch_result):
             arch_results = pkg_arch_result[(testsrc, testver)]
             r = set([v[0] for v in arch_results.values()])
@@ -228,7 +227,7 @@ class AutopkgtestPolicy(BasePolicy):
                         'h': srchash(testsrc), 's': testsrc,
                         'r': self.options.series, 'a': arch}
                 if status == 'REGRESSION':
-                    retry_url = 'https://autopkgtest.ubuntu.com/request.cgi?' + \
+                    retry_url = self.options.adt_ci_url + 'request.cgi?' + \
                             urllib.parse.urlencode([('release', self.options.series),
                                                     ('arch', arch),
                                                     ('package', testsrc),
@@ -741,7 +740,7 @@ class AutopkgtestPolicy(BasePolicy):
                     result = 'RUNNING'
                 else:
                     result = 'RUNNING-ALWAYSFAIL'
-                url = 'http://autopkgtest.ubuntu.com/running'
+                url = self.options.adt_ci_url + 'running'
             else:
                 raise RuntimeError('Result for %s/%s/%s (triggered by %s) is neither known nor pending!' %
                                    (src, ver, arch, trigger))
