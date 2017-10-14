@@ -6,8 +6,8 @@
 This document describes the "britney hints".  These are basically
 small instructions to britney.  The vast majority of them involve
 overriding a quality gating policy in britney.  However, there are a
-few hints that assist britney into finding solutions that she cannot
-compute herself.
+few hints that assist britney into finding solutions that it cannot
+compute itself.
 
 
 ## Related configuration
@@ -18,7 +18,7 @@ configurations that defines a "hint file" and the related hint
 permissions for it.
 
 For each `HINTS_<NAME>` configuration, britney will attempt to read
-`<HINTSDIR>/<name>`.  Note that she lowercases `<NAME>` when looking
+`<HINTSDIR>/<name>`.  Note that it lowercases `<NAME>` when looking
 for the file.
 
 
@@ -30,8 +30,8 @@ Configuration example:
     HINTS_FREEZE = block block-all block-udeb
     HINTS_AUTO-REMOVALS = remove
 
-There is no fixed rules for how to use hints files.  Though usually,
-each person with permissions to give hints to Britney will have their
+There are no fixed rules for how to use hints files.  Though usually,
+each person with permissions to give hints to britney will have their
 own hint file along with write permissions for that file.  It can also
 make sense to create hint files for "roles".  Like in the above
 example there are two human hints (anna and john) plus two non-human
@@ -77,7 +77,7 @@ There are the following type of hints:
 ## Policy override hints
 
 The policy override hints are used to disable or tweak various
-policies in Britney.  Their effects are generally very precise ways of
+policies in britney.  Their effects are generally very precise ways of
 accepting specific regressions or disabling various checks.
 
 Some of these items are built-in while others are related to specific
@@ -210,12 +210,12 @@ entire hint is rejected as invalid.
 ### easy `<action list>`
 
 Perform all the migrations and removals denoted by `<action list>` as if
-it was a single migration group.  If the end result is equal or better
+it were a single migration group.  If the end result is equal or better
 compared to the original situation, the action is committed.
 
 This hint is primarily useful if britney fails to compute a valid
 solution for a concrete problem with a valid solution.  Although, in
-many cases, Britney will generally figure out the solution on her own.
+many cases, britney will generally figure out the solution on its own.
 
 Note that for `easy` the `<action list>` must have at least two
 elements.  There is no use-case where a single element for easy will
@@ -224,7 +224,7 @@ make sense (as britney always tries those).
 ### hint `<action list>`
 
 Perform all the migrations and removals denoted by `<action list>` as if
-it was a single migration group.  After that, process all remaining
+it were a single migration group.  After that, process all remaining
 (unmigrated) items and accept any that can now be processed.  If the
 end result is equal or better compared to the original situation, the
 result is committed.  Otherwise, all actions triggered by the hint are
@@ -239,7 +239,7 @@ rather expensive and should be used sparingly.
 
 This hint is primarily useful if britney fails to compute a valid
 solution for a concrete problem with a valid solution.  Although, in
-many cases, Britney will generally figure out the solution on her own.
+many cases, britney will generally figure out the solution on its own.
 
 *Caveat*: Due to "uninstallability trading", this hint may cause
 undesireable changes to the target suite.  In practise, this is rather

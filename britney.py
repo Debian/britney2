@@ -1101,7 +1101,7 @@ class Britney(object):
         # if the package is blocked, skip it
         for hint in self.hints.search('block', package=pkg, removal=True):
             excuse.addhtml("Not touching package, as requested by %s "
-                "(check https://release.debian.org/testing/freeze_policy.html if update is needed)" % hint.user)
+                "(contact debian-release if update is needed)" % hint.user)
             excuse.addreason("block")
             self.excuses[excuse.name] = excuse
             return False
@@ -1159,7 +1159,7 @@ class Britney(object):
             pkg_name = pkg_id.package_name
 
             # retrieve the testing (if present) and unstable corresponding binary packages
-            binary_t = pkg_name in packages_t_a and packages_t_a[pkg_name] or None
+            binary_t = packages_t_a[pkg_name] if pkg_name in packages_t_a else None
             binary_u = packages_s_a[pkg_name]
 
             # this is the source version for the new binary package
@@ -1369,7 +1369,7 @@ class Britney(object):
                         excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
                                        (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
                 if suite == 'unstable' or block_cmd == 'block-udeb':
-                    tooltip = "check https://release.debian.org/testing/freeze_policy.html if update is needed"
+                    tooltip = "please contact debian-release if update is needed"
                     # redirect people to d-i RM for udeb things:
                     if block_cmd == 'block-udeb':
                         tooltip = "please contact the d-i release manager if an update is needed"
