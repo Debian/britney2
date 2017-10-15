@@ -88,6 +88,9 @@ class Excuse(object):
         self.old_binaries = defaultdict(set)
         self.policy_info = {}
 
+        self.bounty = {}
+        self.penalty = {}
+
     def sortkey(self):
         if self.daysold == None:
             return (-1, self.name)
@@ -294,3 +297,10 @@ class Excuse(object):
         excusedata["is-candidate"] = self.is_valid
         return excusedata
 
+    def add_bounty(self, policy, bounty):
+        """"adding bounty"""
+        self.bounty[policy] = bounty
+
+    def add_penalty(self, policy, penalty):
+        """"adding penalty"""
+        self.penalty[policy] = penalty

@@ -281,6 +281,12 @@ class AgePolicy(BasePolicy):
 
         days_old = self._date_now - self._dates[source_name][1]
         min_days = self._min_days[urgency]
+        for bounty in excuse.bounty.values():
+            self.log('Applying bounty: %d days' % bounty)
+            min_days -= bounty
+        for penalty in excuse.penalty.values():
+            self.log('Applying penalty: %d days' % penalty)
+            min_days += penalty
         age_info['age-requirement'] = min_days
         age_info['current-age'] = days_old
 

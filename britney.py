@@ -518,11 +518,11 @@ class Britney(object):
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
 
-        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
         self.policies.append(PiupartsPolicy(self.options, self.suite_info))
         if getattr(self.options, 'adt_enable') == 'yes':
             self.policies.append(AutopkgtestPolicy(self.options, self.suite_info))
+        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
 
         for policy in self.policies:
             policy.register_hints(self._hint_parser)

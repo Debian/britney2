@@ -268,6 +268,15 @@ class AutopkgtestPolicy(BasePolicy):
                 verdict = PolicyVerdict.PASS_HINTED
             else:
                 excuse.addreason('autopkgtest')
+
+        if self.options.adt_success_bounty and verdict == PolicyVerdict.PASS:
+            excuse.add_bounty('autopkgtest', int(self.options.adt_success_bounty))
+        if self.options.adt_regression_penalty and verdict == PolicyVerdict.REJECTED_PERMANENTLY:
+            excuse.add_penalty('autopkgtest', int(self.options.adt_regression_penalty))
+            # In case we give penalties instead of blocking, we must pass in
+            # case of regression.
+            verdict = PolicyVerdict.PASS
+
         return verdict
 
     #

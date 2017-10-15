@@ -390,6 +390,9 @@ ADT_SHARED_RESULTS_CACHE =
 
 ADT_SWIFT_URL     = http://localhost:18085
 ADT_CI_URL        = https://autopkgtest.ubuntu.com/
+
+ADT_SUCCESS_BOUNTY     =
+ADT_REGRESSION_PENALTY =
 ''')
         assert os.path.exists(self.britney)
 

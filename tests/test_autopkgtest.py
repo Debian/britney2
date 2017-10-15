@@ -2458,6 +2458,109 @@ class T(TestBase):
         # not expecting any failures to retrieve from swift
         self.assertNotIn('Failure', out, out)
 
+    def test_multi_rdepends_with_tests_mixed_penalty(self):
+        '''Bounty/penalty system instead of blocking
+        based on "Multiple reverse dependencies with tests (mixed results)"'''
+
+        # Don't use policy verdics, but age packages appropriate
+        for line in fileinput.input(self.britney_conf, inplace=True):
+            if line.startswith('MINDAYS_MEDIUM'):
+                print('MINDAYS_MEDIUM = 13')
+            elif line.startswith('ADT_SUCCESS_BOUNTY'):
+                print('ADT_SUCCESS_BOUNTY     = 6')
+            elif line.startswith('ADT_REGRESSION_PENALTY'):
+                print('ADT_REGRESSION_PENALTY = 27')
+            else:
+                sys.stdout.write(line)
+
+        self.data.add_default_packages(green=False)
+
+        # green has passed before on i386 only, therefore ALWAYSFAIL on amd64
+        self.swift.set_results({'autopkgtest-testing': {
+            'testing/i386/g/green/20150101_100000@': (0, 'green 1', tr('passedbefore/1')),
+        }})
+
+        # first run requests tests and marks them as pending
+        exc = self.do_test(
+            [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
+            {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
+                               'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+                               'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+                              })
+            },
+            {'green': [('old-version', '1'), ('new-version', '2')]})[1]
+
+        # while no autopkgtest results are known, default age applies
+        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 13)
+
+        # second run collects the results
+        self.swift.set_results({'autopkgtest-testing': {
+            'testing/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/2')),
+            'testing/amd64/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('green/1')),
+            'testing/amd64/l/lightgreen/20150101_100101@': (4, 'lightgreen 1', tr('green/2')),
+            'testing/i386/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
+            'testing/amd64/g/green/20150101_100201@': (4, 'green 2', tr('green/2')),
+            # unrelated results (wrong trigger), ignore this!
+            'testing/amd64/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/1')),
+            'testing/i386/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('blue/1')),
+        }})
+
+        res = self.do_test(
+            [],
+            {'green': (False, {'green/2': {'amd64': 'ALWAYSFAIL', 'i386': 'PASS'},
+                               'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'RUNNING'},
+                               'darkgreen/1': {'amd64': 'RUNNING', 'i386': 'PASS'},
+                              })
+            })
+        out = res[0]
+        exc = res[1]
+
+        self.assertIn('Update Excuses generation completed', out)
+        # not expecting any failures to retrieve from swift
+        self.assertNotIn('Failure', out)
+
+        # there should be some pending ones
+        self.assertEqual(self.pending_requests,
+                         {'green/2': {'darkgreen': ['amd64'], 'lightgreen': ['i386']}})
+
+        # autopkgtest should not cause the package to be blocked
+        self.assertEqual(exc['green']['policy_info']['autopkgtest']['verdict'], 'PASS')
+        # instead, it should cause the age to sky-rocket
+        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 40)
+        
+    def test_passing_package_receives_bounty(self):
+        '''Does not request a test for an uninstallable package'''
+
+        # Don't use policy verdics, but age packages appropriate
+        for line in fileinput.input(self.britney_conf, inplace=True):
+            if line.startswith('MINDAYS_MEDIUM'):
+                print('MINDAYS_MEDIUM = 13')
+            elif line.startswith('ADT_SUCCESS_BOUNTY'):
+                print('ADT_SUCCESS_BOUNTY     = 6')
+            elif line.startswith('ADT_REGRESSION_PENALTY'):
+                print('ADT_REGRESSION_PENALTY = 27')
+            else:
+                sys.stdout.write(line)
+
+        self.data.add_default_packages(green=False)
+
+        self.swift.set_results({'autopkgtest-testing': {
+            'testing/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/2')),
+            'testing/amd64/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/2')),
+            'testing/i386/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('green/2')),
+            'testing/amd64/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('green/2')),
+            'testing/i386/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
+            'testing/amd64/g/green/20150101_100201@': (0, 'green 2', tr('green/2')),
+        }})
+
+        exc = self.do_test(
+            [('green', {'Version': '2'}, 'autopkgtest')],
+            {'green': (False, {})},
+            {})[1]
+
+        # it should cause the age to drop
+        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 7)
+
 
 if __name__ == '__main__':
     unittest.main()
