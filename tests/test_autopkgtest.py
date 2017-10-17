@@ -152,7 +152,7 @@ class T(TestBase):
             pass
 
         try:
-            with open(os.path.join(self.data.path, 'data/unstable/autopkgtest/pending.json')) as f:
+            with open(os.path.join(self.data.path, 'data/testing/state/pending.json')) as f:
                 self.pending_requests = json.load(f)
         except IOError:
                 self.pending_requests = None
@@ -368,7 +368,7 @@ class T(TestBase):
         self.assertNotIn('Failure', out, out)
 
         # caches the results and triggers
-        with open(os.path.join(self.data.path, 'data/unstable/autopkgtest/results.cache')) as f:
+        with open(os.path.join(self.data.path, 'data/testing/state/results.cache')) as f:
             res = json.load(f)
         self.assertEqual(res['green/1']['green']['amd64'],
                          [False, '1', '20150101_020000@'])
@@ -1378,7 +1378,7 @@ class T(TestBase):
         self.do_test(
             [],
             {'lightgreen': (False, {'lightgreen/2': {'amd64': 'REGRESSION', 'i386': 'RUNNING'}})})
-        with open(os.path.join(self.data.path, 'data/unstable/autopkgtest/results.cache')) as f:
+        with open(os.path.join(self.data.path, 'data/testing/state/results.cache')) as f:
             contents = f.read()
         self.assertNotIn('null', contents)
         self.assertNotIn('None', contents)
@@ -2303,7 +2303,7 @@ class T(TestBase):
         )
 
         # move and remember original contents
-        local_path = os.path.join(self.data.path, 'data/unstable/autopkgtest/results.cache')
+        local_path = os.path.join(self.data.path, 'data/testing/state/results.cache')
         shared_path = os.path.join(self.data.path, 'shared_results.cache')
         os.rename(local_path, shared_path)
         with open(shared_path) as f:

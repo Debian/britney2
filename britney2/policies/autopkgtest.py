@@ -62,11 +62,10 @@ class AutopkgtestPolicy(BasePolicy):
 
     def __init__(self, options, suite_info):
         super().__init__('autopkgtest', options, suite_info, {'unstable'})
-        self.test_state_dir = os.path.join(options.unstable, 'autopkgtest')
         # tests requested in this and previous runs
         # trigger -> src -> [arch]
         self.pending_tests = None
-        self.pending_tests_file = os.path.join(self.test_state_dir, 'pending.json')
+        self.pending_tests_file = os.path.join(self.options.state_dir, 'pending.json')
 
         # results map: trigger -> src -> arch -> [passed, version, run_id]
         # - trigger is "source/version" of an unstable package that triggered
@@ -81,7 +80,7 @@ class AutopkgtestPolicy(BasePolicy):
         if self.options.adt_shared_results_cache:
             self.results_cache_file = self.options.adt_shared_results_cache
         else:
-            self.results_cache_file = os.path.join(self.test_state_dir, 'results.cache')
+            self.results_cache_file = os.path.join(self.options.state_dir, 'results.cache')
 
         try:
             self.options.adt_ppas = self.options.adt_ppas.strip().split()
@@ -106,7 +105,7 @@ class AutopkgtestPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
-        os.makedirs(self.test_state_dir, exist_ok=True)
+        os.makedirs(self.options.state_dir, exist_ok=True)
         self.read_pending_tests()
 
         # read the cached results that we collected so far
