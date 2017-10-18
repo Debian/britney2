@@ -291,6 +291,22 @@ class AgePolicy(BasePolicy):
                 self.log('Applying penalty for %s given by %s: %d days' %
                             (source_name, penalty, excuse.penalty[penalty]))
                 min_days += excuse.penalty[penalty]
+        try:
+            bounty_min_age = int(self.options.bounty_min_age)
+        except ValueError:
+            if self.options.bounty_min_age in self._min_days:
+                bounty_min_age = self._min_days[self.options.bounty_min_age]
+            else:
+                raise ValueError('Please fix BOUNTY_MIN_AGE in the britney configuration')
+        except AttributeError:
+            # The option wasn't defined in the configuration
+            bounty_min_age = 0
+        # the age in BOUNTY_MIN_AGE can be higher than the one associated with
+        # the real urgency, so don't forget to take it into account
+        bounty_min_age =  min(bounty_min_age, self._min_days[urgency])
+        if min_days < bounty_min_age:
+            min_days = bounty_min_age
+            excuse.addhtml('Required age is not allowed to drop below %d days' % min_days)
         age_info['age-requirement'] = min_days
         age_info['current-age'] = days_old
 

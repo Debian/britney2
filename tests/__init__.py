@@ -368,6 +368,7 @@ MINDAYS_CRITICAL  = 0
 MINDAYS_EMERGENCY = 0
 DEFAULT_URGENCY   = medium
 NO_PENALTIES      = high critical emergency
+BOUNTY_MIN_AGE    = 8
 
 HINTSDIR = data/hints
 

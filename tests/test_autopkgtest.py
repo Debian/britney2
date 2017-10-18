@@ -2566,7 +2566,7 @@ class T(TestBase):
         self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 13)
 
     def test_passing_package_receives_bounty(self):
-        '''Does not request a test for an uninstallable package'''
+        '''Test bounty system (instead of policy verdict)'''
 
         # Don't use policy verdics, but age packages appropriate
         for line in fileinput.input(self.britney_conf, inplace=True):
@@ -2596,7 +2596,8 @@ class T(TestBase):
             {})[1]
 
         # it should cause the age to drop
-        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 7)
+        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 8)
+        self.assertEqual(exc['green']['excuses'][-1], 'Required age is not allowed to drop below 8 days')
 
 
 if __name__ == '__main__':
