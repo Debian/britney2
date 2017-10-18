@@ -367,6 +367,7 @@ MINDAYS_HIGH      = 0
 MINDAYS_CRITICAL  = 0
 MINDAYS_EMERGENCY = 0
 DEFAULT_URGENCY   = medium
+NO_PENALTIES      = high critical emergency
 
 HINTSDIR = data/hints
 

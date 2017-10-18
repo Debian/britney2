@@ -2528,6 +2528,43 @@ class T(TestBase):
         # instead, it should cause the age to sky-rocket
         self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 40)
         
+    def test_multi_rdepends_with_tests_no_penalty(self):
+        '''Check that penalties are not applied for "urgency >= high"'''
+
+        # Don't use policy verdics, but age packages appropriate
+        for line in fileinput.input(self.britney_conf, inplace=True):
+            if line.startswith('MINDAYS_MEDIUM'):
+                print('MINDAYS_MEDIUM = 13')
+            elif line.startswith('ADT_SUCCESS_BOUNTY'):
+                print('ADT_SUCCESS_BOUNTY     = 6')
+            elif line.startswith('ADT_REGRESSION_PENALTY'):
+                print('ADT_REGRESSION_PENALTY = 27')
+            elif line.startswith('NO_PENALTIES'):
+                print('NO_PENALTIES = medium')
+            else:
+                sys.stdout.write(line)
+
+        self.data.add_default_packages(green=False)
+
+        self.swift.set_results({'autopkgtest-testing': {
+            'testing/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/2')),
+            'testing/amd64/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('green/1')),
+            'testing/amd64/l/lightgreen/20150101_100101@': (4, 'lightgreen 1', tr('green/2')),
+            'testing/i386/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
+            'testing/amd64/g/green/20150101_100201@': (4, 'green 2', tr('green/2')),
+        }})
+
+        exc = self.do_test(
+            [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
+            {'green': (False, {'green/2': {'amd64': 'ALWAYSFAIL', 'i386': 'PASS'},
+                               'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'RUNNING-ALWAYSFAIL'},
+                               'darkgreen/1': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'PASS'},
+                              })
+                 })[1]
+
+        # age-requirement should remain the same despite regression
+        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 13)
+
     def test_passing_package_receives_bounty(self):
         '''Does not request a test for an uninstallable package'''
 

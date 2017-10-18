@@ -285,10 +285,12 @@ class AgePolicy(BasePolicy):
             self.log('Applying bounty for %s granted by %s: %d days' %
                          (source_name, bounty, excuse.bounty[bounty]))
             min_days -= excuse.bounty[bounty]
-        for penalty in excuse.penalty:
-            self.log('Applying penalty for %s given by %s: %d days' %
-                         (source_name, penalty, excuse.penalty[penalty]))
-            min_days += excuse.penalty[penalty]
+        if not hasattr(self.options, 'no_penalties') or \
+          urgency not in self.options.no_penalties:
+            for penalty in excuse.penalty:
+                self.log('Applying penalty for %s given by %s: %d days' %
+                            (source_name, penalty, excuse.penalty[penalty]))
+                min_days += excuse.penalty[penalty]
         age_info['age-requirement'] = min_days
         age_info['current-age'] = days_old
 
