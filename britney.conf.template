@@ -127,6 +127,9 @@ ADT_SHARED_RESULTS_CACHE =
 ADT_SWIFT_URL     = file:///path/to/britney/state/debci.json
 # Base URL for autopkgtest site, used for links in the excuses
 ADT_CI_URL        = https://example.com/
+# Enable the huge queue for packages that trigger vast amounts of tests to not
+# starve the regular queue
+#ADT_HUGE          = 20
 
 # Autopkgtest results can be used to influence the aging, leave
 # ADT_REGRESSION_PENALTY empty to have regressions block migration

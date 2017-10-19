@@ -191,8 +191,11 @@ class AutopkgtestPolicy(BasePolicy):
         for arch in self.adt_arches:
             # request tests (unless they were already requested earlier or have a result)
             tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
-            # TODO: this value should be an option
-            is_huge = len(tests) > 20
+            is_huge = False
+            try:
+                is_huge = len(tests) > int(self.options.adt_huge)
+            except AttributeError:
+                pass
             for (testsrc, testver) in tests:
                 self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
                 (result, real_ver, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
