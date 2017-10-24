@@ -705,7 +705,7 @@ class T(TestBase):
         self.assertEqual(self.pending_requests, {})
 
     def test_partial_unbuilt(self):
-        '''Unbuilt package on some arches should not trigger tests'''
+        '''Unbuilt package on some arches should not trigger tests on those arches'''
 
         self.data.add_default_packages(green=False)
 
@@ -715,6 +715,12 @@ class T(TestBase):
                                        'Conflicts': 'blue'},
                       testsuite='autopkgtest', add_src=False)
 
+        self.swift.set_results({'autopkgtest-testing': {
+            'testing/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/2')),
+            'testing/i386/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('green/2')),
+            'testing/i386/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
+        }})
+
         exc = self.do_test(
             [],
             {'green': (False, {})},
@@ -723,13 +729,13 @@ class T(TestBase):
                                            'on-unimportant-architectures': []})
                       ]
             })[1]
-        # autopkgtest should not be triggered for unbuilt pkg
-        self.assertEqual(exc['green']['policy_info']['autopkgtest'], {'verdict': 'REJECTED_TEMPORARILY'})
+        # autopkgtest should not be triggered on arches with unbuilt pkg
+        self.assertEqual(exc['green']['policy_info']['autopkgtest']['verdict'], 'REJECTED_TEMPORARILY')
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
 
     def test_partial_unbuilt_block(self):
-        '''Unbuilt blocked package on some arches should not trigger tests'''
+        '''Unbuilt blocked package on some arches should not trigger tests on those arches'''
 
         self.data.add_default_packages(green=False)
 
@@ -741,6 +747,12 @@ class T(TestBase):
                                        'Conflicts': 'blue'},
                       testsuite='autopkgtest', add_src=False)
 
+        self.swift.set_results({'autopkgtest-testing': {
+            'testing/i386/d/darkgreen/20150101_100000@': (0, 'darkgreen 1', tr('green/2')),
+            'testing/i386/l/lightgreen/20150101_100100@': (0, 'lightgreen 1', tr('green/2')),
+            'testing/i386/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
+        }})
+
         exc = self.do_test(
             [],
             {'green': (False, {})},
@@ -749,8 +761,8 @@ class T(TestBase):
                                            'on-unimportant-architectures': []})
                       ]
             })[1]
-        # autopkgtest should not be triggered for unbuilt pkg
-        self.assertEqual(exc['green']['policy_info']['autopkgtest'], {'verdict': 'REJECTED_TEMPORARILY'})
+        # autopkgtest should not be triggered on arches with unbuilt pkg
+        self.assertEqual(exc['green']['policy_info']['autopkgtest']['verdict'], 'REJECTED_TEMPORARILY')
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
 
@@ -2490,8 +2502,8 @@ class T(TestBase):
             },
             {'green': [('old-version', '1'), ('new-version', '2')]})[1]
 
-        # while no autopkgtest results are known, default age applies
-        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 13)
+        # while no autopkgtest results are known, penalty applies
+        self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 40)
 
         # second run collects the results
         self.swift.set_results({'autopkgtest-testing': {

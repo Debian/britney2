@@ -174,95 +174,105 @@ class AutopkgtestPolicy(BasePolicy):
         os.rename(self.pending_tests_file + '.new', self.pending_tests_file)
 
     def apply_policy_impl(self, tests_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
-        # skip/delay autopkgtests until package is built
-        binaries_info = self.britney.sources[suite][source_name]
-        if excuse.missing_builds or not binaries_info.binaries or 'depends' in excuse.reason:
-            self.log('%s has missing builds or is uninstallable, skipping autopkgtest policy' % excuse.name)
-            return PolicyVerdict.REJECTED_TEMPORARILY
-
-        self.log('Checking autopkgtests for %s' % source_name)
-        trigger = source_name + '/' + source_data_srcdist.version
-
-        # build a (testsrc, testver) → arch → (status, log_url) map; we trigger/check test
-        # results per archtitecture for technical/efficiency reasons, but we
-        # want to evaluate and present the results by tested source package
-        # first
-        pkg_arch_result = {}
-        for arch in self.adt_arches:
-            # request tests (unless they were already requested earlier or have a result)
-            tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
-            is_huge = False
-            try:
-                is_huge = len(tests) > int(self.options.adt_huge)
-            except AttributeError:
-                pass
-            for (testsrc, testver) in tests:
-                self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
-                (result, real_ver, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
-                pkg_arch_result.setdefault((testsrc, real_ver), {})[arch] = (result, url)
-
-        # add test result details to Excuse
+        # initialize
         verdict = PolicyVerdict.PASS
         src_has_own_test = False
-        cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
-        for (testsrc, testver) in sorted(pkg_arch_result):
-            arch_results = pkg_arch_result[(testsrc, testver)]
-            r = set([v[0] for v in arch_results.values()])
-            if 'REGRESSION' in r:
-                verdict = PolicyVerdict.REJECTED_PERMANENTLY
-            elif 'RUNNING' in r and verdict == PolicyVerdict.PASS:
-                verdict = PolicyVerdict.REJECTED_TEMPORARILY
-            # skip version if still running on all arches
-            if not r - {'RUNNING', 'RUNNING-ALWAYSFAIL'}:
-                testver = None
 
-            # Keep track if this source package has tests of its own for the
-            # bounty system
-            if testsrc == source_name:
-                src_has_own_test = True
+        # skip/delay autopkgtests until new package is built somewhere
+        binaries_info = self.britney.sources[suite][source_name]
+        if not binaries_info.binaries:
+            self.log('%s hasn''t been built anywhere, skipping autopkgtest policy' % excuse.name)
+            verdict = PolicyVerdict.REJECTED_TEMPORARILY
 
-            html_archmsg = []
-            for arch in sorted(arch_results):
-                (status, log_url) = arch_results[arch]
-                artifact_url = None
-                retry_url = None
-                history_url = None
-                if self.options.adt_ppas:
-                    if log_url.endswith('log.gz'):
-                        artifact_url = log_url.replace('log.gz', 'artifacts.tar.gz')
+        if verdict == PolicyVerdict.PASS:
+            self.log('Checking autopkgtests for %s' % source_name)
+            trigger = source_name + '/' + source_data_srcdist.version
+
+            # build a (testsrc, testver) → arch → (status, log_url) map; we trigger/check test
+            # results per archtitecture for technical/efficiency reasons, but we
+            # want to evaluate and present the results by tested source package
+            # first
+            pkg_arch_result = {}
+            for arch in self.adt_arches:
+                if arch in excuse.missing_builds:
+                    verdict = PolicyVerdict.REJECTED_TEMPORARILY
+                    self.log('%s hasn''t been built on arch %s, delay autopkgtest there' % (source_name, arch))
+                elif arch in excuse.break_arch:
+                    verdict = PolicyVerdict.REJECTED_TEMPORARILY
+                    self.log('%s is uninstallable on arch %s, delay autopkgtest there' % (source_name, arch))
                 else:
-                    history_url = cloud_url % {
-                        'h': srchash(testsrc), 's': testsrc,
-                        'r': self.options.series, 'a': arch}
-                if status == 'REGRESSION':
-                    retry_url = self.options.adt_ci_url + 'request.cgi?' + \
-                            urllib.parse.urlencode([('release', self.options.series),
-                                                    ('arch', arch),
-                                                    ('package', testsrc),
-                                                    ('trigger', trigger)] +
-                                                   [('ppa', p) for p in self.options.adt_ppas])
-                if testver:
-                    testname = '%s/%s' % (testsrc, testver)
-                else:
-                    testname = testsrc
+                    # request tests (unless they were already requested earlier or have a result)
+                    tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
+                    is_huge = False
+                    try:
+                        is_huge = len(tests) > int(self.options.adt_huge)
+                    except AttributeError:
+                        pass
+                    for (testsrc, testver) in tests:
+                        self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
+                        (result, real_ver, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
+                        pkg_arch_result.setdefault((testsrc, real_ver), {})[arch] = (result, url)
 
-                tests_info.setdefault(testname, {})[arch] = \
-                        [status, log_url, history_url, artifact_url, retry_url]
+            # add test result details to Excuse
+            cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
+            for (testsrc, testver) in sorted(pkg_arch_result):
+                arch_results = pkg_arch_result[(testsrc, testver)]
+                r = set([v[0] for v in arch_results.values()])
+                if 'REGRESSION' in r:
+                    verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                elif 'RUNNING' in r and verdict == PolicyVerdict.PASS:
+                    verdict = PolicyVerdict.REJECTED_TEMPORARILY
+                # skip version if still running on all arches
+                if not r - {'RUNNING', 'RUNNING-ALWAYSFAIL'}:
+                    testver = None
 
-                # render HTML snippet for testsrc entry for current arch
-                if history_url:
-                    message = '<a href="%s">%s</a>' % (history_url, arch)
-                else:
-                    message = arch
-                message += ': <a href="%s">%s</a>' % (log_url, EXCUSES_LABELS[status])
-                if retry_url:
-                    message += ' <a href="%s" style="text-decoration: none;">♻ </a> ' % retry_url
-                if artifact_url:
-                    message += ' <a href="%s">[artifacts]</a>' % artifact_url
-                html_archmsg.append(message)
+                # Keep track if this source package has tests of its own for the
+                # bounty system
+                if testsrc == source_name:
+                    src_has_own_test = True
 
-            # render HTML line for testsrc entry
-            excuse.addhtml("autopkgtest for %s: %s" % (testname, ', '.join(html_archmsg)))
+                html_archmsg = []
+                for arch in sorted(arch_results):
+                    (status, log_url) = arch_results[arch]
+                    artifact_url = None
+                    retry_url = None
+                    history_url = None
+                    if self.options.adt_ppas:
+                        if log_url.endswith('log.gz'):
+                            artifact_url = log_url.replace('log.gz', 'artifacts.tar.gz')
+                    else:
+                        history_url = cloud_url % {
+                            'h': srchash(testsrc), 's': testsrc,
+                            'r': self.options.series, 'a': arch}
+                    if status == 'REGRESSION':
+                        retry_url = self.options.adt_ci_url + 'request.cgi?' + \
+                                urllib.parse.urlencode([('release', self.options.series),
+                                                        ('arch', arch),
+                                                        ('package', testsrc),
+                                                        ('trigger', trigger)] +
+                                                       [('ppa', p) for p in self.options.adt_ppas])
+                    if testver:
+                        testname = '%s/%s' % (testsrc, testver)
+                    else:
+                        testname = testsrc
+
+                    tests_info.setdefault(testname, {})[arch] = \
+                            [status, log_url, history_url, artifact_url, retry_url]
+
+                    # render HTML snippet for testsrc entry for current arch
+                    if history_url:
+                        message = '<a href="%s">%s</a>' % (history_url, arch)
+                    else:
+                        message = arch
+                    message += ': <a href="%s">%s</a>' % (log_url, EXCUSES_LABELS[status])
+                    if retry_url:
+                        message += ' <a href="%s" style="text-decoration: none;">♻ </a> ' % retry_url
+                    if artifact_url:
+                        message += ' <a href="%s">[artifacts]</a>' % artifact_url
+                    html_archmsg.append(message)
+
+                # render HTML line for testsrc entry
+                excuse.addhtml("autopkgtest for %s: %s" % (testname, ', '.join(html_archmsg)))
 
 
         if verdict != PolicyVerdict.PASS:
@@ -279,10 +289,10 @@ class AutopkgtestPolicy(BasePolicy):
 
         if self.options.adt_success_bounty and verdict == PolicyVerdict.PASS and src_has_own_test:
             excuse.add_bounty('autopkgtest', int(self.options.adt_success_bounty))
-        if self.options.adt_regression_penalty and verdict == PolicyVerdict.REJECTED_PERMANENTLY:
+        if self.options.adt_regression_penalty and \
+          verdict in [PolicyVerdict.REJECTED_PERMANENTLY, PolicyVerdict.REJECTED_TEMPORARILY]:
             excuse.add_penalty('autopkgtest', int(self.options.adt_regression_penalty))
-            # In case we give penalties instead of blocking, we must pass in
-            # case of regression.
+            # In case we give penalties instead of blocking, we must always pass
             verdict = PolicyVerdict.PASS
 
         return verdict

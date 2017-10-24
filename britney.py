@@ -1058,6 +1058,7 @@ class Britney(object):
             if not packages:
                 excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
                 excuse.addreason("depends")
+                excuse.add_depends_breaks_arch(arch)
                 if arch not in self.options.break_arches:
                     is_all_ok = False
                 continue
