@@ -197,7 +197,7 @@ class AutopkgtestPolicy(BasePolicy):
                 if arch in excuse.missing_builds:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
                     self.log('%s hasn''t been built on arch %s, delay autopkgtest there' % (source_name, arch))
-                elif arch in excuse.break_arch:
+                elif arch in excuse.unsatisfiable_on_archs:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
                     self.log('%s is uninstallable on arch %s, delay autopkgtest there' % (source_name, arch))
                 else:

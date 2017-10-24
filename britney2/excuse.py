@@ -78,7 +78,7 @@ class Excuse(object):
         self.deps = {}
         self.sane_deps = []
         self.break_deps = []
-        self.break_arch = []
+        self.unsatisfiable_on_archs = []
         self.bugs = []
         self.newbugs = set()
         self.oldbugs = set()
@@ -140,10 +140,10 @@ class Excuse(object):
         if (name, arch) not in self.break_deps:
             self.break_deps.append( (name, arch) )
 
-    def add_depends_breaks_arch(self,  arch):
-        """Add an arch that breaks by dependency"""
-        if  arch not in self.break_arch:
-            self.break_arch.append(arch)
+    def add_unsatisfiable_on_arch(self,  arch):
+        """Add an arch that has unsatisfiable dependencies"""
+        if  arch not in self.unsatisfiable_on_archs:
+            self.unsatisfiable_on_archs.append(arch)
 
     def invalidate_dep(self, name):
         """Invalidate dependency"""
