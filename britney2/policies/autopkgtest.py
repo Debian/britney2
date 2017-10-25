@@ -685,16 +685,14 @@ class AutopkgtestPolicy(BasePolicy):
             raise KeyError  # fall through
         except KeyError:
             # Without swift we don't expect new results
-            if self.options.adt_swift_url.startswith('file://'):
-                pass
-
-            self.fetch_swift_results(self.options.adt_swift_url, src, arch)
-            # do we have one now?
-            try:
-                self.test_results[trigger][src][arch]
-                return
-            except KeyError:
-                pass
+            if not self.options.adt_swift_url.startswith('file://'):
+                self.fetch_swift_results(self.options.adt_swift_url, src, arch)
+                # do we have one now?
+                try:
+                    self.test_results[trigger][src][arch]
+                    return
+                except KeyError:
+                    pass
 
         # Don't re-request if it's already pending
         arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
