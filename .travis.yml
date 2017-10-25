@@ -16,7 +16,6 @@ script:
     - nosetests3 -v --with-coverage
     - britney2-tests/bin/runtests ./ci/britney-coverage.sh britney2-tests/t test-out
     - britney2-tests/bin/runtests ./britney.py britney2-tests/live-data test-out-live-data
-    - tests/test_autopkgtest.py
 after_success:
   - python3-coverage report
   - python3-coverage report -m
