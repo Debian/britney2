@@ -783,7 +783,7 @@ def invalidate_excuses(excuses, valid, invalid):
     """Invalidate impossible excuses
 
     This method invalidates the impossible excuses, which depend
-    on invalid excuses. The two parameters contains the list of
+    on invalid excuses. The two parameters contains the sets of
     `valid' and `invalid' excuses.
     """
 
@@ -794,7 +794,7 @@ def invalidate_excuses(excuses, valid, invalid):
             revdeps[d].append(exc.name)
 
     # loop on the invalid excuses
-    for i, ename in enumerate(invalid):
+    for ename in iter_except(invalid.pop, KeyError):
         # if there is no reverse dependency, skip the item
         if ename not in revdeps:
             continue
@@ -816,8 +816,8 @@ def invalidate_excuses(excuses, valid, invalid):
                 # otherwise, invalidate the dependency and mark as invalidated and
                 # remove the depending excuses
                 excuses[x].invalidate_dep(ename)
-                p = valid.index(x)
-                invalid.append(valid.pop(p))
+                valid.discard(x)
+                invalid.add(x)
                 excuses[x].addhtml("Invalidated by dependency")
                 excuses[x].addreason("depends")
                 if excuses[x].policy_verdict.value < rdep_verdict.value:

@@ -74,7 +74,7 @@ class Excuse(object):
         self.forced = False
         self._policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        self.invalid_deps = []
+        self.invalid_deps = set()
         self.deps = {}
         self.sane_deps = []
         self.break_deps = []
@@ -137,7 +137,7 @@ class Excuse(object):
 
     def invalidate_dep(self, name):
         """Invalidate dependency"""
-        if name not in self.invalid_deps: self.invalid_deps.append(name)
+        self.invalid_deps.add(name)
 
     def setdaysold(self, daysold, mindays):
         """Set the number of days from the upload and the minimum number of days for the update"""
