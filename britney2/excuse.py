@@ -78,7 +78,6 @@ class Excuse(object):
         self.deps = {}
         self.sane_deps = []
         self.break_deps = []
-        self.bugs = []
         self.newbugs = set()
         self.oldbugs = set()
         self.reason = {}
