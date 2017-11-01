@@ -721,11 +721,18 @@ def read_sources_file(filename, sources=None, intern=sys.intern):
         section = get_field('Section')
         if section:
             section = intern(section.strip())
+        build_deps_arch = ", ".join(x for x in (get_field('Build-Depends'), get_field('Build-Depends-Arch'))
+                                    if x is not None)
+        if build_deps_arch != '':
+            build_deps_arch = sys.intern(build_deps_arch)
+        else:
+            build_deps_arch = None
         sources[intern(pkg)] = SourcePackage(intern(ver),
                                              section,
                                              [],
                                              maint,
                                              False,
+                                             build_deps_arch,
                                              )
     return sources
 
@@ -789,14 +796,17 @@ def invalidate_excuses(excuses, valid, invalid):
 
     # build the reverse dependencies
     revdeps = defaultdict(list)
+    revbuilddeps = defaultdict(list)
     for exc in excuses.values():
         for d in exc.deps:
             revdeps[d].append(exc.name)
+        for d in exc.arch_build_deps:
+            revbuilddeps[d].append(exc.name)
 
     # loop on the invalid excuses
     for ename in iter_except(invalid.pop, KeyError):
         # if there is no reverse dependency, skip the item
-        if ename not in revdeps:
+        if ename not in revdeps and ename not in revbuilddeps:
             continue
         # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
         if (ename + "_tpu") in valid:
@@ -807,21 +817,34 @@ def invalidate_excuses(excuses, valid, invalid):
             rdep_verdict = PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM
 
         # loop on the reverse dependencies
-        for x in revdeps[ename]:
-            if x in valid:
-                # if the item is valid and it is marked as `forced', skip the item
-                if excuses[x].forced:
-                    continue
+        if ename in revdeps:
+            for x in revdeps[ename]:
+                # if the item is valid and it is not marked as `forced', then we invalidate it
+                if x in valid and not excuses[x].forced:
 
-                # otherwise, invalidate the dependency and mark as invalidated and
-                # remove the depending excuses
-                excuses[x].invalidate_dep(ename)
-                valid.discard(x)
-                invalid.add(x)
-                excuses[x].addhtml("Invalidated by dependency")
-                excuses[x].addreason("depends")
-                if excuses[x].policy_verdict.value < rdep_verdict.value:
-                    excuses[x].policy_verdict = rdep_verdict
+                    # otherwise, invalidate the dependency and mark as invalidated and
+                    # remove the depending excuses
+                    excuses[x].invalidate_dep(ename)
+                    valid.discard(x)
+                    invalid.add(x)
+                    excuses[x].addhtml("Invalidated by dependency")
+                    excuses[x].addreason("depends")
+                    if excuses[x].policy_verdict.value < rdep_verdict.value:
+                        excuses[x].policy_verdict = rdep_verdict
+
+        if ename in revbuilddeps:
+            for x in revbuilddeps[ename]:
+                # if the item is valid and it is not marked as `forced', then we invalidate it
+                if x in valid and not excuses[x].forced:
+
+                    # otherwise, invalidate the dependency and mark as invalidated and
+                    # remove the depending excuses
+                    excuses[x].invalidate_build_dep(ename)
+                    valid.discard(x)
+                    invalid.add(x)
+                    excuses[x].addhtml("Invalidated by build-dependency")
+                    if excuses[x].policy_verdict.value < rdep_verdict.value:
+                        excuses[x].policy_verdict = rdep_verdict
 
 
 def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):

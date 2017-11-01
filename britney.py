@@ -198,7 +198,7 @@ from britney2.hints import HintParser
 from britney2.installability.builder import build_installability_tester
 from britney2.migrationitem import MigrationItem
 from britney2.policies import PolicyVerdict
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
 from britney2.utils import (old_libraries_format, undo_changes,
                             compute_reverse_tree, possibly_compressed,
                             read_nuninst, write_nuninst, write_heidi,
@@ -511,6 +511,7 @@ class Britney(object):
         self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
         self.policies.append(PiupartsPolicy(self.options, self.suite_info))
+        self.policies.append(BuildDependsPolicy(self.options, self.suite_info))
 
         for policy in self.policies:
             policy.register_hints(self._hint_parser)
@@ -568,6 +569,7 @@ class Britney(object):
                         [],
                         None,
                         True,
+                        None
                         )
 
             self.sources['testing'][pkg_name] = src_data
@@ -642,6 +644,7 @@ class Britney(object):
                         [],
                         None,
                         True,
+                        None,
                         )
             self.sources['testing'][pkg_name] = src_data
             self.sources['unstable'][pkg_name] = src_data
@@ -843,7 +846,7 @@ class Britney(object):
                     srcdist[source].binaries.append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True)
+                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None)
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg

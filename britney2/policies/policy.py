@@ -8,6 +8,7 @@ import apt_pkg
 
 from britney2.hints import Hint, split_into_one_hint_per_package
 from britney2.policies import PolicyVerdict
+from britney2.utils import get_dependency_solvers
 
 
 class BasePolicy(object):
@@ -616,3 +617,80 @@ class PiupartsPolicy(BasePolicy):
             summary[source] = (state, url)
 
         return summary
+
+
+class BuildDependsPolicy(BasePolicy):
+
+    def __init__(self, options, suite_info):
+        super().__init__('build-depends', options, suite_info, {'unstable', 'tpu', 'pu'})
+        self._britney = None
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        self._britney = britney
+
+    def apply_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+                          get_dependency_solvers=get_dependency_solvers):
+        verdict = PolicyVerdict.PASS
+        britney = self._britney
+
+        # local copies for better performance
+        parse_src_depends = apt_pkg.parse_src_depends
+
+        # analyze the dependency fields (if present)
+        deps = source_data_srcdist.build_deps_arch
+        if not deps:
+            return verdict
+
+        sources_s = None
+        sources_t = None
+        unsat_bd = {}
+        relevant_archs = {binary.architecture for binary in source_data_srcdist.binaries
+                          if britney.all_binaries[binary].architecture != 'all'}
+
+        for arch in (arch for arch in self.options.architectures if arch in relevant_archs):
+            # retrieve the binary package from the specified suite and arch
+            binaries_s_a, provides_s_a = britney.binaries[suite][arch]
+            binaries_t_a, provides_t_a = britney.binaries['testing'][arch]
+            # for every dependency block (formed as conjunction of disjunction)
+            for block, block_txt in zip(parse_src_depends(deps, False, arch), deps.split(',')):
+                # if the block is satisfied in testing, then skip the block
+                if get_dependency_solvers(block, binaries_t_a, provides_t_a):
+                    # Satisfied in testing; all ok.
+                    continue
+
+                # check if the block can be satisfied in the source suite, and list the solving packages
+                packages = get_dependency_solvers(block, binaries_s_a, provides_s_a)
+                packages = [binaries_s_a[p].source for p in packages]
+
+                # if the dependency can be satisfied by the same source package, skip the block:
+                # obviously both binary packages will enter testing together
+                if source_name in packages:
+                    continue
+
+                # if no package can satisfy the dependency, add this information to the excuse
+                if not packages:
+                    excuse.addhtml("%s unsatisfiable Build-Depends(-Arch) on %s: %s" % (source_name, arch, block_txt.strip()))
+                    if arch not in unsat_bd:
+                        unsat_bd[arch] = []
+                    unsat_bd[arch].append(block_txt.strip())
+                    if verdict.value < PolicyVerdict.REJECTED_PERMANENTLY.value:
+                        verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                    continue
+
+                if not sources_t:
+                    sources_t = britney.sources['testing']
+                    sources_s = britney.sources[suite]
+
+                # for the solving packages, update the excuse to add the dependencies
+                for p in packages:
+                    if arch not in self.options.break_arches:
+                        if p in sources_t and sources_t[p].version == sources_s[p].version:
+                            excuse.add_arch_build_dep("%s/%s" % (p, arch), arch)
+                        else:
+                            excuse.add_arch_build_dep(p, arch)
+        if unsat_bd:
+            build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
+
+        return verdict
+
