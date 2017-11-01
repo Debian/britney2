@@ -39,7 +39,7 @@ from britney2.consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
                              SOURCE, MAINTAINER, MULTIARCH,
                              ESSENTIAL)
 from britney2.migrationitem import MigrationItem, UnversionnedMigrationItem
-from britney2.policies.policy import PolicyVerdict
+from britney2.policies import PolicyVerdict
 
 
 def ifilter_except(container, iterable=None):
