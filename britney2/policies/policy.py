@@ -653,7 +653,15 @@ class BuildDependsPolicy(BasePolicy):
             binaries_s_a, provides_s_a = britney.binaries[suite][arch]
             binaries_t_a, provides_t_a = britney.binaries['testing'][arch]
             # for every dependency block (formed as conjunction of disjunction)
-            for block, block_txt in zip(parse_src_depends(deps, False, arch), deps.split(',')):
+            for block_txt in deps.split(','):
+                block = parse_src_depends(block_txt, False, arch)
+                # Unlike regular dependencies, some clauses of the Build-Depends(-Arch|-Indep) can be
+                # filtered out by (e.g.) architecture restrictions.  We need to cope with this while
+                # keeping block_txt and block aligned.
+                if not block:
+                    # Relation is not relevant for this architecture.
+                    continue
+                block = block[0]
                 # if the block is satisfied in testing, then skip the block
                 if get_dependency_solvers(block, binaries_t_a, provides_t_a):
                     # Satisfied in testing; all ok.
