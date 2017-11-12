@@ -663,7 +663,7 @@ class BuildDependsPolicy(BasePolicy):
                     continue
                 block = block[0]
                 # if the block is satisfied in testing, then skip the block
-                if get_dependency_solvers(block, binaries_t_a, provides_t_a):
+                if get_dependency_solvers(block, binaries_t_a, provides_t_a, build_depends=True):
                     # Satisfied in testing; all ok.
                     continue
 
