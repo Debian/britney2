@@ -779,11 +779,11 @@ def get_dependency_solvers(block, binaries_s_a, provides_s_a, *, build_depends=F
                     # - :native is ok iff the target is arch:any
                     if archqual == 'native' and package.architecture != 'all':
                         packages.append(name)
-                else:
-                    # Multi-arch handling for regular dependencies
-                    # - :any is ok iff the target has "M-A: allowed"
-                    if archqual == 'any' and package.multi_arch == 'allowed':
-                        packages.append(name)
+
+                # Multi-arch handling for both build-dependencies and regular dependencies
+                # - :any is ok iff the target has "M-A: allowed"
+                if archqual == 'any' and package.multi_arch == 'allowed':
+                    packages.append(name)
 
         # look for the package in the virtual packages list and loop on them
         for prov, prov_version in provides_s_a.get(name, empty_set):
