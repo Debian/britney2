@@ -613,7 +613,7 @@ class PiupartsPolicy(BasePolicy):
             item = next(iter(suite_data.values()))
             state, _, url = item
             if not keep_url:
-                keep_url = None
+                url = None
             summary[source] = (state, url)
 
         return summary
