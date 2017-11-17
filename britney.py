@@ -1370,20 +1370,27 @@ class Britney(object):
 
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
-        pkgs = {src: ["source"]}
         all_binaries = self.all_binaries
-        for arch in self.options.architectures:
+        archs_to_consider = list(self.options.architectures)
+        archs_to_consider.append('all')
+        for arch in archs_to_consider:
             oodbins = {}
             uptodatebins = False
             # for every binary package produced by this source in the suite for this architecture
-            for pkg_id in sorted(x for x in source_u.binaries if x.architecture == arch):
+            if arch == 'all':
+                consider_binaries = source_u.binaries
+            else:
+                consider_binaries = sorted(x for x in source_u.binaries if x.architecture == arch)
+            for pkg_id in consider_binaries:
                 pkg = pkg_id.package_name
-                if pkg not in pkgs: pkgs[pkg] = []
-                pkgs[pkg].append(arch)
 
                 # retrieve the binary package and its source version
                 binary_u = all_binaries[pkg_id]
                 pkgsv = binary_u.source_version
+
+                # arch:all packages are treated separately from arch:arch
+                if binary_u.architecture != arch:
+                    continue
 
                 # if it wasn't built by the same source, it is out-of-date
                 # if there is at least one binary on this arch which is
@@ -1395,10 +1402,7 @@ class Britney(object):
                     excuse.add_old_binary(pkg, pkgsv)
                     continue
                 else:
-                    # if the binary is arch all, it doesn't count as
-                    # up-to-date for this arch
-                    if binary_u.architecture == arch:
-                        uptodatebins = True
+                    uptodatebins = True
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
