@@ -258,7 +258,7 @@ def eval_uninst(architectures, nuninst):
     return "".join(parts)
 
 
-def write_heidi(filename, sources_t, packages_t, sorted=sorted):
+def write_heidi(filename, sources_t, packages_t, *, outofsync_arches=frozenset(), sorted=sorted):
     """Write the output HeidiResult
 
     This method write the output for Heidi, which contains all the
@@ -270,6 +270,10 @@ def write_heidi(filename, sources_t, packages_t, sorted=sorted):
     The file is written as "filename", it assumes all sources and
     packages in "sources_t" and "packages_t" to be the packages in
     "testing".
+
+    outofsync_arches: If given, it is a set of architectures marked
+    as "out of sync".  The output file may exclude some out of date
+    arch:all packages for those architectures to reduce the noise.
 
     The "X=X" parameters are optimizations to avoid "load global" in
     the loops.
@@ -288,7 +292,8 @@ def write_heidi(filename, sources_t, packages_t, sorted=sorted):
                     # Faux package; not really a part of testing
                     continue
                 if pkg.source_version and pkgarch == 'all' and \
-                    pkg.source_version != sources_t[pkg.source].version:
+                    pkg.source_version != sources_t[pkg.source].version and \
+                    arch in outofsync_arches:
                     # when architectures are marked as "outofsync", their binary
                     # versions may be lower than those of the associated
                     # source package in testing. the binary package list for

@@ -2498,7 +2498,8 @@ class Britney(object):
             # write HeidiResult
             self.log("Writing Heidi results to %s" % self.options.heidi_output)
             write_heidi(self.options.heidi_output, self.sources["testing"],
-                        self.binaries["testing"])
+                        self.binaries["testing"],
+                        outofsync_arches=self.options.outofsync_arches)
 
             self.log("Writing delta to %s" % self.options.heidi_delta_output)
             write_heidi_delta(self.options.heidi_delta_output,
