@@ -26,7 +26,6 @@ import urllib.parse
 from urllib.request import urlopen
 
 import apt_pkg
-import amqplib.client_0_8 as amqp
 
 import britney2.hints
 from britney2.policies.policy import BasePolicy, PolicyVerdict
@@ -145,6 +144,7 @@ class AutopkgtestPolicy(BasePolicy):
         amqp_url = self.options.adt_amqp
 
         if amqp_url.startswith('amqp://'):
+            import amqplib.client_0_8 as amqp
             # depending on the setup we connect to a AMQP server
             creds = urllib.parse.urlsplit(amqp_url, allow_fragments=False)
             self.amqp_con = amqp.Connection(creds.hostname, userid=creds.username,
