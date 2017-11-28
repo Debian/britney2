@@ -2,65 +2,13 @@ import json
 import os
 import time
 from abc import abstractmethod
-from enum import Enum, unique
 from urllib.parse import quote
 
 import apt_pkg
 
 from britney2.hints import Hint, split_into_one_hint_per_package
-
-
-@unique
-class PolicyVerdict(Enum):
-    """"""
-    """
-    The migration item passed the policy.
-    """
-    PASS = 1
-    """
-    The policy was completely overruled by a hint.
-    """
-    PASS_HINTED = 2
-    """
-    The migration item did not pass the policy, but the failure is believed
-    to be temporary
-    """
-    REJECTED_TEMPORARILY = 3
-    """
-    The migration item is temporarily unable to migrate due to another item.  The other item is temporarily blocked.
-    """
-    REJECTED_WAITING_FOR_ANOTHER_ITEM = 4
-    """
-    The migration item is permanently unable to migrate due to another item.  The other item is permanently blocked.
-    """
-    REJECTED_BLOCKED_BY_ANOTHER_ITEM = 5
-    """
-    The migration item needs approval to migrate
-    """
-    REJECTED_NEEDS_APPROVAL = 6
-    """
-    The migration item is blocked, but there is not enough information to determine
-    if this issue is permanent or temporary
-    """
-    REJECTED_CANNOT_DETERMINE_IF_PERMANENT = 7
-    """
-    The migration item did not pass the policy and the failure is believed
-    to be uncorrectable (i.e. a hint or a new version is needed)
-    """
-    REJECTED_PERMANENTLY = 8
-
-    @property
-    def is_rejected(self):
-        return True if self.name.startswith('REJECTED') else False
-
-    def is_blocked(self):
-        """Whether the item (probably) needs a fix or manual assistance to migrate"""
-        return self in {
-            PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM,
-            PolicyVerdict.REJECTED_NEEDS_APPROVAL,
-            PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT, # Assuming the worst
-            PolicyVerdict.REJECTED_PERMANENTLY,
-        }
+from britney2.policies import PolicyVerdict
+from britney2.utils import get_dependency_solvers
 
 
 class BasePolicy(object):
@@ -695,7 +643,92 @@ class PiupartsPolicy(BasePolicy):
             item = next(iter(suite_data.values()))
             state, _, url = item
             if not keep_url:
-                keep_url = None
+                url = None
             summary[source] = (state, url)
 
         return summary
+
+
+class BuildDependsPolicy(BasePolicy):
+
+    def __init__(self, options, suite_info):
+        super().__init__('build-depends', options, suite_info, {'unstable', 'tpu', 'pu'})
+        self._britney = None
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        self._britney = britney
+
+    def apply_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+                          get_dependency_solvers=get_dependency_solvers):
+        verdict = PolicyVerdict.PASS
+        britney = self._britney
+
+        # local copies for better performance
+        parse_src_depends = apt_pkg.parse_src_depends
+
+        # analyze the dependency fields (if present)
+        deps = source_data_srcdist.build_deps_arch
+        if not deps:
+            return verdict
+
+        sources_s = None
+        sources_t = None
+        unsat_bd = {}
+        relevant_archs = {binary.architecture for binary in source_data_srcdist.binaries
+                          if britney.all_binaries[binary].architecture != 'all'}
+
+        for arch in (arch for arch in self.options.architectures if arch in relevant_archs):
+            # retrieve the binary package from the specified suite and arch
+            binaries_s_a, provides_s_a = britney.binaries[suite][arch]
+            binaries_t_a, provides_t_a = britney.binaries['testing'][arch]
+            # for every dependency block (formed as conjunction of disjunction)
+            for block_txt in deps.split(','):
+                block = parse_src_depends(block_txt, False, arch)
+                # Unlike regular dependencies, some clauses of the Build-Depends(-Arch|-Indep) can be
+                # filtered out by (e.g.) architecture restrictions.  We need to cope with this while
+                # keeping block_txt and block aligned.
+                if not block:
+                    # Relation is not relevant for this architecture.
+                    continue
+                block = block[0]
+                # if the block is satisfied in testing, then skip the block
+                if get_dependency_solvers(block, binaries_t_a, provides_t_a, build_depends=True):
+                    # Satisfied in testing; all ok.
+                    continue
+
+                # check if the block can be satisfied in the source suite, and list the solving packages
+                packages = get_dependency_solvers(block, binaries_s_a, provides_s_a, build_depends=True)
+                packages = [binaries_s_a[p].source for p in packages]
+
+                # if the dependency can be satisfied by the same source package, skip the block:
+                # obviously both binary packages will enter testing together
+                if source_name in packages:
+                    continue
+
+                # if no package can satisfy the dependency, add this information to the excuse
+                if not packages:
+                    excuse.addhtml("%s unsatisfiable Build-Depends(-Arch) on %s: %s" % (source_name, arch, block_txt.strip()))
+                    if arch not in unsat_bd:
+                        unsat_bd[arch] = []
+                    unsat_bd[arch].append(block_txt.strip())
+                    if verdict.value < PolicyVerdict.REJECTED_PERMANENTLY.value:
+                        verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                    continue
+
+                if not sources_t:
+                    sources_t = britney.sources['testing']
+                    sources_s = britney.sources[suite]
+
+                # for the solving packages, update the excuse to add the dependencies
+                for p in packages:
+                    if arch not in self.options.break_arches:
+                        if p in sources_t and sources_t[p].version == sources_s[p].version:
+                            excuse.add_arch_build_dep("%s/%s" % (p, arch), arch)
+                        else:
+                            excuse.add_arch_build_dep(p, arch)
+        if unsat_bd:
+            build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
+
+        return verdict
+

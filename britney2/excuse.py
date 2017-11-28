@@ -74,12 +74,13 @@ class Excuse(object):
         self.forced = False
         self._policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        self.invalid_deps = []
+        self.invalid_deps = set()
+        self.invalid_build_deps = set()
         self.deps = {}
+        self.arch_build_deps = {}
         self.sane_deps = []
         self.break_deps = []
         self.unsatisfiable_on_archs = []
-        self.bugs = []
         self.newbugs = set()
         self.oldbugs = set()
         self.reason = {}
@@ -145,9 +146,18 @@ class Excuse(object):
         if  arch not in self.unsatisfiable_on_archs:
             self.unsatisfiable_on_archs.append(arch)
 
+    def add_arch_build_dep(self, name, arch):
+        if name not in self.arch_build_deps:
+            self.arch_build_deps[name] = []
+        self.arch_build_deps[name].append(arch)
+
     def invalidate_dep(self, name):
         """Invalidate dependency"""
-        if name not in self.invalid_deps: self.invalid_deps.append(name)
+        self.invalid_deps.add(name)
+
+    def invalidate_build_dep(self, name):
+        """Invalidate build-dependency"""
+        self.invalid_build_deps.add(name)
 
     def setdaysold(self, daysold, mindays):
         """Set the number of days from the upload and the minimum number of days for the update"""
@@ -219,6 +229,17 @@ class Excuse(object):
         for (n,a) in self.break_deps:
             if n not in self.deps:
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)
+        lastdep = ""
+        for x in sorted(self.arch_build_deps, key=lambda x: x.split('/')[0]):
+            dep = x.split('/')[0]
+            if dep == lastdep:
+                continue
+            lastdep = dep
+            if x in self.invalid_build_deps:
+                res = res + "<li>Build-Depends(-Arch): %s <a href=\"#%s\">%s</a> (not ready)\n" % (self.name, dep, dep)
+            else:
+                res = res + "<li>Build-Depends(-Arch): %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
+
         if self.is_valid:
             res += "<li>Valid candidate\n"
         else:
@@ -268,13 +289,14 @@ class Excuse(object):
                 'on-architectures': sorted(self.missing_builds),
                 'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
             }
-        if self.deps or self.invalid_deps or self.break_deps:
+        if self.deps or self.invalid_deps or self.arch_build_deps or self.invalid_build_deps or self.break_deps:
             excusedata['dependencies'] = dep_data = {}
-            migrate_after = sorted(x for x in self.deps if x not in self.invalid_deps)
+            migrate_after = sorted((self.deps.keys() - self.invalid_deps)
+                                   | (self.arch_build_deps.keys() - self.invalid_build_deps))
             break_deps = [x for x, _ in self.break_deps if x not in self.deps]
 
-            if self.invalid_deps:
-                dep_data['blocked-by'] = sorted(self.invalid_deps)
+            if self.invalid_deps or self.invalid_build_deps:
+                dep_data['blocked-by'] = sorted(self.invalid_deps | self.invalid_build_deps)
             if migrate_after:
                 dep_data['migrate-after'] = migrate_after
             if break_deps:

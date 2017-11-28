@@ -197,7 +197,8 @@ from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.installability.builder import build_installability_tester
 from britney2.migrationitem import MigrationItem
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
+from britney2.policies import PolicyVerdict
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (old_libraries_format, undo_changes,
                             compute_reverse_tree, possibly_compressed,
@@ -523,6 +524,7 @@ class Britney(object):
         if getattr(self.options, 'adt_enable') == 'yes':
             self.policies.append(AutopkgtestPolicy(self.options, self.suite_info))
         self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
+        self.policies.append(BuildDependsPolicy(self.options, self.suite_info))
 
         for policy in self.policies:
             policy.register_hints(self._hint_parser)
@@ -580,6 +582,7 @@ class Britney(object):
                         [],
                         None,
                         True,
+                        None,
                         [],
                         [],
                         )
@@ -656,6 +659,7 @@ class Britney(object):
                         [],
                         None,
                         True,
+                        None,
                         [],
                         [],
                         )
@@ -859,7 +863,7 @@ class Britney(object):
                     srcdist[source].binaries.append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, [], [])
+                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None, [], [])
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
@@ -1384,20 +1388,27 @@ class Britney(object):
 
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
-        pkgs = {src: ["source"]}
         all_binaries = self.all_binaries
-        for arch in self.options.architectures:
+        archs_to_consider = list(self.options.architectures)
+        archs_to_consider.append('all')
+        for arch in archs_to_consider:
             oodbins = {}
             uptodatebins = False
             # for every binary package produced by this source in the suite for this architecture
-            for pkg_id in sorted(x for x in source_u.binaries if x.architecture == arch):
+            if arch == 'all':
+                consider_binaries = source_u.binaries
+            else:
+                consider_binaries = sorted(x for x in source_u.binaries if x.architecture == arch)
+            for pkg_id in consider_binaries:
                 pkg = pkg_id.package_name
-                if pkg not in pkgs: pkgs[pkg] = []
-                pkgs[pkg].append(arch)
 
                 # retrieve the binary package and its source version
                 binary_u = all_binaries[pkg_id]
                 pkgsv = binary_u.source_version
+
+                # arch:all packages are treated separately from arch:arch
+                if binary_u.architecture != arch:
+                    continue
 
                 # if it wasn't built by the same source, it is out-of-date
                 # if there is at least one binary on this arch which is
@@ -1409,10 +1420,7 @@ class Britney(object):
                     excuse.add_old_binary(pkg, pkgsv)
                     continue
                 else:
-                    # if the binary is arch all, it doesn't count as
-                    # up-to-date for this arch
-                    if binary_u.architecture == arch:
-                        uptodatebins = True
+                    uptodatebins = True
 
                 # if the package is architecture-dependent or the current arch is `nobreakall'
                 # find unsatisfied dependencies for the binary package
@@ -1549,15 +1557,15 @@ class Britney(object):
 
         # this list will contain the packages which are valid candidates;
         # if a package is going to be removed, it will have a "-" prefix
-        upgrade_me = []
-        upgrade_me_append = upgrade_me.append  # Every . in a loop slows it down
+        upgrade_me = set()
+        upgrade_me_add = upgrade_me.add  # Every . in a loop slows it down
 
         excuses = self.excuses = {}
 
         # for every source package in testing, check if it should be removed
         for pkg in testing:
             if should_remove_source(pkg):
-                upgrade_me_append("-" + pkg)
+                upgrade_me_add("-" + pkg)
 
         # for every source package in unstable check if it should be upgraded
         for pkg in unstable:
@@ -1567,11 +1575,11 @@ class Britney(object):
             if pkg in testing and not testing[pkg].is_fakesrc:
                 for arch in architectures:
                     if should_upgrade_srcarch(pkg, arch, 'unstable'):
-                        upgrade_me_append("%s/%s" % (pkg, arch))
+                        upgrade_me_add("%s/%s" % (pkg, arch))
 
             # check if the source package should be upgraded
             if should_upgrade_src(pkg, 'unstable'):
-                upgrade_me_append(pkg)
+                upgrade_me_add(pkg)
 
         # for every source package in *-proposed-updates, check if it should be upgraded
         for suite in ['pu', 'tpu']:
@@ -1581,11 +1589,11 @@ class Britney(object):
                 if pkg in testing:
                     for arch in architectures:
                         if should_upgrade_srcarch(pkg, arch, suite):
-                            upgrade_me_append("%s/%s_%s" % (pkg, arch, suite))
+                            upgrade_me_add("%s/%s_%s" % (pkg, arch, suite))
 
                 # check if the source package should be upgraded
                 if should_upgrade_src(pkg, suite):
-                    upgrade_me_append("%s_%s" % (pkg, suite))
+                    upgrade_me_add("%s_%s" % (pkg, suite))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for hint in self.hints['remove']:
@@ -1600,7 +1608,7 @@ class Britney(object):
                 continue
 
             # add the removal of the package to upgrade_me and build a new excuse
-            upgrade_me_append("-%s" % (src))
+            upgrade_me_add("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
             excuse.addhtml("Removal request by %s" % (hint.user))
@@ -1613,7 +1621,7 @@ class Britney(object):
             excuses[excuse.name] = excuse
 
         # extract the not considered packages, which are in the excuses but not in upgrade_me
-        unconsidered = [ename for ename in excuses if ename not in upgrade_me]
+        unconsidered = {ename for ename in excuses if ename not in upgrade_me}
 
         # invalidate impossible excuses
         for e in excuses.values():
@@ -2508,7 +2516,8 @@ class Britney(object):
             # write HeidiResult
             self.log("Writing Heidi results to %s" % self.options.heidi_output)
             write_heidi(self.options.heidi_output, self.sources["testing"],
-                        self.binaries["testing"])
+                        self.binaries["testing"],
+                        outofsync_arches=self.options.outofsync_arches)
 
             self.log("Writing delta to %s" % self.options.heidi_delta_output)
             write_heidi_delta(self.options.heidi_delta_output,
