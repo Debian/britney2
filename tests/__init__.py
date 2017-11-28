@@ -420,10 +420,10 @@ ADT_REGRESSION_PENALTY =
         self.assertEqual(err, '')
 
         with open(os.path.join(self.data.path, 'output',
-                               'excuses.yaml')) as f:
+                               'excuses.yaml'), encoding='utf-8') as f:
             yaml = f.read()
         with open(os.path.join(self.data.path, 'output',
-                               'excuses.html')) as f:
+                               'excuses.html'), encoding='utf-8') as f:
             html = f.read()
 
         return (yaml, html, out)
