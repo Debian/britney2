@@ -1,13 +1,11 @@
-#! TITLE: Britney migration documentation
-#! SUBTITLE: Understanding britney's workflow
-
-# Migrations
+A short introduction to migrations
+==================================
 
 This is a technical introduction to how britney
 handles migrations.  Being an introduction, it deliberately
 oversimplifies certain things at the expense of accuracy.
 It also covers common migration issues and how to fix
-them.
+them in :doc:`solutions-to-common-policy-issues`.
 
 The document is primarily aimed at contributors for
 distributions that want to understand the basics of
@@ -21,7 +19,8 @@ abstract.  Furthermore, the document assumes familiarity with
 Debian-based distribution practises and terminology (such as
 "suites" and "source package").
 
-## A high level overview of britney and migrations
+A high level overview of britney and migrations
+-----------------------------------------------
 
 The purpose of britney is to (semi-)automatically select
 a number of migration items from a series of source suites
@@ -34,9 +33,12 @@ of the following points:
  1. The migration items pass a number of policies for the target
     suite.  Most of these policies are basically that the
     migration items do not regress on selected QA checks.
+    
     * An item satisfying this part is called a `valid candiate`.
- 1. Installability will not regress as a result of
+
+ 2. Installability will not regress as a result of
     migrating the migration items.
+
     * An item that (also) satisfies this part will be selected
       for migration.
 
@@ -48,14 +50,15 @@ issue (as it is not a regression).
 This only leaves the definition of a migration items.  They come
 in several variants defined in the next section.
 
-## Migration items
+Migration items
+---------------
 
 Internally, britney groups packages into migration items based on a
 few rules.  There are several kinds of migration items and this
 document will only describe the source migration item.
 
->  A source migration item is one upload of a source package, with
->  associated binary packages once built.
+   A source migration item is one upload of a source package, with
+   associated binary packages once built.
 
 Once a new version of a source package appears in the source suite,
 britney will create track it with a source migration item.  As the
@@ -72,7 +75,8 @@ As implied earlier, there are several other migration types.  But they
 are not covered in this document.  They deal with cases like removals,
 rebuilds of existing binaries, etc.
 
-## Migration phase 1: Policies / Excuses
+Migration phase 1: Policies / Excuses
+-------------------------------------
 
 To begin with, britney will apply a number of policies to
 all migration items.  Each policy will rate each migration
@@ -100,19 +104,25 @@ data that britney has access to.  This mean that without any change
 to the items themselves:
 
  1. Items that passed originally may fail in a later britney run.
- 1. Likewise, items may go from a "permanent failure" to a pass.
+
+ 2. Likewise, items may go from a "permanent failure" to a pass.
 
 This can be seen in the following example case:
 
  1. A new version of package is uploaded.
+
     * Britney processes the package and concludes that there no blocking bugs,
       so the package passes the bug policy.
- 1. Then before it migrates, someone files a blocking bug against
+
+ 2. Then before it migrates, someone files a blocking bug against
     the new version.
+
     * Britney reprocesses the package and now concludes it has a regression in
       the bug policy (i.e. the policy verdict goes from "pass" to "permanent fail").
- 1. The bug is examined and it is determined that the bug also affects the
+
+ 3. The bug is examined and it is determined that the bug also affects the
     version in the target suite.  The bug tracker is updated to reflect this.
+
     * Britney reprocesses the package again and now concludes there is a blocking
       bug, but it is not a regression (since it also affects the target suite).
       This means the policy verdict now go from "fail" to "pass".
@@ -131,7 +141,8 @@ a hinted migration generally implies that the problem will not
 prevent future migrations for newer versions of the same source
 package (assuming that the problem is deterministic).
 
-## Migration phase 2: Installability regression testing
+Migration phase 2: Installability regression testing
+----------------------------------------------------
 
 For the migration items that pass the previous phase, britney
 will do a test migration to see if anything becomes uninstallable.
@@ -143,11 +154,12 @@ problems here, the britney log file has to be examined.  This requires
 a bit more technical insight as it has not been polished as much as
 the excuses.
 
-### Confirming a migration
+Confirming a migration
+^^^^^^^^^^^^^^^^^^^^^^
 
 To start with; if a migration is accepted and "committed" (i.e. it will not
 be rolled back), britney will include in a line starting with `final:` like
-in this example:
+in this example::
 
     Apparently successful
     final: -cwltool,-libtest-redisserver-perl,-pinfo,-webdis,hol88
@@ -173,12 +185,13 @@ Reminder: Migration items generally use the name of the source package.  There
 are exceptions to that "rule" (but they are not common cases covered by this
 document).
 
-### Debugging failed migration attempts
+Debugging failed migration attempts
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Start by confirming that the migration item was not accepted (as described
 in the above section).  If the migration item does not appear on a `final:` line,
 then we need to debug the actual migration attempts.  Migration attempts look
-something like this:
+something like this::
 
     trying: -webdis
     accepted: -webdis
@@ -214,8 +227,9 @@ later attempt.  It is not always immediately obvious, which attempt is better
 for debugging.  When in doubt, it is *usually* easiest to look at the attempt
 with the least amount of new uninstallable packages.
 
-In the libaws example, a total of 4 binary packages become uninstallable on the
-architecture `arm64`.  Here is the output again with this information high lighted:
+In the libaws example, a total of 4 binary packages become
+uninstallable on the architecture `arm64`.  Here is the output again
+with this information high lighted::
 
     migration item(s) being attemped
             vvvvvv
@@ -230,7 +244,7 @@ architecture `arm64`.  Here is the output again with this information high light
 Please note that britney is lazy and will often reject an item after proving
 that there is a regression on a single architecture.  So in the above example,
 we are not actually sure whether this problem is architecture specific.  For
-`easy`-hints, the information is presented slightly different.
+`easy`-hints, the information is presented slightly different::
 
     Trying easy from autohinter: asis/2017-1 dh-ada-library/6.12 [...]
                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -255,103 +269,3 @@ things break.  If there are few broken packages, it is often a question of
 looking for `Breaks`-relations or `Depends`-relations with upper bounds on
 versions / on old packages being removed.  Alternatively, there are also tools
 like `dose-debcheck`, which attempts to analyse and explain problems like this.
-
-# Common issues with policy decisions
-
-## Britney complains about a fixed bug in the source suite (bug policy)
-
-All decisions about bugs are related to data set extracted
-from the bug tracker.  If britney says that the new version
-introduces a bug, then it is because the data set from the bug
-tracker lists that bug for *a* version in the source suite and
-without it appearing for the version(s) in the target suite.
-
-Please note that these data sets do not include versions, so
-britney is unable to tell exactly which versions are affected.
-The only thing, it can tell, is what suite the bug affects.
-
-There is a number of common cases, where this is observed:
-
- * The metadata on the bug is wrong.  A known example is the
-   Debian BTS, where if a bug has a `fixed` version equal to
-   a `found` version, the bug is considered unfixed.
-
- * The bug is fixed, but the old version is still around in
-   the source suite.  In this case, britney will generally
-   mention a "missing build" or "old binaries".
-
-If the metadata is wrong, the solution is to fix it in the bug
-tracker and wait until britney receives a new data set.  In
-the other case, the recommendation is to see the sections on
-"missing builds" and "old binaries" below.  As long as they
-are present, the package may be blocked by bugs in the older
-versions of the binaries.
-
-## Britney complains about "missing builds"
-
-A "missing build" happens when britney detects that the binaries
-for a given architecture are missing or is not up to date.  This
-is detected by checking the "Packages" files in the archive, so
-britney have no knowledge of *why* the build is missing.
-Accordingly, this kind of issue is flagged as a "possibly permanent"
-issue.
-
-If the omission is deliberate (e.g. the new version no longer
-supports that architecture), then please have the old binaries
-for that architecture removed from the *source* suite.  Once
-those are removed, britney will no longer see that as a problem.
-
-Otherwise, please check the build services for any issues with
-building or uploading the package to the archive.
-
-**Common misconceptions**: If the architecture is no longer
-supported, the removal of the old binaries should happen in
-the *source* suite (e.g. Debian unstable).  However, many
-people mistakenly request a removal from the *target* suite
-(e.g. Debian testing).  Unfortunately, this is not the proper
-solution (and, britney does not support architecture
-specific removals so it may be difficult to do anyhow).
-
-## Britney complains about "old binaries"
-
-Depending on the configuration of the britney instance, this may
-or may not be a blocker.  If the distribution has chosen to enable
-the "ignore_cruft" option, this is merely a warning/note.  That
-said, even in this mode it can block a package from migration.
-
-This appears when britney detects that there are older versions of
-the binary packages around, which was built by (an older version of)
-the same source package.
-
-This is common with distributions where their archive management
-software is capable of keeping old binaries as long as something
-depends on them (e.g. DAK as used by Debian).  Therefore, the
-most common solution is to ensure all reverse dependencies are
-updated to use the new binaries and then have the old ones
-removed (the latter commonly known as "decrufting").  Technically,
-this is also solvable by "decrufting" without updating/rebuilding
-other packages.  Though whether this is an acceptable practise
-depends on the distribution.
-
-Alternatively, if the distribution uses the "ignore_cruft" option,
-this (in itself) is not a blocker.  However, it commonly triggers
-non-obvious issues:
-
- * If the bugs policy is enabled, an bug in the old binaries that
-   is fixed in the new version will still be a blocker.  Here, the
-   best solution is to get rid of the old binaries.
-   
-   (Note: the bugs data is not versioned so britney cannot tell which
-    versions the bug applies to.  Just which suite they affect)
-
- * Even if the migration item is a valid candidate (i.e. all policy
-   checked have passed), it may cause installability regressions as
-   britney will also attempt to keep the old binaries around as long
-   as they are used.  The most often cause of this when the old
-   binaries are not co-installable with the new ones.
-   
-   (Note: Britney generally only works with the highest version of a
-    given binary.  If you have libfoo1 depends on libfoo-data v1 and
-    then libfoo2 depends on libfoo-data v2, then libfoo1 will become
-    uninstallable as libfoo-data v2 will "shadow" libfoo-data v1)
-
