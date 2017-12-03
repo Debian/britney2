@@ -14,6 +14,8 @@ Welcome to britney2's documentation!
    short-intro-to-migrations
    solutions-to-common-policy-issues
    contributing-to-britney
+   hints
+   setting-up-britney
 
 * :ref:`search`
 
