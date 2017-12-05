@@ -48,10 +48,10 @@ permitted in the files.  With the above definitions:
  * The file `anna` may use any known hint (including potentially
    dangerous ones like `force` and `force-hint`)
 
- * The file `john` may use most of the known hints.  The STANDARD
+ * The file `john` may use most of the known hints.  The set called STANDARD
    includes a lot of hints for overriding most policies when it
    can be done without (additional) side-effects.  However, it
-   excludes `force` and `force-hint` as they can cause unintional
+   excludes `force` and `force-hint` as they can cause unintentional
    results.
 
  * The file `freeze` can use any of the hints `block`, `block-all`
