@@ -476,9 +476,6 @@ class RCBugPolicy(BasePolicy):
         old_bugs = rcbugs_info['unique-target-bugs']
         excuse.setbugs(old_bugs, new_bugs)
         if new_bugs:
-            excuse.addhtml("%s <a href=\"https://bugs.debian.org/cgi-bin/pkgreport.cgi?" \
-                           "src=%s&sev-inc=critical&sev-inc=grave&sev-inc=serious\" " \
-                           "target=\"_blank\">has new bugs</a>!" % (source_name, quote(source_name)))
             excuse.addhtml("Updating %s introduces new bugs: %s" % (source_name, ", ".join(
                 ["<a href=\"https://bugs.debian.org/%s\">#%s</a>" % (quote(a), a) for a in new_bugs])))
 
