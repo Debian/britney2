@@ -2,6 +2,10 @@
 *.so
 *.pyc
 
+.cache
+.idea
+_build
+
 /lib/aptvercmp
 /lib/checklib
 /lib/freelist
