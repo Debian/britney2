@@ -1368,9 +1368,29 @@ class Britney(object):
                     excuse.addreason("block")
                 excuse.policy_verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
 
+        all_binaries = self.all_binaries
+        for pkg_id in source_u.binaries:
+            is_valid = self.excuse_unsat_deps(pkg_id.package_name, src, pkg_id.architecture, suite, excuse)
+            if is_valid:
+                continue
+
+            binary_u = all_binaries[pkg_id]
+            # There is an issue with the package.  If it is arch:any, then excuse_unsat_deps will have
+            # handled everything for us correctly.  However, arch:all have some special-casing IRT
+            # nobreakall that we deal with ourselves here.
+            if binary_u.architecture == 'all' and pkg_id.architecture in self.options.nobreakall_arches:
+                inst_tester = self._inst_tester
+                # We sometimes forgive uninstallable arch:all packages on nobreakall architectures
+                # (e.g. we sometimes force-hint in arch:all packages that are only installable on
+                #  on a subset of all nobreak architectures).
+                # This forgivness is only done if the package is already in testing AND it is broken
+                # in testing on this architecture already.  Anything else would be a regression
+                if inst_tester.any_of_these_are_in_testing({pkg_id}) and not inst_tester.is_installable(pkg_id):
+                    # It is a regression.
+                    excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
+
         # at this point, we check the status of the builds on all the supported architectures
         # to catch the out-of-date ones
-        all_binaries = self.all_binaries
         archs_to_consider = list(self.options.architectures)
         archs_to_consider.append('all')
         for arch in archs_to_consider:
@@ -1403,20 +1423,6 @@ class Britney(object):
                     continue
                 else:
                     uptodatebins = True
-
-                # if the package is architecture-dependent or the current arch is `nobreakall'
-                # find unsatisfied dependencies for the binary package
-                if binary_u.architecture != 'all' or arch in self.options.nobreakall_arches:
-                    is_valid = self.excuse_unsat_deps(pkg, src, arch, suite, excuse)
-                    inst_tester = self._inst_tester
-                    if not is_valid and inst_tester.any_of_these_are_in_testing({binary_u.pkg_id}) \
-                            and not inst_tester.is_installable(binary_u.pkg_id):
-                        # Forgive uninstallable packages only when
-                        # they are already broken in testing ideally
-                        # we would not need to be forgiving at
-                        # all. However, due to how arch:all packages
-                        # are handled, we do run into occasionally.
-                        excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
             # if there are out-of-date packages, warn about them in the excuse and set excuse.is_valid
             # to False to block the update; if the architecture where the package is out-of-date is
