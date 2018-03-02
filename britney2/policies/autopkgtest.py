@@ -333,17 +333,6 @@ class AutopkgtestPolicy(BasePolicy):
 
         tests = []
 
-        # hack for vivid's gccgo-5 and xenial's gccgo-6; these build libgcc1
-        # too, so test some Go and some libgcc1 consumers
-        if src in ['gccgo-5', 'gccgo-6']:
-            for test in ['juju-mongodb', 'mongodb', 'libreoffice']:
-                try:
-                    tests.append((test, self.britney.sources['testing'][test][VERSION]))
-                except KeyError:
-                    # no package in that series? *shrug*, then not (mostly for testing)
-                    pass
-            return tests
-
         # gcc-N triggers tons of tests via libgcc1, but this is mostly in vain:
         # gcc already tests itself during build, and it is being used from
         # -proposed, so holding it back on a dozen unrelated test failures
