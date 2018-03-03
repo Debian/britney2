@@ -103,3 +103,16 @@ non-obvious issues:
      then libfoo2 depends on libfoo-data v2, then libfoo1 will become
      uninstallable as libfoo-data v2 will "shadow" libfoo-data v1.
 
+Britney complains about "Piupart"
+---------------------------------
+
+Britney can be configured to take the results of piuparts (package
+installation, upgrading and removal testing suite) into account. Currently this
+policy is only taking into account the piuparts result for installing and
+purging the package in the source suite and the target suite (so no upgrade
+test). As with the other policies, a regression means that the package passes
+in the target suite, but fails in the source suite. Unless this is a bug in
+piuparts, the package needs to be fixed first to install and purge cleanly in
+the non-interactive debconf state. An URL to the relevant piuparts results is
+provided in the excuses.
+
