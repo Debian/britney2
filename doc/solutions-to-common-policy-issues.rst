@@ -9,7 +9,7 @@ Britney complains about a fixed bug in the source suite (bug policy)
 All decisions about bugs are related to data set extracted
 from the bug tracker.  If britney says that the new version
 introduces a bug, then it is because the data set from the bug
-tracker lists that bug for *a* version in the source suite and
+tracker lists that bug for *a* version in the source suite,
 without it appearing for the version(s) in the target suite.
 
 Please note that these data sets do not include versions, so
@@ -24,7 +24,7 @@ There is a number of common cases, where this is observed:
 
  * The bug is fixed, but the old version is still around in
    the source suite.  In this case, britney will generally
-   mention a "missing build" or "old binaries".
+   also mention a "missing build" or "old binaries".
 
 If the metadata is wrong, the solution is to fix it in the bug
 tracker and wait until britney receives a new data set.  In
@@ -37,9 +37,9 @@ Britney complains about "missing builds"
 ----------------------------------------
 
 A "missing build" happens when britney detects that the binaries
-for a given architecture are missing or is not up to date.  This
+for a given architecture are missing or not up to date.  This
 is detected by checking the "Packages" files in the archive, so
-britney have no knowledge of *why* the build is missing.
+britney has no knowledge of *why* the build is missing.
 Accordingly, this kind of issue is flagged as a "possibly permanent"
 issue.
 
