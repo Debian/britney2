@@ -61,7 +61,7 @@ document will only describe the source migration item.
    associated binary packages once built.
 
 Once a new version of a source package appears in the source suite,
-britney will create track it with a source migration item.  As the
+britney will track it with a source migration item.  As the
 binary packages are built and uploaded, they will be included into the
 migration item and various QA checks/policies will be applied to the
 item.
@@ -71,8 +71,8 @@ migrate the item (i.e. source with its binaries) to the
 target suite.
 
 
-As implied earlier, there are several other migration types.  But they
-are not covered in this document.  They deal with cases like removals,
+As implied earlier, there are several other migration types,
+not covered in this document.  They deal with cases like removals,
 rebuilds of existing binaries, etc.
 
 Migration phase 1: Policies / Excuses
