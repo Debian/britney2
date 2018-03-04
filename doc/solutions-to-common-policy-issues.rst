@@ -116,3 +116,64 @@ piuparts, the package needs to be fixed first to install and purge cleanly in
 the non-interactive debconf state. An URL to the relevant piuparts results is
 provided in the excuses.
 
+Britney complains about "autopkgtest"
+-------------------------------------
+
+Maintainers can add autopkgtest test cases to their packages. Britney can be
+configured to request a test runner instance (in the case of Debian, this is
+debci) to run relevant tests. The idea is that a package that is candidate for
+migration is updated in the target suite to its candidate version and that the
+autopkgtest cases of the package (if it has one or more) *and* those of all
+reverse dependencies are run. Regression in the results with respect to the
+current situation in the target suite can influence migration in the following
+ways, depending on britney's configuration:
+
+ * migration is blocked
+
+ * regression adds to the time a package needs to be in the source suite before
+   migration is considered (via the age policy)
+
+Regression in the autopkgtest of the candidate package just needs to be fixed
+in the package itself. However, due to the addition of test cases from reverse
+dependencies, regression in this policy may come from a test case that the
+package does not control. If that is the case, the maintainers of the package
+and the maintainers of the regressing test case typically need to discuss and
+solve the issue together. The maintainers of the package have the knowledge of
+what changed, while the maintainers of the reverse dependency with the failing
+test case know what and how the test is actually testing. After all, a
+regression in a reverse dependency can come due to one of the following reasons
+(of course not complete):
+
+ * new bug in the candidate package (fix the package)
+
+ * bug in the test case that only gets triggered due to the update (fix the
+   reverse dependency, but see below)
+
+ * out-of-date reference date in the test case that captures a former bug in
+   the candidate package (fix the reverse dependency, but see below)
+
+ * deprecation of functionality that is used in the reverse dependency and/or
+   its test case (discussion needed)
+
+Unfortunately sometimes a regression is only intermittent. Ideally this should
+be fixed, but it may be OK to just have the autopkgtest retried (how this is to
+be achieved depends on the setup that is being used).
+
+There are cases where it is required to have multiple packages migrate together
+to have the test cases pass, e.g. when there was a bug in a regressing test
+case of a reverse dependency and that got fixed. In that case the test cases
+need to be triggered with both packages from the source suite in the target
+suite (again, how this is done depends on the setup).
+
+If britney is configured to add time to the age policy in case of regression, a
+test case that hasn't been run (but ran successfully in the past) will also
+cause the penalty to be added. This is harmless, because once the results come
+in, the penalty will no longer be effective. Similarly, a missing build will
+also cause the (harmless) penalty.
+
+A failing test that has never succeeded in britney's memory will be treated as
+if the test case doesn't exist.
+
+On top of the penalties for regressions, britney can be configured to reward
+bounties for packages that have a successful test case.
+
