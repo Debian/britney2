@@ -131,9 +131,9 @@ class AutopkgtestPolicy(BasePolicy):
                         if res['version'] is None:
                             res['version'] = '0'
                         (trigger, src, arch, ver, passed, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'] == 'pass', res['run_id']])
-                        self.remove_from_pending(trigger, src, arch)
                         self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
-                self.log('Checking if britney\'s pending tests are known to debci')
+                        self.remove_from_pending(trigger, src, arch)
+                self.log("Checking if britney's pending tests are known to debci")
                 pending_tests = copy.deepcopy(self.pending_tests) # copy because we may change the content
                 for trigger in pending_tests:
                     for package in pending_tests[trigger]:
@@ -144,7 +144,7 @@ class AutopkgtestPolicy(BasePolicy):
                                     found = True
                                     break
                             if not found:
-                                self.log('Removing %s for %s on %s from britney\'s pending list as it isn\'t on debci\'s list' % (package, trigger, arch), 'W')
+                                self.log("Removing %s for %s on %s from britney's pending list as it isn't on debci's list" % (package, trigger, arch), 'W')
                                 self.remove_from_pending(trigger, package, arch)
             else:
                 self.log('%s does not exist, no new data will be processed' %
