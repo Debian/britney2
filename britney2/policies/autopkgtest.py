@@ -755,7 +755,7 @@ class AutopkgtestPolicy(BasePolicy):
                     result = 'RUNNING'
                 else:
                     result = 'RUNNING-ALWAYSFAIL'
-                url = self.options.adt_ci_url + 'running'
+                url = self.options.adt_ci_url + 'status/pending'
             else:
                 raise RuntimeError('Result for %s/%s/%s (triggered by %s) is neither known nor pending!' %
                                    (src, ver, arch, trigger))
