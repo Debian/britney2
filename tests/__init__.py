@@ -211,12 +211,17 @@ class TestData:
         assert (name not in self.added_binaries[unstable])
         self.added_binaries[unstable].add(name)
 
-        fields.setdefault('Architecture', 'all')
+        fields.setdefault('Architecture', 'any')
         fields.setdefault('Version', '1')
         fields.setdefault('Priority', 'optional')
         fields.setdefault('Section', 'devel')
         fields.setdefault('Description', 'test pkg')
-        if fields['Architecture'] == 'all':
+        if fields['Architecture'] == 'any':
+            fields_local_copy = fields.copy()
+            for a in architectures:
+                fields_local_copy['Architecture'] = a
+                self._append(name, unstable, 'Packages_' + a, fields_local_copy)
+        elif fields['Architecture'] == 'all':
             for a in architectures:
                 self._append(name, unstable, 'Packages_' + a, fields)
         else:

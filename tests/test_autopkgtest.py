@@ -210,12 +210,12 @@ class T(TestBase):
         self.assertEqual(exc['darkgreen']['policy_info']['autopkgtest'],
                          {'darkgreen': {
                              'amd64': ['RUNNING-ALWAYSFAIL',
-                                       'https://autopkgtest.ubuntu.com/running',
+                                       'https://autopkgtest.ubuntu.com/status/pending',
                                        'https://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/amd64',
                                        None,
                                        None],
                              'i386': ['RUNNING-ALWAYSFAIL',
-                                      'https://autopkgtest.ubuntu.com/running',
+                                      'https://autopkgtest.ubuntu.com/status/pending',
                                       'https://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/i386',
                                       None,
                                       None]},
@@ -2229,12 +2229,12 @@ class T(TestBase):
         self.assertEqual(exc['lightgreen']['policy_info']['autopkgtest'],
                          {'lightgreen': {
                              'amd64': ['RUNNING-ALWAYSFAIL',
-                                       'https://autopkgtest.ubuntu.com/running',
+                                       'https://autopkgtest.ubuntu.com/status/pending',
                                        None,
                                        None,
                                        None],
                              'i386': ['RUNNING-ALWAYSFAIL',
-                                      'https://autopkgtest.ubuntu.com/running',
+                                      'https://autopkgtest.ubuntu.com/status/pending',
                                       None,
                                       None,
                                       None]},
@@ -2418,17 +2418,20 @@ class T(TestBase):
 
         with open(debci_file, 'w') as f:
             f.write('''
-[
-  ["green/2", "darkgreen",  "i386",  "1", true,  "20170917_100000"],
-  ["green/2", "darkgreen",  "amd64", "1", true,  "20170917_100000"],
-  ["green/1", "lightgreen", "i386",  "1", true,  "20170917_101000"],
-  ["green/2", "lightgreen", "i386",  "1", false, "20170917_101001"],
-  ["green/1", "lightgreen", "amd64", "1", true,  "20170917_101000"],
-  ["green/2", "lightgreen", "amd64", "1", false, "20170917_101001"],
-  ["green/2", "green",      "i386",  "2", true,  "20170917_102000"],
-  ["green/1", "green",      "amd64", "2", true,  "20170917_102000"],
-  ["green/2", "green",      "amd64", "2", false, "20170917_102001"]
-]
+{
+  "until": 12345,
+  "results": [
+  {"trigger": "green/2", "package": "darkgreen",  "arch": "i386",  "version": "1", "status": "pass", "run_id": "100000"},
+  {"trigger": "green/2", "package": "darkgreen",  "arch": "amd64", "version": "1", "status": "pass", "run_id": "100000"},
+  {"trigger": "green/1", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "pass", "run_id": "101000"},
+  {"trigger": "green/2", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "fail", "run_id": "101001"},
+  {"trigger": "green/1", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "pass", "run_id": "101000"},
+  {"trigger": "green/2", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "fail", "run_id": "101001"},
+  {"trigger": "green/2", "package": "green",      "arch": "i386",  "version": "2", "status": "pass", "run_id": "102000"},
+  {"trigger": "green/1", "package": "green",      "arch": "amd64", "version": "2", "status": "pass", "run_id": "102000"},
+  {"trigger": "green/2", "package": "green",      "arch": "amd64", "version": "2", "status": "fail", "run_id": "102001"}
+  ]
+}
 ''')
 
         self.data.add_default_packages(green=False)
@@ -2448,7 +2451,7 @@ class T(TestBase):
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][0],
                          'REGRESSION')
         link = urllib.parse.urlparse(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][1])
-        self.assertEqual(link.path, os.path.join(debci_file, 'autopkgtest-testing/testing/amd64/l/lightgreen/20170917_101001/log.gz'))
+        self.assertEqual(link.path[-53:], '/autopkgtest/testing/amd64/l/lightgreen/101001/log.gz')
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][2:4],
                          ['https://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
                           None])
