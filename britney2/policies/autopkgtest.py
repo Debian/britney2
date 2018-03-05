@@ -227,8 +227,9 @@ class AutopkgtestPolicy(BasePolicy):
                     testver = None
 
                 # Keep track if this source package has tests of its own for the
-                # bounty system
-                if testsrc == source_name:
+                # bounty system, but only if at least one arch has something else than
+                # running or alwaysfail
+                if testsrc == source_name and r - {'RUNNING', 'RUNNING-ALWAYSFAIL', 'ALWAYSFAIL'}:
                     src_has_own_test = True
 
                 html_archmsg = []
