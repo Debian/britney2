@@ -759,14 +759,25 @@ class AutopkgtestPolicy(BasePolicy):
                 else:
                     result = 'ALWAYSFAIL'
 
-            url = os.path.join(self.options.adt_swift_url,
-                               self.swift_container,
-                               self.options.series,
-                               arch,
-                               srchash(src),
-                               src,
-                               run_id,
-                               'log.gz')
+            if self.options.adt_swift_url.startswith('file://'):
+                url = os.path.join(self.options.adt_ci_url,
+                                   'data',
+                                   'autopkgtest',
+                                   self.options.series,
+                                   arch,
+                                   srchash(src),
+                                   src,
+                                   run_id,
+                                   'log.gz')
+            else:
+                url = os.path.join(self.options.adt_swift_url,
+                                   self.swift_container,
+                                   self.options.series,
+                                   arch,
+                                   srchash(src),
+                                   src,
+                                   run_id,
+                                   'log.gz')
         except KeyError:
             # no result for src/arch; still running?
             if arch in self.pending_tests.get(trigger, {}).get(src, []):
