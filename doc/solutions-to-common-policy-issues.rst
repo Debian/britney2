@@ -121,17 +121,19 @@ Britney complains about "autopkgtest"
 
 Maintainers can add autopkgtest test cases to their packages. Britney can be
 configured to request a test runner instance (in the case of Debian, this is
-debci) to run relevant tests. The idea is that a package that is candidate for
-migration is updated in the target suite to its candidate version and that the
-autopkgtest cases of the package (if it has one or more) *and* those of all
+debci) to run relevant tests. The idea is that a package that is a candidate
+for migration is updated in the target suite to its candidate version and that
+the autopkgtest case(s) of the package (if it has any) *and* those of all
 reverse dependencies are run. Regression in the results with respect to the
 current situation in the target suite can influence migration in the following
 ways, depending on britney's configuration:
 
  * migration is blocked
 
- * regression adds to the time a package needs to be in the source suite before
-   migration is considered (via the age policy)
+ * regression adds to the required time a package needs to be in the source
+   suite before migration is considered (via the age policy). This time can
+   then be used to investigate the situation and potentially block migration
+   via other policies (e.g. the bug policy).
 
 Regression in the autopkgtest of the candidate package just needs to be fixed
 in the package itself. However, due to the addition of test cases from reverse
