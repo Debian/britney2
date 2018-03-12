@@ -212,12 +212,10 @@ class T(TestBase):
                              'amd64': ['RUNNING-ALWAYSFAIL',
                                        'https://autopkgtest.ubuntu.com/status/pending',
                                        'https://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/amd64',
-                                       None,
                                        None],
                              'i386': ['RUNNING-ALWAYSFAIL',
                                       'https://autopkgtest.ubuntu.com/status/pending',
                                       'https://autopkgtest.ubuntu.com/packages/d/darkgreen/testing/i386',
-                                      None,
                                       None]},
                          'verdict': 'PASS'})
 
@@ -501,15 +499,6 @@ class T(TestBase):
                           'http://localhost:18085/autopkgtest-testing/testing/amd64/l/lightgreen/20150101_100101@/log.gz',
                           'https://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
                           None])
-
-        # should have retry link for the regressions (not a stable URL, test
-        # seaprately)
-        link = urllib.parse.urlparse(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][4])
-        self.assertEqual(link.netloc, 'autopkgtest.ubuntu.com')
-        self.assertEqual(link.path, '/request.cgi')
-        self.assertEqual(urllib.parse.parse_qs(link.query),
-                         {'release': ['testing'], 'arch': ['amd64'],
-                          'package': ['lightgreen'], 'trigger': ['green/2']})
 
         # we already had all results before the run, so this should not trigger
         # any new requests
@@ -2231,11 +2220,9 @@ class T(TestBase):
                              'amd64': ['RUNNING-ALWAYSFAIL',
                                        'https://autopkgtest.ubuntu.com/status/pending',
                                        None,
-                                       None,
                                        None],
                              'i386': ['RUNNING-ALWAYSFAIL',
                                       'https://autopkgtest.ubuntu.com/status/pending',
-                                      None,
                                       None,
                                       None]},
                         'verdict': 'PASS'})
@@ -2263,14 +2250,11 @@ class T(TestBase):
                              'amd64': ['PASS',
                                        'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/amd64/l/lightgreen/20150101_100101@/log.gz',
                                        None,
-                                       'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/amd64/l/lightgreen/20150101_100101@/artifacts.tar.gz',
-                                       None],
+                                       'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/amd64/l/lightgreen/20150101_100101@/artifacts.tar.gz'],
                              'i386': ['REGRESSION',
                                       'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/i386/l/lightgreen/20150101_100100@/log.gz',
                                       None,
-                                      'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/i386/l/lightgreen/20150101_100100@/artifacts.tar.gz',
-                                      'https://autopkgtest.ubuntu.com/request.cgi?release=testing&arch=i386&package=lightgreen&'
-                                      'trigger=lightgreen%2F2&ppa=joe%2Ffoo&ppa=awesome-developers%2Fstaging']},
+                                      'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/i386/l/lightgreen/20150101_100100@/artifacts.tar.gz']},
                          'verdict': 'REJECTED_PERMANENTLY'})
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
@@ -2455,15 +2439,6 @@ class T(TestBase):
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][2:4],
                          ['https://autopkgtest.ubuntu.com/packages/l/lightgreen/testing/amd64',
                           None])
-
-        # should have retry link for the regressions (not a stable URL, test
-        # separately)
-        link = urllib.parse.urlparse(exc['green']['policy_info']['autopkgtest']['lightgreen/1']['amd64'][4])
-        self.assertEqual(link.netloc, 'autopkgtest.ubuntu.com')
-        self.assertEqual(link.path, '/request.cgi')
-        self.assertEqual(urllib.parse.parse_qs(link.query),
-                         {'release': ['testing'], 'arch': ['amd64'],
-                          'package': ['lightgreen'], 'trigger': ['green/2']})
 
         # we already had all results before the run, so this should not trigger
         # any new requests
