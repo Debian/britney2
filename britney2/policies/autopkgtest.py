@@ -706,16 +706,46 @@ class AutopkgtestPolicy(BasePolicy):
             self.send_test_request(src, arch, trigger, huge=huge)
 
     def check_ever_passed(self, src, arch):
-        '''Check if tests for src ever passed on arch'''
+        '''Check if tests for src ever passed on arch for the current
+           version in testing (preferably) or, alternatively, ever'''
 
-        # FIXME: add caching
+        # this requires iterating over all cached results and thus is expensive;
+        # cache the results
+        try:
+            return self.check_ever_passed._cache[src][arch]
+        except KeyError:
+            pass
+
+        check_ever_passed = False
+        check_passed_testing = False
+        tested_in_testing = False
+        try:
+            src_ver_in_testing = self.britney.sources['testing'][src][VERSION]
+        except KeyError:
+            src_ver_in_testing = None
         for srcmap in self.test_results.values():
             try:
                 if srcmap[src][arch][0]:
-                    return True
+                    check_ever_passed = True
+                if srcmap[src][arch][1] == src_ver_in_testing:
+                    tested_in_testing = True
+                    if srcmap[src][arch][0]:
+                        check_passed_testing = True
+                        break
+                
             except KeyError:
                 pass
-        return False
+
+        if tested_in_testing:
+            self.check_ever_passed._cache.setdefault(src, {})[arch] = check_passed_testing
+            self.log('Found passing result for src %s in testing: %s' % (src, check_passed_testing))
+            return check_passed_testing
+        else:
+            self.check_ever_passed._cache.setdefault(src, {})[arch] = check_ever_passed
+            self.log('Found passing result for src %s ever: %s' % (src, check_ever_passed))
+            return check_ever_passed
+
+    check_ever_passed._cache = {}
 
     def pkg_test_result(self, src, ver, arch, trigger):
         '''Get current test status of a particular package
