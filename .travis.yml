@@ -1,25 +1,29 @@
 language: c
 sudo: required
 dist: trusty
+
 before_install:
-    # update package list
-    - sudo apt-get update -qq
     - git clone https://anonscm.debian.org/git/collab-maint/britney2-tests.git britney2-tests
     - git clone https://anonscm.debian.org/git/collab-maint/britney-tests-live-data.git britney2-tests/live-data
     - rm -f .coverage
 
 install:
-    # install build dependencies
-    - sudo apt-get install -qq --no-install-recommends python3 python3-apt python3-yaml python3-coverage python3-nose rsync libclass-accessor-perl
+    # Update docker-engine using Ubuntu 'trusty' apt repo
+    - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+    - >
+      echo "deb https://apt.dockerproject.org/repo ubuntu-trusty main" |
+       sudo tee -a /etc/apt/sources.list
+    - sudo apt-get update
+    - >
+      sudo apt-get -o Dpkg::Options::="--force-confdef" \
+       -o Dpkg::Options::="--force-confold" --assume-yes install docker-engine
+    - docker version
+
+    - docker pull debian:stable
+    - docker build --tag=britney .
 
 script:
-    - nosetests3 -v --with-coverage
-    - britney2-tests/bin/runtests ./ci/britney-coverage.sh britney2-tests/t test-out
-    - britney2-tests/bin/runtests ./britney.py britney2-tests/live-data test-out-live-data
-after_success:
-  - python3-coverage report
-  - python3-coverage report -m
-  - python3-coverage xml -i
-  - bash <(curl -s https://codecov.io/bash)
+    - docker run britney /bin/sh -c "export CI=true ; ci/run-everything-and-upload-to-codecov.io.sh"
+
 #notifications:
 #  email: false
