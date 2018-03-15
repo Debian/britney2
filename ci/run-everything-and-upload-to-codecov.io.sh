@@ -10,7 +10,11 @@ echo
 britney2-tests/bin/runtests ./ci/britney-coverage.sh britney2-tests/t test-out || err=$?
 echo
 echo
-britney2-tests/bin/runtests ./britney.py britney2-tests/live-data test-out-live-data-1 live-2011-12-13 || err=$?
+if [ -n "$CI" ] ; then
+    echo skipping live-2011-12-13 to prevent time out on Travis of the whole test suite
+else
+    britney2-tests/bin/runtests ./britney.py britney2-tests/live-data test-out-live-data-1 live-2011-12-13 || err=$?
+fi
 echo
 britney2-tests/bin/runtests ./britney.py britney2-tests/live-data test-out-live-data-2 live-2011-12-20 || err=$?
 echo
