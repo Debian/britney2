@@ -3,8 +3,8 @@ sudo: required
 dist: trusty
 
 before_install:
-    - git clone https://anonscm.debian.org/git/collab-maint/britney2-tests.git britney2-tests
-    - git clone https://anonscm.debian.org/git/collab-maint/britney-tests-live-data.git britney2-tests/live-data
+    - git clone https://salsa.debian.org/debian/britney2-tests.git britney2-tests
+    - git clone https://salsa.debian.org/debian/britney-tests-live-data.git britney2-tests/live-data
     - rm -f .coverage
 
 install:
