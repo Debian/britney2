@@ -402,7 +402,6 @@ class AutopkgtestPolicy(BasePolicy):
                     if rdep_src == src:
                         continue
                 except KeyError:
-                    self.log('%s on %s has no source (NBS, new or removed?)' % (rdep.package_name, arch))
                     continue
 
                 rdep_src_info = sources_info[rdep_src]
