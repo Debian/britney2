@@ -130,7 +130,7 @@ class AutopkgtestPolicy(BasePolicy):
                     if res['status'] is not None and res['trigger'] is not None:
                         # Blacklisted tests don't get a version
                         if res['version'] is None:
-                            res['version'] = '0'
+                            res['version'] = 'blacklisted'
                         (trigger, src, arch, ver, passed, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'] == 'pass', res['run_id']])
                         self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
                         self.remove_from_pending(trigger, src, arch)
