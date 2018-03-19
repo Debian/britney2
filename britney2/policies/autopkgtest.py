@@ -126,7 +126,8 @@ class AutopkgtestPolicy(BasePolicy):
                 self.log('Read new results from %s' % debci_file)
                 for res in test_results['results']:
                     # status == null means still running
-                    if res['status'] is not None:
+                    # trigger == null means not automatically requested
+                    if res['status'] is not None and res['trigger'] is not None:
                         # Blacklisted tests don't get a version
                         if res['version'] is None:
                             res['version'] = '0'
