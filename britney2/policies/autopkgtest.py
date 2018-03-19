@@ -131,7 +131,7 @@ class AutopkgtestPolicy(BasePolicy):
                         # Blacklisted tests don't get a version
                         if res['version'] is None:
                             res['version'] = 'blacklisted'
-                        (trigger, src, arch, ver, passed, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'] == 'pass', res['run_id']])
+                        (trigger, src, arch, ver, passed, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'] == 'pass', str(res['run_id'])])
                         self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
                         self.remove_from_pending(trigger, src, arch)
                 self.log("Checking if britney's pending tests are known to debci")
