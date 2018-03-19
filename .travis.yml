@@ -24,7 +24,7 @@ install:
 
 script:
     # https://docs.codecov.io/docs/testing-with-docker
-    - ci_env=$(bash <(curl -s https://codecov.io/env)) ; docker run $ci_env britney /bin/sh -c "export CI=true ; ci/run-everything-and-upload-to-codecov.io.sh"
+    - ci_env=$(bash <(curl -s https://codecov.io/env)) ; echo $ci_env ; docker run $ci_env britney /bin/sh -c "export CI=true ; ci/run-everything-and-upload-to-codecov.io.sh"
 
 #notifications:
 #  email: false
