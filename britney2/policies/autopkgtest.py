@@ -30,7 +30,6 @@ import apt_pkg
 
 import britney2.hints
 from britney2.policies.policy import BasePolicy, PolicyVerdict
-from britney2.consts import VERSION
 
 
 EXCUSES_LABELS = {
@@ -354,7 +353,7 @@ class AutopkgtestPolicy(BasePolicy):
             if re.match('gcc-\d$', src):
                 for test in ['binutils', 'fglrx-installer', 'libreoffice', 'linux']:
                     try:
-                        tests.append((test, self.britney.sources['testing'][test][VERSION]))
+                        tests.append((test, self.britney.sources['testing'][test].version))
                     except KeyError:
                         # no package in that series? *shrug*, then not (mostly for testing)
                         pass
@@ -408,7 +407,7 @@ class AutopkgtestPolicy(BasePolicy):
                 rdep_src_info = sources_info[rdep_src]
                 if 'autopkgtest' in rdep_src_info.testsuite or self.has_autodep8(rdep_src_info, binaries_info):
                     if rdep_src not in reported_pkgs:
-                        tests.append((rdep_src, rdep_src_info[VERSION]))
+                        tests.append((rdep_src, rdep_src_info.version))
                         reported_pkgs.add(rdep_src)
 
             for tdep_src in self.britney.testsuite_triggers.get(binary.package_name, set()):
@@ -420,7 +419,7 @@ class AutopkgtestPolicy(BasePolicy):
                     if 'autopkgtest' in tdep_src_info.testsuite or self.has_autodep8(tdep_src_info, binaries_info):
                         for pkg_id in tdep_src_info.binaries:
                             if pkg_id.architecture == arch:
-                                tests.append((tdep_src, tdep_src_info[VERSION]))
+                                tests.append((tdep_src, tdep_src_info.version))
                                 reported_pkgs.add(tdep_src)
                                 break
 
@@ -433,10 +432,10 @@ class AutopkgtestPolicy(BasePolicy):
                     for pkg_id in srcinfo.binaries:
                         if pkg_id.architecture == arch and '-image' in pkg_id.package_name:
                             try:
-                                tests.append((pkg, self.britney.sources['unstable'][pkg][VERSION]))
+                                tests.append((pkg, self.britney.sources['unstable'][pkg].version))
                             except KeyError:
                                 try:
-                                    tests.append((pkg, self.britney.sources['testing'][pkg][VERSION]))
+                                    tests.append((pkg, self.britney.sources['testing'][pkg].version))
                                 except KeyError:
                                     # package not in that series? *shrug*, then not
                                     pass
@@ -721,7 +720,7 @@ class AutopkgtestPolicy(BasePolicy):
         check_passed_testing = False
         tested_in_testing = False
         try:
-            src_ver_in_testing = self.britney.sources['testing'][src][VERSION]
+            src_ver_in_testing = self.britney.sources['testing'][src].version
         except KeyError:
             src_ver_in_testing = None
         for srcmap in self.test_results.values():
