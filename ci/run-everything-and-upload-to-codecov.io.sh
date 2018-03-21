@@ -31,7 +31,7 @@ if [ $err = 0 ] ; then
     echo
     python3-coverage xml -i || true
     echo
-    bash <(curl -s https://codecov.io/bash) || true
+    mv .coverage shared
 fi
 
 exit $err
