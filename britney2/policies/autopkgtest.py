@@ -124,29 +124,30 @@ class AutopkgtestPolicy(BasePolicy):
                 with open(debci_file) as f:
                     test_results = json.load(f)
                 self.log('Read new results from %s' % debci_file)
+                # With debci, pending tests are determined from the debci file
+                self.pending_tests = {}
                 for res in test_results['results']:
-                    # status == null means still running
-                    # trigger == null means not automatically requested
-                    if res['status'] is not None and res['trigger'] is not None:
-                        # Blacklisted tests don't get a version
-                        if res['version'] is None:
-                            res['version'] = 'blacklisted'
-                        (trigger, src, arch, ver, passed, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'] == 'pass', str(res['run_id'])])
-                        self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
-                        self.remove_from_pending(trigger, src, arch)
-                self.log("Checking if britney's pending tests are known to debci")
-                pending_tests = copy.deepcopy(self.pending_tests) # copy because we may change the content
-                for trigger in pending_tests:
-                    for package in pending_tests[trigger]:
-                        for arch in pending_tests[trigger][package]:
-                            found = False
-                            for res in test_results['results']:
-                                if res['trigger'] == trigger and res['package'] == package and res['arch'] == arch:
-                                    found = True
-                                    break
-                            if not found:
-                                self.log("Removing %s for %s on %s from britney's pending list as it isn't on debci's list" % (package, trigger, arch), 'W')
-                                self.remove_from_pending(trigger, package, arch)
+                    # Blacklisted tests don't get a version
+                    if res['version'] is None:
+                        res['version'] = 'blacklisted'
+                    (trigger, src, arch, ver, status, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'], str(res['run_id'])])
+                    if trigger is None:
+                        # not requested for this policy, so ignore
+                        continue
+                    if status is None:
+                        # still running => pending
+                        arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
+                        if arch not in arch_list:
+                            self.log('Pending autopkgtest %s on %s to verify %s' %
+                                         (src, arch, trigger))
+                            arch_list.append(arch)
+                            arch_list.sort()
+                    elif status == 'tmpfail':
+                        # let's see if we still need it
+                        continue
+                    else:
+                        self.log('Results %s %s %s added' % (src, trigger, status))
+                        self.add_trigger_to_results(trigger, src, ver, arch, stamp, status == 'pass')
             else:
                 self.log('%s does not exist, no new data will be processed' %
                              debci_file)
