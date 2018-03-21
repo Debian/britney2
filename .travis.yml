@@ -3,7 +3,7 @@ sudo: required
 dist: trusty
 
 before_install:
-    - git clone https://salsa.debian.org/debian/britney2-tests.git britney2-tests
+    - git clone -b autopkgtest https://salsa.debian.org/debian/britney2-tests.git britney2-tests
     - git clone https://salsa.debian.org/debian/britney-tests-live-data.git britney2-tests/live-data
     - rm -f .coverage
 
