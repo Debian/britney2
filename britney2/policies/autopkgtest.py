@@ -42,6 +42,7 @@ EXCUSES_LABELS = {
     "RUNNING-ALWAYSFAIL": '<span style="background:#99ddff">Test in progress (always failed)</span>',
 }
 
+REF_TRIG = 'migration-reference/0'
 
 def srchash(src):
     '''archive hash prefix for source package'''
@@ -622,10 +623,15 @@ class AutopkgtestPolicy(BasePolicy):
             src, {}).setdefault(arch, [False, None, ''])
     
         # don't clobber existing passed results with failures from re-runs
-        if passed or not result[0]:
+        # except for reference updates
+        if passed or not result[0] or (self.options.adt_baseline == 'reference' and trigger == REF_TRIG):
             result[0] = passed
             result[1] = ver
             result[2] = stamp
+
+            if self.options.adt_baseline == 'reference' and trigsrc != src:
+                self.test_results.setdefault(REF_TRIG, {}).setdefault(
+                    src, {}).setdefault(arch, [passed, ver, stamp])
 
     def send_test_request(self, src, arch, trigger, huge=False):
         '''Send out AMQP request for testing src/arch for trigger
@@ -695,48 +701,59 @@ class AutopkgtestPolicy(BasePolicy):
             arch_list.append(arch)
             arch_list.sort()
             self.send_test_request(src, arch, trigger, huge=huge)
+            if self.options.adt_baseline == 'reference':
+                # Check if we already have a reference for this src on this
+                # arch (or pending).
+                try:
+                    self.test_results[REF_TRIG][src][arch]
+                except KeyError:
+                    try:
+                        arch_list = self.pending_tests[REF_TRIG][src]
+                        if arch not in arch_list:
+                            raise KeyError # fall through
+                    except KeyError:
+                        self.logger.info('Requesting %s autopkgtest on %s to set a reference',
+                                             src, arch)
+                        self.send_test_request(src, arch, REF_TRIG, huge=huge)
 
-    def check_ever_passed(self, src, arch):
-        '''Check if tests for src ever passed on arch for the current
-           version in testing (preferably) or, alternatively, ever'''
+    def passed_in_baseline(self, src, arch):
+        '''Check if tests for src passed on arch in the baseline
+
+        The baseline is optionally all data or a reference set)
+        '''
 
         # this requires iterating over all cached results and thus is expensive;
         # cache the results
         try:
-            return self.check_ever_passed._cache[src][arch]
+            return self.passed_in_baseline._cache[src][arch]
         except KeyError:
             pass
 
-        check_ever_passed = False
-        check_passed_testing = False
-        tested_in_testing = False
-        try:
-            src_ver_in_testing = self.britney.sources['testing'][src].version
-        except KeyError:
-            src_ver_in_testing = None
+        passed_reference = False
+        if self.options.adt_baseline == 'reference':
+            try:
+                passed_reference = self.test_results[REF_TRIG][src][arch][0]
+                self.logger.info('Found result for src %s in reference: pass=%s', src, passed_reference)
+            except KeyError:
+                self.logger.info('Found NO result for src %s in reference: pass=%s', src, passed_reference)
+                pass
+            self.passed_in_baseline._cache.setdefault(src, {})[arch] = passed_reference
+            return passed_reference
+
+        passed_ever = False
         for srcmap in self.test_results.values():
             try:
                 if srcmap[src][arch][0]:
-                    check_ever_passed = True
-                if srcmap[src][arch][1] == src_ver_in_testing:
-                    tested_in_testing = True
-                    if srcmap[src][arch][0]:
-                        check_passed_testing = True
-                        break
-                
+                    passed_ever = True
+                    break
             except KeyError:
                 pass
 
-        if tested_in_testing:
-            self.check_ever_passed._cache.setdefault(src, {})[arch] = check_passed_testing
-            self.logger.info('Found passing result for src %s in testing: %s', src, check_passed_testing)
-            return check_passed_testing
-        else:
-            self.check_ever_passed._cache.setdefault(src, {})[arch] = check_ever_passed
-            self.logger.info('Found passing result for src %s ever: %s', src, check_ever_passed)
-            return check_ever_passed
+        self.passed_in_baseline._cache.setdefault(src, {})[arch] = passed_ever
+        self.logger.info('Result for src %s ever: pass=%s', src, passed_ever)
+        return passed_ever
 
-    check_ever_passed._cache = {}
+    passed_in_baseline._cache = {}
 
     def pkg_test_result(self, src, ver, arch, trigger):
         '''Get current test status of a particular package
@@ -745,7 +762,7 @@ class AutopkgtestPolicy(BasePolicy):
         EXCUSES_LABELS. log_url is None if the test is still running.
         '''
         # determine current test result status
-        ever_passed = self.check_ever_passed(src, arch)
+        ever_passed = self.passed_in_baseline(src, arch)
         url = None
         try:
             r = self.test_results[trigger][src][arch]
