@@ -237,7 +237,7 @@ solution for a concrete problem with a valid solution.  Although, in
 many cases, britney will generally figure out the solution on its own.
 
 *Caveat*: Due to "uninstallability trading", this hint may cause
-undesireable changes to the target suite.  In practise, this is rather
+undesirable changes to the target suite.  In practise, this is rather
 rare but the hinter is letting britney decide what "repairs" the
 situation.
 
@@ -254,7 +254,7 @@ This hint is generally useful when the provided `<action list>` is more
 desirable than the resulting breakage.
 
 *Caveat*: Be sure to test the outcome of these hints.  A last minute
-change can have long lasting undesireable consequences on the end
+change can have long lasting undesirable consequences on the end
 result.
 
 Other hints
