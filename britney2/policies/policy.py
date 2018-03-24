@@ -34,23 +34,6 @@ class BasePolicy(object):
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
 
-    # FIXME: use a proper logging framework
-    def log(self, msg, type="I"):
-        """Print info messages according to verbosity level
-
-        An easy-and-simple log method which prints messages to the standard
-        output. The type parameter controls the urgency of the message, and
-        can be equal to `I' for `Information', `W' for `Warning' and `E' for
-        `Error'. Warnings and errors are always printed, and information is
-        printed only if verbose logging is enabled.
-        """
-        level = {
-            'I': logging.INFO,
-            'W': logging.WARNING,
-            'E': logging.ERROR,
-        }.get(type, logging.INFO)
-        self.logger.log(level, msg)
-
     def register_hints(self, hint_parser):  # pragma: no cover
         """Register new hints that this policy accepts
 
@@ -310,7 +293,7 @@ class AgePolicy(BasePolicy):
             if not using_new_name:
                 # If we using the legacy name, then just give up
                 raise
-            self.log("%s does not appear to exist.  Creating it" % filename)
+            self.logger.info("%s does not appear to exist.  Creating it" % filename)
             with open(filename, mode='x', encoding='utf-8'):
                 pass
 
@@ -372,7 +355,7 @@ class AgePolicy(BasePolicy):
                 fd.write("%s %s %d\n" % (pkg, version, date))
         os.rename(filename_tmp, filename)
         if old_file is not None and os.path.exists(old_file):
-            self.log("Removing old age-policy-dates file %s" % old_file)
+            self.logger.info("Removing old age-policy-dates file %s" % old_file)
             os.unlink(old_file)
 
 
@@ -457,7 +440,7 @@ class RCBugPolicy(BasePolicy):
 
             # Only handle one hint for now
             if 'ignored-bugs' in rcbugs_info:
-                self.log("Ignoring ignore-rc-bugs hint from %s on %s due to another hint from %s" % (
+                self.logger.info("Ignoring ignore-rc-bugs hint from %s on %s due to another hint from %s" % (
                     ignore_hint.user, source_name, rcbugs_info['ignored-bugs']['issued-by']
                 ))
                 continue
@@ -470,7 +453,7 @@ class RCBugPolicy(BasePolicy):
                 }
                 success_verdict = PolicyVerdict.PASS_HINTED
             else:
-                self.log("Ignoring ignore-rc-bugs hint from %s on %s as none of %s affect the package" % (
+                self.logger.info("Ignoring ignore-rc-bugs hint from %s on %s as none of %s affect the package" % (
                     ignore_hint.user, source_name, str(ignored_bugs)
                 ))
 
@@ -508,11 +491,11 @@ class RCBugPolicy(BasePolicy):
         name and the value is the list of open RC bugs for it.
         """
         bugs = {}
-        self.log("Loading RC bugs data from %s" % filename)
+        self.logger.info("Loading RC bugs data from %s" % filename)
         for line in open(filename, encoding='ascii'):
             l = line.split()
             if len(l) != 2:
-                self.log("Malformed line found in line %s" % (line), type='W')
+                self.logger.warning("Malformed line found in line %s" % (line))
                 continue
             pkg = l[0]
             if pkg not in bugs:
@@ -599,7 +582,7 @@ class PiupartsPolicy(BasePolicy):
 
     def _read_piuparts_summary(self, filename, keep_url=True):
         summary = {}
-        self.log("Loading piuparts report from {0}".format(filename))
+        self.logger.info("Loading piuparts report from {0}".format(filename))
         with open(filename) as fd:
             if os.fstat(fd.fileno()).st_size < 1:
                 return summary
