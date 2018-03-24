@@ -5,7 +5,7 @@ from britney2.hints import HintParser, single_hint_taking_list_of_packages
 from . import MockObject, HINTS_ALL, TEST_HINTER
 
 
-def new_hint_paser(logger=None):
+def new_hint_parser(logger=None):
     if logger is None:
         def empty_logger(x, type='I'):
             pass
@@ -23,7 +23,7 @@ class HintParsing(unittest.TestCase):
 
     def test_parse_invalid_hints(self):
         hint_log = []
-        hint_parser = new_hint_paser(lambda x, type='I': hint_log.append(x))
+        hint_parser = new_hint_parser(lambda x, type='I': hint_log.append(x))
 
         hint_parser.register_hint_type('min-10-arg', parse_should_not_call_this_function, min_args=10)
         hint_parser.register_hint_type('simple-hint', parse_should_not_call_this_function)
@@ -54,7 +54,7 @@ class HintParsing(unittest.TestCase):
             hint_log.clear()
 
     def test_alias(self):
-        hint_parser = new_hint_paser()
+        hint_parser = new_hint_parser()
         hint_parser.register_hint_type('real-name',
                                        single_hint_taking_list_of_packages,
                                        aliases=['alias1', 'alias2']
@@ -73,6 +73,7 @@ class HintParsing(unittest.TestCase):
         # But not by their alias
         assert not hints.search(type='alias1', package='foo', version='1.0')
         assert not hints.search(type='alias2', package='bar', version='2.0')
+
 
 if __name__ == '__main__':
     unittest.main()
