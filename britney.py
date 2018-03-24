@@ -179,6 +179,7 @@ does for the generation of the update excuses.
 
  * The excuses are written in an HTML file.
 """
+import logging
 import optparse
 import os
 import sys
@@ -252,6 +253,32 @@ class Britney(object):
         This method initializes and populates the data lists, which contain all
         the information needed by the other methods of the class.
         """
+
+        # setup logging - provide the "short level name" (i.e. INFO -> I) that
+        # we used to use prior to using the logging module.
+
+        old_factory = logging.getLogRecordFactory()
+        short_level_mapping = {
+            'CRITIAL': 'F',
+            'INFO': 'I',
+            'WARNING': 'W',
+            'ERROR': 'E',
+            'DEBUG': 'N',
+        }
+
+        def record_factory(*args, **kwargs):
+            record = old_factory(*args, **kwargs)
+            try:
+                record.shortlevelname = short_level_mapping[record.levelname]
+            except KeyError:
+                record.shortlevelname = record.levelname
+            return record
+
+        logging.setLogRecordFactory(record_factory)
+        logging.basicConfig(format='{shortlevelname}: [{asctime}] - {message}', style='{',
+                            datefmt="%Y-%m-%dT%H:%M:%S%z")
+
+        self.logger = logging.getLogger()
 
         # parse the command line arguments
         self.policies = []
@@ -415,6 +442,11 @@ class Britney(object):
         parser.add_option("", "--no-compute-migrations", action="store_false", dest="compute_migrations",
                           help="Do not compute which packages can migrate.")
         (self.options, self.args) = parser.parse_args()
+
+        if self.options.verbose:
+            self.logger.setLevel(logging.INFO)
+        else:
+            self.logger.setLevel(logging.WARNING)
         
         # integrity checks
         if self.options.nuninst_cache and self.options.print_uninst:  # pragma: no cover
@@ -529,8 +561,12 @@ class Britney(object):
         `Error'. Warnings and errors are always printed, and information is
         printed only if verbose logging is enabled.
         """
-        if self.options.verbose or type in ("E", "W"):
-            print("%s: [%s] - %s" % (type, time.asctime(), msg))
+        level = {
+            'I': logging.INFO,
+            'W': logging.WARNING,
+            'E': logging.ERROR,
+        }.get(type, logging.INFO)
+        self.logger.log(level, msg)
 
     def _load_faux_packages(self, faux_packages_file):
         """Loads fake packages
@@ -2771,6 +2807,7 @@ class Britney(object):
                     self.log('>   %s' % stat, type="I")
         else:
             self.log('Migration computation skipped as requested.', type='I')
+        logging.shutdown()
 
 
 if __name__ == '__main__':

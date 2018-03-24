@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 from abc import abstractmethod
@@ -30,6 +31,8 @@ class BasePolicy(object):
         self.suite_info = suite_info
         self.applicable_suites = applicable_suites
         self.hints = None
+        logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
+        self.logger = logging.getLogger(logger_name)
 
     # FIXME: use a proper logging framework
     def log(self, msg, type="I"):
@@ -41,8 +44,12 @@ class BasePolicy(object):
         `Error'. Warnings and errors are always printed, and information is
         printed only if verbose logging is enabled.
         """
-        if self.options.verbose or type in ("E", "W"):
-            print("%s: [%s] - %s" % (type, time.asctime(), msg))
+        level = {
+            'I': logging.INFO,
+            'W': logging.WARNING,
+            'E': logging.ERROR,
+        }.get(type, logging.INFO)
+        self.logger.log(level, msg)
 
     def register_hints(self, hint_parser):  # pragma: no cover
         """Register new hints that this policy accepts
