@@ -282,7 +282,7 @@ class Britney(object):
 
         # parse the command line arguments
         self.policies = []
-        self._hint_parser = HintParser(self)
+        self._hint_parser = HintParser()
         self.suite_info = {}
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
