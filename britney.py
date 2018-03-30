@@ -317,19 +317,14 @@ class Britney(object):
                 return
 
         self.all_binaries = {}
-        # read the source and binary packages for the involved distributions
-        self.sources['testing'] = self.read_sources(self.suite_info['testing'].path)
-        self.sources['unstable'] = self.read_sources(self.suite_info['unstable'].path)
-        for suite in ('tpu', 'pu'):
-            if hasattr(self.options, suite):
-                self.sources[suite] = self.read_sources(getattr(self.options, suite))
-            else:
-                self.sources[suite] = {}
-
-        self.binaries['testing'] = {}
-        self.binaries['unstable'] = {}
-        self.binaries['tpu'] = {}
-        self.binaries['pu'] = {}
+        # read the source and binary packages for the involved distributions.  Notes:
+        # - Load testing last as some live-data tests have more complete information in
+        #   unstable
+        # - Load all sources before any of the binaries.
+        for suite in self.suite_info:
+            sources = self.read_sources(suite.path)
+            self.sources[suite.name] = sources
+            self.binaries[suite.name] = self.read_binaries(suite.path, suite.name, self.options.architectures)
 
         # compute inverse Testsuite-Triggers: map, unifying all series
         self.logger.info('Building inverse testsuite_triggers map')
@@ -338,20 +333,6 @@ class Britney(object):
             for src, data in suitemap.items():
                 for trigger in data.testsuite_triggers:
                     self.testsuite_triggers.setdefault(trigger, set()).add(src)
-
-        self.binaries['unstable'] = self.read_binaries(self.suite_info['unstable'].path, "unstable", self.options.architectures)
-        for suite in ('tpu', 'pu'):
-            if suite in self.suite_info:
-                self.binaries[suite] = self.read_binaries(self.suite_info[suite].path, suite, self.options.architectures)
-            else:
-                # _build_installability_tester relies on this being
-                # properly initialised, so insert two empty dicts
-                # here.
-                for arch in self.options.architectures:
-                    self.binaries[suite][arch] = ({}, {})
-        # Load testing last as some live-data tests have more complete information in
-        # unstable
-        self.binaries['testing'] = self.read_binaries(self.suite_info['testing'].path, "testing", self.options.architectures)
 
         try:
             constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
@@ -514,6 +495,7 @@ class Britney(object):
                 if suite in {'testing', 'unstable'}:  # pragma: no cover
                     self.logger.error("Mandatory configuration %s is not set in the config", suite.upper())
                     sys.exit(1)
+                # self.suite_info[suite] = SuiteInfo(name=suite, path=None, excuses_suffix=suffix)
                 self.logger.info("Optional suite %s is not defined (config option: %s) ", suite, suite.upper())
 
         self.suite_info = Suites(suites[0], suites[1:])
@@ -1632,19 +1614,19 @@ class Britney(object):
             if should_upgrade_src(pkg, 'unstable'):
                 upgrade_me_add(pkg)
 
-        # for every source package in *-proposed-updates, check if it should be upgraded
-        for suite in ['pu', 'tpu']:
-            for pkg in sources[suite]:
+        # for every source package in the additional source suites, check if it should be upgraded
+        for suite in self.suite_info.additional_source_suites:
+            for pkg in sources[suite.name]:
                 # if the source package is already present in testing,
                 # check if it should be upgraded for every binary package
                 if pkg in testing:
                     for arch in architectures:
-                        if should_upgrade_srcarch(pkg, arch, suite):
-                            upgrade_me_add("%s/%s_%s" % (pkg, arch, suite))
+                        if should_upgrade_srcarch(pkg, arch, suite.name):
+                            upgrade_me_add("%s/%s_%s" % (pkg, arch, suite.name))
 
                 # check if the source package should be upgraded
-                if should_upgrade_src(pkg, suite):
-                    upgrade_me_add("%s_%s" % (pkg, suite))
+                if should_upgrade_src(pkg, suite.name):
+                    upgrade_me_add("%s_%s" % (pkg, suite.name))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for hint in self.hints['remove']:
@@ -2686,6 +2668,8 @@ class Britney(object):
             rightversion = inunstable and (apt_pkg.version_compare(self.sources['unstable'][pkg.package].version, pkg.version) == 0)
             if pkg.suite == 'unstable' and not rightversion:
                 for suite in ['pu', 'tpu']:
+                    if suite not in self.suite_info:
+                        continue
                     if pkg.package in self.sources[suite] and apt_pkg.version_compare(self.sources[suite][pkg.package].version, pkg.version) == 0:
                         pkg.suite = suite
                         _pkgvers[idx] = pkg
@@ -2693,7 +2677,7 @@ class Britney(object):
 
             # handle *-proposed-updates
             if pkg.suite in ['pu', 'tpu']:
-                if pkg.package not in self.sources[pkg.suite]:
+                if pkg.suite not in self.suite_info or pkg.package not in self.sources[pkg.suite]:
                     continue
                 if apt_pkg.version_compare(self.sources[pkg.suite][pkg.package].version, pkg.version) != 0:
                     issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
