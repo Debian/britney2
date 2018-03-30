@@ -218,21 +218,20 @@ class HintParser(object):
             if hint_name == 'finished':
                 break
             if hint_name not in hint_table:
-                self.logger.warning("Unknown hint found in %s (line %d): '%s'" % (filename, line_no, line))
+                self.logger.warning("Unknown hint found in %s (line %d): '%s'", filename, line_no, line)
                 continue
             if hint_name not in permitted_hints and 'ALL' not in permitted_hints:
                 reason = 'The hint is not a part of the permitted hints for ' + who
-                self.logger.info("Ignoring \"%s\" hint from %s found in %s (line %d): %s" % (
-                    hint_name, who, filename, line_no, reason))
+                self.logger.info("Ignoring \"%s\" hint from %s found in %s (line %d): %s",
+                                 hint_name, who, filename, line_no, reason)
                 continue
             min_args, hint_parser_impl = hint_table[hint_name]
             if len(l) - 1 < min_args:
-                self.logger.warning("Malformed hint found in %s (line %d): Needs at least %d argument(s), got %d" % (
-                    filename, line_no, min_args, len(l) - 1))
+                self.logger.warning("Malformed hint found in %s (line %d): Needs at least %d argument(s), got %d",
+                                    filename, line_no, min_args, len(l) - 1)
                 continue
             try:
                 hint_parser_impl(hints, who, *l)
             except MalformedHintException as e:
-                self.logger.warning("Malformed hint found in %s (line %d): \"%s\"" % (
-                    filename, line_no, e.args[0]))
+                self.logger.warning("Malformed hint found in %s (line %d): \"%s\"", filename, line_no, e.args[0])
                 continue

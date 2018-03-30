@@ -344,17 +344,17 @@ class Britney(object):
             constraints_file = None
             faux_packages = None
         if faux_packages is not None and os.path.exists(faux_packages):
-            self.logger.info("Loading faux packages from %s" % faux_packages)
+            self.logger.info("Loading faux packages from %s", faux_packages)
             self._load_faux_packages(faux_packages)
         elif faux_packages is not None:
-            self.logger.info("No Faux packages as %s does not exist" % faux_packages)
+            self.logger.info("No Faux packages as %s does not exist", faux_packages)
 
         if constraints_file is not None and os.path.exists(constraints_file):
-            self.logger.info("Loading constraints from %s" % constraints_file)
+            self.logger.info("Loading constraints from %s", constraints_file)
             self.constraints = self._load_constraints(constraints_file)
         else:
             if constraints_file is not None:
-                self.logger.info("No constraints as %s does not exist" % constraints_file)
+                self.logger.info("No constraints as %s does not exist", constraints_file)
             self.constraints = {
                 'keep-installable': [],
             }
@@ -367,7 +367,7 @@ class Britney(object):
             self._inst_tester.compute_testing_installability()
             nuninst = self.get_nuninst(build=True)
             for arch in self.options.architectures:
-                self.logger.info("> Found %d non-installable packages" % len(nuninst[arch]))
+                self.logger.info("> Found %d non-installable packages", len(nuninst[arch]))
                 if self.options.print_uninst:
                     self.nuninst_arch_report(nuninst, arch)
 
@@ -382,9 +382,9 @@ class Britney(object):
             self.logger.info("> Installability tester statistics (per architecture)")
             for arch in self.options.architectures:
                 arch_stat = stats[arch]
-                self.logger.info(">  %s" % arch)
+                self.logger.info(">  %s", arch)
                 for stat in arch_stat.stat_summary():
-                    self.logger.info(">  - %s" % stat)
+                    self.logger.info(">  - %s", stat)
 
         for policy in self.policies:
             policy.hints = self.hints
@@ -398,10 +398,9 @@ class Britney(object):
                 bad.append((f, pkg_entry1[f], pkg_entry2[f]))
 
         if bad:  # pragma: no cover
-            self.logger.error("Mismatch found %s %s %s differs" % (
-                package, pkg_entry1.version, parch))
+            self.logger.error("Mismatch found %s %s %s differs", package, pkg_entry1.version, parch)
             for f, v1, v2 in bad:
-                self.logger.info(" ... %s %s != %s" % (check_field_name[f], v1, v2))
+                self.logger.info(" ... %s %s != %s", check_field_name[f], v1, v2)
             raise ValueError("Invalid data set")
 
         # Merge ESSENTIAL if necessary
@@ -454,7 +453,7 @@ class Britney(object):
             sys.exit(1)
         # if the configuration file exists, then read it and set the additional options
         elif not os.path.isfile(self.options.config):  # pragma: no cover
-            self.logger.error("Unable to read the configuration file (%s), exiting!" % self.options.config)
+            self.logger.error("Unable to read the configuration file (%s), exiting!", self.options.config)
             sys.exit(1)
 
         # minimum days for unstable-testing transition and the list of hints
@@ -484,9 +483,9 @@ class Britney(object):
                 self.suite_info[suite] = SuiteInfo(name=suite, path=suite_path, excuses_suffix=suffix)
             else:
                 if suite in {'testing', 'unstable'}:  # pragma: no cover
-                    self.logger.error("Mandatory configuration %s is not set in the config" % suite.upper())
+                    self.logger.error("Mandatory configuration %s is not set in the config", suite.upper())
                     sys.exit(1)
-                self.logger.info("Optional suite %s is not defined (config option: %s) " % (suite, suite.upper()))
+                self.logger.info("Optional suite %s is not defined (config option: %s) ", suite, suite.upper())
 
         try:
             release_file = read_release_file(self.suite_info['testing'].path)
@@ -499,7 +498,7 @@ class Britney(object):
             self.options.components = [s.strip() for s in self.options.components.split(",")]
         elif release_file and not self.options.control_files:
             self.options.components = release_file['Components'].split()
-            self.logger.info("Using components listed in Release file: %s" % ' '.join(self.options.components))
+            self.logger.info("Using components listed in Release file: %s", ' '.join(self.options.components))
         else:
             self.options.components = None
 
@@ -523,11 +522,11 @@ class Britney(object):
         else:
             if not release_file:  # pragma: no cover
                 self.logger.error("No configured architectures and there is no release file for testing")
-                self.logger.error("Please check if there is a \"Release\" file in %s" % self.suite_info['testing'].path)
+                self.logger.error("Please check if there is a \"Release\" file in %s", self.suite_info['testing'].path)
                 self.logger.error("or if the config file contains a non-empty \"ARCHITECTURES\" field")
                 sys.exit(1)
             allarches = sorted(release_file['Architectures'].split())
-            self.logger.info("Using architectures listed in Release file: %s" % ' '.join(allarches))
+            self.logger.info("Using architectures listed in Release file: %s", ' '.join(allarches))
         arches = [x for x in allarches if x in self.options.nobreakall_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.outofsync_arches]
         arches += [x for x in allarches if x not in arches and x not in self.options.break_arches]
@@ -656,7 +655,7 @@ class Britney(object):
             if constraint not in {'present-and-installable'}:  # pragma: no cover
                 raise ValueError("Unsupported constraint %s for %s (file %s)" % (constraint, pkg_name, constraints_file))
 
-            self.logger.info(" - constraint %s" % pkg_name)
+            self.logger.info(" - constraint %s", pkg_name)
 
             pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '' and not x.strip().startswith("#")]
             src_data = SourcePackage(faux_version,
@@ -730,11 +729,11 @@ class Britney(object):
             for component in self.options.components:
                 filename = os.path.join(basedir, component, "source", "Sources")
                 filename = possibly_compressed(filename)
-                self.logger.info("Loading source packages from %s" % filename)
+                self.logger.info("Loading source packages from %s", filename)
                 read_sources_file(filename, sources)
         else:
             filename = os.path.join(basedir, "Sources")
-            self.logger.info("Loading source packages from %s" % filename)
+            self.logger.info("Loading source packages from %s", filename)
             sources = read_sources_file(filename)
 
         return sources
@@ -744,14 +743,14 @@ class Britney(object):
         nprov = []
         for or_clause in parts:
             if len(or_clause) != 1:  # pragma: no cover
-                msg = "Ignoring invalid provides in %s: Alternatives [%s]" % (str(pkg_id), str(or_clause))
-                self.logger.warning(msg)
+                msg = "Ignoring invalid provides in %s: Alternatives [%s]"
+                self.logger.warning(msg, str(pkg_id), str(or_clause))
                 continue
             for part in or_clause:
                 provided, provided_version, op = part
                 if op != '' and op != '=':  # pragma: no cover
-                    msg = "Ignoring invalid provides in %s: %s (%s %s)" % (str(pkg_id), provided, op, provided_version)
-                    self.logger.warning(msg)
+                    msg = "Ignoring invalid provides in %s: %s (%s %s)"
+                    self.logger.warning(msg, str(pkg_id), provided, op, provided_version)
                     continue
                 provided = sys.intern(provided)
                 provided_version = sys.intern(provided_version)
@@ -760,7 +759,7 @@ class Britney(object):
         return nprov
 
     def _read_packages_file(self, filename, arch, srcdist, packages=None, intern=sys.intern):
-        self.logger.info("Loading binary packages from %s" % filename)
+        self.logger.info("Loading binary packages from %s", filename)
 
         if packages is None:
             packages = {}
@@ -913,8 +912,8 @@ class Britney(object):
             for arch in architectures:
                 packages = {}
                 if arch not in listed_archs:
-                    self.logger.info("Skipping arch %s for %s: It is not listed in the Release file" % (
-                        arch, distribution))
+                    self.logger.info("Skipping arch %s for %s: It is not listed in the Release file",
+                                     arch, distribution)
                     arch2packages[arch] = ({}, {})
                     continue
                 for component in self.options.components:
@@ -978,9 +977,9 @@ class Britney(object):
             else:
                 filename = os.path.join(hintsdir, who)
                 if not os.path.isfile(filename):
-                    self.logger.error("Cannot read hints list from %s, no such file!" % filename)
+                    self.logger.error("Cannot read hints list from %s, no such file!", filename)
                     continue
-                self.logger.info("Loading hints list from %s" % filename)
+                self.logger.info("Loading hints list from %s", filename)
                 with open(filename, encoding='utf-8') as f:
                     self._hint_parser.parse_hints(who, self.HINTS[who], filename, f)
 
@@ -996,17 +995,17 @@ class Britney(object):
                     if x in ['unblock', 'unblock-udeb']:
                         if apt_pkg.version_compare(hint2.version, hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
-                            self.logger.warning("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
-                                                (x, package, hint2.version, hint2.user, hint.version, hint.user))
+                            self.logger.warning("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')",
+                                                x, package, hint2.version, hint2.user, hint.version, hint.user)
                             hint2.set_active(False)
                         else:
                             # This hint is for an older version, so ignore it in favour of the new one
-                            self.logger.warning("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal" %
-                                                (x, package, hint.version, hint.user, hint2.version, hint2.user))
+                            self.logger.warning("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal",
+                                                x, package, hint.version, hint.user, hint2.version, hint2.user)
                             hint.set_active(False)
                     else:
-                        self.logger.warning("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')" %
-                                            (x, package, hint2.user, hint2, hint.user, hint))
+                        self.logger.warning("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')",
+                                            x, package, hint2.user, hint2, hint.user, hint)
                         hint2.set_active(False)
 
                 z[package] = key
@@ -1671,12 +1670,12 @@ class Britney(object):
 
         # write excuses to the output file
         if not self.options.dry_run:
-            self.logger.info("> Writing Excuses to %s" % self.options.excuses_output)
+            self.logger.info("> Writing Excuses to %s", self.options.excuses_output)
             sorted_excuses = sorted(excuses.values(), key=lambda x: x.sortkey())
             write_excuses(sorted_excuses, self.options.excuses_output,
                           output_format="legacy-html")
             if hasattr(self.options, 'excuses_yaml_output'):
-                self.logger.info("> Writing YAML Excuses to %s" % self.options.excuses_yaml_output)
+                self.logger.info("> Writing YAML Excuses to %s", self.options.excuses_yaml_output)
                 write_excuses(sorted_excuses, self.options.excuses_yaml_output,
                               output_format="yaml")
 
@@ -2394,10 +2393,10 @@ class Britney(object):
                 if (false_negatives or false_positives) and arch not in self.options.break_arches:
                     only_on_break_archs = False
                 if false_negatives:
-                    self.logger.error(" %s - unnoticed nuninst: %s" % (arch, str(false_negatives)))
+                    self.logger.error(" %s - unnoticed nuninst: %s", arch, str(false_negatives))
                 if false_positives:
-                    self.logger.error(" %s - invalid nuninst: %s" % (arch, str(false_positives)))
-                self.logger.info(" %s - actual nuninst: %s" % (arch, str(actual_nuninst)))
+                    self.logger.error(" %s - invalid nuninst: %s", arch, str(false_positives))
+                self.logger.info(" %s - actual nuninst: %s", arch, str(actual_nuninst))
                 self.logger.error("==================== NUNINST OUT OF SYNC =========================")
             if not only_on_break_archs:
                 raise AssertionError("NUNINST OUT OF SYNC")
@@ -2512,8 +2511,8 @@ class Britney(object):
         if not self.options.dry_run:
             # re-write control files
             if self.options.control_files:
-                self.logger.info("Writing new testing control files to %s" %
-                         self.suite_info['testing'].path)
+                self.logger.info("Writing new testing control files to %s",
+                                 self.suite_info['testing'].path)
                 write_controlfiles(self.sources, self.binaries,
                                    'testing', self.suite_info['testing'].path)
 
@@ -2521,12 +2520,12 @@ class Britney(object):
                 policy.save_state(self)
 
             # write HeidiResult
-            self.logger.info("Writing Heidi results to %s" % self.options.heidi_output)
+            self.logger.info("Writing Heidi results to %s", self.options.heidi_output)
             write_heidi(self.options.heidi_output, self.sources["testing"],
                         self.binaries["testing"],
                         outofsync_arches=self.options.outofsync_arches)
 
-            self.logger.info("Writing delta to %s" % self.options.heidi_delta_output)
+            self.logger.info("Writing delta to %s", self.options.heidi_delta_output)
             write_heidi_delta(self.options.heidi_delta_output,
                               self.all_selected)
 
@@ -2596,7 +2595,7 @@ class Britney(object):
         try:
             readline.write_history_file(histfile)
         except IOError as e:
-            self.logger.warning("Could not write %s: %s" % (histfile, e))
+            self.logger.warning("Could not write %s: %s", histfile, e)
 
     def do_hint(self, hinttype, who, pkgvers):
         """Process hints
@@ -2610,7 +2609,7 @@ class Britney(object):
         else:
             _pkgvers = pkgvers
 
-        self.logger.info("> Processing '%s' hint from %s" % (hinttype, who))
+        self.logger.info("> Processing '%s' hint from %s", hinttype, who)
         self.output_write("Trying %s from %s: %s\n" % (hinttype, who, " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)))
 
         ok = True
@@ -2787,7 +2786,7 @@ class Britney(object):
 
                 self.logger.info('> Stats from the installability tester')
                 for stat in self._inst_tester.stats.stats():
-                    self.logger.info('>   %s' % stat)
+                    self.logger.info('>   %s', stat)
         else:
             self.logger.info('Migration computation skipped as requested.')
         logging.shutdown()

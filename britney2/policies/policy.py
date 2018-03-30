@@ -293,7 +293,7 @@ class AgePolicy(BasePolicy):
             if not using_new_name:
                 # If we using the legacy name, then just give up
                 raise
-            self.logger.info("%s does not appear to exist.  Creating it" % filename)
+            self.logger.info("%s does not appear to exist.  Creating it", filename)
             with open(filename, mode='x', encoding='utf-8'):
                 pass
 
@@ -355,7 +355,7 @@ class AgePolicy(BasePolicy):
                 fd.write("%s %s %d\n" % (pkg, version, date))
         os.rename(filename_tmp, filename)
         if old_file is not None and os.path.exists(old_file):
-            self.logger.info("Removing old age-policy-dates file %s" % old_file)
+            self.logger.info("Removing old age-policy-dates file %s", old_file)
             os.unlink(old_file)
 
 
@@ -440,9 +440,8 @@ class RCBugPolicy(BasePolicy):
 
             # Only handle one hint for now
             if 'ignored-bugs' in rcbugs_info:
-                self.logger.info("Ignoring ignore-rc-bugs hint from %s on %s due to another hint from %s" % (
-                    ignore_hint.user, source_name, rcbugs_info['ignored-bugs']['issued-by']
-                ))
+                self.logger.info("Ignoring ignore-rc-bugs hint from %s on %s due to another hint from %s",
+                                 ignore_hint.user, source_name, rcbugs_info['ignored-bugs']['issued-by'])
                 continue
             if not ignored_bugs.isdisjoint(bugs_u):
                 bugs_u -= ignored_bugs
@@ -453,9 +452,8 @@ class RCBugPolicy(BasePolicy):
                 }
                 success_verdict = PolicyVerdict.PASS_HINTED
             else:
-                self.logger.info("Ignoring ignore-rc-bugs hint from %s on %s as none of %s affect the package" % (
-                    ignore_hint.user, source_name, str(ignored_bugs)
-                ))
+                self.logger.info("Ignoring ignore-rc-bugs hint from %s on %s as none of %s affect the package",
+                                 ignore_hint.user, source_name, str(ignored_bugs))
 
         rcbugs_info['shared-bugs'] = sorted(bugs_u & bugs_t)
         rcbugs_info['unique-source-bugs'] = sorted(bugs_u - bugs_t)
@@ -491,11 +489,11 @@ class RCBugPolicy(BasePolicy):
         name and the value is the list of open RC bugs for it.
         """
         bugs = {}
-        self.logger.info("Loading RC bugs data from %s" % filename)
+        self.logger.info("Loading RC bugs data from %s", filename)
         for line in open(filename, encoding='ascii'):
             l = line.split()
             if len(l) != 2:
-                self.logger.warning("Malformed line found in line %s" % (line))
+                self.logger.warning("Malformed line found in line %s", line)
                 continue
             pkg = l[0]
             if pkg not in bugs:
@@ -582,7 +580,7 @@ class PiupartsPolicy(BasePolicy):
 
     def _read_piuparts_summary(self, filename, keep_url=True):
         summary = {}
-        self.logger.info("Loading piuparts report from {0}".format(filename))
+        self.logger.info("Loading piuparts report from %s", filename)
         with open(filename) as fd:
             if os.fstat(fd.fileno()).st_size < 1:
                 return summary
