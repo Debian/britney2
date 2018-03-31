@@ -2322,9 +2322,7 @@ class Britney(object):
                 upgrade_me.remove(x)
         
         self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
-        if not force:
-            self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
-
+        self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
 
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
@@ -2349,9 +2347,7 @@ class Britney(object):
 
         if not recurse:
             # easy or force-hint
-            if force:
-                self.output_write("orig: %s\n" %  nuninst_end_str)
-            self.output_write("easy: %s\n" %  nuninst_end_str)
+            self.output_write("easy: %s\n" % nuninst_end_str)
 
             if not force:
                 self.output_write(eval_uninst(self.options.architectures,
@@ -2377,10 +2373,7 @@ class Britney(object):
             # Result accepted either by force or by being better than the original result.
             self.output_write("final: %s\n" % ",".join(sorted( x.uvname for x in selected )))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
-            if not force:
-                self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
-            else:
-                self.output_write(" orig: %s\n" % nuninst_end_str)
+            self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
             self.output_write("  end: %s\n" % nuninst_end_str)
             if force:
                 self.output_write("force breaks:\n")
