@@ -104,7 +104,7 @@ non-obvious issues:
      uninstallable as libfoo-data v2 will "shadow" libfoo-data v1.
 
 Britney complains about "Piuparts"
----------------------------------
+----------------------------------
 
 Britney can be configured to take the results of piuparts (package
 installation, upgrading and removal testing suite) into account. Currently this
