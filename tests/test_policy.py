@@ -24,7 +24,7 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
     }
     policy = policy_class(options, suite_info, *args)
     fake_britney = MockObject(log=lambda x, y='I': None)
-    hint_parser = HintParser(fake_britney)
+    hint_parser = HintParser()
     policy.initialise(fake_britney)
     policy.register_hints(hint_parser)
     hint_parser.parse_hints(TEST_HINTER, HINTS_ALL, 'test-%s' % test_name, hints)

@@ -12,6 +12,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import logging
+
 from itertools import chain
 
 from britney2.migrationitem import MigrationItem
@@ -131,8 +133,9 @@ def single_hint_taking_list_of_packages(hints, who, hint_type, *args):
 
 class HintParser(object):
 
-    def __init__(self, britney):
-        self._britney = britney
+    def __init__(self):
+        logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
+        self.logger = logging.getLogger(logger_name)
         self.hints = HintCollection()
         self._hint_table = {
             'remark': (0, lambda *x: None),
@@ -215,24 +218,20 @@ class HintParser(object):
             if hint_name == 'finished':
                 break
             if hint_name not in hint_table:
-                self.log("Unknown hint found in %s (line %d): '%s'" % (filename, line_no, line), type="W")
+                self.logger.warning("Unknown hint found in %s (line %d): '%s'", filename, line_no, line)
                 continue
             if hint_name not in permitted_hints and 'ALL' not in permitted_hints:
                 reason = 'The hint is not a part of the permitted hints for ' + who
-                self.log("Ignoring \"%s\" hint from %s found in %s (line %d): %s" % (
-                    hint_name, who, filename, line_no, reason), type="I")
+                self.logger.info("Ignoring \"%s\" hint from %s found in %s (line %d): %s",
+                                 hint_name, who, filename, line_no, reason)
                 continue
             min_args, hint_parser_impl = hint_table[hint_name]
             if len(l) - 1 < min_args:
-                self.log("Malformed hint found in %s (line %d): Needs at least %d argument(s), got %d" % (
-                    filename, line_no, min_args, len(l) - 1), type="W")
+                self.logger.warning("Malformed hint found in %s (line %d): Needs at least %d argument(s), got %d",
+                                    filename, line_no, min_args, len(l) - 1)
                 continue
             try:
                 hint_parser_impl(hints, who, *l)
             except MalformedHintException as e:
-                self.log("Malformed hint found in %s (line %d): \"%s\"" % (
-                    filename, line_no, e.args[0]), type="W")
+                self.logger.warning("Malformed hint found in %s (line %d): \"%s\"", filename, line_no, e.args[0])
                 continue
-
-    def log(self, msg, type="I"):
-        self._britney.log(msg, type=type)
