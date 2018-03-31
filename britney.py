@@ -275,8 +275,11 @@ class Britney(object):
             return record
 
         logging.setLogRecordFactory(record_factory)
-        logging.basicConfig(format='{shortlevelname}: [{asctime}] - {message}', style='{',
-                            datefmt="%Y-%m-%dT%H:%M:%S%z")
+        logging.basicConfig(format='{shortlevelname}: [{asctime}] - {message}',
+                            style='{',
+                            datefmt="%Y-%m-%dT%H:%M:%S%z",
+                            stream=sys.stdout,
+                            )
 
         self.logger = logging.getLogger()
 
