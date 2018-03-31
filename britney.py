@@ -2375,8 +2375,6 @@ class Britney(object):
 
         if better:
             # Result accepted either by force or by being better than the original result.
-            if recurse:
-                self.output_write("Apparently successful\n")
             self.output_write("final: %s\n" % ",".join(sorted( x.uvname for x in selected )))
             self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
             if not force:
