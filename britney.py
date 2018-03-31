@@ -324,7 +324,7 @@ class Britney(object):
         self.binaries['pu'] = {}
 
         # compute inverse Testsuite-Triggers: map, unifying all series
-        self.log('Building inverse testsuite_triggers map')
+        self.logger.info('Building inverse testsuite_triggers map')
         self.testsuite_triggers = {}
         for suitemap in self.sources.values():
             for src, data in suitemap.items():

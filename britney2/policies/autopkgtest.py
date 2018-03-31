@@ -96,7 +96,7 @@ class AutopkgtestPolicy(BasePolicy):
             if arch in self.options.architectures:
                 self.adt_arches.append(arch)
             else:
-                self.log("Ignoring ADT_ARCHES %s as it is not in architectures list" % arch)
+                self.logger.info("Ignoring ADT_ARCHES %s as it is not in architectures list", arch)
 
     def register_hints(self, hint_parser):
         hint_parser.register_hint_type('force-badtest', britney2.hints.split_into_one_hint_per_package)
@@ -111,10 +111,9 @@ class AutopkgtestPolicy(BasePolicy):
         if os.path.exists(self.results_cache_file):
             with open(self.results_cache_file) as f:
                 self.test_results = json.load(f)
-            self.log('Read previous results from %s' % self.results_cache_file)
+            self.logger.info('Read previous results from %s', self.results_cache_file)
         else:
-            self.log('%s does not exist, re-downloading all results from swift' %
-                     self.results_cache_file)
+            self.logger.info('%s does not exist, re-downloading all results from swift', self.results_cache_file)
 
         # read in the new results
         if self.options.adt_swift_url.startswith('file://'):
@@ -122,7 +121,7 @@ class AutopkgtestPolicy(BasePolicy):
             if os.path.exists(debci_file):
                 with open(debci_file) as f:
                     test_results = json.load(f)
-                self.log('Read new results from %s' % debci_file)
+                self.logger.info('Read new results from %s', debci_file)
                 # With debci, pending tests are determined from the debci file
                 self.pending_tests = {}
                 for res in test_results['results']:
@@ -137,19 +136,17 @@ class AutopkgtestPolicy(BasePolicy):
                         # still running => pending
                         arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
                         if arch not in arch_list:
-                            self.log('Pending autopkgtest %s on %s to verify %s' %
-                                         (src, arch, trigger))
+                            self.logger.info('Pending autopkgtest %s on %s to verify %s',src, arch, trigger)
                             arch_list.append(arch)
                             arch_list.sort()
                     elif status == 'tmpfail':
                         # let's see if we still need it
                         continue
                     else:
-                        self.log('Results %s %s %s added' % (src, trigger, status))
+                        self.logger.info('Results %s %s %s added', src, trigger, status)
                         self.add_trigger_to_results(trigger, src, ver, arch, stamp, status == 'pass')
             else:
-                self.log('%s does not exist, no new data will be processed' %
-                             debci_file)
+                self.logger.info('%s does not exist, no new data will be processed', debci_file)
 
         # we need sources, binaries, and installability tester, so for now
         # remember the whole britney object
@@ -170,7 +167,7 @@ class AutopkgtestPolicy(BasePolicy):
             self.amqp_con = amqp.Connection(creds.hostname, userid=creds.username,
                                             password=creds.password)
             self.amqp_channel = self.amqp_con.channel()
-            self.log('Connected to AMQP server')
+            self.logger.info('Connected to AMQP server')
         elif amqp_url.startswith('file://'):
             # or in Debian and in testing mode, adt_amqp will be a file:// URL
             self.amqp_file = amqp_url[7:]
@@ -182,13 +179,13 @@ class AutopkgtestPolicy(BasePolicy):
 
         # update the results on-disk cache, unless we are using a r/o shared one
         if not self.options.adt_shared_results_cache:
-            self.log('Updating results cache')
+            self.logger.info('Updating results cache')
             with open(self.results_cache_file + '.new', 'w') as f:
                 json.dump(self.test_results, f, indent=2)
             os.rename(self.results_cache_file + '.new', self.results_cache_file)
 
         # update the pending tests on-disk cache
-        self.log('Updating pending requested tests in %s' % self.pending_tests_file)
+        self.logger.info('Updating pending requested tests in %s', self.pending_tests_file)
         with open(self.pending_tests_file + '.new', 'w') as f:
             json.dump(self.pending_tests, f, indent=2)
         os.rename(self.pending_tests_file + '.new', self.pending_tests_file)
@@ -201,11 +198,11 @@ class AutopkgtestPolicy(BasePolicy):
         # skip/delay autopkgtests until new package is built somewhere
         binaries_info = self.britney.sources[suite][source_name]
         if not binaries_info.binaries:
-            self.log('%s hasn''t been built anywhere, skipping autopkgtest policy' % excuse.name)
+            self.logger.info('%s hasn''t been built anywhere, skipping autopkgtest policy', excuse.name)
             verdict = PolicyVerdict.REJECTED_TEMPORARILY
 
         if verdict == PolicyVerdict.PASS:
-            self.log('Checking autopkgtests for %s' % source_name)
+            self.logger.info('Checking autopkgtests for %s', source_name)
             trigger = source_name + '/' + source_data_srcdist.version
 
             # build a (testsrc, testver) → arch → (status, log_url) map; we trigger/check test
@@ -216,10 +213,10 @@ class AutopkgtestPolicy(BasePolicy):
             for arch in self.adt_arches:
                 if arch in excuse.missing_builds:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
-                    self.log('%s hasn''t been built on arch %s, delay autopkgtest there' % (source_name, arch))
+                    self.logger.info('%s hasn''t been built on arch %s, delay autopkgtest there', source_name, arch)
                 elif arch in excuse.unsatisfiable_on_archs:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
-                    self.log('%s is uninstallable on arch %s, delay autopkgtest there' % (source_name, arch))
+                    self.logger.info('%s is uninstallable on arch %s, delay autopkgtest there', source_name, arch)
                 else:
                     # request tests (unless they were already requested earlier or have a result)
                     tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
@@ -451,14 +448,12 @@ class AutopkgtestPolicy(BasePolicy):
         '''
         assert self.pending_tests is None, 'already initialized'
         if not os.path.exists(self.pending_tests_file):
-            self.log('No %s, starting with no pending tests' %
-                             self.pending_tests_file)
+            self.logger.info('No %s, starting with no pending tests', self.pending_tests_file)
             self.pending_tests = {}
             return
         with open(self.pending_tests_file) as f:
             self.pending_tests = json.load(f)
-        self.log('Read pending requested tests from %s: %s' %
-                         (self.pending_tests_file, self.pending_tests))
+        self.logger.info('Read pending requested tests from %s: %s', self.pending_tests_file, self.pending_tests)
 
     def latest_run_for_package(self, src, arch):
         '''Return latest run ID for src on arch'''
@@ -525,13 +520,13 @@ class AutopkgtestPolicy(BasePolicy):
         except IOError as e:
             # 401 "Unauthorized" is swift's way of saying "container does not exist"
             if hasattr(e, 'code') and e.code == 401:
-                self.log('fetch_swift_results: %s does not exist yet or is inaccessible' % url)
+                self.logger.info('fetch_swift_results: %s does not exist yet or is inaccessible', url)
                 return
             # Other status codes are usually a transient
             # network/infrastructure failure. Ignoring this can lead to
             # re-requesting tests which we already have results for, so
             # fail hard on this and let the next run retry.
-            self.log('FATAL: Failure to fetch swift results from %s: %s' % (url, str(e)), 'E')
+            self.logger.error('Failure to fetch swift results from %s: %s', url, str(e))
             sys.exit(1)
 
         for p in result_paths:
@@ -554,7 +549,7 @@ class AutopkgtestPolicy(BasePolicy):
                 raise NotImplementedError('fetch_one_result(%s): cannot handle HTTP code %i' %
                                           (url, f.getcode()))
         except IOError as e:
-            self.log('Failure to fetch %s: %s' % (url, str(e)), 'E')
+            self.logger.error('Failure to fetch %s: %s', url, str(e))
             # we tolerate "not found" (something went wrong on uploading the
             # result), but other things indicate infrastructure problems
             if hasattr(e, 'code') and e.code == 404:
@@ -568,15 +563,14 @@ class AutopkgtestPolicy(BasePolicy):
                 (ressrc, ver) = srcver.split()
                 testinfo = json.loads(tar.extractfile('testinfo.json').read().decode())
         except (KeyError, ValueError, tarfile.TarError) as e:
-            self.log('%s is damaged, ignoring: %s' % (url, str(e)), 'E')
+            self.logger.error('%s is damaged, ignoring: %s', url, str(e))
             # ignore this; this will leave an orphaned request in pending.json
             # and thus require manual retries after fixing the tmpfail, but we
             # can't just blindly attribute it to some pending test.
             return
 
         if src != ressrc:
-            self.log('%s is a result for package %s, but expected package %s' %
-                     (url, ressrc, src), 'E')
+            self.logger.error('%s is a result for package %s, but expected package %s', url, ressrc, src)
             return
 
         # parse recorded triggers in test result
@@ -585,15 +579,15 @@ class AutopkgtestPolicy(BasePolicy):
                 result_triggers = [i for i in e.split('=', 1)[1].split() if '/' in i]
                 break
         else:
-            self.log('%s result has no ADT_TEST_TRIGGERS, ignoring', 'E')
+            self.logger.error('%s result has no ADT_TEST_TRIGGERS, ignoring')
             return
 
         stamp = os.path.basename(os.path.dirname(url))
         # allow some skipped tests, but nothing else
         passed = exitcode in [0, 2]
 
-        self.log('Fetched test result for %s/%s/%s %s (triggers: %s): %s' % (
-            src, ver, arch, stamp, result_triggers, passed and 'pass' or 'fail'))
+        self.logger.info('Fetched test result for %s/%s/%s %s (triggers: %s): %s',
+                 src, ver, arch, stamp, result_triggers, passed and 'pass' or 'fail')
 
         # remove matching test requests
         for trigger in result_triggers:
@@ -611,9 +605,9 @@ class AutopkgtestPolicy(BasePolicy):
                 del self.pending_tests[trigger][src]
             if not self.pending_tests[trigger]:
                 del self.pending_tests[trigger]
-            self.log('-> matches pending request %s/%s for trigger %s' % (src, arch, trigger))
+            self.logger.info('-> matches pending request %s/%s for trigger %s', src, arch, trigger)
         except (KeyError, ValueError):
-            self.log('-> does not match any pending request for %s/%s' % (src, arch))
+            self.logger.info('-> does not match any pending request for %s/%s', src, arch)
 
     def add_trigger_to_results(self, trigger, src, ver, arch, stamp, passed):
         # If a test runs because of its own package (newer version), ensure
@@ -621,7 +615,7 @@ class AutopkgtestPolicy(BasePolicy):
         # generically by matching against testpkg-versions
         (trigsrc, trigver) = trigger.split('/', 1)
         if trigsrc == src and apt_pkg.version_compare(ver, trigver) < 0:
-            self.log('test trigger %s, but run for older version %s, ignoring' % (trigger, ver), 'E')
+            self.logger.error('test trigger %s, but run for older version %s, ignoring', trigger, ver)
             return
     
         result = self.test_results.setdefault(trigger, {}).setdefault(
@@ -677,10 +671,9 @@ class AutopkgtestPolicy(BasePolicy):
             if self.options.adt_swift_url.startswith('file://'):
                 return
             if passed:
-                self.log('%s/%s triggered by %s already passed' % (src, arch, trigger))
+                self.logger.info('%s/%s triggered by %s already passed', src, arch, trigger)
                 return
-            self.log('Checking for new results for failed %s/%s for trigger %s' %
-                             (src, arch, trigger))
+            self.logger.info('Checking for new results for failed %s/%s for trigger %s', src, arch, trigger)
             raise KeyError  # fall through
         except KeyError:
             # Without swift we don't expect new results
@@ -696,11 +689,9 @@ class AutopkgtestPolicy(BasePolicy):
         # Don't re-request if it's already pending
         arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
         if arch in arch_list:
-            self.log('Test %s/%s for %s is already pending, not queueing' %
-                             (src, arch, trigger))
+            self.logger.info('Test %s/%s for %s is already pending, not queueing', src, arch, trigger)
         else:
-            self.log('Requesting %s autopkgtest on %s to verify %s' %
-                             (src, arch, trigger))
+            self.logger.info('Requesting %s autopkgtest on %s to verify %s', src, arch, trigger)
             arch_list.append(arch)
             arch_list.sort()
             self.send_test_request(src, arch, trigger, huge=huge)
@@ -738,11 +729,11 @@ class AutopkgtestPolicy(BasePolicy):
 
         if tested_in_testing:
             self.check_ever_passed._cache.setdefault(src, {})[arch] = check_passed_testing
-            self.log('Found passing result for src %s in testing: %s' % (src, check_passed_testing))
+            self.logger.info('Found passing result for src %s in testing: %s', src, check_passed_testing)
             return check_passed_testing
         else:
             self.check_ever_passed._cache.setdefault(src, {})[arch] = check_ever_passed
-            self.log('Found passing result for src %s ever: %s' % (src, check_ever_passed))
+            self.logger.info('Found passing result for src %s ever: %s', src, check_ever_passed)
             return check_ever_passed
 
     check_ever_passed._cache = {}
@@ -817,7 +808,7 @@ class AutopkgtestPolicy(BasePolicy):
 
         hints = self.britney.hints.search('force-badtest', package=src)
         if hints:
-            self.log('Checking hints for %s/%s/%s: %s' % (src, ver, arch, [str(h) for h in hints]))
+            self.logger.info('Checking hints for %s/%s/%s: %s', src, ver, arch, [str(h) for h in hints])
             for hint in hints:
                 if [mi for mi in hint.packages if mi.architecture in ['source', arch] and
                         (mi.version == 'all' or apt_pkg.version_compare(ver, mi.version) <= 0)]:
