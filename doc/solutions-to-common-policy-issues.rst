@@ -103,7 +103,7 @@ non-obvious issues:
      then libfoo2 depends on libfoo-data v2, then libfoo1 will become
      uninstallable as libfoo-data v2 will "shadow" libfoo-data v1.
 
-Britney complains about "Piupart"
+Britney complains about "Piuparts"
 ---------------------------------
 
 Britney can be configured to take the results of piuparts (package
