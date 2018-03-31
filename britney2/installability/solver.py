@@ -14,7 +14,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-import os
+import logging
 from collections import deque
 
 from britney2.utils import (ifilter_only, iter_except)
@@ -155,7 +155,6 @@ class InstallabilitySolver(InstallabilityTester):
         super().__init__(universe, revuniverse, testing,
                          broken, essentials, safe_set, eqv_table)
 
-
     def solve_groups(self, groups):
         sat_in_testing = self._testing.isdisjoint
         universe = self._universe
@@ -168,12 +167,7 @@ class InstallabilitySolver(InstallabilityTester):
         key2item = {}
         going_out = set()
         going_in = set()
-        debug_solver = 0
-
-        try:  # pragma: no cover
-            debug_solver = int(os.environ.get('BRITNEY_DEBUG', '0'))
-        except:  # pragma: no cover
-            pass
+        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
 
         # Build the tables
         for (item, adds, rms) in groups:
@@ -187,7 +181,7 @@ class InstallabilitySolver(InstallabilityTester):
             for r in rms:
                 ptable[r] = key
 
-        if debug_solver > 1:  # pragma: no cover
+        if debug_solver:  # pragma: no cover
             self._dump_groups(groups)
 
         # This large loop will add ordering constrains on each "item"
@@ -215,7 +209,7 @@ class InstallabilitySolver(InstallabilityTester):
                         # "Self-conflicts" => ignore
                         continue
                     if debug_solver and other not in order[key]['before']:  # pragma: no cover
-                        print("N: Conflict induced order: %s before %s" % (key, other))
+                        self.logger.debug("Conflict induced order: %s before %s", key, other)
                     order[key]['before'].add(other)
                     order[other]['after'].add(key)
 
@@ -234,7 +228,7 @@ class InstallabilitySolver(InstallabilityTester):
                                 # "Self-dependency" => ignore
                                 continue
                             if debug_solver and other not in order[key]['after']:  # pragma: no cover
-                                print("N: Removal induced order: %s before %s" % (key, other))
+                                self.logger.debug("Removal induced order: %s before %s", key, other)
                             order[key]['after'].add(other)
                             order[other]['before'].add(key)
 
@@ -271,17 +265,17 @@ class InstallabilitySolver(InstallabilityTester):
 
                     for other in (other_adds - other_rms):
                         if debug_solver and other != key and other not in order[key]['after']:  # pragma: no cover
-                            print("N: Dependency induced order (add): %s before %s" % (key, other))
+                            self.logger.debug("Dependency induced order (add): %s before %s", key, other)
                         order[key]['after'].add(other)
                         order[other]['before'].add(key)
 
                     for other in (other_rms - other_adds):
                         if debug_solver and other != key and other not in order[key]['before']:  # pragma: no cover
-                            print("N: Dependency induced order (remove): %s before %s" % (key, other))
+                            self.logger.debug("Dependency induced order (remove): %s before %s", key, other)
                         order[key]['before'].add(other)
                         order[other]['after'].add(key)
 
-        ### MILESTONE: Partial-order constrains computed ###
+        # === MILESTONE: Partial-order constrains computed ===
 
         # At this point, we have computed all the partial-order
         # constrains needed.  Some of these may have created strongly
@@ -317,7 +311,7 @@ class InstallabilitySolver(InstallabilityTester):
                     merged[n] = scc_id
                     del order[n]
                 if debug_solver:  # pragma: no cover
-                    print("N: SCC: %s -- %s" % (scc_id, str(sorted(com))))
+                    self.logger.debug("SCC: %s -- %s", scc_id, str(sorted(com)))
 
         for com in comps:
             node = com[0]
@@ -339,31 +333,31 @@ class InstallabilitySolver(InstallabilityTester):
                 order[other_scc_id]['before'].add(scc_id)
 
         if debug_solver:  # pragma: no cover
-            print("N: -- PARTIAL ORDER --")
+            self.logger.debug("-- PARTIAL ORDER --")
 
         initial_round = []
         for com in sorted(order):
             if debug_solver and order[com]['before']:  # pragma: no cover
-                print("N: %s <= %s" % (com, str(sorted(order[com]['before']))))
+                self.logger.debug("N: %s <= %s", com, str(sorted(order[com]['before'])))
             if not order[com]['after']:
                 # This component can be scheduled immediately, add it
                 # to the queue
                 initial_round.append(com)
             elif debug_solver:  # pragma: no cover
-                print("N: %s >= %s" % (com, str(sorted(order[com]['after']))))
+                self.logger.debug("N: %s >= %s", com, str(sorted(order[com]['after'])))
 
         queue.extend(sorted(initial_round, key=len))
         del initial_round
 
         if debug_solver:  # pragma: no cover
-            print("N: -- END PARTIAL ORDER --")
-            print("N: -- LINEARIZED ORDER --")
+            self.logger.debug("-- END PARTIAL ORDER --")
+            self.logger.debug("-- LINEARIZED ORDER --")
 
         for cur in iter_except(queue.popleft, IndexError):
             if order[cur]['after'] <= emitted and cur not in emitted:
                 # This item is ready to be emitted right now
                 if debug_solver:  # pragma: no cover
-                    print("N: %s -- %s" % (cur, sorted(scc[cur])))
+                    self.logger.debug("%s -- %s", cur, sorted(scc[cur]))
                 emitted.add(cur)
                 result.append([key2item[x] for x in scc[cur]])
                 if order[cur]['before']:
@@ -374,13 +368,12 @@ class InstallabilitySolver(InstallabilityTester):
                     queue.extend(sorted(order[cur]['before'] - emitted, key=len))
 
         if debug_solver:  # pragma: no cover
-            print("N: -- END LINEARIZED ORDER --")
+            self.logger.debug("-- END LINEARIZED ORDER --")
 
         return result
 
     def _dump_groups(self, groups):  # pragma: no cover
-        print("N: === Groups ===")
+        self.logger.debug("=== Groups ===")
         for (item, adds, rms) in groups:
-            print("N: %s =>  A: %s, R: %s" % (str(item), str(adds), str(rms)))
-        print("N: === END Groups ===")
-
+            self.logger.debug("%s =>  A: %s, R: %s", str(item), str(adds), str(rms))
+        self.logger.debug("=== END Groups ===")

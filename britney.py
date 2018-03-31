@@ -449,7 +449,13 @@ class Britney(object):
             self.logger.setLevel(logging.INFO)
         else:
             self.logger.setLevel(logging.WARNING)
-        
+        # TODO: Define a more obvious toggle for debug information
+        try:  # pragma: no cover
+            if int(os.environ.get('BRITNEY_DEBUG', '0')):
+                self.logger.setLevel(logging.DEBUG)
+        except ValueError:  # pragma: no cover
+            pass
+
         # integrity checks
         if self.options.nuninst_cache and self.options.print_uninst:  # pragma: no cover
             self.logger.error("nuninst_cache and print_uninst are mutually exclusive!")

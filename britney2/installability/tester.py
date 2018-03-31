@@ -14,6 +14,7 @@
 
 from collections import defaultdict
 from functools import partial
+import logging
 from itertools import chain, filterfalse
 
 from britney2.utils import iter_except
@@ -56,6 +57,8 @@ class InstallabilityTester(object):
         self._safe_set = safe_set
         self._eqv_table = eqv_table
         self._stats = InstallabilityStats()
+        logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
+        self.logger = logging.getLogger(logger_name)
 
         # Cache of packages known to be broken - we deliberately do not
         # include "broken" in it.  See _optimize for more info.
