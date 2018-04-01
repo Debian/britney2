@@ -2716,7 +2716,7 @@ class Britney(object):
         """
         self.logger.info("> Processing hints from the auto hinter")
 
-        sources_t = self.sources['testing']
+        sources_t = self.suite_info.target_suite.sources
         excuses = self.excuses
 
         # consider only excuses which are valid candidates and still relevant.
