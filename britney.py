@@ -2221,6 +2221,7 @@ class Britney(object):
         group_info = {}
         rescheduled_packages = packages
         maybe_rescheduled_packages = []
+        output_logger = self.output_logger
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
@@ -2234,7 +2235,7 @@ class Britney(object):
 
         nuninst_last_accepted = nuninst_orig
 
-        self.output_write("recur: [] %s %d/0\n" % (",".join(x.uvname for x in selected), len(packages)))
+        output_logger.info("recur: [] %s %d/0", ",".join(x.uvname for x in selected), len(packages))
         while rescheduled_packages:
             groups = {group_info[x] for x in rescheduled_packages}
             worklist = self._inst_tester.solve_groups(groups)
@@ -2245,20 +2246,22 @@ class Britney(object):
             while worklist:
                 comp = worklist.pop()
                 comp_name = ' '.join(item.uvname for item in comp)
-                self.output_write("trying: %s\n" % comp_name)
+                output_logger.info("trying: %s" % comp_name)
                 accepted, nuninst_after, comp_undo, failed_arch = self.try_migration(comp, nuninst_last_accepted, lundo)
                 if accepted:
                     selected.extend(comp)
                     if lundo is not None:
                         lundo.extend(comp_undo)
-                    self.output_write("accepted: %s\n" % comp_name)
-                    self.output_write("   ori: %s\n" % (self.eval_nuninst(nuninst_orig)))
-                    self.output_write("   pre: %s\n" % (self.eval_nuninst(nuninst_last_accepted)))
-                    self.output_write("   now: %s\n" % (self.eval_nuninst(nuninst_after)))
+                    output_logger.info("accepted: %s", comp_name)
+                    output_logger.info("   ori: %s", self.eval_nuninst(nuninst_orig))
+                    output_logger.info("   pre: %s", self.eval_nuninst(nuninst_last_accepted))
+                    output_logger.info("   now: %s", self.eval_nuninst(nuninst_after))
                     if len(selected) <= 20:
-                        self.output_write("   all: %s\n" % (" ".join(x.uvname for x in selected)))
+                        output_logger.info("   all: %s", " ".join(x.uvname for x in selected))
                     else:
-                        self.output_write("  most: (%d) .. %s\n" % (len(selected), " ".join(x.uvname for x in selected[-20:])))
+                        output_logger.info("  most: (%d) .. %s",
+                                           len(selected),
+                                           " ".join(x.uvname for x in selected[-20:]))
                     nuninst_last_accepted = nuninst_after
                     rescheduled_packages.extend(maybe_rescheduled_packages)
                     maybe_rescheduled_packages.clear()
@@ -2269,25 +2272,29 @@ class Britney(object):
                     if any(item for item in comp if item.architecture != 'source'):
                         compare_nuninst = nuninst_last_accepted
                     # NB: try_migration already reverted this for us, so just print the results and move on
-                    self.output_write("skipped: %s (%d, %d, %d)\n" % (comp_name, len(rescheduled_packages),
-                                                                      len(maybe_rescheduled_packages), len(worklist)))
-                    self.output_write("    got: %s\n" % (self.eval_nuninst(nuninst_after, compare_nuninst)))
-                    self.output_write("    * %s: %s\n" % (failed_arch, ", ".join(broken)))
+                    output_logger.info("skipped: %s (%d, %d, %d)",
+                                       comp_name,
+                                       len(rescheduled_packages),
+                                       len(maybe_rescheduled_packages),
+                                       len(worklist)
+                                       )
+                    output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
+                    output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
 
                     if len(comp) > 1:
-                        self.output_write("    - splitting the component into single items and retrying them\n")
+                        output_logger.info("    - splitting the component into single items and retrying them")
                         worklist.extend([item] for item in comp)
                     else:
                         maybe_rescheduled_packages.append(comp[0])
 
-        self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
-        self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
-        self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_last_accepted)))
-        format_and_log_uninst(self.output_logger,
+        output_logger.info(" finish: [%s]", ",".join(x.uvname for x in selected))
+        output_logger.info("endloop: %s", self.eval_nuninst(self.nuninst_orig))
+        output_logger.info("    now: %s", self.eval_nuninst(nuninst_last_accepted))
+        format_and_log_uninst(output_logger,
                               self.options.architectures,
                               newly_uninst(self.nuninst_orig, nuninst_last_accepted)
                               )
-        self.output_write("\n")
+        output_logger.info("")
 
         return (nuninst_last_accepted, maybe_rescheduled_packages)
 
@@ -2305,6 +2312,7 @@ class Britney(object):
         else:
             upgrade_me = self.upgrade_me[:]
         nuninst_start = self.nuninst_orig
+        output_logger = self.output_logger
 
         # these are special parameters for hints processing
         force = False
@@ -2323,13 +2331,13 @@ class Britney(object):
                 lundo = []
             for x in init:
                 if x not in upgrade_me:
-                    self.output_write("failed: %s is not a valid candidate (or it already migrated)\n" % (x.uvname))
+                    output_logger.warning("failed: %s is not a valid candidate (or it already migrated)", x.uvname)
                     return None
                 selected.append(x)
                 upgrade_me.remove(x)
-        
-        self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
-        self.output_write("orig: %s\n" % self.eval_nuninst(nuninst_start))
+
+        output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
+        output_logger.info("orig: %s", self.eval_nuninst(nuninst_start))
 
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
@@ -2354,7 +2362,7 @@ class Britney(object):
 
         if not recurse:
             # easy or force-hint
-            self.output_write("easy: %s\n" % nuninst_end_str)
+            output_logger.info("easy: %s", nuninst_end_str)
 
             if not force:
                 format_and_log_uninst(self.output_logger,
@@ -2380,22 +2388,22 @@ class Britney(object):
 
         if better:
             # Result accepted either by force or by being better than the original result.
-            self.output_write("final: %s\n" % ",".join(sorted( x.uvname for x in selected )))
-            self.output_write("start: %s\n" % self.eval_nuninst(nuninst_start))
-            self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
-            self.output_write("  end: %s\n" % nuninst_end_str)
+            output_logger.info("final: %s", ",".join(sorted(x.uvname for x in selected)))
+            output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
+            output_logger.info(" orig: %s", self.eval_nuninst(self.nuninst_orig))
+            output_logger.info("  end: %s", nuninst_end_str)
             if force:
                 broken = newly_uninst(nuninst_start, nuninst_end)
                 if broken:
-                    self.output_logger.warning("force breaks:")
+                    output_logger.warning("force breaks:")
                     format_and_log_uninst(self.output_logger,
                                           self.options.architectures,
                                           broken,
                                           loglevel=logging.WARNING,
                                           )
                 else:
-                    self.output_logger.info("force did not break any packages")
-            self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
+                    output_logger.info("force did not break any packages")
+            output_logger.info("SUCCESS (%d/%d)", len(actions or self.upgrade_me), len(extra))
             self.nuninst_orig = nuninst_end
             self.all_selected += selected
             if not actions:
@@ -2404,13 +2412,14 @@ class Britney(object):
                 else:
                     self.upgrade_me = [x for x in self.upgrade_me if x not in set(selected)]
         else:
-            self.output_write("FAILED\n")
-            if not lundo: return
+            output_logger.info("FAILED\n")
+            if not lundo:
+                return
             lundo.reverse()
 
             undo_changes(lundo, self._inst_tester, self.sources, self.binaries, self.all_binaries)
 
-        self.output_write("\n")
+        output_logger.info("")
 
     def assert_nuninst_is_correct(self):
         self.logger.info("> Update complete - Verifying non-installability counters")
@@ -2452,9 +2461,10 @@ class Britney(object):
         commands.
         """
 
+        output_logger = self.output_logger
         self.logger.info("Starting the upgrade test")
-        self.output_write("Generated on: %s\n" % (time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time()))))
-        self.output_write("Arch order is: %s\n" % ", ".join(self.options.architectures))
+        output_logger.info("Generated on: %s", time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())))
+        output_logger.info("Arch order is: %s", ", ".join(self.options.architectures))
 
         self.logger.info("> Calculating current uninstallability counters")
         self.nuninst_orig = self.get_nuninst()
@@ -2479,14 +2489,14 @@ class Britney(object):
             archpackages[a] = [p for p in normpackages if p.architecture == a]
             normpackages = [p for p in normpackages if p not in archpackages[a]]
         self.upgrade_me = normpackages
-        self.output_write("info: main run\n")
+        output_logger.info("info: main run")
         self.do_all()
         allpackages += self.upgrade_me
         for a in self.options.break_arches:
             backup = self.options.break_arches
             self.options.break_arches = " ".join(x for x in self.options.break_arches if x != a)
             self.upgrade_me = archpackages[a]
-            self.output_write("info: broken arch run for %s\n" % (a))
+            output_logger.info("info: broken arch run for %s", a)
             self.do_all()
             allpackages += self.upgrade_me
             self.options.break_arches = backup
@@ -2500,7 +2510,7 @@ class Britney(object):
         hintcnt = 0
         for x in self.hints["hint"][:50]:
             if hintcnt > 50:
-                self.output_write("Skipping remaining hints...")
+                output_logger.info("Skipping remaining hints...")
                 break
             if self.do_hint("hint", x.user, x.packages):
                 hintcnt += 1
@@ -2524,7 +2534,7 @@ class Britney(object):
                          for source in sources if source not in used
                        ]
             if removals:
-                self.output_write("Removing obsolete source packages from testing (%d):\n" % (len(removals)))
+                output_logger.info("Removing obsolete source packages from testing (%d):", len(removals))
                 self.do_all(actions=removals)
 
         # smooth updates
@@ -2532,7 +2542,7 @@ class Britney(object):
         if self.options.smooth_updates:
             self.logger.info("> Removing old packages left in testing from smooth updates")
             if removals:
-                self.output_logger.info("Removing packages left in testing for smooth updates (%d):", len(removals))
+                output_logger.info("Removing packages left in testing for smooth updates (%d):", len(removals))
                 log_and_format_old_libraries(self.output_logger, removals)
                 self.do_all(actions=removals)
                 removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
@@ -2540,7 +2550,7 @@ class Britney(object):
             self.logger.info("> Not removing old packages left in testing from smooth updates"
                              " (smooth-updates disabled)")
 
-        self.output_logger.info("List of old libraries in testing (%d):", len(removals))
+        output_logger.info("List of old libraries in testing (%d):", len(removals))
         log_and_format_old_libraries(self.output_logger, removals)
 
         self.assert_nuninst_is_correct()
@@ -2796,23 +2806,6 @@ class Britney(object):
             print('  %s (%s): %s' % (src, ver, ' '.join(sorted(pkgs))))
 
         print()
-
-    def output_write(self, msg):
-        """Simple wrapper for output writing"""
-        # This method used to take full lines and write them directly to a file.
-        # As such msg is expected to contain a character to be written plus
-        # explicit newlines.
-        if not msg:
-            # Empty string -> nothing is written (emulating fd.write(''))
-            return
-        # Remove trailing \n as the logger will add one.
-        # - Note that we cannot emulate partial lines (but nothing uses that
-        #   so we do not bother trying either).
-        if msg and msg[-1] == '\n':
-            msg = msg[:-1]
-
-        for line in msg.split('\n'):
-            self.output_logger.info(line)
 
     def main(self):
         """Main method
