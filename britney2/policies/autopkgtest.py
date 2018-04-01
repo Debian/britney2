@@ -254,6 +254,7 @@ class AutopkgtestPolicy(BasePolicy):
                 for arch in sorted(arch_results):
                     (status, log_url) = arch_results[arch]
                     artifact_url = None
+                    retry_url = None
                     history_url = None
                     if self.options.adt_ppas:
                         if log_url.endswith('log.gz'):
@@ -262,13 +263,20 @@ class AutopkgtestPolicy(BasePolicy):
                         history_url = cloud_url % {
                             'h': srchash(testsrc), 's': testsrc,
                             'r': self.options.series, 'a': arch}
+                    if status == 'REGRESSION':
+                        retry_url = self.options.adt_ci_url + 'request.cgi?' + \
+                                urllib.parse.urlencode([('release', self.options.series),
+                                                        ('arch', arch),
+                                                        ('package', testsrc),
+                                                        ('trigger', trigger)] +
+                                                       [('ppa', p) for p in self.options.adt_ppas])
                     if testver:
                         testname = '%s/%s' % (testsrc, testver)
                     else:
                         testname = testsrc
 
                     tests_info.setdefault(testname, {})[arch] = \
-                            [status, log_url, history_url, artifact_url]
+                            [status, log_url, history_url, artifact_url, retry_url]
 
                     # render HTML snippet for testsrc entry for current arch
                     if history_url:
@@ -276,6 +284,8 @@ class AutopkgtestPolicy(BasePolicy):
                     else:
                         message = arch
                     message += ': <a href="%s">%s</a>' % (log_url, EXCUSES_LABELS[status])
+                    if retry_url:
+                        message += ' <a href="%s" style="text-decoration: none;">♻ </a> ' % retry_url
                     if artifact_url:
                         message += ' <a href="%s">[artifacts]</a>' % artifact_url
                     html_archmsg.append(message)
