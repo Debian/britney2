@@ -2824,11 +2824,16 @@ class Britney(object):
             self.upgrade_me = self.options.actions.split()
 
         if self.options.compute_migrations or self.options.hint_tester:
-            file_handler = logging.FileHandler(self.options.upgrade_output, mode='w', encoding='utf-8')
-            output_formatter = logging.Formatter('%(message)s')
-            file_handler.setFormatter(output_formatter)
-            self.output_logger.addHandler(file_handler)
-            self.logger.info("Logging upgrade output to %s", self.options.upgrade_output)
+            if hasattr(self.options, 'upgrade_output'):
+                upgrade_output = getattr(self.options, 'upgrade_output')
+                file_handler = logging.FileHandler(upgrade_output, mode='w', encoding='utf-8')
+                output_formatter = logging.Formatter('%(message)s')
+                file_handler.setFormatter(output_formatter)
+                self.output_logger.addHandler(file_handler)
+                self.logger.info("Logging upgrade output to %s", upgrade_output)
+            else:
+                self.logger.info("Upgrade output not (also) written to a separate file"
+                                 " as the UPGRADE_OUTPUT configuration is not provided.")
 
             # run the hint tester
             if self.options.hint_tester:
