@@ -2653,6 +2653,7 @@ class Britney(object):
         else:
             _pkgvers = pkgvers
 
+        suites = self.suite_info
         self.logger.info("> Processing '%s' hint from %s", hinttype, who)
         output_logger.info("Trying %s from %s: %s", hinttype, who,
                            " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)
@@ -2666,31 +2667,30 @@ class Britney(object):
             if pkg.is_removal:
                 continue
 
-            suite_name = pkg.suite.name
-            inunstable = pkg.package in self.sources['unstable']
-            rightversion = inunstable and (apt_pkg.version_compare(self.sources['unstable'][pkg.package].version, pkg.version) == 0)
-            if suite_name == 'unstable' and not rightversion:
-                for suite in ['pu', 'tpu']:
-                    if suite_name not in self.suite_info:
-                        continue
-                    if pkg.package in self.sources[suite_name] and apt_pkg.version_compare(self.sources[suite_name][pkg.package].version, pkg.version) == 0:
-                        pkg.suite = self.suite_info[suite]
+            suite = pkg.suite
+            in_primary = pkg.package in suite.sources
+            rightversion = in_primary and apt_pkg.version_compare(suite.sources[pkg.package].version, pkg.version) == 0
+            if suite.suite_class.is_primary_source and not rightversion:
+                for s in suites.additional_source_suites:
+                    if pkg.package in s.sources and apt_pkg.version_compare(suite.sources[pkg.package].version,
+                                                                            pkg.version) == 0:
+                        suite = s
+                        pkg.suite = s
                         _pkgvers[idx] = pkg
                         break
 
-            # handle *-proposed-updates
-            if suite_name in ['pu', 'tpu']:
-                if suite_name not in self.suite_info or pkg.package not in self.sources[suite_name]:
+            if suite.suite_class.is_additional_source:
+                if pkg.package not in suite.sources:
                     continue
-                if apt_pkg.version_compare(self.sources[suite_name][pkg.package].version, pkg.version) != 0:
+                if apt_pkg.version_compare(suite.sources[pkg.package].version, pkg.version) != 0:
                     issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
-                                                                     self.sources[pkg.suite][pkg.package].version))
-            # does the package exist in unstable?
-            elif not inunstable:
-                issues.append("Source %s has no version in unstable" % pkg.package)
+                                                                     suite.sources[pkg.package].version))
+            # does the package exist in the primary source suite?
+            elif not in_primary:
+                issues.append("Source %s has no version in %s" % (pkg.package, suite.name))
             elif not rightversion:
                 issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
-                                                                 self.sources['unstable'][pkg.package].version))
+                                                                 suite.sources[pkg.package].version))
         if issues:
             output_logger.warning("%s: Not using hint", ", ".join(issues))
             return False
