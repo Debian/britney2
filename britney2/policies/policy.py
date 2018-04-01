@@ -14,7 +14,7 @@ from britney2.utils import get_dependency_solvers
 
 class BasePolicy(object):
 
-    def __init__(self, policy_id, options, suite_info, applicable_suites):
+    def __init__(self, policy_id, options, suite_info, root_config, applicable_suites):
         """The BasePolicy constructor
 
         :param policy_id An string identifying the policy.  It will
@@ -31,6 +31,8 @@ class BasePolicy(object):
         self.suite_info = suite_info
         self.applicable_suites = applicable_suites
         self.hints = None
+        policy_config = root_config.get('policies')
+        self.config = policy_config.get(policy_id, {}) if policy_config else {}
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
 
@@ -172,12 +174,19 @@ class AgePolicy(BasePolicy):
 
     """
 
-    def __init__(self, options, suite_info, mindays):
-        super().__init__('age', options, suite_info, {'unstable'})
+    def __init__(self, options, suite_info, config):
+        super().__init__('age', options, suite_info, config, {'unstable'})
+        try:
+            default_urgency = self.config['default_urgency']
+            mindays = self.config['mindays']
+        except KeyError as e:
+            key = e.args[0]
+            raise ValueError("Default urgency not defined (YAML: policies.age.%s)", key) from e
         self._min_days = mindays
-        if options.default_urgency not in mindays:  # pragma: no cover
-            raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
-        self._min_days_default = mindays[options.default_urgency]
+        if default_urgency not in mindays:  # pragma: no cover
+            raise ValueError("Missing age-requirement for default urgency (YAML: policies.age.mindays.%s)" %
+                             options.default_urgency)
+        self._min_days_default = mindays[default_urgency]
         # britney's "day" begins at 7pm (we want aging to occur in the 22:00Z run and we run Britney 2-4 times a day)
         self._date_now = int(((time.time() / (60*60)) - 19) / 24)
         self._dates = {}
@@ -377,8 +386,8 @@ class RCBugPolicy(BasePolicy):
        - This file needs to be updated externally.
     """
 
-    def __init__(self, options, suite_info):
-        super().__init__('rc-bugs', options, suite_info, {'unstable'})
+    def __init__(self, options, suite_info, config):
+        super().__init__('rc-bugs', options, suite_info, config, {'unstable'})
         self._bugs = {}
 
     def register_hints(self, hint_parser):
@@ -504,8 +513,8 @@ class RCBugPolicy(BasePolicy):
 
 class PiupartsPolicy(BasePolicy):
 
-    def __init__(self, options, suite_info):
-        super().__init__('piuparts', options, suite_info, {'unstable'})
+    def __init__(self, options, suite_info, config):
+        super().__init__('piuparts', options, suite_info, config, {'unstable'})
         self._piuparts = {
             'unstable': None,
             'testing': None,
@@ -606,8 +615,8 @@ class PiupartsPolicy(BasePolicy):
 
 class BuildDependsPolicy(BasePolicy):
 
-    def __init__(self, options, suite_info):
-        super().__init__('build-depends', options, suite_info, {'unstable', 'tpu', 'pu'})
+    def __init__(self, options, suite_info, config):
+        super().__init__('build-depends', options, suite_info, config, {'unstable', 'tpu', 'pu'})
         self._britney = None
 
     def initialise(self, britney):

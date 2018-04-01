@@ -288,6 +288,7 @@ class Britney(object):
 
         # parse the command line arguments
         self.policies = []
+        self.britney_config = {}
         self._hint_parser = HintParser()
         self.suite_info = {}
         self.__parse_arguments()
@@ -516,7 +517,18 @@ class Britney(object):
             if config_format == 'yaml':
                 loaded_config = yaml.safe_load(config)
                 self._translate_yaml_config(loaded_config, MINDAYS)
+                self.britney_config = loaded_config
             else:
+                # Move some properties to the new configuration location
+                self.britney_config = {
+                    'policies': {
+                        'age': {
+                            'mindays': MINDAYS,
+                        },
+                    }
+                }
+                if hasattr(self.options, 'default_urgency'):
+                    self.britney_config['policies']['age']['default_urgency'] = self.options.default_urgency
                 # Massage some properties
                 self.options.nobreakall_arches = self.options.nobreakall_arches.split()
                 self.options.outofsync_arches = self.options.outofsync_arches.split()
@@ -583,10 +595,10 @@ class Britney(object):
         arches += [x for x in allarches if x not in arches]
         self.options.architectures = [sys.intern(arch) for arch in arches]
 
-        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
-        self.policies.append(RCBugPolicy(self.options, self.suite_info))
-        self.policies.append(PiupartsPolicy(self.options, self.suite_info))
-        self.policies.append(BuildDependsPolicy(self.options, self.suite_info))
+        self.policies.append(AgePolicy(self.options, self.suite_info, self.britney_config))
+        self.policies.append(RCBugPolicy(self.options, self.suite_info, self.britney_config))
+        self.policies.append(PiupartsPolicy(self.options, self.suite_info, self.britney_config))
+        self.policies.append(BuildDependsPolicy(self.options, self.suite_info, self.britney_config))
 
         for policy in self.policies:
             policy.register_hints(self._hint_parser)

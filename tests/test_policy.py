@@ -14,15 +14,20 @@ POLICY_DATA_BASE_DIR = os.path.join(os.path.dirname(__file__), 'policy-test-data
 def initialize_policy(test_name, policy_class, *args, **kwargs):
     test_dir = os.path.join(POLICY_DATA_BASE_DIR, test_name)
     hints = []
+    config = {}
     if 'hints' in kwargs:
         hints = kwargs['hints']
         del kwargs['hints']
+    if 'config' in kwargs:
+        subconfig = kwargs['config']
+        del kwargs['config']
+        config['policies'] = subconfig
     options = MockObject(state_dir=test_dir, verbose=0, default_urgency=DEFAULT_URGENCY, **kwargs)
     suite_info = {
         'testing': SuiteInfo('testing', os.path.join(test_dir, 'testing'), ''),
         'unstable': SuiteInfo('unstable', os.path.join(test_dir, 'unstable'), ''),
     }
-    policy = policy_class(options, suite_info, *args)
+    policy = policy_class(options, suite_info, config)
     fake_britney = MockObject(log=lambda x, y='I': None)
     hint_parser = HintParser()
     policy.initialise(fake_britney)
@@ -135,13 +140,20 @@ class TestAgePolicy(unittest.TestCase):
         'low': 10,
     }
 
+    DEFAULT_MIN_DAYS_CONFIG = {
+        'age': {
+            'default_urgency': 'medium',
+            'mindays': DEFAULT_MIN_DAYS,
+        },
+    }
+
     def test_missing_age_file(self):
         age_file = os.path.join(POLICY_DATA_BASE_DIR, 'age', 'missing-age-file', 'age-policy-dates')
         assert not os.path.exists(age_file)
 
         try:
             src_name = 'unlisted-source-package'
-            policy = initialize_policy('age/missing-age-file', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
+            policy = initialize_policy('age/missing-age-file', AgePolicy, config=TestAgePolicy.DEFAULT_MIN_DAYS_CONFIG)
             age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
             assert os.path.exists(age_file)
             assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
