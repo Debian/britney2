@@ -1,10 +1,16 @@
 from collections import namedtuple
 
-SuiteInfo = namedtuple('SuiteInfo', [
-    'name',
-    'path',
-    'excuses_suffix',
-])
+
+class Suite(object):
+
+    def __init__(self, name, path, suite_short_name=None):
+        self.name = name
+        self.path = path
+        self.suite_short_name = suite_short_name if suite_short_name else ''
+
+    @property
+    def excuses_suffix(self):
+        return self.suite_short_name
 
 
 class Suites(object):
@@ -16,13 +22,13 @@ class Suites(object):
         self.source_suites = source_suites
         self._suites[target_suite.name] = target_suite
         self._by_name_or_alias[target_suite.name] = target_suite
-        if target_suite.excuses_suffix:
-            self._by_name_or_alias[target_suite.excuses_suffix] = target_suite
+        if target_suite.suite_short_name:
+            self._by_name_or_alias[target_suite.suite_short_name] = target_suite
         for suite in source_suites:
             self._suites[suite.name] = suite
             self._by_name_or_alias[suite.name] = suite
-            if suite.excuses_suffix:
-                self._by_name_or_alias[suite.excuses_suffix] = suite
+            if suite.suite_short_name:
+                self._by_name_or_alias[suite.suite_short_name] = suite
 
     @property
     def primary_source_suite(self):
@@ -32,14 +38,23 @@ class Suites(object):
     def by_name_or_alias(self):
         return self._by_name_or_alias
 
+    @property
+    def additional_source_suites(self):
+        return self.source_suites[1:]
+
     def __getitem__(self, item):
         return self._suites[item]
 
     def __len__(self):
         return len(self.source_suites) + 1
 
+    def __contains__(self, item):
+        return item in self._suites
+
     def __iter__(self):
-        yield from self._suites
+        # Sources first (as we will rely on this for loading data in the old live-data tests)
+        yield from self.source_suites
+        yield self.target_suite
 
 
 class SourcePackage(object):

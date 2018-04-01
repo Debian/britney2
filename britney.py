@@ -192,7 +192,7 @@ from urllib.parse import quote
 import apt_pkg
 
 # Check the "check_field_name" reflection before removing an import here.
-from britney2 import Suites, SuiteInfo, SourcePackage, BinaryPackageId, BinaryPackage
+from britney2 import Suites, Suite, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS, PROVIDES, MULTIARCH)
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
@@ -506,7 +506,7 @@ class Britney(object):
             suffix = suite if suite in {'pu', 'tpu'} else ''
             if hasattr(self.options, suite):
                 suite_path = getattr(self.options, suite)
-                suites.append(SuiteInfo(name=suite, path=suite_path, excuses_suffix=suffix))
+                suites.append(Suite(suite, suite_path, suite_short_name=suffix))
             else:
                 if suite in {'testing', 'unstable'}:  # pragma: no cover
                     self.logger.error("Mandatory configuration %s is not set in the config", suite.upper())
