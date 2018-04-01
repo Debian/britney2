@@ -23,6 +23,7 @@
 
 import apt_pkg
 import errno
+import logging
 import os
 import sys
 import time
@@ -234,28 +235,32 @@ def newly_uninst(nuold, nunew):
     "nunew" from the statistic "nuold".
 
     It returns a dictionary with the architectures as keys and the list
-    of uninstallable packages as values.
+    of uninstallable packages as values.  If there are no regressions
+    on a given architecture, then the architecture will be omitted in
+    the result.  Accordingly, if none of the architectures have
+    regressions an empty directory is returned.
     """
     res = {}
     for arch in ifilter_only(nunew, nuold):
-        res[arch] = [x for x in nunew[arch] if x not in nuold[arch]]
+        arch_nuninst = [x for x in nunew[arch] if x not in nuold[arch]]
+        # Leave res empty if there are no newly uninst packages
+        if arch_nuninst:
+            res[arch] = arch_nuninst
     return res
 
 
-def eval_uninst(architectures, nuninst):
-    """Return a string which represents the uninstallable packages
-
-    This method returns a string which represents the uninstallable
-    packages reading the uninstallability statistics "nuninst".
+def format_and_log_uninst(logger, architectures, nuninst, *, loglevel=logging.INFO):
+    """Emits the uninstallable packages to the log
 
     An example of the output string is:
       * i386: broken-pkg1, broken-pkg2
+
+    Note that if there is no uninstallable packages, then nothing is emitted.
     """
-    parts = []
     for arch in architectures:
         if arch in nuninst and nuninst[arch]:
-            parts.append("    * %s: %s\n" % (arch,", ".join(sorted(nuninst[arch]))))
-    return "".join(parts)
+            msg = "    * %s: %s" % (arch, ", ".join(sorted(nuninst[arch])))
+            logger.log(loglevel, msg)
 
 
 def write_heidi(filename, sources_t, packages_t, *, outofsync_arches=frozenset(), sorted=sorted):

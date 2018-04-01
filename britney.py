@@ -204,7 +204,7 @@ from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (old_libraries_format, undo_changes,
                             compute_reverse_tree, possibly_compressed,
                             read_nuninst, write_nuninst, write_heidi,
-                            eval_uninst, newly_uninst, make_migrationitem,
+                            format_and_log_uninst, newly_uninst, make_migrationitem,
                             write_excuses, write_heidi_delta, write_controlfiles,
                             old_libraries, is_nuninst_asgood_generous,
                             clone_nuninst, check_installability,
@@ -2283,8 +2283,10 @@ class Britney(object):
         self.output_write(" finish: [%s]\n" % ",".join( x.uvname for x in selected ))
         self.output_write("endloop: %s\n" % (self.eval_nuninst(self.nuninst_orig)))
         self.output_write("    now: %s\n" % (self.eval_nuninst(nuninst_last_accepted)))
-        self.output_write(eval_uninst(self.options.architectures,
-                                      newly_uninst(self.nuninst_orig, nuninst_last_accepted)))
+        format_and_log_uninst(self.output_logger,
+                              self.options.architectures,
+                              newly_uninst(self.nuninst_orig, nuninst_last_accepted)
+                              )
         self.output_write("\n")
 
         return (nuninst_last_accepted, maybe_rescheduled_packages)
@@ -2355,8 +2357,10 @@ class Britney(object):
             self.output_write("easy: %s\n" % nuninst_end_str)
 
             if not force:
-                self.output_write(eval_uninst(self.options.architectures,
-                                              newly_uninst(nuninst_start, nuninst_end)))
+                format_and_log_uninst(self.output_logger,
+                                      self.options.architectures,
+                                      newly_uninst(nuninst_start, nuninst_end)
+                                      )
 
         if force:
             # Force implies "unconditionally better"
@@ -2381,9 +2385,16 @@ class Britney(object):
             self.output_write(" orig: %s\n" % self.eval_nuninst(self.nuninst_orig))
             self.output_write("  end: %s\n" % nuninst_end_str)
             if force:
-                self.output_write("force breaks:\n")
-                self.output_write(eval_uninst(self.options.architectures,
-                                              newly_uninst(nuninst_start, nuninst_end)))
+                broken = newly_uninst(nuninst_start, nuninst_end)
+                if broken:
+                    self.output_logger.warning("force breaks:")
+                    format_and_log_uninst(self.output_logger,
+                                          self.options.architectures,
+                                          broken,
+                                          loglevel=logging.WARNING,
+                                          )
+                else:
+                    self.output_logger.info("force did not break any packages")
             self.output_write("SUCCESS (%d/%d)\n" % (len(actions or self.upgrade_me), len(extra)))
             self.nuninst_orig = nuninst_end
             self.all_selected += selected
@@ -2562,12 +2573,16 @@ class Britney(object):
 
     def printuninstchange(self):
         self.logger.info("Checking for newly uninstallable packages")
-        text = eval_uninst(self.options.architectures, newly_uninst(
-                        self.nuninst_orig_save, self.nuninst_orig))
+        uninst = newly_uninst(self.nuninst_orig_save, self.nuninst_orig)
 
-        if text != '':
-            self.output_write("\nNewly uninstallable packages in testing:\n%s" % \
-                (text))
+        if uninst:
+            self.output_logger.warning("")
+            self.output_logger.warning("Newly uninstallable packages in testing:")
+            format_and_log_uninst(self.output_logger,
+                                  self.options.architectures,
+                                  uninst,
+                                  loglevel=logging.WARNING,
+                                  )
 
     def hint_tester(self):
         """Run a command line interface to test hints
