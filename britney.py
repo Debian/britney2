@@ -201,7 +201,7 @@ from britney2.migrationitem import MigrationItem
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
-from britney2.utils import (old_libraries_format, undo_changes,
+from britney2.utils import (log_and_format_old_libraries, undo_changes,
                             compute_reverse_tree, possibly_compressed,
                             read_nuninst, write_nuninst, write_heidi,
                             format_and_log_uninst, newly_uninst, make_migrationitem,
@@ -2532,16 +2532,16 @@ class Britney(object):
         if self.options.smooth_updates:
             self.logger.info("> Removing old packages left in testing from smooth updates")
             if removals:
-                self.output_write("Removing packages left in testing for smooth updates (%d):\n%s" % \
-                    (len(removals), old_libraries_format(removals)))
+                self.output_logger.info("Removing packages left in testing for smooth updates (%d):", len(removals))
+                log_and_format_old_libraries(self.output_logger, removals)
                 self.do_all(actions=removals)
                 removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
         else:
             self.logger.info("> Not removing old packages left in testing from smooth updates"
                              " (smooth-updates disabled)")
 
-        self.output_write("List of old libraries in testing (%d):\n%s" % \
-             (len(removals), old_libraries_format(removals)))
+        self.output_logger.info("List of old libraries in testing (%d):", len(removals))
+        log_and_format_old_libraries(self.output_logger, removals)
 
         self.assert_nuninst_is_correct()
 

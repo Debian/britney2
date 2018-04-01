@@ -164,8 +164,8 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
             binaries['testing'][arch][1][provided_pkg] = undo['virtual'][p]
 
 
-def old_libraries_format(libs):
-    """Format old libraries in a smart table"""
+def log_and_format_old_libraries(logger, libs):
+    """Format and log old libraries in a table (no header)"""
     libraries = {}
     for i in libs:
         pkg = i.package
@@ -173,7 +173,9 @@ def old_libraries_format(libs):
             libraries[pkg].append(i.architecture)
         else:
             libraries[pkg] = [i.architecture]
-    return "\n".join("  " + k + ": " + " ".join(libraries[k]) for k in libraries) + "\n"
+
+    for lib in sorted(libraries):
+        logger.info(" %s: %s", lib, " ".join(libraries[lib]))
 
 
 def compute_reverse_tree(inst_tester, affected):
