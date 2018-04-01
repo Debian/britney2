@@ -2281,7 +2281,6 @@ class Britney(object):
         recurse = True
         lundo = None
         nuninst_end = None
-        better = True
         extra = []
 
         if hinttype == "easy" or hinttype == "force-hint":
@@ -2306,13 +2305,10 @@ class Britney(object):
 
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
-            (better, nuninst_end, undo_list, _) = self.try_migration(selected,
-                                                                     self.nuninst_orig,
-                                                                     lundo=lundo,
-                                                                     automatic_revert=False)
-            if force:
-                # Force implies "unconditionally better"
-                better = True
+            (_, nuninst_end, undo_list, _) = self.try_migration(selected,
+                                                                self.nuninst_orig,
+                                                                lundo=lundo,
+                                                                automatic_revert=False)
 
             if lundo is not None:
                 lundo.extend(undo_list)
@@ -2338,7 +2334,10 @@ class Britney(object):
                 self.output_write(eval_uninst(self.options.architectures,
                                               newly_uninst(nuninst_start, nuninst_end)))
 
-        if not force:
+        if force:
+            # Force implies "unconditionally better"
+            better = True
+        else:
             break_arches = set(self.options.break_arches)
             if all(x.architecture in break_arches for x in selected):
                 # If we only migrated items from break-arches, then we
