@@ -4,6 +4,7 @@ import os
 from britney2 import Suites, Suite, SuiteClass, SourcePackage
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
+from britney2.migrationitem import MigrationItem
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
 
 from . import MockObject, TEST_HINTER, HINTS_ALL, DEFAULT_URGENCY
@@ -22,6 +23,7 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
         Suite(SuiteClass.TARGET_SUITE, 'testing', os.path.join(test_dir, 'testing'), ''),
         [Suite(SuiteClass.PRIMARY_SOURCE_SUITE, 'unstable', os.path.join(test_dir, 'unstable'), '')],
     )
+    MigrationItem.set_suites(suite_info)
     policy = policy_class(options, suite_info, *args)
     fake_britney = MockObject(log=lambda x, y='I': None)
     hint_parser = HintParser()

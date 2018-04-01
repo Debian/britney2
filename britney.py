@@ -295,6 +295,7 @@ class Britney(object):
         self.suite_info = None  # Initialized during __parse_arguments
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
+        MigrationItem.set_suites(self.suite_info)
 
         # initialize the apt_pkg back-end
         apt_pkg.init()
@@ -1776,7 +1777,7 @@ class Britney(object):
         * "source_name" is the name of the source package, whose
           binaries are migrating.
         * "suite" is the suite from which the binaries are migrating.
-          [Same as item.suite, where available]
+          [Same as item.suite.name, where available]
         * "migration_architecture" is the architecture determines
           architecture of the migrating binaries (can be "source" for
           a "source"-migration, meaning all binaries regardless of
@@ -1976,7 +1977,7 @@ class Britney(object):
         eqv_set = set()
 
         updates, rms, _ = self._compute_groups(item.package,
-                                               item.suite,
+                                               item.suite.name,
                                                item.architecture,
                                                item.is_removal,
                                                removals=removals)
@@ -1993,7 +1994,7 @@ class Britney(object):
 
             # add/update the source package
             if not item.is_removal:
-                sources['testing'][item.package] = sources[item.suite][item.package]
+                sources['testing'][item.package] = sources[item.suite.name][item.package]
 
         # If we are removing *and* updating packages, then check for eqv. packages
         if rms and updates:
@@ -2041,7 +2042,7 @@ class Britney(object):
 
         # Add/Update binary packages in testing
         if updates:
-            packages_s = self.binaries[item.suite]
+            packages_s = self.binaries[item.suite.name]
 
             for updated_pkg_id in updates:
                 binary, new_version, parch = updated_pkg_id
@@ -2132,7 +2133,7 @@ class Britney(object):
             affected_pos = set()
             affected_remain = set()
             for item in actions:
-                _, rms, _ = self._compute_groups(item.package, item.suite,
+                _, rms, _ = self._compute_groups(item.package, item.suite.name,
                                                  item.architecture,
                                                  item.is_removal,
                                                  allow_smooth_updates=False)
@@ -2213,7 +2214,7 @@ class Britney(object):
         output_logger = self.output_logger
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
-            updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
+            updates, rms, _ = self._compute_groups(y.package, y.suite.name, y.architecture, y.is_removal)
             result = (y, frozenset(updates), frozenset(rms))
             group_info[y] = result
 
@@ -2664,22 +2665,23 @@ class Britney(object):
             if pkg.is_removal:
                 continue
 
+            suite_name = pkg.suite.name
             inunstable = pkg.package in self.sources['unstable']
             rightversion = inunstable and (apt_pkg.version_compare(self.sources['unstable'][pkg.package].version, pkg.version) == 0)
-            if pkg.suite == 'unstable' and not rightversion:
+            if suite_name == 'unstable' and not rightversion:
                 for suite in ['pu', 'tpu']:
-                    if suite not in self.suite_info:
+                    if suite_name not in self.suite_info:
                         continue
-                    if pkg.package in self.sources[suite] and apt_pkg.version_compare(self.sources[suite][pkg.package].version, pkg.version) == 0:
-                        pkg.suite = suite
+                    if pkg.package in self.sources[suite_name] and apt_pkg.version_compare(self.sources[suite_name][pkg.package].version, pkg.version) == 0:
+                        pkg.suite = self.suite_info[suite]
                         _pkgvers[idx] = pkg
                         break
 
             # handle *-proposed-updates
-            if pkg.suite in ['pu', 'tpu']:
-                if pkg.suite not in self.suite_info or pkg.package not in self.sources[pkg.suite]:
+            if suite_name in ['pu', 'tpu']:
+                if suite_name not in self.suite_info or pkg.package not in self.sources[suite_name]:
                     continue
-                if apt_pkg.version_compare(self.sources[pkg.suite][pkg.package].version, pkg.version) != 0:
+                if apt_pkg.version_compare(self.sources[suite_name][pkg.package].version, pkg.version) != 0:
                     issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
                                                                      self.sources[pkg.suite][pkg.package].version))
             # does the package exist in unstable?

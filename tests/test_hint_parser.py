@@ -1,9 +1,18 @@
-import logging
 import unittest
 
+from britney2 import Suite, Suites, SuiteClass
 from britney2.hints import HintParser, single_hint_taking_list_of_packages
+from britney2.migrationitem import MigrationItem
 
 from . import HINTS_ALL, TEST_HINTER
+
+SUITES = Suites(
+    Suite(SuiteClass.TARGET_SUITE, 'testing', "/somewhere/target", ''),
+    [Suite(SuiteClass.PRIMARY_SOURCE_SUITE, 'unstable', "/somewhere/source", '')],
+)
+
+
+MigrationItem.set_suites(SUITES)
 
 
 def new_hint_parser():

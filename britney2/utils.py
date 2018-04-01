@@ -128,8 +128,8 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
     # STEP 2
     # undo all new binaries (consequence of the above)
     for (undo, item) in lundo:
-        if not item.is_removal and item.package in sources[item.suite]:
-            source_data = sources[item.suite][item.package]
+        if not item.is_removal and item.package in sources[item.suite.name]:
+            source_data = sources[item.suite.name][item.package]
             for pkg_id in source_data.binaries:
                 binary, _, arch = pkg_id
                 if item.architecture in ['source', arch]:
@@ -356,7 +356,7 @@ def make_migrationitem(package, sources):
     """
     
     item = UnversionnedMigrationItem(package)
-    return MigrationItem("%s/%s" % (item.uvname, sources[item.suite][item.package].version))
+    return MigrationItem("%s/%s" % (item.uvname, sources[item.suite.name][item.package].version))
 
 
 def write_excuses(excuselist, dest_file, output_format="yaml"):

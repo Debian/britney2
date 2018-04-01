@@ -12,18 +12,28 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+
 class MigrationItem(object):
     _architectures = []
+    _suites = None
 
     @classmethod
-    def set_architectures(cls, architectures = None):
+    def set_architectures(cls, architectures=None):
         cls._architectures = architectures or []
 
     @classmethod
     def get_architectures(cls):
         return cls._architectures
 
-    def __init__(self, name = None, versionned = True):
+    @classmethod
+    def set_suites(cls, suites):
+        cls._suites = suites
+
+    @classmethod
+    def get_suites(cls):
+        return cls._suites
+
+    def __init__(self, name=None, versionned=True):
         self._name = None
         self._uvname = None
         self._package = None
@@ -69,10 +79,11 @@ class MigrationItem(object):
             value = value[1:]
         parts = value.split('/', 3)
         package = parts[0]
+        suite_name = self.__class__._suites.primary_source_suite.name
         if '_' in package:
-            self._package, self._suite = package.split('_', 2)
+            self._package, suite_name = package.split('_', 2)
         else:
-            self._package, self._suite = (package, 'unstable')
+            self._package = package
         if self._versionned and len(parts) > 1:
             if len(parts) == 3:
                 self._architecture = parts[1]
@@ -95,7 +106,9 @@ class MigrationItem(object):
                self._architecture.split('_', 2)
 
         if self.is_removal:
-            self._suite = 'testing'
+            self._suite = self.__class__._suites.target_suite
+        else:
+            self._suite = self.__class__._suites.by_name_or_alias[suite_name]
 
         self._canonicalise_name()
 
@@ -106,8 +119,8 @@ class MigrationItem(object):
             self._uvname = self._package
         else:
             self._uvname = "%s/%s" % (self._package, self._architecture)
-        if self._suite not in ('testing', 'unstable'):
-            self._uvname = '%s_%s' % (self._uvname, self._suite)
+        if self._suite.suite_class.is_additional_source:
+            self._uvname = '%s_%s' % (self._uvname, self._suite.suite_short_name)
         if is_removal:
             self._uvname = '-%s' % (self._uvname)
         if self._versionned:
@@ -133,7 +146,7 @@ class MigrationItem(object):
 
     @suite.setter
     def suite(self, value):
-        self._suite = value
+        self._suite = self.__class__._suites[value]
         self._canonicalise_name()
 
     @property
