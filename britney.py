@@ -192,7 +192,7 @@ from urllib.parse import quote
 import apt_pkg
 
 # Check the "check_field_name" reflection before removing an import here.
-from britney2 import SuiteInfo, SourcePackage, BinaryPackageId, BinaryPackage
+from britney2 import Suites, SuiteInfo, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS, PROVIDES, MULTIARCH)
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
@@ -292,7 +292,7 @@ class Britney(object):
         # parse the command line arguments
         self.policies = []
         self._hint_parser = HintParser()
-        self.suite_info = {}
+        self.suite_info = None  # Initialized during __parse_arguments
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
 
@@ -501,19 +501,22 @@ class Britney(object):
                          not getattr(self.options, k.lower()):
                         setattr(self.options, k.lower(), v)
 
+        suites = []
         for suite in ('testing', 'unstable', 'pu', 'tpu'):
             suffix = suite if suite in {'pu', 'tpu'} else ''
             if hasattr(self.options, suite):
                 suite_path = getattr(self.options, suite)
-                self.suite_info[suite] = SuiteInfo(name=suite, path=suite_path, excuses_suffix=suffix)
+                suites.append(SuiteInfo(name=suite, path=suite_path, excuses_suffix=suffix))
             else:
                 if suite in {'testing', 'unstable'}:  # pragma: no cover
                     self.logger.error("Mandatory configuration %s is not set in the config", suite.upper())
                     sys.exit(1)
                 self.logger.info("Optional suite %s is not defined (config option: %s) ", suite, suite.upper())
 
+        self.suite_info = Suites(suites[0], suites[1:])
+
         try:
-            release_file = read_release_file(self.suite_info['testing'].path)
+            release_file = read_release_file(self.suite_info.target_suite.path)
             self.logger.info("Found a Release file in testing - using that for defaults")
         except FileNotFoundError:
             self.logger.info("Testing does not have a Release file.")
@@ -547,7 +550,8 @@ class Britney(object):
         else:
             if not release_file:  # pragma: no cover
                 self.logger.error("No configured architectures and there is no release file for testing")
-                self.logger.error("Please check if there is a \"Release\" file in %s", self.suite_info['testing'].path)
+                self.logger.error("Please check if there is a \"Release\" file in %s",
+                                  self.suite_info.target_suite.path)
                 self.logger.error("or if the config file contains a non-empty \"ARCHITECTURES\" field")
                 sys.exit(1)
             allarches = sorted(release_file['Architectures'].split())
