@@ -182,10 +182,13 @@ does for the generation of the update excuses.
 import logging
 import optparse
 import os
+import re
 import sys
 import time
+import yaml
 from collections import defaultdict
 from functools import reduce
+from itertools import zip_longest
 from operator import attrgetter
 from urllib.parse import quote
 
@@ -470,9 +473,34 @@ class Britney(object):
         MINDAYS = {}
 
         self.HINTS = {'command-line': self.HINTS_ALL}
+        config_format = 'auto'
+        yaml_key_format = re.compile(r'^[a-zA-Z0-9_-]+\s*:')
+        self.logger.info("Parsing config file: %s", self.options.config)
         with open(self.options.config, encoding='utf-8') as config:
             for line in config:
-                if '=' in line and not line.strip().startswith('#'):
+                stripped = line.strip()
+                if stripped.startswith('#') or stripped == '':
+                    continue
+                if config_format == 'auto':
+                    if stripped.startswith('%') or stripped.startswith('---'):
+                        # YAML directive or "---" document header
+                        config_format = 'yaml'
+                        self.logger.info("Found start of YAML document (e.g. '%YAML' or '---'): "
+                                         "switching to YAML parser")
+                        break
+                    if ':' in line:
+                        if yaml_key_format.match(line):
+                            self.logger.info("Found YAML key-value assignment (\":\"): assuming yaml format")
+                            config_format = 'yaml'
+                            break
+                        else:
+                            self.logger.info("Found line with colon that did not match YAML assignment: "
+                                             " assuming legacy format")
+                            config_format = 'legacy'
+                if '=' in line:
+                    if config_format == 'auto':
+                        self.logger.info("Found legacy config format assignment (\"=\"): assuming legacy format")
+                        config_format = 'legacy'
                     k, v = line.split('=', 1)
                     k = k.strip()
                     v = v.strip()
@@ -484,6 +512,23 @@ class Britney(object):
                     elif not hasattr(self.options, k.lower()) or \
                          not getattr(self.options, k.lower()):
                         setattr(self.options, k.lower(), v)
+
+            if config_format == 'yaml':
+                loaded_config = yaml.safe_load(config)
+                self._translate_yaml_config(loaded_config, MINDAYS)
+            else:
+                # Massage some properties
+                self.options.nobreakall_arches = self.options.nobreakall_arches.split()
+                self.options.outofsync_arches = self.options.outofsync_arches.split()
+                self.options.break_arches = self.options.break_arches.split()
+                self.options.new_arches = self.options.new_arches.split()
+                if hasattr(self.options, "architectures"):
+                    self.options.architectures = self.options.architectures.split()
+                if getattr(self.options, "components", None):
+                    self.options.components = [s.strip() for s in self.options.components.split(",")]
+                self.options.smooth_updates = self.options.smooth_updates.split()
+                if not hasattr(self.options, 'ignore_cruft') or self.options.ignore_cruft == "0":
+                    self.options.ignore_cruft = False
 
         for suite in ('testing', 'unstable', 'pu', 'tpu'):
             suffix = suite if suite in {'pu', 'tpu'} else ''
@@ -504,7 +549,7 @@ class Britney(object):
             release_file = None
 
         if getattr(self.options, "components", None):
-            self.options.components = [s.strip() for s in self.options.components.split(",")]
+            self.logger.info("Using components defined in config file: %s", ' '.join(self.options.components))
         elif release_file and not self.options.control_files:
             self.options.components = release_file['Components'].split()
             self.logger.info("Using components listed in Release file: %s", ' '.join(self.options.components))
@@ -520,14 +565,9 @@ class Britney(object):
         if not hasattr(self.options, "heidi_delta_output"):
             self.options.heidi_delta_output = self.options.heidi_output + "Delta"
 
-        self.options.nobreakall_arches = self.options.nobreakall_arches.split()
-        self.options.outofsync_arches = self.options.outofsync_arches.split()
-        self.options.break_arches = self.options.break_arches.split()
-        self.options.new_arches = self.options.new_arches.split()
-
         if getattr(self.options, "architectures", None):
             # Sort the architecture list
-            allarches = sorted(self.options.architectures.split())
+            allarches = sorted(self.options.architectures)
         else:
             if not release_file:  # pragma: no cover
                 self.logger.error("No configured architectures and there is no release file for testing")
@@ -542,11 +582,6 @@ class Britney(object):
         arches += [x for x in allarches if x not in arches and x not in self.options.new_arches]
         arches += [x for x in allarches if x not in arches]
         self.options.architectures = [sys.intern(arch) for arch in arches]
-        self.options.smooth_updates = self.options.smooth_updates.split()
-
-        if not hasattr(self.options, 'ignore_cruft') or \
-            self.options.ignore_cruft == "0":
-            self.options.ignore_cruft = False
 
         self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
@@ -559,6 +594,101 @@ class Britney(object):
     @property
     def hints(self):
         return self._hint_parser.hints
+
+    def _translate_yaml_config(self, loaded_yaml, MINDAYS):
+        # Handle that some options might have been set already from cmd-line
+        def set_option(value, options_name):
+            if value is None or hasattr(self.options, options_name):
+                return
+            setattr(self.options, options_name, value)
+
+        # Path specific variant of the above for handling archive paths
+        def set_path_option(basepath, path, options_name):
+            if path is None:
+                return
+            if basepath is None or os.path.isabs(path):
+                set_option(path, options_name)
+            else:
+                set_option(os.path.join(basepath, path), options_name)
+
+        archive_config = loaded_yaml.get('archive')
+        outputs_config = loaded_yaml.get('outputs')
+        inputs_config = loaded_yaml.get('inputs')
+        architectures_config = loaded_yaml.get('architectures')
+        policy_config = loaded_yaml.get('policies')
+        hints_config = loaded_yaml.get('hints')
+
+        if archive_config:
+            source_suites_config = archive_config.get('source_suites')
+            base_path = archive_config.get('path')
+            set_path_option(base_path, archive_config.get('target_suite'), 'testing')
+            set_option(archive_config.get('components'), 'components')
+            if source_suites_config:
+                # In order: First source suite is mapped to unstable, second to tpu,
+                # and the third to pu.
+                # TODO: Rewrite other parts so we do not depend on these names.
+                suite_mapping = ['unstable', 'tpu', 'pu']
+                for (britney_suite, archive_suite) in zip_longest(suite_mapping, source_suites_config):
+                    if britney_suite is None:
+                        self.logger.error("At most 3 source suite can be defined, got a fourth: %s", archive_suite)
+                        sys.exit(1)
+                    if archive_suite is None:
+                        break
+                    self.logger.info("Mapping source suite \"%s\" to \"%s\"", archive_suite, britney_suite)
+                    set_path_option(base_path, archive_suite, britney_suite)
+
+        if outputs_config:
+            excuses = outputs_config.get('excuses')
+            migration_results = outputs_config.get('migration_results')
+            set_option(outputs_config.get('noninst_status'), 'noninst_status')
+            set_option(outputs_config.get('upgrade_output'), 'upgrade_output')
+
+            if excuses:
+                set_option(excuses.get('legacy_html'), 'excuses_output')
+                set_option(excuses.get('yaml'), 'excuses_yaml_output')
+
+            if migration_results:
+                set_option(migration_results.get('control_suite'), 'heidi_output')
+                set_option(migration_results.get('control_suite_delta'), 'heidi_delta_output')
+
+        if inputs_config:
+            set_option(inputs_config.get('static'), 'static_input_dir')
+            set_option(inputs_config.get('state'), 'state_dir')
+
+        if architectures_config:
+            # "all" / "architectures" is auto-computed from the Release file if absent
+            # from the config file
+            set_option(architectures_config.get('all'), 'architectures')
+            set_option(architectures_config.get('no_break_all', []), 'nobreakall_arches')
+            set_option(architectures_config.get('outofsync', []), 'outofsync_arches')
+            set_option(architectures_config.get('breakable', []), 'break_arches')
+            set_option(architectures_config.get('bootstrapping', []), 'new_arches')
+
+        if policy_config:
+            age_config = policy_config.get('age')
+            builtin_config = policy_config.get('builtin')
+            if age_config:
+                set_option(age_config.get('default_urgency'), 'default_urgency')
+                mindays_config = age_config.get('mindays')
+                if mindays_config:
+                    for (k, v) in mindays_config.items():
+                        MINDAYS[k] = v
+            if builtin_config:
+                set_option(builtin_config.get('smooth_updates'), 'smooth_updates')
+                set_option(builtin_config.get('ignore_cruft'), 'ignore_cruft')
+
+        if hints_config:
+            hinters = hints_config.get('hinters')
+            set_option(hints_config.get('hintsdir'), 'hintsdir')
+            if hinters:
+                for (hinter, perm_values) in hinters.items():
+                    permissions = []
+                    for permission in perm_values:
+                        if hasattr(self, 'HINTS_%s' % permission):
+                            permissions.extend(getattr(self, 'HINTS_%s' % permission))
+                        else:
+                            permissions.append(permission)
+                    self.HINTS[hinter] = permissions
 
     def _load_faux_packages(self, faux_packages_file):
         """Loads fake packages
