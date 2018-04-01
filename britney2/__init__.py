@@ -33,6 +33,7 @@ class Suite(object):
         self.name = name
         self.path = path
         self.suite_short_name = suite_short_name if suite_short_name else ''
+        self.sources = {}
 
     @property
     def excuses_suffix(self):

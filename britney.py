@@ -324,6 +324,7 @@ class Britney(object):
         # - Load all sources before any of the binaries.
         for suite in self.suite_info:
             sources = self.read_sources(suite.path)
+            suite.sources = sources
             self.sources[suite.name] = sources
             self.binaries[suite.name] = self.read_binaries(suite.path, suite.name, self.options.architectures)
 
