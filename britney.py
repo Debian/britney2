@@ -284,6 +284,11 @@ class Britney(object):
 
         self.logger = logging.getLogger()
 
+        # Logger for "upgrade_output"; the file handler will be attached later when
+        # we are ready to open the file.
+        self.output_logger = logging.getLogger('britney2.output.upgrade_output')
+        self.output_logger.setLevel(logging.INFO)
+
         # parse the command line arguments
         self.policies = []
         self._hint_parser = HintParser()
@@ -2626,15 +2631,18 @@ class Britney(object):
         requested version is not in unstable, then the hint is skipped.
         """
 
+        output_logger = self.output_logger
         if isinstance(pkgvers[0], tuple) or isinstance(pkgvers[0], list):
             _pkgvers = [ MigrationItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
         else:
             _pkgvers = pkgvers
 
         self.logger.info("> Processing '%s' hint from %s", hinttype, who)
-        self.output_write("Trying %s from %s: %s\n" % (hinttype, who, " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)))
+        output_logger.info("Trying %s from %s: %s", hinttype, who,
+                           " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)
+                           )
 
-        ok = True
+        issues = []
         # loop on the requested packages and versions
         for idx in range(len(_pkgvers)):
             pkg = _pkgvers[idx]
@@ -2653,19 +2661,19 @@ class Britney(object):
 
             # handle *-proposed-updates
             if pkg.suite in ['pu', 'tpu']:
-                if pkg.package not in self.sources[pkg.suite]: continue
+                if pkg.package not in self.sources[pkg.suite]:
+                    continue
                 if apt_pkg.version_compare(self.sources[pkg.suite][pkg.package].version, pkg.version) != 0:
-                    self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources[pkg.suite][pkg.package].version))
-                    ok = False
+                    issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
+                                                                     self.sources[pkg.suite][pkg.package].version))
             # does the package exist in unstable?
             elif not inunstable:
-                self.output_write(" Source %s has no version in unstable\n" % pkg.package)
-                ok = False
+                issues.append("Source %s has no version in unstable" % pkg.package)
             elif not rightversion:
-                self.output_write(" Version mismatch, %s %s != %s\n" % (pkg.package, pkg.version, self.sources['unstable'][pkg.package].version))
-                ok = False
-        if not ok:
-            self.output_write("Not using hint\n")
+                issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
+                                                                 self.sources['unstable'][pkg.package].version))
+        if issues:
+            output_logger.warning("%s: Not using hint", ", ".join(issues))
             return False
 
         self.do_all(hinttype, _pkgvers)
@@ -2776,8 +2784,20 @@ class Britney(object):
 
     def output_write(self, msg):
         """Simple wrapper for output writing"""
-        print(msg, end='')
-        self.__output.write(msg)
+        # This method used to take full lines and write them directly to a file.
+        # As such msg is expected to contain a character to be written plus
+        # explicit newlines.
+        if not msg:
+            # Empty string -> nothing is written (emulating fd.write(''))
+            return
+        # Remove trailing \n as the logger will add one.
+        # - Note that we cannot emulate partial lines (but nothing uses that
+        #   so we do not bother trying either).
+        if msg and msg[-1] == '\n':
+            msg = msg[:-1]
+
+        for line in msg.split('\n'):
+            self.output_logger.info(line)
 
     def main(self):
         """Main method
@@ -2796,19 +2816,22 @@ class Britney(object):
             self.upgrade_me = self.options.actions.split()
 
         if self.options.compute_migrations or self.options.hint_tester:
-            with open(self.options.upgrade_output, 'w', encoding='utf-8') as f:
-                self.__output = f
+            file_handler = logging.FileHandler(self.options.upgrade_output, mode='w', encoding='utf-8')
+            output_formatter = logging.Formatter('%(message)s')
+            file_handler.setFormatter(output_formatter)
+            self.output_logger.addHandler(file_handler)
+            self.logger.info("Logging upgrade output to %s", self.options.upgrade_output)
 
-                # run the hint tester
-                if self.options.hint_tester:
-                    self.hint_tester()
-                # run the upgrade test
-                else:
-                    self.upgrade_testing()
+            # run the hint tester
+            if self.options.hint_tester:
+                self.hint_tester()
+            # run the upgrade test
+            else:
+                self.upgrade_testing()
 
-                self.logger.info('> Stats from the installability tester')
-                for stat in self._inst_tester.stats.stats():
-                    self.logger.info('>   %s', stat)
+            self.logger.info('> Stats from the installability tester')
+            for stat in self._inst_tester.stats.stats():
+                self.logger.info('>   %s', stat)
         else:
             self.logger.info('Migration computation skipped as requested.')
         logging.shutdown()
