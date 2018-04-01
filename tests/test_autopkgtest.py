@@ -1855,7 +1855,7 @@ class T(TestBase):
                              }),
             },
             {'green': [('old-version', '1'), ('new-version', '2'),
-                       ('forced-reason', 'skiptest'),
+                       ('reason', 'skiptest'),
                        ('excuses', 'Should wait for tests relating to green 2, but forced by autopkgtest')]
             })
 

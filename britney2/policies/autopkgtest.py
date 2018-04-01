@@ -291,7 +291,6 @@ class AutopkgtestPolicy(BasePolicy):
                 excuse.addreason('skiptest')
                 excuse.addhtml("Should wait for tests relating to %s %s, but forced by %s" %
                                (source_name, source_data_srcdist.version, hints[0].user))
-                excuse.force()
                 verdict = PolicyVerdict.PASS_HINTED
             else:
                 excuse.addreason('autopkgtest')
