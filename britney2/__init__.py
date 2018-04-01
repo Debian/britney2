@@ -1,9 +1,35 @@
 from collections import namedtuple
+from enum import Enum, unique
+
+
+@unique
+class SuiteClass(Enum):
+
+    TARGET_SUITE = (False, False)
+    PRIMARY_SOURCE_SUITE = (True, True)
+    ADDITIONAL_SOURCE_SUITE = (True, False)
+
+    @property
+    def is_source(self):
+        return self.value[0]
+
+    @property
+    def is_target(self):
+        return not self.is_source
+
+    @property
+    def is_primary_source(self):
+        return self is SuiteClass.PRIMARY_SOURCE_SUITE
+
+    @property
+    def is_additional_source(self):
+        return self is SuiteClass.ADDITIONAL_SOURCE_SUITE
 
 
 class Suite(object):
 
-    def __init__(self, name, path, suite_short_name=None):
+    def __init__(self, suite_class, name, path, suite_short_name=None):
+        self.suite_class = suite_class
         self.name = name
         self.path = path
         self.suite_short_name = suite_short_name if suite_short_name else ''

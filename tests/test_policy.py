@@ -1,7 +1,7 @@
 import unittest
 import os
 
-from britney2 import Suites, Suite, SourcePackage
+from britney2 import Suites, Suite, SuiteClass, SourcePackage
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
@@ -19,8 +19,8 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
         del kwargs['hints']
     options = MockObject(state_dir=test_dir, verbose=0, default_urgency=DEFAULT_URGENCY, **kwargs)
     suite_info = Suites(
-        Suite('testing', os.path.join(test_dir, 'testing'), ''),
-        [Suite('unstable', os.path.join(test_dir, 'unstable'), '')],
+        Suite(SuiteClass.TARGET_SUITE, 'testing', os.path.join(test_dir, 'testing'), ''),
+        [Suite(SuiteClass.PRIMARY_SOURCE_SUITE, 'unstable', os.path.join(test_dir, 'unstable'), '')],
     )
     policy = policy_class(options, suite_info, *args)
     fake_britney = MockObject(log=lambda x, y='I': None)
