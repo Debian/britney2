@@ -228,8 +228,8 @@ class AutopkgtestPolicy(BasePolicy):
                         pass
                     for (testsrc, testver) in tests:
                         self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
-                        (result, real_ver, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
-                        pkg_arch_result.setdefault((testsrc, real_ver), {})[arch] = (result, url)
+                        (result, real_ver, run_id, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
+                        pkg_arch_result.setdefault((testsrc, real_ver), {})[arch] = (result, run_id, url)
 
             # add test result details to Excuse
             cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
@@ -252,7 +252,7 @@ class AutopkgtestPolicy(BasePolicy):
 
                 html_archmsg = []
                 for arch in sorted(arch_results):
-                    (status, log_url) = arch_results[arch]
+                    (status, run_id, log_url) = arch_results[arch]
                     artifact_url = None
                     retry_url = None
                     history_url = None
@@ -264,12 +264,15 @@ class AutopkgtestPolicy(BasePolicy):
                             'h': srchash(testsrc), 's': testsrc,
                             'r': self.options.series, 'a': arch}
                     if status == 'REGRESSION':
-                        retry_url = self.options.adt_ci_url + 'request.cgi?' + \
-                                urllib.parse.urlencode([('release', self.options.series),
-                                                        ('arch', arch),
-                                                        ('package', testsrc),
-                                                        ('trigger', trigger)] +
-                                                       [('ppa', p) for p in self.options.adt_ppas])
+                        if self.options.adt_retry_url_mech == 'run_id':
+                            retry_url = self.options.adt_ci_url + 'api/v1/retry/' + run_id
+                        else:
+                            retry_url = self.options.adt_ci_url + 'request.cgi?' + \
+                                    urllib.parse.urlencode([('release', self.options.series),
+                                                            ('arch', arch),
+                                                            ('package', testsrc),
+                                                            ('trigger', trigger)] +
+                                                           [('ppa', p) for p in self.options.adt_ppas])
                     if testver:
                         testname = '%s/%s' % (testsrc, testver)
                     else:
@@ -767,12 +770,13 @@ class AutopkgtestPolicy(BasePolicy):
     def pkg_test_result(self, src, ver, arch, trigger):
         '''Get current test status of a particular package
 
-        Return (status, real_version, log_url) tuple; status is a key in
-        EXCUSES_LABELS. log_url is None if the test is still running.
+        Return (status, real_version, run_id, log_url) tuple; status is a key in
+        EXCUSES_LABELS. run_id is None if the test is still running.
         '''
         # determine current test result status
         ever_passed = self.passed_in_baseline(src, arch)
         url = None
+        run_id = None
         try:
             r = self.test_results[trigger][src][arch]
             ver = r[1]
@@ -827,7 +831,7 @@ class AutopkgtestPolicy(BasePolicy):
                 raise RuntimeError('Result for %s/%s/%s (triggered by %s) is neither known nor pending!' %
                                    (src, ver, arch, trigger))
 
-        return (result, ver, url)
+        return (result, ver, run_id, url)
 
     def has_force_badtest(self, src, ver, arch):
         '''Check if src/ver/arch has a force-badtest hint'''

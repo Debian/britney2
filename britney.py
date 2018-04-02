@@ -553,6 +553,9 @@ class Britney(object):
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
 
+        if not hasattr(self.options, 'adt_retry_url_mech'):
+            self.options.adt_retry_url_mech = ''
+
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
         self.policies.append(PiupartsPolicy(self.options, self.suite_info))
         if getattr(self.options, 'adt_enable') == 'yes':
