@@ -373,6 +373,7 @@ class AutopkgtestPolicy(BasePolicy):
                 # to trigger anything
                 return []
 
+        # Debian doesn't have linux-meta, but Ubuntu does
         # for linux themselves we don't want to trigger tests -- these should
         # all come from linux-meta*. A new kernel ABI without a corresponding
         # -meta won't be installed and thus we can't sensibly run tests against
@@ -387,6 +388,7 @@ class AutopkgtestPolicy(BasePolicy):
             tests.append((src, ver))
 
         extra_bins = []
+        # Debian doesn't have linux-meta, but Ubuntu does
         # Hack: For new kernels trigger all DKMS packages by pretending that
         # linux-meta* builds a "dkms" binary as well. With that we ensure that we
         # don't regress DKMS drivers with new kernel versions.
@@ -432,24 +434,6 @@ class AutopkgtestPolicy(BasePolicy):
                                 tests.append((tdep_src, tdep_src_info.version))
                                 reported_pkgs.add(tdep_src)
                                 break
-
-        # Hardcode linux-meta →  linux, lxc, glibc, systemd triggers until we get a more flexible
-        # implementation: https://bugs.debian.org/779559
-        if src.startswith('linux-meta'):
-            for pkg in ['lxc', 'lxd', 'glibc', src.replace('linux-meta', 'linux'), 'systemd', 'snapd']:
-                if pkg not in reported_pkgs:
-                    # does this have any image on this arch?
-                    for pkg_id in srcinfo.binaries:
-                        if pkg_id.architecture == arch and '-image' in pkg_id.package_name:
-                            try:
-                                tests.append((pkg, self.britney.sources['unstable'][pkg].version))
-                            except KeyError:
-                                try:
-                                    tests.append((pkg, sources_info[pkg].version))
-                                except KeyError:
-                                    # package not in that series? *shrug*, then not
-                                    pass
-                            break
 
         tests.sort(key=lambda s_v: s_v[0])
         return tests
