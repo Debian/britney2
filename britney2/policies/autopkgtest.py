@@ -516,6 +516,7 @@ class AutopkgtestPolicy(BasePolicy):
         # request new results from swift
         url = os.path.join(swift_url, self.swift_container)
         url += '?' + urllib.parse.urlencode(query)
+        f = None
         try:
             f = urlopen(url, timeout=30)
             if f.getcode() == 200:
@@ -528,7 +529,6 @@ class AutopkgtestPolicy(BasePolicy):
                 # our URLS, so fail hard on those
                 raise NotImplementedError('fetch_swift_results(%s): cannot handle HTTP code %i' %
                                           (url, f.getcode()))
-            f.close()
         except IOError as e:
             # 401 "Unauthorized" is swift's way of saying "container does not exist"
             if hasattr(e, 'code') and e.code == 401:
@@ -540,6 +540,9 @@ class AutopkgtestPolicy(BasePolicy):
             # fail hard on this and let the next run retry.
             self.logger.error('Failure to fetch swift results from %s: %s', url, str(e))
             sys.exit(1)
+        finally:
+            if f is not None:
+                f.close()
 
         for p in result_paths:
             self.fetch_one_result(
@@ -552,11 +555,11 @@ class AutopkgtestPolicy(BasePolicy):
 
         Remove matching pending_tests entries.
         '''
+        f = None
         try:
             f = urlopen(url, timeout=30)
             if f.getcode() == 200:
                 tar_bytes = io.BytesIO(f.read())
-                f.close()
             else:
                 raise NotImplementedError('fetch_one_result(%s): cannot handle HTTP code %i' %
                                           (url, f.getcode()))
@@ -567,7 +570,9 @@ class AutopkgtestPolicy(BasePolicy):
             if hasattr(e, 'code') and e.code == 404:
                 return
             sys.exit(1)
-
+        finally:
+            if f is not None:
+                f.close()
         try:
             with tarfile.open(None, 'r', tar_bytes) as tar:
                 exitcode = int(tar.extractfile('exitcode').read().strip())
