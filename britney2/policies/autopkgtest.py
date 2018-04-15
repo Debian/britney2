@@ -206,7 +206,7 @@ class AutopkgtestPolicy(BasePolicy):
             trigger = source_name + '/' + source_data_srcdist.version
 
             # build a (testsrc, testver) → arch → (status, log_url) map; we trigger/check test
-            # results per archtitecture for technical/efficiency reasons, but we
+            # results per architecture for technical/efficiency reasons, but we
             # want to evaluate and present the results by tested source package
             # first
             pkg_arch_result = {}
