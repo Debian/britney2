@@ -249,6 +249,11 @@ class AutopkgtestPolicy(BasePolicy):
                 if testsrc == source_name and r - {'RUNNING', 'RUNNING-ALWAYSFAIL', 'ALWAYSFAIL'}:
                     src_has_own_test = True
 
+                if testver:
+                    testname = '%s/%s' % (testsrc, testver)
+                else:
+                    testname = testsrc
+
                 html_archmsg = []
                 for arch in sorted(arch_results):
                     (status, run_id, log_url) = arch_results[arch]
@@ -272,10 +277,6 @@ class AutopkgtestPolicy(BasePolicy):
                                                             ('package', testsrc),
                                                             ('trigger', trigger)] +
                                                            [('ppa', p) for p in self.options.adt_ppas])
-                    if testver:
-                        testname = '%s/%s' % (testsrc, testver)
-                    else:
-                        testname = testsrc
 
                     tests_info.setdefault(testname, {})[arch] = \
                             [status, log_url, history_url, artifact_url, retry_url]
@@ -294,7 +295,6 @@ class AutopkgtestPolicy(BasePolicy):
 
                 # render HTML line for testsrc entry
                 excuse.addhtml("autopkgtest for %s: %s" % (testname, ', '.join(html_archmsg)))
-
 
         if verdict != PolicyVerdict.PASS:
             # check for force-skiptest hint
