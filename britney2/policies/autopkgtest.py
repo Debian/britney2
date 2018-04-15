@@ -234,7 +234,7 @@ class AutopkgtestPolicy(BasePolicy):
             cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
             for (testsrc, testver) in sorted(pkg_arch_result):
                 arch_results = pkg_arch_result[(testsrc, testver)]
-                r = set([v[0] for v in arch_results.values()])
+                r = {v[0] for v in arch_results.values()}
                 if 'REGRESSION' in r:
                     verdict = PolicyVerdict.REJECTED_PERMANENTLY
                 elif 'RUNNING' in r and verdict == PolicyVerdict.PASS:
@@ -310,7 +310,7 @@ class AutopkgtestPolicy(BasePolicy):
         if self.options.adt_success_bounty and verdict == PolicyVerdict.PASS and src_has_own_test:
             excuse.add_bounty('autopkgtest', int(self.options.adt_success_bounty))
         if self.options.adt_regression_penalty and \
-          verdict in [PolicyVerdict.REJECTED_PERMANENTLY, PolicyVerdict.REJECTED_TEMPORARILY]:
+           verdict in {PolicyVerdict.REJECTED_PERMANENTLY, PolicyVerdict.REJECTED_TEMPORARILY}:
             excuse.add_penalty('autopkgtest', int(self.options.adt_regression_penalty))
             # In case we give penalties instead of blocking, we must always pass
             verdict = PolicyVerdict.PASS
