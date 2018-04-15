@@ -16,6 +16,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import collections
 import os
 import json
 import tarfile
@@ -209,7 +210,7 @@ class AutopkgtestPolicy(BasePolicy):
             # results per architecture for technical/efficiency reasons, but we
             # want to evaluate and present the results by tested source package
             # first
-            pkg_arch_result = {}
+            pkg_arch_result = collections.defaultdict(dict)
             for arch in self.adt_arches:
                 if arch in excuse.missing_builds:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
@@ -228,7 +229,7 @@ class AutopkgtestPolicy(BasePolicy):
                     for (testsrc, testver) in tests:
                         self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
                         (result, real_ver, run_id, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
-                        pkg_arch_result.setdefault((testsrc, real_ver), {})[arch] = (result, run_id, url)
+                        pkg_arch_result[(testsrc, real_ver)][arch] = (result, run_id, url)
 
             # add test result details to Excuse
             cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
@@ -485,10 +486,10 @@ class AutopkgtestPolicy(BasePolicy):
                 continue
             if run_id > latest_run_id:
                 latest_run_id = run_id
-        self.latest_run_for_package._cache.setdefault(src, {})[arch] = latest_run_id
+        self.latest_run_for_package._cache[arch] = latest_run_id
         return latest_run_id
 
-    latest_run_for_package._cache = {}
+    latest_run_for_package._cache = collections.defaultdict(dict)
 
     def fetch_swift_results(self, swift_url, src, arch):
         '''Download new results for source package/arch from swift'''
@@ -753,7 +754,7 @@ class AutopkgtestPolicy(BasePolicy):
             except KeyError:
                 self.logger.info('Found NO result for src %s in reference: pass=%s', src, passed_reference)
                 pass
-            self.passed_in_baseline._cache.setdefault(src, {})[arch] = passed_reference
+            self.passed_in_baseline._cache[arch] = passed_reference
             return passed_reference
 
         passed_ever = False
@@ -765,11 +766,11 @@ class AutopkgtestPolicy(BasePolicy):
             except KeyError:
                 pass
 
-        self.passed_in_baseline._cache.setdefault(src, {})[arch] = passed_ever
+        self.passed_in_baseline._cache[arch] = passed_ever
         self.logger.info('Result for src %s ever: pass=%s', src, passed_ever)
         return passed_ever
 
-    passed_in_baseline._cache = {}
+    passed_in_baseline._cache = collections.defaultdict(dict)
 
     def pkg_test_result(self, src, ver, arch, trigger):
         '''Get current test status of a particular package
