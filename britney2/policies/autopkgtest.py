@@ -362,7 +362,7 @@ class AutopkgtestPolicy(BasePolicy):
             if re.match('gcc-\d$', src):
                 for test in ['binutils', 'fglrx-installer', 'libreoffice', 'linux']:
                     try:
-                        tests.append((test, self.britney.sources['testing'][test].version))
+                        tests.append((test, sources_info[test].version))
                     except KeyError:
                         # no package in that series? *shrug*, then not (mostly for testing)
                         pass
@@ -376,7 +376,7 @@ class AutopkgtestPolicy(BasePolicy):
         # all come from linux-meta*. A new kernel ABI without a corresponding
         # -meta won't be installed and thus we can't sensibly run tests against
         # it.
-        if src.startswith('linux') and src.replace('linux', 'linux-meta') in self.britney.sources['testing']:
+        if src.startswith('linux') and src.replace('linux', 'linux-meta') in sources_info:
             return []
 
         # we want to test the package itself, if it still has a test in unstable
@@ -444,7 +444,7 @@ class AutopkgtestPolicy(BasePolicy):
                                 tests.append((pkg, self.britney.sources['unstable'][pkg].version))
                             except KeyError:
                                 try:
-                                    tests.append((pkg, self.britney.sources['testing'][pkg].version))
+                                    tests.append((pkg, sources_info[pkg].version))
                                 except KeyError:
                                     # package not in that series? *shrug*, then not
                                     pass
