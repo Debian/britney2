@@ -17,7 +17,6 @@
 # GNU General Public License for more details.
 
 import os
-import copy
 import json
 import tarfile
 import io
