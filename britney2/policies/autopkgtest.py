@@ -65,7 +65,7 @@ class AutopkgtestPolicy(BasePolicy):
         # tests requested in this and previous runs
         # trigger -> src -> [arch]
         self.pending_tests = None
-        self.pending_tests_file = os.path.join(self.options.state_dir, 'pending.json')
+        self.pending_tests_file = os.path.join(self.options.state_dir, 'autopkgtest-pending.json')
 
         # results map: trigger -> src -> arch -> [passed, version, run_id]
         # - trigger is "source/version" of an unstable package that triggered
@@ -80,7 +80,7 @@ class AutopkgtestPolicy(BasePolicy):
         if self.options.adt_shared_results_cache:
             self.results_cache_file = self.options.adt_shared_results_cache
         else:
-            self.results_cache_file = os.path.join(self.options.state_dir, 'results.cache')
+            self.results_cache_file = os.path.join(self.options.state_dir, 'autopkgtest-results.cache')
 
         try:
             self.options.adt_ppas = self.options.adt_ppas.strip().split()
@@ -566,7 +566,7 @@ class AutopkgtestPolicy(BasePolicy):
                 testinfo = json.loads(tar.extractfile('testinfo.json').read().decode())
         except (KeyError, ValueError, tarfile.TarError) as e:
             self.logger.error('%s is damaged, ignoring: %s', url, str(e))
-            # ignore this; this will leave an orphaned request in pending.json
+            # ignore this; this will leave an orphaned request in autopkgtest-pending.json
             # and thus require manual retries after fixing the tmpfail, but we
             # can't just blindly attribute it to some pending test.
             return

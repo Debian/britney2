@@ -152,7 +152,7 @@ class T(TestBase):
             pass
 
         try:
-            with open(os.path.join(self.data.path, 'data/testing/state/pending.json')) as f:
+            with open(os.path.join(self.data.path, 'data/testing/state/autopkgtest-pending.json')) as f:
                 self.pending_requests = json.load(f)
         except IOError:
                 self.pending_requests = None
@@ -368,7 +368,7 @@ class T(TestBase):
         self.assertNotIn('Failure', out, out)
 
         # caches the results and triggers
-        with open(os.path.join(self.data.path, 'data/testing/state/results.cache')) as f:
+        with open(os.path.join(self.data.path, 'data/testing/state/autopkgtest-results.cache')) as f:
             res = json.load(f)
         self.assertEqual(res['green/1']['green']['amd64'],
                          [False, '1', '20150101_020000@'])
@@ -1390,7 +1390,7 @@ class T(TestBase):
         self.run_it(
             [],
             {'lightgreen': (False, {'lightgreen/2': {'amd64': 'REGRESSION', 'i386': 'RUNNING'}})})
-        with open(os.path.join(self.data.path, 'data/testing/state/results.cache')) as f:
+        with open(os.path.join(self.data.path, 'data/testing/state/autopkgtest-results.cache')) as f:
             contents = f.read()
         self.assertNotIn('null', contents)
         self.assertNotIn('None', contents)
@@ -2299,11 +2299,11 @@ class T(TestBase):
 ###                                                             'lightgreen': ['amd64', 'i386']}})
 
     def test_shared_results_cache(self):
-        '''Run with shared r/o results.cache'''
+        '''Run with shared r/o autopkgtest-results.cache'''
 
         self.data.add_default_packages(lightgreen=False)
 
-        # first run to create results.cache
+        # first run to create autopkgtest-results.cache
         self.swift.set_results({'autopkgtest-testing': {
             'testing/i386/l/lightgreen/20150101_100000@': (0, 'lightgreen 2', tr('lightgreen/2')),
             'testing/amd64/l/lightgreen/20150101_100000@': (0, 'lightgreen 2', tr('lightgreen/2')),
@@ -2315,7 +2315,7 @@ class T(TestBase):
         )
 
         # move and remember original contents
-        local_path = os.path.join(self.data.path, 'data/testing/state/results.cache')
+        local_path = os.path.join(self.data.path, 'data/testing/state/autopkgtest-results.cache')
         shared_path = os.path.join(self.data.path, 'shared_results.cache')
         os.rename(local_path, shared_path)
         with open(shared_path) as f:
@@ -2340,7 +2340,7 @@ class T(TestBase):
             {'lightgreen': (True, {'lightgreen/3': {'i386': 'PASS', 'amd64': 'PASS'}})},
         )
 
-        # leaves results.cache untouched
+        # leaves autopkgtest-results.cache untouched
         self.assertFalse(os.path.exists(local_path))
         with open(shared_path) as f:
             self.assertEqual(orig_contents, f.read())
