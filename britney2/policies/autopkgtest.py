@@ -194,7 +194,7 @@ class AutopkgtestPolicy(BasePolicy):
     def apply_policy_impl(self, tests_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         # initialize
         verdict = PolicyVerdict.PASS
-        src_has_own_test = False
+        elegible_for_bounty = False
 
         # skip/delay autopkgtests until new package is built somewhere
         binaries_info = self.britney.sources[suite][source_name]
@@ -244,11 +244,10 @@ class AutopkgtestPolicy(BasePolicy):
                 if not r - {'RUNNING', 'RUNNING-ALWAYSFAIL'}:
                     testver = None
 
-                # Keep track if this source package has tests of its own for the
-                # bounty system, but only if at least one arch has something else than
-                # running or alwaysfail
-                if testsrc == source_name and r - {'RUNNING', 'RUNNING-ALWAYSFAIL', 'ALWAYSFAIL'}:
-                    src_has_own_test = True
+                # A source package is elegible for the bounty if it has tests
+                # of its own that pass on all tested architectures.
+                if testsrc == source_name and r == {'PASS'}:
+                    elegible_for_bounty = True
 
                 if testver:
                     testname = '%s/%s' % (testsrc, testver)
@@ -308,7 +307,7 @@ class AutopkgtestPolicy(BasePolicy):
             else:
                 excuse.addreason('autopkgtest')
 
-        if self.options.adt_success_bounty and verdict == PolicyVerdict.PASS and src_has_own_test:
+        if self.options.adt_success_bounty and verdict == PolicyVerdict.PASS and elegible_for_bounty:
             excuse.add_bounty('autopkgtest', int(self.options.adt_success_bounty))
         if self.options.adt_regression_penalty and \
            verdict in {PolicyVerdict.REJECTED_PERMANENTLY, PolicyVerdict.REJECTED_TEMPORARILY}:
