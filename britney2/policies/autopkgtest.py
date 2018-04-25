@@ -202,6 +202,10 @@ class AutopkgtestPolicy(BasePolicy):
             self.logger.info('%s hasn''t been built anywhere, skipping autopkgtest policy', excuse.name)
             verdict = PolicyVerdict.REJECTED_TEMPORARILY
 
+        if 'all' in excuse.missing_builds:
+            self.logger.info('%s hasn''t been built for arch:all, skipping autopkgtest policy', source_name)
+            verdict = PolicyVerdict.REJECTED_TEMPORARILY
+
         if verdict == PolicyVerdict.PASS:
             self.logger.info('Checking autopkgtests for %s', source_name)
             trigger = source_name + '/' + source_data_srcdist.version
