@@ -8,3 +8,4 @@ Requirements:
   * Python APT/DPKG bindings    aptitude install python3-apt
   * Python YAML library         aptitude install python3-yaml
   * Python nose tests (testing) aptitude install python3-nose
+  * Python AMQP library         aptitude install python3-amqplib

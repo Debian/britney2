@@ -80,6 +80,7 @@ class Excuse(object):
         self.arch_build_deps = {}
         self.sane_deps = []
         self.break_deps = []
+        self.unsatisfiable_on_archs = []
         self.newbugs = set()
         self.oldbugs = set()
         self.reason = {}
@@ -88,6 +89,9 @@ class Excuse(object):
         self.missing_builds_ood_arch = set()
         self.old_binaries = defaultdict(set)
         self.policy_info = {}
+
+        self.bounty = {}
+        self.penalty = {}
 
     def sortkey(self):
         if self.daysold == None:
@@ -136,6 +140,11 @@ class Excuse(object):
         """Add a break dependency"""
         if (name, arch) not in self.break_deps:
             self.break_deps.append( (name, arch) )
+
+    def add_unsatisfiable_on_arch(self,  arch):
+        """Add an arch that has unsatisfiable dependencies"""
+        if  arch not in self.unsatisfiable_on_archs:
+            self.unsatisfiable_on_archs.append(arch)
 
     def add_arch_build_dep(self, name, arch):
         if name not in self.arch_build_deps:
@@ -316,3 +325,10 @@ class Excuse(object):
         excusedata["is-candidate"] = self.is_valid
         return excusedata
 
+    def add_bounty(self, policy, bounty):
+        """"adding bounty"""
+        self.bounty[policy] = bounty
+
+    def add_penalty(self, policy, penalty):
+        """"adding penalty"""
+        self.penalty[policy] = penalty

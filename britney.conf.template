@@ -57,6 +57,14 @@ MINDAYS_EMERGENCY = 0
 # The urgency to assume if none is provided or it is not defined with
 # a MINDAYS_$NAME config above
 DEFAULT_URGENCY   = medium
+# Don't apply penalties (e.g. from autopktest in bounty/penalty mode) for the
+# following urgencies
+NO_PENALTIES      = high critical emergency
+# Lower limit of the age, so accumulated bounties don't let package migrate
+# too quick (urgency still has president of course)
+# Can be given an urgency name
+#BOUNTY_MIN_AGE    = high
+BOUNTY_MIN_AGE    = 2
 
 # Directory where hints files are stored
 HINTSDIR = /path/to/britney/hints-dir
@@ -99,3 +107,31 @@ SMOOTH_UPDATES    = libs oldlibs
 # Whether old binaries in the source distribution should be
 # considered as a blocker for migration.
 IGNORE_CRUFT      = 1
+
+# Enable the autopkgtest policy
+ADT_ENABLE        = no
+# Define on which architectures tests should be executed and taken into account
+ADT_ARCHES        = amd64
+# AMQP url or request file for the testing framework
+#ADT_AMQP          = amqp://test_request:password@127.0.0.1
+ADT_AMQP          = file:///path/to/britney/debci.input
+# space separate list of PPAs to add for test requests and for polling results;
+# the *last* one determines the swift container name
+ADT_PPAS          =
+# set this to the path of a (r/o) autopkgtest-results.cache for running many parallel
+# britney instances for PPAs without updating the cache
+ADT_SHARED_RESULTS_CACHE =
+# Swift base URL with the results (must be publicly readable and browsable)
+# or file location if results are pre-fetched
+#ADT_SWIFT_URL     = https://example.com/some/url
+ADT_SWIFT_URL     = file:///path/to/britney/state/debci.json
+# Base URL for autopkgtest site, used for links in the excuses
+ADT_CI_URL        = https://example.com/
+# Enable the huge queue for packages that trigger vast amounts of tests to not
+# starve the regular queue
+#ADT_HUGE          = 20
+
+# Autopkgtest results can be used to influence the aging, leave
+# ADT_REGRESSION_PENALTY empty to have regressions block migration
+ADT_REGRESSION_PENALTY = 10
+ADT_SUCCESS_BOUNTY     = 3

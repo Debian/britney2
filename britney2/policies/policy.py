@@ -219,6 +219,36 @@ class AgePolicy(BasePolicy):
 
         days_old = self._date_now - self._dates[source_name][1]
         min_days = self._min_days[urgency]
+        for bounty in excuse.bounty:
+            self.logger.info('Applying bounty for %s granted by %s: %d days',
+                             source_name, bounty, excuse.bounty[bounty])
+            excuse.addhtml('Required age reduced by %d days because of %s' %
+                         (excuse.bounty[bounty], bounty))
+            min_days -= excuse.bounty[bounty]
+        if not hasattr(self.options, 'no_penalties') or \
+          urgency not in self.options.no_penalties:
+            for penalty in excuse.penalty:
+                self.logger.info('Applying penalty for %s given by %s: %d days',
+                                 source_name, penalty, excuse.penalty[penalty])
+                excuse.addhtml('Required age increased by %d days because of %s' %
+                         (excuse.penalty[penalty], penalty))
+                min_days += excuse.penalty[penalty]
+        try:
+            bounty_min_age = int(self.options.bounty_min_age)
+        except ValueError:
+            if self.options.bounty_min_age in self._min_days:
+                bounty_min_age = self._min_days[self.options.bounty_min_age]
+            else:
+                raise ValueError('Please fix BOUNTY_MIN_AGE in the britney configuration')
+        except AttributeError:
+            # The option wasn't defined in the configuration
+            bounty_min_age = 0
+        # the age in BOUNTY_MIN_AGE can be higher than the one associated with
+        # the real urgency, so don't forget to take it into account
+        bounty_min_age =  min(bounty_min_age, self._min_days[urgency])
+        if min_days < bounty_min_age:
+            min_days = bounty_min_age
+            excuse.addhtml('Required age is not allowed to drop below %d days' % min_days)
         age_info['age-requirement'] = min_days
         age_info['current-age'] = days_old
 

@@ -200,6 +200,7 @@ from britney2.installability.builder import build_installability_tester
 from britney2.migrationitem import MigrationItem
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
+from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (old_libraries_format, undo_changes,
                             compute_reverse_tree, possibly_compressed,
                             read_nuninst, write_nuninst, write_heidi,
@@ -325,6 +326,14 @@ class Britney(object):
         self.binaries['tpu'] = {}
         self.binaries['pu'] = {}
 
+        # compute inverse Testsuite-Triggers: map, unifying all series
+        self.logger.info('Building inverse testsuite_triggers map')
+        self.testsuite_triggers = {}
+        for suitemap in self.sources.values():
+            for src, data in suitemap.items():
+                for trigger in data.testsuite_triggers:
+                    self.testsuite_triggers.setdefault(trigger, set()).add(src)
+
         self.binaries['unstable'] = self.read_binaries(self.suite_info['unstable'].path, "unstable", self.options.architectures)
         for suite in ('tpu', 'pu'):
             if suite in self.suite_info:
@@ -443,6 +452,8 @@ class Britney(object):
                           help="Compute which packages can migrate (the default)")
         parser.add_option("", "--no-compute-migrations", action="store_false", dest="compute_migrations",
                           help="Do not compute which packages can migrate.")
+        parser.add_option("", "--series", action="store", dest="series", default='testing',
+                               help="set distribution series name")
         (self.options, self.args) = parser.parse_args()
 
         if self.options.verbose:
@@ -548,9 +559,14 @@ class Britney(object):
             self.options.ignore_cruft == "0":
             self.options.ignore_cruft = False
 
-        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
+        if not hasattr(self.options, 'adt_retry_url_mech'):
+            self.options.adt_retry_url_mech = ''
+
         self.policies.append(RCBugPolicy(self.options, self.suite_info))
         self.policies.append(PiupartsPolicy(self.options, self.suite_info))
+        if getattr(self.options, 'adt_enable') == 'yes':
+            self.policies.append(AutopkgtestPolicy(self.options, self.suite_info))
+        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(BuildDependsPolicy(self.options, self.suite_info))
 
         for policy in self.policies:
@@ -597,7 +613,9 @@ class Britney(object):
                         [],
                         None,
                         True,
-                        None
+                        None,
+                        [],
+                        [],
                         )
 
             self.sources['testing'][pkg_name] = src_data
@@ -673,6 +691,8 @@ class Britney(object):
                         None,
                         True,
                         None,
+                        [],
+                        [],
                         )
             self.sources['testing'][pkg_name] = src_data
             self.sources['unstable'][pkg_name] = src_data
@@ -874,7 +894,7 @@ class Britney(object):
                     srcdist[source].binaries.append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None)
+                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None, [], [])
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
@@ -1073,6 +1093,7 @@ class Britney(object):
             if not packages:
                 excuse.addhtml("%s/%s unsatisfiable Depends: %s" % (pkg, arch, block_txt.strip()))
                 excuse.addreason("depends")
+                excuse.add_unsatisfiable_on_arch(arch)
                 if arch not in self.options.break_arches:
                     is_all_ok = False
                 continue
