@@ -1449,6 +1449,8 @@ class Britney(object):
             if arch == 'all':
                 consider_binaries = source_u.binaries
             else:
+                # Will also include arch:all for the given architecture (they are filtered out
+                # below)
                 consider_binaries = sorted(x for x in source_u.binaries if x.architecture == arch)
             for pkg_id in consider_binaries:
                 pkg = pkg_id.package_name
@@ -1466,8 +1468,8 @@ class Britney(object):
                 # up-to-date, there is a build on this arch
                 if source_u.version != pkgsv:
                     if pkgsv not in oodbins:
-                        oodbins[pkgsv] = []
-                    oodbins[pkgsv].append(pkg)
+                        oodbins[pkgsv] = set()
+                    oodbins[pkgsv].add(pkg)
                     excuse.add_old_binary(pkg, pkgsv)
                     continue
                 else:
@@ -1478,7 +1480,7 @@ class Britney(object):
             # in the `outofsync_arches' list, then do not block the update
             if oodbins:
                 oodtxt = ""
-                for v in oodbins.keys():
+                for v in oodbins:
                     if oodtxt: oodtxt = oodtxt + "; "
                     oodtxt = oodtxt + "%s (from <a href=\"https://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
