@@ -108,6 +108,10 @@ class AutopkgtestPolicy(BasePolicy):
         os.makedirs(self.options.state_dir, exist_ok=True)
         self.read_pending_tests()
 
+        if not hasattr(self.options, 'adt_baseline'):
+            # Make adt_baseline optional
+            setattr(self.options, 'adt_baseline', None)
+
         # read the cached results that we collected so far
         if os.path.exists(self.results_cache_file):
             with open(self.results_cache_file) as f:
