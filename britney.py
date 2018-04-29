@@ -243,7 +243,7 @@ class Britney(object):
     """
 
     HINTS_HELPERS = ("easy", "hint", "remove", "block", "block-udeb", "unblock", "unblock-udeb", "approve",
-                     "remark", "ignore-piuparts", "ignore-rc-bugs")
+                     "remark", "ignore-piuparts", "ignore-rc-bugs", "force-skiptest", "force-badtest")
     HINTS_STANDARD = ("urgent", "age-days") + HINTS_HELPERS
     # ALL = {"force", "force-hint", "block-all"} | HINTS_STANDARD | registered policy hints (not covered above)
     HINTS_ALL = ('ALL')
