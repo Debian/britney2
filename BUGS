@@ -1,4 +1,0 @@
-# list of bugs for old britney
-#  * if there are no tpu approvals, then all the packages are approved
-#  * while building the upgrade excuses, dependencies on virtual packages can be versioned, but not on UpgradeRun
-#  * if a binary package is found in testing-proposed-updates, but its source doesn't exist, it is considered and requires approval from RM
