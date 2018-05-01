@@ -7,12 +7,39 @@ your infrastructure.
 Installing britney
 ------------------
 
-TODO
+At the moment, the preferred way to install britney is to clone the
+source repo and run britney directly from the git checkout.
 
 Configuring britney
 -------------------
 
-TODO
+This is a very brief intro to the steps required to setup a Britney
+instance.
+
+ * Copy ``britney.conf.template`` and edit it to suit your purpose
+    - If you want Britney to bootstrap your target suite, you
+      probably want to add all architectures to ``NEW_ARCHES`` and
+      ``BREAK_ARCHES`` for a few runs
+
+ * Create the following files (they can be empty):
+
+    * ``$STATE_DIR/age-policy-dates``
+    * ``$STATE_DIR/age-policy-urgencies``
+    * ``$STATE_DIR/rc-bugs-unstable``
+    * ``$STATE_DIR/rc-bugs-testing``
+    * ``$STATE_DIR/piuparts-summary-testing.json``
+    * ``$STATE_DIR/piuparts-summary-unstable.json``
+
+ * Run ``./britney.py -c $BRITNEY_CONF -v [--dry-run]`` to test the run
+
+ * Setup a cron-/batch-job that:
+
+    * (Optionally) Updates the rc-bugs files
+    * (Optionally) Updates the $STATE_DIR/age-policy-urgencies
+    * (Optionally) Updates the piuparts summary files
+    * Runs Britney
+    * Consume the results from Britney (See
+      :ref:`using-the-results-from-britney` for more information)
 
 hints - Configuring who can provide which hints
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -70,8 +97,21 @@ Please see :doc:`hints` for which hints are available and what they
 can do.
 
 
-Using the results from britney
+.. _using-the-results-from-britney:
+
+Using the results from Britney
 ------------------------------
 
-TODO
+Britney optionally generates a number of files that may be useful for
+further processing.
+
+ * ``HEIDI_OUTPUT`` can be used with ``dak control-suite``.  Example::
+
+     cut -d" " -f1-3 < ${HEIDI_OUTPUT} | dak control-suite --set ${TARGET_SUITE} [--britney]
+
+ * ``HEIDI_DELTA_OUTPUT`` is a variant of ``HEIDI_OUTPUT`` that
+   represent the result as a delta rather than a full selection.
+
+ * ``EXCUSES_YAML_OUTPUT`` provides a machine-readable output about
+   which packages comply with the active policies and which does not.
 

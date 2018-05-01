@@ -11,31 +11,9 @@ Britney's primary goal is too keep packages in the target suite installable
 (e.g. Debian testing) while keeping it up to date with its primary source
 suite (e.g. Debian unstable).
 
-## Quick setup guide
+## Installing, configuring and using Britney
 
-This is a very brief intro to the steps required to setup a
-Britney instance.
-
- * Copy "britney.conf.template" and edit it to suit your purpose
-    - If you want Britney to bootstrap your target suite, you
-      probably want to add all architectures to "NEW_ARCHES" and
-      "BREAK_ARCHES" for a few runs
- * Create the following files (they can be empty):
-    - $STATE_DIR/age-policy-dates
-    - $STATE_DIR/age-policy-urgencies
-    - $STATE_DIR/rc-bugs-unstable
-    - $STATE_DIR/rc-bugs-testing
-    - $STATE_DIR/piuparts-summary-testing.json
-    - $STATE_DIR/piuparts-summary-unstable.json
- * Run ```./britney.py -c $BRITNEY_CONF -v [--dry-run]``` to test the run
- * Use the resulting $HEIDI_OUTPUT (or $HEIDI_DELTA_OUTPUT) to update
-   your target suite.
-    - With dak, ```cut -d" " -f1-3 < ${HEIDI_OUTPUT} | dak control-suite --set ${TARGET_SUITE} [--britney]```
- * Setup a cron-/batch-job that:
-    - (Optionally) Updates the rc-bugs files
-    - (Optionally) Updates the $STATE_DIR/age-policy-urgencies
-    - Runs Britney
-    - Imports the result into your target suite
+Please see [doc/setting-up-britney.rst].
 
 ## Migration items
 
