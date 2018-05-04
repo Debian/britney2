@@ -40,6 +40,6 @@ quite a bit of disk space and britney will need at least 1.3GB of RAM
 to process them.
 
 
-Documentation is handled by sphinx and can be built bia::
+Documentation is handled by sphinx and can be built via::
 
     make html
