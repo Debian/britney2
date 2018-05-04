@@ -19,7 +19,7 @@ You will need some packages to run britney and the test suites::
 
 
 Britney has some basic unit tests, which are handled by py.test.  It
-also has some larger integration tests (from the `britney2-tests`
+also has some larger integration tests (from the ``britney2-tests``
 repo).  Running the tests are done via::
 
   cd britney2
@@ -29,13 +29,13 @@ repo).  Running the tests are done via::
   rm -fr ./test-out/
   ../britney2-tests/bin/runtests ./britney.py ../britney2-tests/t ./test-out
 
-The `runtests` command in `britney2-tests` supports running only a
-subset of the tests.  Please see its `--help` output for more
+The ``runtests`` command in ``britney2-tests`` supports running only a
+subset of the tests.  Please see its ``--help`` output for more
 information.
 
 There are also some heavier tests based on some snapshots of
 live data from Debian.  The data files for these are available in the
-`live-data` submodule of the `britney2-tests` repo.  They consume
+``live-data`` submodule of the ``britney2-tests`` repo.  They consume
 quite a bit of disk space and britney will need at least 1.3GB of RAM
 to process them.
 
