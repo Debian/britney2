@@ -4,9 +4,9 @@ Contributing to the development of britney2
 If you are interested in improving britney, you can obtain the source
 code via::
 
-  git clone https://anonscm.debian.org/git/mirror/britney2.git
+  git clone https://salsa.debian.org/release-team/britney2.git
   # Additional tests
-  git clone https://anonscm.debian.org/git/collab-maint/britney2-tests.git
+  git clone https://salsa.debian.org/debian/britney2-tests.git
 
 You will need some packages to run britney and the test suites::
 
