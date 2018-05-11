@@ -131,7 +131,7 @@ This is also applicable to e.g. the piuparts policy, where if the test is
 rescheduled on the piuparts side and the result changes as a result of that.
 
 Finally, the people running the britney instance can overrule any
-policy by applying a [britney hint](hints.html), if they deem it
+policy by applying a britney hint (see :ref:`hints` for more details), if they deem it
 necessary.  One caveat here is that not all policies can be overridden
 directly and some will require the "ignore all policies"-hint (known
 as the `force`-hint).
