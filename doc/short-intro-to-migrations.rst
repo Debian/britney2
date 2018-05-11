@@ -158,7 +158,7 @@ Confirming a migration
 ^^^^^^^^^^^^^^^^^^^^^^
 
 To start with; if a migration is accepted and "committed" (i.e. it will not
-be rolled back), britney will include in a line starting with `final:` like
+be rolled back), britney will include in a line starting with ``final:`` like
 in this example::
 
     Apparently successful
@@ -170,11 +170,11 @@ in this example::
 
 The above example is a regular migration run where 4 source removal migration
 items and one source migration item where accepted (those listed on the
-`final:` line). The rest of the information are various statistical counters
+``final:`` line). The rest of the information are various statistical counters
 which are useful for other purposes beyond the scope of this document.
 
 When debugging a migration for an item that passed the previous phase, if the
-item appears on a `final:` line like that, then it is migrated.  That is, the
+item appears on a ``final:`` line like that, then it is migrated.  That is, the
 problem is most likely that the britney run crashes later or the britney's
 output is not committed to the archive (for reasons outside britney's control).
 
@@ -189,7 +189,7 @@ Debugging failed migration attempts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Start by confirming that the migration item was not accepted (as described
-in the above section).  If the migration item does not appear on a `final:` line,
+in the above section).  If the migration item does not appear on a ``final:`` line,
 then we need to debug the actual migration attempts.  Migration attempts look
 something like this::
 
@@ -216,8 +216,8 @@ something like this::
     [...]
     FAILED
 
-This example has one succeeding migration (`-webdis`) and one failing
-(`libaws`) plus finally a failed `easy`-hint with several packages.
+This example has one succeeding migration (``-webdis``) and one failing
+(``libaws``) plus finally a failed ``easy``-hint with several packages.
 Both of the two first are "single item" migrations (i.e. the attempt only
 includes a single item in isolation).  However, Britney can do multi-item
 migrations (even outside hints).
@@ -228,7 +228,7 @@ for debugging.  When in doubt, it is *usually* easiest to look at the attempt
 with the least amount of new uninstallable packages.
 
 In the libaws example, a total of 4 binary packages become
-uninstallable on the architecture `arm64`.  Here is the output again
+uninstallable on the architecture ``arm64``.  Here is the output again
 with this information high lighted::
 
     migration item(s) being attemped
@@ -266,6 +266,6 @@ we are not actually sure whether this problem is architecture specific.  For
 While this tells us what britney tried to migrate and what would break (become
 uninstallable) as a result, it is not very helpful at explaining *why*
 things break.  If there are few broken packages, it is often a question of
-looking for `Breaks`-relations or `Depends`-relations with upper bounds on
+looking for ``Breaks``-relations or ``Depends``-relations with upper bounds on
 versions / on old packages being removed.  Alternatively, there are also tools
-like `dose-debcheck`, which attempts to analyse and explain problems like this.
+like ``dose-debcheck``, which attempts to analyse and explain problems like this.
