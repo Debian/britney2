@@ -21,13 +21,13 @@ from britney2.policies.policy import PolicyVerdict
 
 VERDICT2DESC = {
     PolicyVerdict.PASS:
-        'OK: Will attempt migration (Any information below is purely informational)',
+        'Will attempt migration (Any information below is purely informational)',
     PolicyVerdict.PASS_HINTED:
-        'OK: Will attempt migration due to a hint (Any information below is purely informational)',
+        'Will attempt migration due to a hint (Any information below is purely informational)',
     PolicyVerdict.REJECTED_TEMPORARILY:
-        'WAITING: Waiting for test results, another package or too young (no action required now - check later)',
+        'Waiting for test results, another package or too young (no action required now - check later)',
     PolicyVerdict.REJECTED_WAITING_FOR_ANOTHER_ITEM:
-        'WAITING: Waiting for another item to be ready to migrate (no action required now - check later)',
+        'Waiting for another item to be ready to migrate (no action required now - check later)',
     PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM:
         'BLOCKED: Cannot migrate due to another item, which is blocked (please check which dependencies are stuck)',
     PolicyVerdict.REJECTED_NEEDS_APPROVAL:
@@ -35,7 +35,7 @@ VERDICT2DESC = {
     PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT:
         'BLOCKED: Maybe temporary, maybe blocked but Britney is missing information (check below or the buildds)',
     PolicyVerdict.REJECTED_PERMANENTLY:
-        'BLOCKED: Rejected/introduces a regression (please see below)'
+        'BLOCKED: Rejected/introduces a regression',
 }
 
 
