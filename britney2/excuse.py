@@ -240,10 +240,6 @@ class Excuse(object):
             else:
                 res = res + "<li>Build-Depends(-Arch): %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
 
-        if self.is_valid:
-            res += "<li>Valid candidate\n"
-        else:
-            res += "<li>Not considered\n"
         res = res + "</ul>\n"
         return res
 
