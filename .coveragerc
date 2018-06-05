@@ -4,3 +4,4 @@ omit =
   *_boot*.py
   */dist-packages/*
   */tests/*
+  */sitecustomize.py
