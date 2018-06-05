@@ -1,0 +1,33 @@
+#tests-stretch:
+#  image: debian:stretch
+#  script: debian/run-ci
+
+#tests-sid:
+#  image: debian:sid
+#  script: debian/run-ci
+
+docs:
+  stage: test
+  image: debian:sid
+  script:
+    - apt-get update
+    - apt-get install -y python3-sphinx
+    - sphinx-build -M html doc _build
+    - mv _build/html docs
+  artifacts:
+    paths:
+      - docs
+    
+pages:
+  stage: deploy
+  dependencies:
+    - docs
+  script:
+    - rm -fr public
+    - mkdir public
+    - mv docs public/docs
+  artifacts:
+    paths:
+      - public
+#  only:
+#    - master
