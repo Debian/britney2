@@ -669,10 +669,6 @@ class AutopkgtestPolicy(BasePolicy):
             result[1] = ver
             result[2] = stamp
 
-            if self.options.adt_baseline == 'reference' and trigsrc != src:
-                self.test_results.setdefault(REF_TRIG, {}).setdefault(
-                    src, {}).setdefault(arch, [status, ver, stamp])
-
 
     def send_test_request(self, src, arch, trigger, huge=False):
         '''Send out AMQP request for testing src/arch for trigger
