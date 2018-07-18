@@ -371,10 +371,10 @@ class T(TestBase):
         with open(os.path.join(self.data.path, 'data/testing/state/autopkgtest-results.cache')) as f:
             res = json.load(f)
         self.assertEqual(res['green/1']['green']['amd64'],
-                         [False, '1', '20150101_020000@'])
+                         ['FAIL', '1', '20150101_020000@'])
         self.assertEqual(set(res['green/2']), {'darkgreen', 'green', 'lightgreen'})
         self.assertEqual(res['green/2']['lightgreen']['i386'],
-                         [True, '1', '20150101_100100@'])
+                         ['PASS', '1', '20150101_100100@'])
 
         # third run should not trigger any new tests, should all be in the
         # cache

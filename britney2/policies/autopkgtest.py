@@ -17,6 +17,7 @@
 # GNU General Public License for more details.
 
 import collections
+from enum import Enum
 import os
 import json
 import tarfile
@@ -31,9 +32,14 @@ import apt_pkg
 import britney2.hints
 from britney2.policies.policy import BasePolicy, PolicyVerdict
 
+class Result(Enum):
+    FAIL = 1
+    PASS = 2
+    NEUTRAL = 3
 
 EXCUSES_LABELS = {
     "PASS": '<span style="background:#87d96c">Pass</span>',
+    "NEUTRAL": '<span style="background:#e5c545">No test results</span>',
     "FAIL": '<span style="background:#ff6666">Failed</span>',
     "ALWAYSFAIL": '<span style="background:#e5c545">Not a regression</span>',
     "REGRESSION": '<span style="background:#ff6666">Regression</span>',
@@ -115,7 +121,22 @@ class AutopkgtestPolicy(BasePolicy):
         # read the cached results that we collected so far
         if os.path.exists(self.results_cache_file):
             with open(self.results_cache_file) as f:
-                self.test_results = json.load(f)
+                results = json.load(f)
+                for trigger in results.values():
+                    for arch in trigger.values():
+                        for result in arch.values():
+                            try:
+                                result[0] = Result[result[0]]
+                            except KeyError:
+                                # Legacy support
+                                if isinstance(result[0], type(True)):
+                                    if result[0]:
+                                        result[0] = Result.PASS
+                                    else:
+                                        result[0] = Result.FAIL
+                                else:
+                                    raise
+                self.test_results = results
             self.logger.info('Read previous results from %s', self.results_cache_file)
         else:
             self.logger.info('%s does not exist, re-downloading all results from swift', self.results_cache_file)
@@ -149,7 +170,7 @@ class AutopkgtestPolicy(BasePolicy):
                         continue
                     else:
                         self.logger.info('Results %s %s %s added', src, trigger, status)
-                        self.add_trigger_to_results(trigger, src, ver, arch, stamp, status == 'pass')
+                        self.add_trigger_to_results(trigger, src, ver, arch, stamp, Result[status.upper()])
             else:
                 self.logger.info('%s does not exist, no new data will be processed', debci_file)
 
@@ -185,8 +206,13 @@ class AutopkgtestPolicy(BasePolicy):
         # update the results on-disk cache, unless we are using a r/o shared one
         if not self.options.adt_shared_results_cache:
             self.logger.info('Updating results cache')
+            results = self.test_results.copy()
+            for trigger in results.values():
+                for arch in trigger.values():
+                    for result in arch.values():
+                        result[0] = result[0].name
             with open(self.results_cache_file + '.new', 'w') as f:
-                json.dump(self.test_results, f, indent=2)
+                json.dump(results, f, indent=2)
             os.rename(self.results_cache_file + '.new', self.results_cache_file)
 
         # update the pending tests on-disk cache
@@ -593,10 +619,15 @@ class AutopkgtestPolicy(BasePolicy):
 
         stamp = os.path.basename(os.path.dirname(url))
         # allow some skipped tests, but nothing else
-        passed = exitcode in [0, 2]
+        if exitcode in [0, 2]:
+            result = Result.PASS
+        elif exitcode == 8:
+            result = Result.NEUTRAL
+        else:
+            result = Result.FAIL
 
         self.logger.info('Fetched test result for %s/%s/%s %s (triggers: %s): %s',
-                 src, ver, arch, stamp, result_triggers, passed and 'pass' or 'fail')
+                 src, ver, arch, stamp, result_triggers, result.name.lower())
 
         # remove matching test requests
         for trigger in result_triggers:
@@ -604,7 +635,7 @@ class AutopkgtestPolicy(BasePolicy):
 
         # add this result
         for trigger in result_triggers:
-            self.add_trigger_to_results(trigger, src, ver, arch, stamp, passed)
+            self.add_trigger_to_results(trigger, src, ver, arch, stamp, result)
 
     def remove_from_pending(self, trigger, src, arch):
         try:
@@ -618,7 +649,7 @@ class AutopkgtestPolicy(BasePolicy):
         except (KeyError, ValueError):
             self.logger.info('-> does not match any pending request for %s/%s', src, arch)
 
-    def add_trigger_to_results(self, trigger, src, ver, arch, stamp, passed):
+    def add_trigger_to_results(self, trigger, src, ver, arch, stamp, status):
         # If a test runs because of its own package (newer version), ensure
         # that we got a new enough version; FIXME: this should be done more
         # generically by matching against testpkg-versions
@@ -628,18 +659,20 @@ class AutopkgtestPolicy(BasePolicy):
             return
     
         result = self.test_results.setdefault(trigger, {}).setdefault(
-            src, {}).setdefault(arch, [False, None, ''])
+            src, {}).setdefault(arch, [Result.FAIL, None, ''])
     
-        # don't clobber existing passed results with failures from re-runs
-        # except for reference updates
-        if passed or not result[0] or (self.options.adt_baseline == 'reference' and trigger == REF_TRIG):
-            result[0] = passed
+        # don't clobber existing passed results with non-passing ones from
+        # re-runs, except for reference updates
+        if status == Result.PASS or result[0] != Result.PASS or \
+          (self.options.adt_baseline == 'reference' and trigger == REF_TRIG):
+            result[0] = status
             result[1] = ver
             result[2] = stamp
 
             if self.options.adt_baseline == 'reference' and trigsrc != src:
                 self.test_results.setdefault(REF_TRIG, {}).setdefault(
-                    src, {}).setdefault(arch, [passed, ver, stamp])
+                    src, {}).setdefault(arch, [status, ver, stamp])
+
 
     def send_test_request(self, src, arch, trigger, huge=False):
         '''Send out AMQP request for testing src/arch for trigger
@@ -681,11 +714,11 @@ class AutopkgtestPolicy(BasePolicy):
         '''
         # Don't re-request if we already have a result
         try:
-            passed = self.test_results[trigger][src][arch][0]
+            result = self.test_results[trigger][src][arch][0]
             if self.options.adt_swift_url.startswith('file://'):
                 return
-            if passed:
-                self.logger.info('%s/%s triggered by %s already passed', src, arch, trigger)
+            if result in [Result.PASS, Result.NEUTRAL]:
+                self.logger.info('%s/%s triggered by %s already known', src, arch, trigger)
                 return
             self.logger.info('Checking for new results for failed %s/%s for trigger %s', src, arch, trigger)
             raise KeyError  # fall through
@@ -724,8 +757,8 @@ class AutopkgtestPolicy(BasePolicy):
                                              src, arch)
                         self.send_test_request(src, arch, REF_TRIG, huge=huge)
 
-    def passed_in_baseline(self, src, arch):
-        '''Check if tests for src passed on arch in the baseline
+    def result_in_baseline(self, src, arch):
+        '''Get the result for src on arch in the baseline
 
         The baseline is optionally all data or a reference set)
         '''
@@ -733,35 +766,38 @@ class AutopkgtestPolicy(BasePolicy):
         # this requires iterating over all cached results and thus is expensive;
         # cache the results
         try:
-            return self.passed_in_baseline._cache[src][arch]
+            return self.result_in_baseline._cache[src][arch]
         except KeyError:
             pass
 
-        passed_reference = False
+        result_reference = Result.FAIL
         if self.options.adt_baseline == 'reference':
             try:
-                passed_reference = self.test_results[REF_TRIG][src][arch][0]
-                self.logger.info('Found result for src %s in reference: pass=%s', src, passed_reference)
+                result_reference = self.test_results[REF_TRIG][src][arch][0]
+                self.logger.info('Found result for src %s in reference: %s',
+                                 src, result_reference.name)
             except KeyError:
-                self.logger.info('Found NO result for src %s in reference: pass=%s', src, passed_reference)
+                self.logger.info('Found NO result for src %s in reference: %s',
+                                 src, result_reference.name)
                 pass
-            self.passed_in_baseline._cache[arch] = passed_reference
-            return passed_reference
+            self.result_in_baseline._cache[arch] = result_reference
+            return result_reference
 
-        passed_ever = False
+        result_ever = Result.FAIL
         for srcmap in self.test_results.values():
             try:
-                if srcmap[src][arch][0]:
-                    passed_ever = True
+                if srcmap[src][arch][0] != Result.FAIL:
+                    result_ever = srcmap[src][arch][0]
+                if result_ever == Result.PASS:
                     break
             except KeyError:
                 pass
 
-        self.passed_in_baseline._cache[arch] = passed_ever
-        self.logger.info('Result for src %s ever: pass=%s', src, passed_ever)
-        return passed_ever
+        self.result_in_baseline._cache[arch] = result_ever
+        self.logger.info('Result for src %s ever: %s', src, result_ever.name)
+        return result_ever
 
-    passed_in_baseline._cache = collections.defaultdict(dict)
+    result_in_baseline._cache = collections.defaultdict(dict)
 
     def pkg_test_result(self, src, ver, arch, trigger):
         '''Get current test status of a particular package
@@ -770,31 +806,33 @@ class AutopkgtestPolicy(BasePolicy):
         EXCUSES_LABELS. run_id is None if the test is still running.
         '''
         # determine current test result status
-        ever_passed = self.passed_in_baseline(src, arch)
+        baseline_result = self.result_in_baseline(src, arch)
+
         url = None
         run_id = None
         try:
             r = self.test_results[trigger][src][arch]
             ver = r[1]
             run_id = r[2]
-            if r[0]:
-                result = 'PASS'
-            else:
+
+            if r[0] == Result.FAIL:
                 # Special-case triggers from linux-meta*: we cannot compare
                 # results against different kernels, as e. g. a DKMS module
                 # might work against the default kernel but fail against a
                 # different flavor; so for those, ignore the "ever
                 # passed" check; FIXME: check against trigsrc only
                 if trigger.startswith('linux-meta') or trigger.startswith('linux/'):
-                    ever_passed = False
+                    baseline_result = Result.FAIL
 
-                if ever_passed:
+                if baseline_result == Result.FAIL:
+                    result = 'ALWAYSFAIL'
+                else:
                     if self.has_force_badtest(src, ver, arch):
                         result = 'IGNORE-FAIL'
                     else:
                         result = 'REGRESSION'
-                else:
-                    result = 'ALWAYSFAIL'
+            else:
+                result = r[0].name
 
             if self.options.adt_swift_url.startswith('file://'):
                 url = os.path.join(self.options.adt_ci_url,
@@ -818,7 +856,7 @@ class AutopkgtestPolicy(BasePolicy):
         except KeyError:
             # no result for src/arch; still running?
             if arch in self.pending_tests.get(trigger, {}).get(src, []):
-                if ever_passed and not self.has_force_badtest(src, ver, arch):
+                if baseline_result != Result.FAIL and not self.has_force_badtest(src, ver, arch):
                     result = 'RUNNING'
                 else:
                     result = 'RUNNING-ALWAYSFAIL'
