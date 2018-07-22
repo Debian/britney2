@@ -503,11 +503,12 @@ class Britney(object):
 
         self.suite_info = Suites(suites[0], suites[1:])
 
+        target_suite = self.suite_info.target_suite
         try:
-            release_file = read_release_file(self.suite_info.target_suite.path)
-            self.logger.info("Found a Release file in testing - using that for defaults")
+            release_file = read_release_file(target_suite.path)
+            self.logger.info("Found a Release file in %s - using that for defaults", target_suite.name)
         except FileNotFoundError:
-            self.logger.info("Testing does not have a Release file.")
+            self.logger.info("The %s suite does not have a Release file.", target_suite.name)
             release_file = None
 
         if getattr(self.options, "components", None):
@@ -537,7 +538,8 @@ class Britney(object):
             allarches = sorted(self.options.architectures.split())
         else:
             if not release_file:  # pragma: no cover
-                self.logger.error("No configured architectures and there is no release file for testing")
+                self.logger.error("No configured architectures and there is no release file in the %s suite.",
+                                  target_suite.name)
                 self.logger.error("Please check if there is a \"Release\" file in %s",
                                   self.suite_info.target_suite.path)
                 self.logger.error("or if the config file contains a non-empty \"ARCHITECTURES\" field")
