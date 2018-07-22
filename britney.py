@@ -326,7 +326,7 @@ class Britney(object):
             sources = self.read_sources(suite.path)
             suite.sources = sources
             self.sources[suite.name] = sources
-            self.binaries[suite.name] = self.read_binaries(suite.path, suite.name, self.options.architectures)
+            self.binaries[suite.name] = self.read_binaries(suite, self.options.architectures)
 
         # compute inverse Testsuite-Triggers: map, unifying all series
         self.logger.info('Building inverse testsuite_triggers map')
@@ -904,12 +904,10 @@ class Britney(object):
 
         return packages
 
-    def read_binaries(self, basedir, distribution, architectures):
+    def read_binaries(self, suite, architectures):
         """Read the list of binary packages from the specified directory
 
-        This method reads all the binary packages for a given distribution,
-        which is expected to be in the directory denoted by the "base_dir"
-        parameter.
+        This method reads all the binary packages for a given suite.
 
         If the "components" config parameter is set, the directory should
         be the "suite" directory of a local mirror (i.e. the one containing
@@ -930,6 +928,7 @@ class Britney(object):
         which maps virtual packages to real packages that provide them.
         """
         arch2packages = {}
+        basedir = suite.path
 
         if self.options.components:
             release_file = read_release_file(basedir)
@@ -938,7 +937,7 @@ class Britney(object):
                 packages = {}
                 if arch not in listed_archs:
                     self.logger.info("Skipping arch %s for %s: It is not listed in the Release file",
-                                     arch, distribution)
+                                     arch, suite.name)
                     arch2packages[arch] = ({}, {})
                     continue
                 for component in self.options.components:
@@ -958,11 +957,11 @@ class Britney(object):
                     udeb_filename = possibly_compressed(udeb_filename)
                     self._read_packages_file(filename,
                                              arch,
-                                             self.sources[distribution],
+                                             suite.sources,
                                              packages)
                     self._read_packages_file(udeb_filename,
                                              arch,
-                                             self.sources[distribution],
+                                             suite.sources,
                                              packages)
                 # create provides
                 provides = create_provides_map(packages)
@@ -972,7 +971,7 @@ class Britney(object):
                 filename = os.path.join(basedir, "Packages_%s" % arch)
                 packages = self._read_packages_file(filename,
                                                     arch,
-                                                    self.sources[distribution])
+                                                    suite.sources)
                 provides = create_provides_map(packages)
                 arch2packages[arch] = (packages, provides)
 
