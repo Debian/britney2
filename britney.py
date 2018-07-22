@@ -1270,7 +1270,7 @@ class Britney(object):
             if not (ssrc and source_suite is not primary_source_suite):
                 # for every binary package produced by this source in testing for this architecture
                 _, _, smoothbins = self._compute_groups(src,
-                                                        primary_source_suite.name,
+                                                        primary_source_suite,
                                                         arch,
                                                         False)
 
@@ -1777,21 +1777,21 @@ class Britney(object):
             res.append("%s-%d" % (arch[0], n))
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
-
-    def _compute_groups(self, source_name, suite, migration_architecture,
+    def _compute_groups(self, source_name, source_suite, migration_architecture,
                         is_removal,
                         allow_smooth_updates=True,
                         removals=frozenset()):
         """Compute the groups of binaries being migrated by item
 
-        This method will compute the binaries that will be added,
-        replaced in testing and which of them are smooth updatable.
+        This method will compute the binaries that will be added to,
+        replaced in or removed from the target suite and which of
+        the removals are smooth updatable.
 
         Parameters:
         * "source_name" is the name of the source package, whose
           binaries are migrating.
-        * "suite" is the suite from which the binaries are migrating.
-          [Same as item.suite.name, where available]
+        * "suite" is the source suite from which the binaries are migrating.
+          [Same as item.suite, where available]
         * "migration_architecture" is the architecture determines
           architecture of the migrating binaries (can be "source" for
           a "source"-migration, meaning all binaries regardless of
@@ -1826,9 +1826,9 @@ class Britney(object):
         Unlike doop_source, this will not modify any data structure.
         """
         # local copies for better performances
-        sources = self.sources
-        binaries_s = self.binaries[suite]
-        binaries_t = self.binaries['testing']
+        target_suite = self.suite_info.target_suite
+        binaries_s = source_suite.binaries
+        binaries_t = target_suite.binaries
         inst_tester = self._inst_tester
 
         adds = set()
@@ -1837,8 +1837,9 @@ class Britney(object):
 
         # remove all binary packages (if the source already exists)
         if migration_architecture == 'source' or not is_removal:
-            if source_name in sources['testing']:
-                source_data = sources['testing'][source_name]
+            sources_t = target_suite.sources
+            if source_name in sources_t:
+                source_data = sources_t[source_name]
 
                 bins = []
                 check = set()
@@ -1863,7 +1864,7 @@ class Britney(object):
                 for pkg_id in bins:
                     binary, _, parch = pkg_id
                     # if a smooth update is possible for the package, skip it
-                    if allow_smooth_updates and suite == 'unstable' and \
+                    if allow_smooth_updates and source_suite.suite_class.is_primary_source and \
                        binary not in binaries_s[parch][0] and \
                        ('ALL' in self.options.smooth_updates or \
                         binaries_t[parch][0][binary].section in self.options.smooth_updates):
@@ -1917,7 +1918,7 @@ class Britney(object):
                     # must keep them around; they will not be re-added by the
                     # migration so will end up missing from testing
                     if migration_architecture != 'source' and \
-                         suite != 'unstable' and \
+                         source_suite.suite_class.is_additional_source and \
                          binaries_t[parch][0][binary].architecture == 'all':
                         continue
                     else:
@@ -1932,7 +1933,7 @@ class Britney(object):
 
         # add the new binary packages (if we are not removing)
         if not is_removal:
-            source_data = sources[suite][source_name]
+            source_data = source_suite.sources[source_name]
             for pkg_id in source_data.binaries:
                 binary, _, parch = pkg_id
                 if migration_architecture not in ['source', parch]:
@@ -1961,7 +1962,7 @@ class Britney(object):
         return (adds, rms, smoothbins)
 
     def doop_source(self, item, hint_undo=None, removals=frozenset()):
-        """Apply a change to the testing distribution as requested by `pkg`
+        """Apply a change to the target suite as requested by `item`
 
         An optional list of undo actions related to packages processed earlier
         in a hint may be passed in `hint_undo`.
@@ -1969,8 +1970,7 @@ class Britney(object):
         An optional set of binaries may be passed in "removals". Binaries listed
         in this set will be assumed to be removed at the same time as the "item"
         will migrate.  This may change what binaries will be smooth-updated.
-        - Binaries in this set must be ("package-name", "version", "architecture")
-          tuples.
+        - Binaries in this set must be instances of BinaryPackageId.
 
         This method applies the changes required by the action `item` tracking
         them so it will be possible to revert them.
@@ -1985,30 +1985,32 @@ class Britney(object):
         affected_remain = set()
 
         # local copies for better performance
-        sources = self.sources
-        packages_t = self.binaries['testing']
+        source_suite = item.suite
+        target_suite = self.suite_info.target_suite
+        packages_t = target_suite.binaries
         inst_tester = self._inst_tester
         eqv_set = set()
 
         updates, rms, _ = self._compute_groups(item.package,
-                                               item.suite.name,
+                                               source_suite,
                                                item.architecture,
                                                item.is_removal,
                                                removals=removals)
 
         # Handle the source package
         if item.architecture == 'source':
-            if item.package in sources['testing']:
-                source = sources['testing'][item.package]
+            sources_t = target_suite.sources
+            if item.package in sources_t:
+                source = sources_t[item.package]
                 undo['sources'][item.package] = source
-                del sources['testing'][item.package]
+                del sources_t[item.package]
             else:
                 # the package didn't exist, so we mark it as to-be-removed in case of undo
                 undo['sources']['-' + item.package] = True
 
             # add/update the source package
             if not item.is_removal:
-                sources['testing'][item.package] = sources[item.suite.name][item.package]
+                sources_t[item.package] = source_suite.sources[item.package]
 
         # If we are removing *and* updating packages, then check for eqv. packages
         if rms and updates:
@@ -2056,7 +2058,7 @@ class Britney(object):
 
         # Add/Update binary packages in testing
         if updates:
-            packages_s = self.binaries[item.suite.name]
+            packages_s = source_suite.binaries
 
             for updated_pkg_id in updates:
                 binary, new_version, parch = updated_pkg_id
@@ -2125,7 +2127,8 @@ class Britney(object):
         is_accepted = True
         affected_architectures = set()
         item = actions
-        packages_t = self.binaries['testing']
+        target_suite = self.suite_info.target_suite
+        packages_t = target_suite.binaries
 
         nobreakall_arches = self.options.nobreakall_arches
         new_arches = self.options.new_arches
@@ -2147,7 +2150,7 @@ class Britney(object):
             affected_pos = set()
             affected_remain = set()
             for item in actions:
-                _, rms, _ = self._compute_groups(item.package, item.suite.name,
+                _, rms, _ = self._compute_groups(item.package, item.suite,
                                                  item.architecture,
                                                  item.is_removal,
                                                  allow_smooth_updates=False)
@@ -2210,7 +2213,7 @@ class Britney(object):
         # check if the action improved the uninstallability counters
         if not is_accepted and automatic_revert:
             undo_copy = list(reversed(undo_list))
-            undo_changes(undo_copy, self._inst_tester, self.sources, self.binaries, self.all_binaries)
+            undo_changes(undo_copy, self._inst_tester, self.suite_info, self.all_binaries)
 
         return (is_accepted, nuninst_after, undo_list, arch)
 
@@ -2228,7 +2231,7 @@ class Britney(object):
         output_logger = self.output_logger
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
-            updates, rms, _ = self._compute_groups(y.package, y.suite.name, y.architecture, y.is_removal)
+            updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
             result = (y, frozenset(updates), frozenset(rms))
             group_info[y] = result
 
@@ -2421,7 +2424,7 @@ class Britney(object):
                 return
             lundo.reverse()
 
-            undo_changes(lundo, self._inst_tester, self.sources, self.binaries, self.all_binaries)
+            undo_changes(lundo, self._inst_tester, self.suite_info, self.all_binaries)
 
         output_logger.info("")
 

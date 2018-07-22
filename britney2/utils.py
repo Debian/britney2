@@ -95,17 +95,14 @@ def iter_except(func, exception, first=None):
         pass
 
 
-def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
-    """Undoes one or more changes to testing
+def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
+    """Undoes one or more changes to the target suite
 
     * lundo is a list of (undo, item)-tuples
     * inst_tester is an InstallabilityTester
-    * sources is the table of all source packages for all suites
-    * binaries is the table of all binary packages for all suites
-      and architectures
-
-    The "X=X" parameters are optimizations to avoid "load global"
-    in loops.
+    * suite_info is the Suites object
+    * all_binary_packages is the table of all binary packages for
+      all suites and architectures
     """
 
     # We do the undo process in "4 steps" and each step must be
@@ -115,26 +112,29 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
     # see commit:ef71f0e33a7c3d8ef223ec9ad5e9843777e68133 and
     # #624716 for the issues we had when we did not do this.
 
+    target_suite = suite_info.target_suite
+    sources_t = target_suite.sources
+    binaries_t = target_suite.binaries
 
     # STEP 1
     # undo all the changes for sources
     for (undo, item) in lundo:
         for k in undo['sources']:
             if k[0] == '-':
-                del sources["testing"][k[1:]]
+                del sources_t[k[1:]]
             else:
-                sources["testing"][k] = undo['sources'][k]
+                sources_t[k] = undo['sources'][k]
 
     # STEP 2
     # undo all new binaries (consequence of the above)
     for (undo, item) in lundo:
-        if not item.is_removal and item.package in sources[item.suite.name]:
-            source_data = sources[item.suite.name][item.package]
+        if not item.is_removal and item.package in item.suite.sources:
+            source_data = item.suite.sources[item.package]
             for pkg_id in source_data.binaries:
                 binary, _, arch = pkg_id
                 if item.architecture in ['source', arch]:
                     try:
-                        del binaries["testing"][arch][0][binary]
+                        del binaries_t[arch][0][binary]
                     except KeyError:
                         # If this happens, pkg_id must be a cruft item that
                         # was *not* migrated.
@@ -142,13 +142,12 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
                         assert not inst_tester.any_of_these_are_in_testing((pkg_id,))
                     inst_tester.remove_testing_binary(pkg_id)
 
-
     # STEP 3
     # undo all other binary package changes (except virtual packages)
     for (undo, item) in lundo:
         for p in undo['binaries']:
             binary, arch = p
-            binaries_t_a = binaries['testing'][arch][0]
+            binaries_t_a = binaries_t[arch][0]
             assert binary not in binaries_t_a
             pkgdata = all_binary_packages[undo['binaries'][p]]
             binaries_t_a[binary] = pkgdata
@@ -158,10 +157,10 @@ def undo_changes(lundo, inst_tester, sources, binaries, all_binary_packages):
     # undo all changes to virtual packages
     for (undo, item) in lundo:
         for provided_pkg, arch in undo['nvirtual']:
-            del binaries['testing'][arch][1][provided_pkg]
+            del binaries_t[arch][1][provided_pkg]
         for p in undo['virtual']:
             provided_pkg, arch = p
-            binaries['testing'][arch][1][provided_pkg] = undo['virtual'][p]
+            binaries_t[arch][1][provided_pkg] = undo['virtual'][p]
 
 
 def log_and_format_old_libraries(logger, libs):
