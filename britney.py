@@ -1592,14 +1592,14 @@ class Britney(object):
         self.logger.info("Update Excuses generation started")
 
         # list of local methods and variables (for better performance)
-        sources = self.sources
+        suite_info = self.suite_info
         architectures = self.options.architectures
         should_remove_source = self.should_remove_source
         should_upgrade_srcarch = self.should_upgrade_srcarch
         should_upgrade_src = self.should_upgrade_src
 
-        unstable = sources['unstable']
-        testing = sources['testing']
+        sources_s = suite_info.primary_source_suite.sources
+        sources_t = suite_info.target_suite.sources
 
         # this list will contain the packages which are valid candidates;
         # if a package is going to be removed, it will have a "-" prefix
@@ -1609,16 +1609,17 @@ class Britney(object):
         excuses = self.excuses = {}
 
         # for every source package in testing, check if it should be removed
-        for pkg in testing:
+        for pkg in sources_t:
             if should_remove_source(pkg):
                 upgrade_me_add("-" + pkg)
 
         # for every source package in unstable check if it should be upgraded
-        for pkg in unstable:
-            if unstable[pkg].is_fakesrc: continue
+        for pkg in sources_s:
+            if sources_s[pkg].is_fakesrc:
+                continue
             # if the source package is already present in testing,
             # check if it should be upgraded for every binary package
-            if pkg in testing and not testing[pkg].is_fakesrc:
+            if pkg in sources_t and not sources_t[pkg].is_fakesrc:
                 for arch in architectures:
                     if should_upgrade_srcarch(pkg, arch, 'unstable'):
                         upgrade_me_add("%s/%s" % (pkg, arch))
@@ -1629,10 +1630,10 @@ class Britney(object):
 
         # for every source package in the additional source suites, check if it should be upgraded
         for suite in self.suite_info.additional_source_suites:
-            for pkg in sources[suite.name]:
+            for pkg in suite.sources:
                 # if the source package is already present in testing,
                 # check if it should be upgraded for every binary package
-                if pkg in testing:
+                if pkg in sources_t:
                     for arch in architectures:
                         if should_upgrade_srcarch(pkg, arch, suite.name):
                             upgrade_me_add("%s/%s_%s" % (pkg, arch, suite.name))
@@ -1646,10 +1647,11 @@ class Britney(object):
             src = hint.package
             if src in upgrade_me: continue
             if ("-"+src) in upgrade_me: continue
-            if src not in testing: continue
+            if src not in sources_t:
+                continue
 
             # check if the version specified in the hint is the same as the considered package
-            tsrcv = testing[src].version
+            tsrcv = sources_t[src].version
             if tsrcv != hint.version:
                 continue
 
@@ -1705,7 +1707,7 @@ class Britney(object):
         invalidate_excuses(excuses, upgrade_me, unconsidered)
 
         # sort the list of candidates
-        self.upgrade_me = sorted( make_migrationitem(x, self.sources) for x in upgrade_me )
+        self.upgrade_me = sorted(make_migrationitem(x, suite_info) for x in upgrade_me)
 
         # write excuses to the output file
         if not self.options.dry_run:

@@ -348,7 +348,7 @@ def write_heidi_delta(filename, all_selected):
                                            item.version, item.architecture))
 
 
-def make_migrationitem(package, sources):
+def make_migrationitem(package, suite_info):
     """Convert a textual package specification to a MigrationItem
     
     sources is a list of source packages in each suite, used to determine
@@ -356,7 +356,7 @@ def make_migrationitem(package, sources):
     """
     
     item = UnversionnedMigrationItem(package)
-    return MigrationItem("%s/%s" % (item.uvname, sources[item.suite.name][item.package].version))
+    return MigrationItem("%s/%s" % (item.uvname, suite_info[item.suite.name].sources[item.package].version))
 
 
 def write_excuses(excuselist, dest_file, output_format="yaml"):
