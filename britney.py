@@ -589,6 +589,8 @@ class Britney(object):
         get_field = tag_file.section.get
         step = tag_file.step
         no = 0
+        pri_source_suite = self.suite_info.primary_source_suite
+        target_suite = self.suite_info.target_suite
 
         while step():
             no += 1
@@ -617,8 +619,8 @@ class Britney(object):
                         [],
                         )
 
-            self.sources['testing'][pkg_name] = src_data
-            self.sources['unstable'][pkg_name] = src_data
+            target_suite.sources[pkg_name] = src_data
+            pri_source_suite.sources[pkg_name] = src_data
 
             for arch in archs:
                 pkg_id = BinaryPackageId(pkg_name, version, arch)
@@ -640,8 +642,8 @@ class Britney(object):
                                          )
 
                 src_data.binaries.append(pkg_id)
-                self.binaries['testing'][arch][0][pkg_name] = bin_data
-                self.binaries['unstable'][arch][0][pkg_name] = bin_data
+                target_suite.binaries[arch][0][pkg_name] = bin_data
+                pri_source_suite.binaries[arch][0][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data
 
     def _load_constraints(self, constraints_file):
@@ -663,6 +665,8 @@ class Britney(object):
         constraints = {
             'keep-installable': keep_installable
         }
+        pri_source_suite = self.suite_info.primary_source_suite
+        target_suite = self.suite_info.target_suite
 
         while step():
             no += 1
@@ -693,8 +697,8 @@ class Britney(object):
                         [],
                         [],
                         )
-            self.sources['testing'][pkg_name] = src_data
-            self.sources['unstable'][pkg_name] = src_data
+            target_suite.sources[pkg_name] = src_data
+            pri_source_suite.sources[pkg_name] = src_data
             keep_installable.append(pkg_name)
             for arch in self.options.architectures:
                 deps = []
@@ -731,8 +735,8 @@ class Britney(object):
                                          pkg_id,
                                          )
                 src_data.binaries.append(pkg_id)
-                self.binaries['testing'][arch][0][pkg_name] = bin_data
-                self.binaries['unstable'][arch][0][pkg_name] = bin_data
+                target_suite.binaries[arch][0][pkg_name] = bin_data
+                pri_source_suite.binaries[arch][0][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data
 
         return constraints
