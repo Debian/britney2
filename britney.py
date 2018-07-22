@@ -1388,7 +1388,7 @@ class Britney(object):
                     blocked['block'] = hint
                     excuse.add_hint(hint)
                     break
-        if suite_name in ('pu', 'tpu'):
+        if source_suite.suite_class.is_additional_source:
             blocked['block'] = '%s-block' % (suite_name)
             excuse.needs_approval = True
 
