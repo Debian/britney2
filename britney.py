@@ -2599,7 +2599,7 @@ class Britney(object):
 
         if uninst:
             self.output_logger.warning("")
-            self.output_logger.warning("Newly uninstallable packages in testing:")
+            self.output_logger.warning("Newly uninstallable packages in the target suite:")
             format_and_log_uninst(self.output_logger,
                                   self.options.architectures,
                                   uninst,
@@ -2811,8 +2811,9 @@ class Britney(object):
     def nuninst_arch_report(self, nuninst, arch):
         """Print a report of uninstallable packages for one architecture."""
         all = defaultdict(set)
+        binaries_t = self.suite_info.target_suite.binaries
         for p in nuninst[arch]:
-            pkg = self.binaries['testing'][arch][0][p]
+            pkg = binaries_t[arch][0][p]
             all[(pkg.source, pkg.source_version)].add(p)
 
         print('* %s' % arch)
