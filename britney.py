@@ -1729,7 +1729,7 @@ class Britney(object):
             return read_nuninst(self.options.noninst_status,
                                 self.options.architectures)
 
-        return compile_nuninst(self.binaries['testing'],
+        return compile_nuninst(self.suite_info.target_suite.binaries,
                                self._inst_tester,
                                self.options.architectures,
                                self.options.nobreakall_arches)
