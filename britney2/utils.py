@@ -264,7 +264,7 @@ def format_and_log_uninst(logger, architectures, nuninst, *, loglevel=logging.IN
             logger.log(loglevel, msg)
 
 
-def write_heidi(filename, sources_t, packages_t, *, outofsync_arches=frozenset(), sorted=sorted):
+def write_heidi(filename, target_suite, *, outofsync_arches=frozenset(), sorted=sorted):
     """Write the output HeidiResult
 
     This method write the output for Heidi, which contains all the
@@ -273,9 +273,8 @@ def write_heidi(filename, sources_t, packages_t, *, outofsync_arches=frozenset()
     <pkg-name> <pkg-version> <pkg-architecture> <pkg-section>
     <src-name> <src-version> source <src-section>
 
-    The file is written as "filename", it assumes all sources and
-    packages in "sources_t" and "packages_t" to be the packages in
-    "testing".
+    The file is written as "filename" using the sources and packages
+    from the "target_suite" parameter.
 
     outofsync_arches: If given, it is a set of architectures marked
     as "out of sync".  The output file may exclude some out of date
@@ -284,6 +283,9 @@ def write_heidi(filename, sources_t, packages_t, *, outofsync_arches=frozenset()
     The "X=X" parameters are optimizations to avoid "load global" in
     the loops.
     """
+    sources_t = target_suite.sources
+    packages_t = target_suite.binaries
+
     with open(filename, 'w', encoding='ascii') as f:
 
         # write binary packages

@@ -2564,6 +2564,7 @@ class Britney(object):
 
         # output files
         if not self.options.dry_run:
+            target_suite = self.suite_info.target_suite
             # re-write control files
             if self.options.control_files:
                 self.logger.info("Writing new testing control files to %s",
@@ -2576,8 +2577,8 @@ class Britney(object):
 
             # write HeidiResult
             self.logger.info("Writing Heidi results to %s", self.options.heidi_output)
-            write_heidi(self.options.heidi_output, self.sources["testing"],
-                        self.binaries["testing"],
+            write_heidi(self.options.heidi_output,
+                        target_suite,
                         outofsync_arches=self.options.outofsync_arches)
 
             self.logger.info("Writing delta to %s", self.options.heidi_delta_output)
