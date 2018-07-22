@@ -474,27 +474,27 @@ def write_controlfiles(sources, packages, suite, basedir):
     write_sources(sources_s, os.path.join(basedir, 'Sources'))
 
 
-def old_libraries(sources, packages, outofsync_arches=frozenset()):
-    """Detect old libraries left in testing for smooth transitions
+def old_libraries(suite_info, outofsync_arches=frozenset()):
+    """Detect old libraries left in the target suite for smooth transitions
 
-    This method detects old libraries which are in testing but no
+    This method detects old libraries which are in the target suite but no
     longer built from the source package: they are still there because
     other packages still depend on them, but they should be removed as
     soon as possible.
 
     For "outofsync" architectures, outdated binaries are allowed to be in
-    testing, so they are only added to the removal list if they are no longer
-    in unstable.
+    the target suite, so they are only added to the removal list if they
+    are no longer in the (primary) source suite.
     """
-    sources_t = sources['testing']
-    testing = packages['testing']
-    unstable = packages['unstable']
+    sources_t = suite_info.target_suite.sources
+    binaries_t = suite_info.target_suite.binaries
+    binaries_s = suite_info.primary_source_suite.binaries
     removals = []
-    for arch in testing:
-        for pkg_name in testing[arch][0]:
-            pkg = testing[arch][0][pkg_name]
+    for arch in binaries_t:
+        for pkg_name in binaries_t[arch][0]:
+            pkg = binaries_t[arch][0][pkg_name]
             if sources_t[pkg.source].version != pkg.source_version and \
-                (arch not in outofsync_arches or pkg_name not in unstable[arch][0]):
+                (arch not in outofsync_arches or pkg_name not in binaries_s[arch][0]):
                 migration = "-" + "/".join((pkg_name, arch, pkg.source_version))
                 removals.append(MigrationItem(migration))
     return removals

@@ -2535,14 +2535,14 @@ class Britney(object):
                 self.do_all(actions=removals)
 
         # smooth updates
-        removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
+        removals = old_libraries(self.suite_info, self.options.outofsync_arches)
         if self.options.smooth_updates:
             self.logger.info("> Removing old packages left in testing from smooth updates")
             if removals:
                 output_logger.info("Removing packages left in testing for smooth updates (%d):", len(removals))
                 log_and_format_old_libraries(self.output_logger, removals)
                 self.do_all(actions=removals)
-                removals = old_libraries(self.sources, self.binaries, self.options.outofsync_arches)
+                removals = old_libraries(self.suite_info, self.options.outofsync_arches)
         else:
             self.logger.info("> Not removing old packages left in testing from smooth updates"
                              " (smooth-updates disabled)")
