@@ -2459,7 +2459,6 @@ class Britney(object):
 
         self.logger.info("> All non-installability counters are ok")
 
-
     def upgrade_testing(self):
         """Upgrade testing using the unstable packages
 
@@ -2529,35 +2528,36 @@ class Britney(object):
             # obsolete source packages
             # a package is obsolete if none of the binary packages in testing
             # are built by it
-            self.logger.info("> Removing obsolete source packages from testing")
+            self.logger.info("> Removing obsolete source packages from the target suite")
             # local copies for performance
-            sources = self.sources['testing']
-            binaries = self.binaries['testing']
-            used = set(binaries[arch][0][binary].source
-                         for arch in binaries
-                         for binary in binaries[arch][0]
-                      )
-            removals = [ MigrationItem("-%s/%s" % (source, sources[source].version))
-                         for source in sources if source not in used
-                       ]
+            target_suite = self.suite_info.target_suite
+            sources_t = target_suite.sources
+            binaries_t = target_suite.binaries
+            used = set(binaries_t[arch][0][binary].source
+                       for arch in binaries_t
+                       for binary in binaries_t[arch][0]
+                       )
+            removals = [MigrationItem("-%s/%s" % (source, sources_t[source].version))
+                        for source in sources_t if source not in used
+                        ]
             if removals:
-                output_logger.info("Removing obsolete source packages from testing (%d):", len(removals))
+                output_logger.info("Removing obsolete source packages from the target suite (%d):", len(removals))
                 self.do_all(actions=removals)
 
         # smooth updates
         removals = old_libraries(self.suite_info, self.options.outofsync_arches)
         if self.options.smooth_updates:
-            self.logger.info("> Removing old packages left in testing from smooth updates")
+            self.logger.info("> Removing old packages left in the target suite from smooth updates")
             if removals:
-                output_logger.info("Removing packages left in testing for smooth updates (%d):", len(removals))
+                output_logger.info("Removing packages left in the target suite for smooth updates (%d):", len(removals))
                 log_and_format_old_libraries(self.output_logger, removals)
                 self.do_all(actions=removals)
                 removals = old_libraries(self.suite_info, self.options.outofsync_arches)
         else:
-            self.logger.info("> Not removing old packages left in testing from smooth updates"
+            self.logger.info("> Not removing old packages left in the target suite from smooth updates"
                              " (smooth-updates disabled)")
 
-        output_logger.info("List of old libraries in testing (%d):", len(removals))
+        output_logger.info("List of old libraries in the target suite (%d):", len(removals))
         log_and_format_old_libraries(self.output_logger, removals)
 
         self.assert_nuninst_is_correct()
@@ -2567,10 +2567,10 @@ class Britney(object):
             target_suite = self.suite_info.target_suite
             # re-write control files
             if self.options.control_files:
-                self.logger.info("Writing new testing control files to %s",
-                                 self.suite_info['testing'].path)
+                self.logger.info("Writing new control files for the target suite to %s",
+                                 target_suite.path)
                 write_controlfiles(self.sources, self.binaries,
-                                   'testing', self.suite_info['testing'].path)
+                                   target_suite.name, target_suite.path)
 
             for policy in self.policies:
                 policy.save_state(self)
