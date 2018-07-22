@@ -1048,7 +1048,7 @@ class Britney(object):
     # Utility methods for package analysis
     # ------------------------------------
 
-    def excuse_unsat_deps(self, pkg, src, arch, suite, excuse, get_dependency_solvers=get_dependency_solvers):
+    def excuse_unsat_deps(self, pkg, src, arch, source_suite, excuse, get_dependency_solvers=get_dependency_solvers):
         """Find unsatisfied dependencies for a binary package
 
         This method analyzes the dependencies of the binary package specified
@@ -1058,8 +1058,9 @@ class Britney(object):
         as parameter.
         """
         # retrieve the binary package from the specified suite and arch
-        binaries_s_a, provides_s_a = self.binaries[suite][arch]
-        binaries_t_a, provides_t_a = self.binaries['testing'][arch]
+        target_suite = self.suite_info.target_suite
+        binaries_s_a, provides_s_a = source_suite.binaries[arch]
+        binaries_t_a, provides_t_a = target_suite.binaries[arch]
         binary_u = binaries_s_a[pkg]
 
         # local copies for better performance
@@ -1070,7 +1071,6 @@ class Britney(object):
         if not deps:
             return True
         is_all_ok = True
-
 
         # for every dependency block (formed as conjunction of disjunction)
         for block, block_txt in zip(parse_depends(deps, False), deps.split(',')):
@@ -1101,14 +1101,18 @@ class Britney(object):
                 continue
 
             # for the solving packages, update the excuse to add the dependencies
-            for p in packages:
-                if arch not in self.options.break_arches:
-                    if p in self.sources['testing'] and self.sources['testing'][p].version == self.sources[suite][p].version:
+            if arch not in self.options.break_arches:
+                sources_t = target_suite.sources
+                sources_s = source_suite.sources
+                for p in packages:
+                    if p in sources_t and sources_t[p].version == sources_s[p].version:
                         excuse.add_dep("%s/%s" % (p, arch), arch)
                     else:
                         excuse.add_dep(p, arch)
-                else:
+            else:
+                for p in packages:
                     excuse.add_break_dep(p, arch)
+
         return is_all_ok
 
     # Package analysis methods
@@ -1236,7 +1240,7 @@ class Britney(object):
                 continue
 
             # find unsatisfied dependencies for the new binary package
-            self.excuse_unsat_deps(pkg_name, src, arch, suite_name, excuse)
+            self.excuse_unsat_deps(pkg_name, src, arch, source_suite, excuse)
 
             # if the binary is not present in testing, then it is a new binary;
             # in this case, there is something worth doing
@@ -1425,7 +1429,7 @@ class Britney(object):
 
         all_binaries = self.all_binaries
         for pkg_id in source_u.binaries:
-            is_valid = self.excuse_unsat_deps(pkg_id.package_name, src, pkg_id.architecture, suite_name, excuse)
+            is_valid = self.excuse_unsat_deps(pkg_id.package_name, src, pkg_id.architecture, source_suite, excuse)
             if is_valid:
                 continue
 
