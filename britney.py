@@ -361,7 +361,7 @@ class Britney(object):
             }
 
         self.logger.info("Compiling Installability tester")
-        self._inst_tester = build_installability_tester(self.binaries, self.options.architectures)
+        self._inst_tester = build_installability_tester(self.suite_info, self.options.architectures)
 
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")

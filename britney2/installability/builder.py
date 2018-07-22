@@ -21,20 +21,20 @@ from britney2.utils import ifilter_except, iter_except, get_dependency_solvers
 from britney2.installability.solver import InstallabilitySolver
 
 
-def build_installability_tester(binaries, archs):
+def build_installability_tester(suite_info, archs):
     """Create the installability tester"""
 
     solvers = get_dependency_solvers
     builder = InstallabilityTesterBuilder()
 
-    for (dist, arch) in product(binaries, archs):
-        testing = (dist == 'testing')
-        for pkgname in binaries[dist][arch][0]:
-            pkgdata = binaries[dist][arch][0][pkgname]
+    for (suite, arch) in product(suite_info, archs):
+        packages_s_a = suite.binaries[arch][0]
+        for pkgname in packages_s_a:
+            pkgdata = packages_s_a[pkgname]
             pkg_id = pkgdata.pkg_id
             if not builder.add_binary(pkg_id,
                                       essential=pkgdata.is_essential,
-                                      in_testing=testing):
+                                      in_testing=suite.suite_class.is_target):
                 continue
 
             depends = []
@@ -55,8 +55,8 @@ def build_installability_tester(binaries, archs):
                     for block in al:
                         sat = set()
 
-                        for dep_dist in binaries:
-                            dep_binaries_s_a, dep_provides_s_a = binaries[dep_dist][arch]
+                        for dep_suite in suite_info:
+                            dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
                             pkgs = solvers(block, dep_binaries_s_a, dep_provides_s_a)
                             for p in pkgs:
                                 # version and arch is already interned, but solvers use
