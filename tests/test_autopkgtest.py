@@ -1607,7 +1607,7 @@ class T(TestBase):
             {'lightgreen': (False, {})},
             {'lightgreen': [('old-version', '1'), ('new-version', '0.9~beta'),
                             ('reason', 'newerintesting'),
-                            ('excuses', 'ALERT: lightgreen is newer in testing (1 0.9~beta)')
+                            ('excuses', 'ALERT: lightgreen is newer in the target suite (1 0.9~beta)')
                            ]
             })[1]
 

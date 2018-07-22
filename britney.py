@@ -1118,18 +1118,18 @@ class Britney(object):
         """Check if a source package should be removed from testing
         
         This method checks if a source package should be removed from the
-        testing distribution; this happens if the source package is not
-        present in the unstable distribution anymore.
+        target suite; this happens if the source package is not
+        present in the primary source suite anymore.
 
         It returns True if the package can be removed, False otherwise.
         In the former case, a new excuse is appended to the object
         attribute excuses.
         """
         # if the source package is available in unstable, then do nothing
-        if pkg in self.sources['unstable']:
+        if pkg in self.suite_info.primary_source_suite.sources:
             return False
         # otherwise, add a new excuse for its removal
-        src = self.sources['testing'][pkg]
+        src = self.suite_info.target_suite.sources[pkg]
         excuse = Excuse("-" + pkg)
         excuse.addhtml("Package not in unstable, will try to remove")
         excuse.set_vers(src.version, None)
@@ -1148,7 +1148,7 @@ class Britney(object):
         self.excuses[excuse.name] = excuse
         return True
 
-    def should_upgrade_srcarch(self, src, arch, suite):
+    def should_upgrade_srcarch(self, src, arch, suite_name):
         """Check if a set of binary packages should be upgraded
 
         This method checks if the binary packages produced by the source
@@ -1160,12 +1160,14 @@ class Britney(object):
         the object attribute excuses.
         """
         # retrieve the source packages for testing and suite
-        source_t = self.sources['testing'][src]
-        source_u = self.sources[suite][src]
-        suite_info = self.suite_info[suite]
+
+        source_suite = self.suite_info[suite_name]
+        target_suite = self.suite_info.target_suite
+        source_t = target_suite.sources[src]
+        source_u = source_suite.sources[src]
         suffix = ''
-        if suite_info.excuses_suffix:
-            suffix = "_%s" % suite_info.excuses_suffix
+        if source_suite.excuses_suffix:
+            suffix = "_%s" % source_suite.excuses_suffix
 
         # build the common part of the excuse, which will be filled by the code below
         ref = "%s/%s%s" % (src, arch, suffix)
@@ -1189,8 +1191,8 @@ class Britney(object):
         anywrongver = False
         anyworthdoing = False
 
-        packages_t_a = self.binaries['testing'][arch][0]
-        packages_s_a = self.binaries[suite][arch][0]
+        packages_t_a = target_suite.binaries[arch][0]
+        packages_s_a = source_suite.binaries[arch][0]
 
         # for every binary package produced by this source in unstable for this architecture
         for pkg_id in sorted(x for x in source_u.binaries if x.architecture == arch):
@@ -1234,7 +1236,7 @@ class Britney(object):
                 continue
 
             # find unsatisfied dependencies for the new binary package
-            self.excuse_unsat_deps(pkg_name, src, arch, suite, excuse)
+            self.excuse_unsat_deps(pkg_name, src, arch, suite_name, excuse)
 
             # if the binary is not present in testing, then it is a new binary;
             # in this case, there is something worth doing
@@ -1264,10 +1266,11 @@ class Britney(object):
             ssrc = source_t.version == srcv
             # if this is a binary-only migration via *pu, we never want to try
             # removing binary packages
-            if not (ssrc and suite != 'unstable'):
+            primary_source_suite = self.suite_info.primary_source_suite
+            if not (ssrc and source_suite is not primary_source_suite):
                 # for every binary package produced by this source in testing for this architecture
                 _, _, smoothbins = self._compute_groups(src,
-                                                        "unstable",
+                                                        primary_source_suite.name,
                                                         arch,
                                                         False)
 
@@ -1306,36 +1309,37 @@ class Britney(object):
         # otherwise, return False
         return False
 
-    def should_upgrade_src(self, src, suite):
+    def should_upgrade_src(self, src, suite_name):
         """Check if source package should be upgraded
 
         This method checks if a source package should be upgraded. The analysis
         is performed for the source package specified by the `src' parameter, 
-        for the distribution `suite'.
+        for the distribution `suite_name'.
        
         It returns False if the given package doesn't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the object attribute excuses.
         """
 
-        source_u = self.sources[suite][src]
+        source_suite = self.suite_info[suite_name]
+        source_u = self.sources[suite_name][src]
         if source_u.is_fakesrc:
             # it is a fake package created to satisfy Britney implementation details; silently ignore it
             return False
 
+        target_suite = self.suite_info.target_suite
         # retrieve the source packages for testing (if available) and suite
-        if src in self.sources['testing']:
-            source_t = self.sources['testing'][src]
+        if src in target_suite.sources:
+            source_t = target_suite.sources[src]
             # if testing and unstable have the same version, then this is a candidate for binary-NMUs only
             if apt_pkg.version_compare(source_t.version, source_u.version) == 0:
                 return False
         else:
             source_t = None
 
-        suite_info = self.suite_info[suite]
         suffix = ''
-        if suite_info.excuses_suffix:
-            suffix = "_%s" % suite_info.excuses_suffix
+        if source_suite.excuses_suffix:
+            suffix = "_%s" % source_suite.excuses_suffix
 
         # build the common part of the excuse, which will be filled by the code below
         ref = "%s%s" % (src, suffix)
@@ -1346,7 +1350,7 @@ class Britney(object):
 
         # if the version in unstable is older, then stop here with a warning in the excuse and return False
         if source_t and apt_pkg.version_compare(source_u.version, source_t.version) < 0:
-            excuse.addhtml("ALERT: %s is newer in testing (%s %s)" % (src, source_t.version, source_u.version))
+            excuse.addhtml("ALERT: %s is newer in the target suite (%s %s)" % (src, source_t.version, source_u.version))
             self.excuses[excuse.name] = excuse
             excuse.addreason("newerintesting")
             return False
@@ -1380,8 +1384,8 @@ class Britney(object):
                     blocked['block'] = hint
                     excuse.add_hint(hint)
                     break
-        if suite in ('pu', 'tpu'):
-            blocked['block'] = '%s-block' % (suite)
+        if suite_name in ('pu', 'tpu'):
+            blocked['block'] = '%s-block' % (suite_name)
             excuse.needs_approval = True
 
         # if the source is blocked, then look for an `unblock' hint; the unblock request
@@ -1406,7 +1410,7 @@ class Britney(object):
                     else:
                         excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
                                        (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
-                if suite == 'unstable' or block_cmd == 'block-udeb':
+                if suite_name == 'unstable' or block_cmd == 'block-udeb':
                     tooltip = "please contact debian-release if update is needed"
                     # redirect people to d-i RM for udeb things:
                     if block_cmd == 'block-udeb':
@@ -1421,7 +1425,7 @@ class Britney(object):
 
         all_binaries = self.all_binaries
         for pkg_id in source_u.binaries:
-            is_valid = self.excuse_unsat_deps(pkg_id.package_name, src, pkg_id.architecture, suite, excuse)
+            is_valid = self.excuse_unsat_deps(pkg_id.package_name, src, pkg_id.architecture, suite_name, excuse)
             if is_valid:
                 continue
 
@@ -1525,13 +1529,13 @@ class Britney(object):
         policy_verdict = excuse.policy_verdict
         policy_info = excuse.policy_info
         for policy in self.policies:
-            if suite in policy.applicable_suites:
-                v = policy.apply_policy(policy_info, suite, src, source_t, source_u, excuse)
+            if suite_name in policy.applicable_suites:
+                v = policy.apply_policy(policy_info, suite_name, src, source_t, source_u, excuse)
                 if v.value > policy_verdict.value:
                     policy_verdict = v
         excuse.policy_verdict = policy_verdict
 
-        if suite in ('pu', 'tpu') and source_t:
+        if source_suite.suite_class.is_additional_source and source_t:
             # o-o-d(ish) checks for (t-)p-u
             # This only makes sense if the package is actually in testing.
             for arch in self.options.architectures:
@@ -1545,16 +1549,17 @@ class Britney(object):
                 # this architecture then we assume it's ok. this allows for
                 # uploads to (t-)p-u which intentionally drop binary
                 # packages
-                if any(x for x in self.binaries[suite][arch][0].values() \
+                if any(x for x in self.binaries[suite_name][arch][0].values() \
                          if x.source == src and x.source_version == source_u.version and \
                              x.architecture != 'all'):
                     continue
 
-                if suite == 'tpu':
-                    base = 'testing'
-                else:
+                # TODO: Find a way to avoid hardcoding pu/stable relation.
+                if suite_name == 'pu':
                     base = 'stable'
-                text = "Not yet built on <a href=\"https://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to testing)" % (quote(arch), quote(src), quote(source_u.version), base, arch)
+                else:
+                    base = target_suite.name
+                text = "Not yet built on <a href=\"https://buildd.debian.org/status/logs.php?arch=%s&pkg=%s&ver=%s&suite=%s\" target=\"_blank\">%s</a> (relative to target suite)" % (quote(arch), quote(src), quote(source_u.version), base, arch)
 
                 if arch in self.options.outofsync_arches:
                     text = text + " (but %s isn't keeping up, so never mind)" % (arch)
