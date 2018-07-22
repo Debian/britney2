@@ -325,8 +325,9 @@ class Britney(object):
         for suite in self.suite_info:
             sources = self.read_sources(suite.path)
             suite.sources = sources
+            suite.binaries = self.read_binaries(suite, self.options.architectures)
             self.sources[suite.name] = sources
-            self.binaries[suite.name] = self.read_binaries(suite, self.options.architectures)
+            self.binaries[suite.name] = suite.binaries
 
         # compute inverse Testsuite-Triggers: map, unifying all series
         self.logger.info('Building inverse testsuite_triggers map')
