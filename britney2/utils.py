@@ -421,7 +421,7 @@ def relation_atom_to_string(atom):
     return pkg
 
 
-def write_controlfiles(sources, packages, suite, basedir):
+def write_controlfiles(target_suite):
     """Write the control files
 
     This method writes the control files for the binary packages of all
@@ -430,8 +430,9 @@ def write_controlfiles(sources, packages, suite, basedir):
     these files may omit a lot of regular fields.
     """
 
-    sources_s = sources[suite]
-    packages_s = packages[suite]
+    basedir = target_suite.path
+    sources_s = target_suite.sources
+    packages_s = target_suite.binaries
 
     key_pairs = ((SECTION, 'Section'), (ARCHITECTURE, 'Architecture'),
                  (MULTIARCH, 'Multi-Arch'), (SOURCE, 'Source'),

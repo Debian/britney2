@@ -2577,8 +2577,7 @@ class Britney(object):
             if self.options.control_files:
                 self.logger.info("Writing new control files for the target suite to %s",
                                  target_suite.path)
-                write_controlfiles(self.sources, self.binaries,
-                                   target_suite.name, target_suite.path)
+                write_controlfiles(target_suite)
 
             for policy in self.policies:
                 policy.save_state(self)
