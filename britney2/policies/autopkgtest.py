@@ -387,8 +387,10 @@ class AutopkgtestPolicy(BasePolicy):
     def tests_for_source(self, src, ver, arch):
         '''Iterate over all tests that should be run for given source and arch'''
 
-        sources_info = self.britney.sources['testing']
-        binaries_info = self.britney.binaries['testing'][arch][0]
+        source_suite = self.suite_info.primary_source_suite
+        target_suite = self.suite_info.target_suite
+        sources_info = target_suite.sources
+        binaries_info = target_suite.binaries[arch][0]
 
         reported_pkgs = set()
 
@@ -422,7 +424,7 @@ class AutopkgtestPolicy(BasePolicy):
             return []
 
         # we want to test the package itself, if it still has a test in unstable
-        srcinfo = self.britney.sources['unstable'][src]
+        srcinfo = source_suite.sources[src]
         if 'autopkgtest' in srcinfo.testsuite or self.has_autodep8(srcinfo, binaries_info):
             reported_pkgs.add(src)
             tests.append((src, ver))

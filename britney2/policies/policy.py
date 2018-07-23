@@ -89,12 +89,11 @@ class BasePolicy(object):
 
         :param source_data_tdist Information about the source package
         in the target distribution (e.g. "testing").  This is the
-        data structure in Britney.sources['testing'][source_name]
+        data structure in source_suite.sources[source_name]
 
         :param source_data_srcdist Information about the source
         package in the source distribution (e.g. "unstable" or "tpu").
-        This is the data structure in suite.sources[source_name]
-        Britney.sources[suite][source_name]
+        This is the data structure in target_suite.sources[source_name]
 
         :return A Policy Verdict (e.g. PolicyVerdict.PASS)
         """
@@ -191,14 +190,15 @@ class AgePolicy(BasePolicy):
     def initialise(self, britney):
         super().initialise(britney)
         self._read_dates_file()
-        self._read_urgencies_file(britney)
+        self._read_urgencies_file()
 
     def save_state(self, britney):
         super().save_state(britney)
         self._write_dates_file()
 
     def apply_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
-        # retrieve the urgency for the upload, ignoring it if this is a NEW package (not present in testing)
+        # retrieve the urgency for the upload, ignoring it if this is a NEW package
+        # (not present in the target suite)
         urgency = self._urgencies.get(source_name, self.options.default_urgency)
 
         if urgency not in self._min_days:
@@ -295,7 +295,7 @@ class AgePolicy(BasePolicy):
     def _read_dates_file(self):
         """Parse the dates file"""
         dates = self._dates
-        fallback_filename = os.path.join(self.suite_info['testing'].path, 'Dates')
+        fallback_filename = os.path.join(self.suite_info.target_suite.path, 'Dates')
         using_new_name = False
         try:
             filename = os.path.join(self.options.state_dir, 'age-policy-dates')
@@ -328,16 +328,19 @@ class AgePolicy(BasePolicy):
             with open(filename, mode='x', encoding='utf-8'):
                 pass
 
-    def _read_urgencies_file(self, britney):
+    def _read_urgencies_file(self):
         urgencies = self._urgencies
         min_days_default = self._min_days_default
-        fallback_filename = os.path.join(self.suite_info['testing'].path, 'Urgency')
+        fallback_filename = os.path.join(self.suite_info.target_suite.path, 'Urgency')
         try:
             filename = os.path.join(self.options.state_dir, 'age-policy-urgencies')
             if not os.path.exists(filename) and os.path.exists(fallback_filename):
                 filename = fallback_filename
         except AttributeError:
             filename = fallback_filename
+
+        sources_s = self.suite_info.primary_source_suite.sources
+        sources_t = self.suite_info.target_suite.sources
 
         with open(filename, errors='surrogateescape', encoding='ascii') as fd:
             for line in fd:
@@ -355,13 +358,13 @@ class AgePolicy(BasePolicy):
                 if mindays_old <= mindays_new:
                     continue
 
-                # if the package exists in testing and it is more recent, do nothing
-                tsrcv = britney.sources['testing'].get(l[0], None)
+                # if the package exists in the target suite and it is more recent, do nothing
+                tsrcv = sources_t.get(l[0], None)
                 if tsrcv and apt_pkg.version_compare(tsrcv.version, l[1]) >= 0:
                     continue
 
-                # if the package doesn't exist in unstable or it is older, do nothing
-                usrcv = britney.sources['unstable'].get(l[0], None)
+                # if the package doesn't exist in the primary source suite or it is older, do nothing
+                usrcv = sources_s.get(l[0], None)
                 if not usrcv or apt_pkg.version_compare(usrcv.version, l[1]) < 0:
                     continue
 
@@ -373,9 +376,9 @@ class AgePolicy(BasePolicy):
         try:
             directory = self.options.state_dir
             basename = 'age-policy-dates'
-            old_file = os.path.join(self.suite_info['testing'].path, 'Dates')
+            old_file = os.path.join(self.suite_info.target_suite.path, 'Dates')
         except AttributeError:
-            directory = self.suite_info['testing'].path
+            directory = self.suite_info.target_suite.path
             basename = 'Dates'
             old_file = None
         filename = os.path.join(directory, basename)
@@ -400,12 +403,10 @@ class RCBugPolicy(BasePolicy):
     The RCBugPolicy's decision is influenced by the following:
 
     State files:
-     * ${STATE_DIR}/rc-bugs-unstable: File containing RC bugs for packages in
-       the source suite.
-       - This file needs to be updated externally.
-     * ${STATE_DIR}/rc-bugs-testing: File containing RC bugs for packages in
-       the target suite.
-       - This file needs to be updated externally.
+     * ${STATE_DIR}/rc-bugs-${SUITE_NAME}: File containing RC bugs for packages in
+       the given suite (one for both primary source suite and the target sutie is
+       needed).
+       - These files need to be updated externally.
     """
 
     def __init__(self, options, suite_info):
@@ -420,11 +421,13 @@ class RCBugPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
-        fallback_unstable = os.path.join(self.suite_info['unstable'].path, 'BugsV')
-        fallback_testing = os.path.join(self.suite_info['testing'].path, 'BugsV')
+        source_suite = self.suite_info.primary_source_suite
+        target_suite = self.suite_info.target_suite
+        fallback_unstable = os.path.join(source_suite.path, 'BugsV')
+        fallback_testing = os.path.join(target_suite.path, 'BugsV')
         try:
-            filename_unstable = os.path.join(self.options.state_dir, 'rc-bugs-unstable')
-            filename_testing = os.path.join(self.options.state_dir, 'rc-bugs-testing')
+            filename_unstable = os.path.join(self.options.state_dir, 'rc-bugs-%s' % source_suite.name)
+            filename_testing = os.path.join(self.options.state_dir, 'rc-bugs-%s' % target_suite.name)
             if not os.path.exists(filename_unstable) and not os.path.exists(filename_testing) and \
                os.path.exists(fallback_unstable) and os.path.exists(fallback_testing):
                 filename_unstable = fallback_unstable
@@ -432,28 +435,28 @@ class RCBugPolicy(BasePolicy):
         except AttributeError:
             filename_unstable = fallback_unstable
             filename_testing = fallback_testing
-        self._bugs['unstable'] = self._read_bugs(filename_unstable)
-        self._bugs['testing'] = self._read_bugs(filename_testing)
+        self._bugs['source'] = self._read_bugs(filename_unstable)
+        self._bugs['target'] = self._read_bugs(filename_testing)
 
     def apply_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         bugs_t = set()
         bugs_u = set()
 
         for src_key in (source_name, 'src:%s' % source_name):
-            if source_data_tdist and src_key in self._bugs['testing']:
-                bugs_t.update(self._bugs['testing'][src_key])
-            if src_key in self._bugs['unstable']:
-                bugs_u.update(self._bugs['unstable'][src_key])
+            if source_data_tdist and src_key in self._bugs['target']:
+                bugs_t.update(self._bugs['target'][src_key])
+            if src_key in self._bugs['source']:
+                bugs_u.update(self._bugs['source'][src_key])
 
         for pkg, _, _ in source_data_srcdist.binaries:
-            if pkg in self._bugs['unstable']:
-                bugs_u |= self._bugs['unstable'][pkg]
+            if pkg in self._bugs['source']:
+                bugs_u |= self._bugs['source'][pkg]
         if source_data_tdist:
             for pkg, _, _ in source_data_tdist.binaries:
-                if pkg in self._bugs['testing']:
-                    bugs_t |= self._bugs['testing'][pkg]
+                if pkg in self._bugs['target']:
+                    bugs_t |= self._bugs['target'][pkg]
 
-        # If a package is not in testing, it has no RC bugs per
+        # If a package is not in the target suite, it has no RC bugs per
         # definition.  Unfortunately, it seems that the live-data is
         # not always accurate (e.g. live-2011-12-13 suggests that
         # obdgpslogger had the same bug in testing and unstable,
@@ -461,7 +464,7 @@ class RCBugPolicy(BasePolicy):
         # - For the curious, obdgpslogger was removed on that day
         #   and the BTS probably had not caught up with that fact.
         #   (https://tracker.debian.org/news/415935)
-        assert not bugs_t or source_data_tdist, "%s had bugs in testing but is not in testing" % source_name
+        assert not bugs_t or source_data_tdist, "%s had bugs in the target suite but is not present" % source_name
 
         success_verdict = PolicyVerdict.PASS
 
@@ -538,8 +541,8 @@ class PiupartsPolicy(BasePolicy):
     def __init__(self, options, suite_info):
         super().__init__('piuparts', options, suite_info, {SuiteClass.PRIMARY_SOURCE_SUITE})
         self._piuparts = {
-            'unstable': None,
-            'testing': None,
+            'source': None,
+            'target': None,
         }
 
     def register_hints(self, hint_parser):
@@ -547,21 +550,23 @@ class PiupartsPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
+        source_suite = self.suite_info.primary_source_suite
+        target_suite = self.suite_info.target_suite
         try:
-            filename_unstable = os.path.join(self.options.state_dir, 'piuparts-summary-unstable.json')
-            filename_testing = os.path.join(self.options.state_dir, 'piuparts-summary-testing.json')
+            filename_unstable = os.path.join(self.options.state_dir, 'piuparts-summary-%s.json' % source_suite.name)
+            filename_testing = os.path.join(self.options.state_dir, 'piuparts-summary-%s.json' % target_suite.name)
         except AttributeError as e:  # pragma: no cover
             raise RuntimeError("Please set STATE_DIR in the britney configuration") from e
-        self._piuparts['unstable'] = self._read_piuparts_summary(filename_unstable, keep_url=True)
-        self._piuparts['testing'] = self._read_piuparts_summary(filename_testing, keep_url=False)
+        self._piuparts['source'] = self._read_piuparts_summary(filename_unstable, keep_url=True)
+        self._piuparts['target'] = self._read_piuparts_summary(filename_testing, keep_url=False)
 
     def apply_policy_impl(self, piuparts_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
-        if source_name in self._piuparts['testing']:
-            testing_state = self._piuparts['testing'][source_name][0]
+        if source_name in self._piuparts['target']:
+            testing_state = self._piuparts['target'][source_name][0]
         else:
             testing_state = 'X'
-        if source_name in self._piuparts['unstable']:
-            unstable_state, url = self._piuparts['unstable'][source_name]
+        if source_name in self._piuparts['source']:
+            unstable_state, url = self._piuparts['source'][source_name]
         else:
             unstable_state = 'X'
             url = None
@@ -584,7 +589,7 @@ class PiupartsPolicy(BasePolicy):
                 msg = 'Ignoring piuparts failure (Not a regression) - {0}'.format(url_html)
                 result = PolicyVerdict.PASS
         elif unstable_state == 'W':
-            msg = 'Waiting for piuparts test results (stalls testing migration) - {0}'.format(url_html)
+            msg = 'Waiting for piuparts test results (stalls migration) - {0}'.format(url_html)
             result = PolicyVerdict.REJECTED_TEMPORARILY
             piuparts_info['test-results'] = 'waiting-for-test-results'
         else:
@@ -661,14 +666,18 @@ class BuildDependsPolicy(BasePolicy):
 
         sources_s = None
         sources_t = None
+        source_suite = self.suite_info[suite]
+        target_suite = self.suite_info.target_suite
+        binaries_s = source_suite.binaries
+        binaries_t = target_suite.binaries
         unsat_bd = {}
         relevant_archs = {binary.architecture for binary in source_data_srcdist.binaries
                           if britney.all_binaries[binary].architecture != 'all'}
 
         for arch in (arch for arch in self.options.architectures if arch in relevant_archs):
             # retrieve the binary package from the specified suite and arch
-            binaries_s_a, provides_s_a = britney.binaries[suite][arch]
-            binaries_t_a, provides_t_a = britney.binaries['testing'][arch]
+            binaries_s_a, provides_s_a = binaries_s[arch]
+            binaries_t_a, provides_t_a = binaries_t[arch]
             # for every dependency block (formed as conjunction of disjunction)
             for block_txt in deps.split(','):
                 block = parse_src_depends(block_txt, False, arch)
@@ -679,9 +688,9 @@ class BuildDependsPolicy(BasePolicy):
                     # Relation is not relevant for this architecture.
                     continue
                 block = block[0]
-                # if the block is satisfied in testing, then skip the block
+                # if the block is satisfied in the target suite, then skip the block
                 if get_dependency_solvers(block, binaries_t_a, provides_t_a, build_depends=True):
-                    # Satisfied in testing; all ok.
+                    # Satisfied in the target suite; all ok.
                     continue
 
                 # check if the block can be satisfied in the source suite, and list the solving packages
@@ -689,7 +698,7 @@ class BuildDependsPolicy(BasePolicy):
                 packages = [binaries_s_a[p].source for p in packages]
 
                 # if the dependency can be satisfied by the same source package, skip the block:
-                # obviously both binary packages will enter testing together
+                # obviously both binary packages will enter the target suite together
                 if source_name in packages:
                     continue
 
@@ -704,8 +713,8 @@ class BuildDependsPolicy(BasePolicy):
                     continue
 
                 if not sources_t:
-                    sources_t = britney.sources['testing']
-                    sources_s = britney.sources[suite]
+                    sources_t = target_suite.sources
+                    sources_s = source_suite.sources
 
                 # for the solving packages, update the excuse to add the dependencies
                 for p in packages:
