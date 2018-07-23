@@ -115,7 +115,7 @@ class Excuse(object):
         self._policy_verdict = value
 
     def set_vers(self, tver, uver):
-        """Set the testing and unstable versions"""
+        """Set the versions of the item from target and source suite"""
         if tver: self.ver = (tver, self.ver[1])
         if uver: self.ver = (self.ver[0], uver)
 

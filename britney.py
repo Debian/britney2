@@ -1130,12 +1130,13 @@ class Britney(object):
         attribute excuses.
         """
         # if the source package is available in unstable, then do nothing
-        if pkg in self.suite_info.primary_source_suite.sources:
+        source_suite = self.suite_info.primary_source_suite
+        if pkg in source_suite.sources:
             return False
         # otherwise, add a new excuse for its removal
         src = self.suite_info.target_suite.sources[pkg]
         excuse = Excuse("-" + pkg)
-        excuse.addhtml("Package not in unstable, will try to remove")
+        excuse.addhtml("Package not in %s, will try to remove" % source_suite.name)
         excuse.set_vers(src.version, None)
         src.maintainer and excuse.set_maint(src.maintainer)
         src.section and excuse.set_section(src.section)
@@ -1414,7 +1415,7 @@ class Britney(object):
                     else:
                         excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
                                        (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
-                if suite_name == 'unstable' or block_cmd == 'block-udeb':
+                if source_suite.suite_class.is_primary_source or block_cmd == 'block-udeb':
                     tooltip = "please contact debian-release if update is needed"
                     # redirect people to d-i RM for udeb things:
                     if block_cmd == 'block-udeb':
@@ -1598,12 +1599,13 @@ class Britney(object):
 
         # list of local methods and variables (for better performance)
         suite_info = self.suite_info
+        pri_source_suite = suite_info.primary_source_suite
         architectures = self.options.architectures
         should_remove_source = self.should_remove_source
         should_upgrade_srcarch = self.should_upgrade_srcarch
         should_upgrade_src = self.should_upgrade_src
 
-        sources_s = suite_info.primary_source_suite.sources
+        sources_s = pri_source_suite.sources
         sources_t = suite_info.target_suite.sources
 
         # this list will contain the packages which are valid candidates;
@@ -1626,11 +1628,11 @@ class Britney(object):
             # check if it should be upgraded for every binary package
             if pkg in sources_t and not sources_t[pkg].is_fakesrc:
                 for arch in architectures:
-                    if should_upgrade_srcarch(pkg, arch, 'unstable'):
+                    if should_upgrade_srcarch(pkg, arch, pri_source_suite.name):
                         upgrade_me_add("%s/%s" % (pkg, arch))
 
             # check if the source package should be upgraded
-            if should_upgrade_src(pkg, 'unstable'):
+            if should_upgrade_src(pkg, pri_source_suite.name):
                 upgrade_me_add(pkg)
 
         # for every source package in the additional source suites, check if it should be upgraded
@@ -2465,9 +2467,10 @@ class Britney(object):
         self.logger.info("> All non-installability counters are ok")
 
     def upgrade_testing(self):
-        """Upgrade testing using the unstable packages
+        """Upgrade testing using the packages from the source suites
 
-        This method tries to upgrade testing using the packages from unstable.
+        This method tries to upgrade testing using the packages from the
+        source suites.
         Before running the do_all method, it tries the easy and force-hint
         commands.
         """
@@ -2666,7 +2669,8 @@ class Britney(object):
         """Process hints
 
         This method process `easy`, `hint` and `force-hint` hints. If the
-        requested version is not in unstable, then the hint is skipped.
+        requested version is not in the relevant source suite, then the hint
+        is skipped.
         """
 
         output_logger = self.output_logger
