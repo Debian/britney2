@@ -232,7 +232,7 @@ class AutopkgtestPolicy(BasePolicy):
         elegible_for_bounty = False
 
         # skip/delay autopkgtests until new package is built somewhere
-        binaries_info = self.britney.sources[suite][source_name]
+        binaries_info = self.suite_info[suite].sources[source_name]
         if not binaries_info.binaries:
             self.logger.info('%s hasn''t been built anywhere, skipping autopkgtest policy', excuse.name)
             verdict = PolicyVerdict.REJECTED_TEMPORARILY

@@ -332,8 +332,8 @@ class Britney(object):
         # compute inverse Testsuite-Triggers: map, unifying all series
         self.logger.info('Building inverse testsuite_triggers map')
         self.testsuite_triggers = {}
-        for suitemap in self.sources.values():
-            for src, data in suitemap.items():
+        for suite in self.suite_info:
+            for src, data in suite.sources.items():
                 for trigger in data.testsuite_triggers:
                     self.testsuite_triggers.setdefault(trigger, set()).add(src)
 
@@ -1327,7 +1327,7 @@ class Britney(object):
         """
 
         source_suite = self.suite_info[suite_name]
-        source_u = self.sources[suite_name][src]
+        source_u = source_suite.sources[src]
         if source_u.is_fakesrc:
             # it is a fake package created to satisfy Britney implementation details; silently ignore it
             return False
@@ -1555,9 +1555,9 @@ class Britney(object):
                 # this architecture then we assume it's ok. this allows for
                 # uploads to (t-)p-u which intentionally drop binary
                 # packages
-                if any(x for x in self.binaries[suite_name][arch][0].values() \
-                         if x.source == src and x.source_version == source_u.version and \
-                             x.architecture != 'all'):
+                if any(x for x in source_suite.binaries[arch][0].values()
+                       if x.source == src and x.source_version == source_u.version and
+                          x.architecture != 'all'):
                     continue
 
                 # TODO: Find a way to avoid hardcoding pu/stable relation.
