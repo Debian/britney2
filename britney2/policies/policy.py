@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 import apt_pkg
 
+from britney2 import SuiteClass
 from britney2.hints import Hint, split_into_one_hint_per_package
 from britney2.policies import PolicyVerdict
 from britney2.utils import get_dependency_solvers
@@ -23,7 +24,7 @@ class BasePolicy(object):
         :param options The options member of Britney with all the
         config options.
 
-        :param applicable_suites A set of suite names where this
+        :param applicable_suites A set of suite classes where this
         policy applies.
         """
         self.policy_id = policy_id
@@ -92,7 +93,7 @@ class BasePolicy(object):
 
         :param source_data_srcdist Information about the source
         package in the source distribution (e.g. "unstable" or "tpu").
-        This is the data structure in
+        This is the data structure in suite.sources[source_name]
         Britney.sources[suite][source_name]
 
         :return A Policy Verdict (e.g. PolicyVerdict.PASS)
@@ -173,7 +174,7 @@ class AgePolicy(BasePolicy):
     """
 
     def __init__(self, options, suite_info, mindays):
-        super().__init__('age', options, suite_info, {'unstable'})
+        super().__init__('age', options, suite_info, {SuiteClass.PRIMARY_SOURCE_SUITE})
         self._min_days = mindays
         if options.default_urgency not in mindays:  # pragma: no cover
             raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
@@ -408,7 +409,7 @@ class RCBugPolicy(BasePolicy):
     """
 
     def __init__(self, options, suite_info):
-        super().__init__('rc-bugs', options, suite_info, {'unstable'})
+        super().__init__('rc-bugs', options, suite_info, {SuiteClass.PRIMARY_SOURCE_SUITE})
         self._bugs = {}
 
     def register_hints(self, hint_parser):
@@ -535,7 +536,7 @@ class RCBugPolicy(BasePolicy):
 class PiupartsPolicy(BasePolicy):
 
     def __init__(self, options, suite_info):
-        super().__init__('piuparts', options, suite_info, {'unstable'})
+        super().__init__('piuparts', options, suite_info, {SuiteClass.PRIMARY_SOURCE_SUITE})
         self._piuparts = {
             'unstable': None,
             'testing': None,
@@ -637,7 +638,8 @@ class PiupartsPolicy(BasePolicy):
 class BuildDependsPolicy(BasePolicy):
 
     def __init__(self, options, suite_info):
-        super().__init__('build-depends', options, suite_info, {'unstable', 'tpu', 'pu'})
+        super().__init__('build-depends', options, suite_info,
+                         {SuiteClass.PRIMARY_SOURCE_SUITE, SuiteClass.ADDITIONAL_SOURCE_SUITE})
         self._britney = None
 
     def initialise(self, britney):

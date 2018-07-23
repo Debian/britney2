@@ -1532,8 +1532,9 @@ class Britney(object):
         # the age-days hint, if specified for the package
         policy_verdict = excuse.policy_verdict
         policy_info = excuse.policy_info
+        suite_class = source_suite.suite_class
         for policy in self.policies:
-            if suite_name in policy.applicable_suites:
+            if suite_class in policy.applicable_suites:
                 v = policy.apply_policy(policy_info, suite_name, src, source_t, source_u, excuse)
                 if v.value > policy_verdict.value:
                     policy_verdict = v

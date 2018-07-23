@@ -30,12 +30,16 @@ from urllib.request import urlopen
 import apt_pkg
 
 import britney2.hints
+
+from britney2 import SuiteClass
 from britney2.policies.policy import BasePolicy, PolicyVerdict
+
 
 class Result(Enum):
     FAIL = 1
     PASS = 2
     NEUTRAL = 3
+
 
 EXCUSES_LABELS = {
     "PASS": '<span style="background:#87d96c">Pass</span>',
@@ -49,6 +53,7 @@ EXCUSES_LABELS = {
 }
 
 REF_TRIG = 'migration-reference/0'
+
 
 def srchash(src):
     '''archive hash prefix for source package'''
@@ -67,7 +72,7 @@ class AutopkgtestPolicy(BasePolicy):
     """
 
     def __init__(self, options, suite_info):
-        super().__init__('autopkgtest', options, suite_info, {'unstable'})
+        super().__init__('autopkgtest', options, suite_info, {SuiteClass.PRIMARY_SOURCE_SUITE})
         # tests requested in this and previous runs
         # trigger -> src -> [arch]
         self.pending_tests = None
