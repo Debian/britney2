@@ -299,8 +299,6 @@ class Britney(object):
 
         # initialize the apt_pkg back-end
         apt_pkg.init()
-        self.sources = {}
-        self.binaries = {}
         self.all_selected = []
         self.excuses = {}
 
@@ -326,8 +324,6 @@ class Britney(object):
             sources = self.read_sources(suite.path)
             suite.sources = sources
             suite.binaries = self.read_binaries(suite, self.options.architectures)
-            self.sources[suite.name] = sources
-            self.binaries[suite.name] = suite.binaries
 
         # compute inverse Testsuite-Triggers: map, unifying all series
         self.logger.info('Building inverse testsuite_triggers map')
