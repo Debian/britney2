@@ -327,8 +327,10 @@ class AutopkgtestPolicy(BasePolicy):
                         message += ' <a href="%s">[artifacts]</a>' % artifact_url
                     html_archmsg.append(message)
 
-                # render HTML line for testsrc entry
-                excuse.addhtml("autopkgtest for %s: %s" % (testname, ', '.join(html_archmsg)))
+                # render HTML line for testsrc entry, but only when action is
+                # or may be required
+                if r - {'PASS', 'NEUTRAL', 'RUNNING-ALWAYSFAIL', 'ALWAYSFAIL'}:
+                    excuse.addhtml("autopkgtest for %s: %s" % (testname, ', '.join(html_archmsg)))
 
         if verdict != PolicyVerdict.PASS:
             # check for force-skiptest hint
