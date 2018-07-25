@@ -1151,7 +1151,7 @@ class T(TestBase):
             'testing/i386/b/black/20150102_100000@': (99, 'black blacklisted', tr('black/2')),
         }})
 
-        self.create_hint('autopkgtest', 'force-badtest black/blacklisted')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests black/blacklisted')
 
         self.run_it(
             [('black', {'Version': '2'}, 'autopkgtest')],
@@ -1664,8 +1664,8 @@ class T(TestBase):
     # Tests for hint processing
     ################################################################
 
-    def test_hint_force_badtest(self):
-        '''force-badtest hint'''
+    def test_hint_ignore_reverse_tests(self):
+        """ignore-reverse-tests hint"""
 
         self.data.add_default_packages(green=False)
 
@@ -1680,7 +1680,7 @@ class T(TestBase):
             'testing/amd64/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
         }})
 
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/1')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/1')
 
         self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
@@ -1692,8 +1692,8 @@ class T(TestBase):
             {'green': [('old-version', '1'), ('new-version', '2')]
             })
 
-    def test_hint_force_badtest_multi_version(self):
-        '''force-badtest hint'''
+    def test_hint_ignore_reverse_tests_multi_version(self):
+        """ignore-reverse-tests hint"""
 
         self.data.add_default_packages(green=False)
 
@@ -1708,7 +1708,7 @@ class T(TestBase):
             'testing/amd64/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
         }})
 
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/1')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/1')
 
         self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
@@ -1722,7 +1722,7 @@ class T(TestBase):
             })
 
         # hint the version on amd64 too
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/2')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/2')
 
         self.run_it(
             [],
@@ -1735,8 +1735,8 @@ class T(TestBase):
             {'green': [('old-version', '1'), ('new-version', '2')]
             })
 
-    def test_hint_force_badtest_different_version(self):
-        '''force-badtest hint with non-matching version'''
+    def test_hint_ignore_reverse_tests_different_version(self):
+        """ignore-reverse-tests hint with non-matching version"""
 
         self.data.add_default_packages(green=False)
 
@@ -1752,7 +1752,7 @@ class T(TestBase):
         }})
 
         # lower hint version should not apply
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/0.1')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/0.1')
 
         exc = self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
@@ -1766,7 +1766,7 @@ class T(TestBase):
         self.assertNotIn('forced-reason', exc['green'])
 
         # higher hint version should apply
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/3')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/3')
         self.run_it(
             [],
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
@@ -1777,8 +1777,8 @@ class T(TestBase):
             {}
         )
 
-    def test_hint_force_badtest_arch(self):
-        '''force-badtest hint for architecture instead of version'''
+    def test_hint_ignore_reverse_tests_arch(self):
+        """ignore-reverse-tests hint for architecture instead of version"""
 
         self.data.add_default_packages(green=False)
 
@@ -1793,7 +1793,7 @@ class T(TestBase):
             'testing/amd64/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
         }})
 
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/amd64/all')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/amd64/all')
 
         self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
@@ -1806,7 +1806,7 @@ class T(TestBase):
             })
 
         # hint i386 too, then it should become valid
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/i386/all')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/i386/all')
 
         self.run_it(
             [],
@@ -1818,8 +1818,8 @@ class T(TestBase):
             {'green': [('old-version', '1'), ('new-version', '2')]
             })
 
-    def test_hint_force_badtest_running(self):
-        '''force-badtest hint on running test'''
+    def test_hint_ignore_reverse_tests_running(self):
+        """ignore-reverse-tests hint on running test"""
 
         self.data.add_default_packages(green=False)
 
@@ -1832,7 +1832,7 @@ class T(TestBase):
             'testing/amd64/g/green/20150101_100200@': (0, 'green 2', tr('green/2')),
         }})
 
-        self.create_hint('autopkgtest', 'force-badtest lightgreen/1')
+        self.create_hint('autopkgtest', 'ignore-reverse-tests lightgreen/1')
 
         self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
@@ -1844,12 +1844,12 @@ class T(TestBase):
             {'green': [('old-version', '1'), ('new-version', '2')]
             })
 
-    def test_hint_force_skiptest(self):
-        '''force-skiptest hint'''
+    def test_hint_ignore_autopkgtest(self):
+        """ignore-autopkgtest hint"""
 
         self.data.add_default_packages(green=False)
 
-        self.create_hint('autopkgtest', 'force-skiptest green/2')
+        self.create_hint('autopkgtest', 'ignore-autopkgtest green/2')
 
         # regression of green, darkgreen ok, lightgreen running
         self.swift.set_results({'autopkgtest-testing': {
@@ -1870,8 +1870,8 @@ class T(TestBase):
                        ('excuses', 'Should wait for tests relating to green 2, but forced by autopkgtest')]
             })
 
-    def test_hint_force_skiptest_different_version(self):
-        '''force-skiptest hint with non-matching version'''
+    def test_hint_ignore_autopkgtest_different_version(self):
+        """ignore-autopkgtest hint with non-matching version"""
 
         self.data.add_default_packages(green=False)
 
@@ -1880,7 +1880,7 @@ class T(TestBase):
             'testing/i386/g/green/20150101_100000@': (0, 'green 1', tr('passedbefore/1')),
         }})
 
-        self.create_hint('autopkgtest', 'force-skiptest green/1')
+        self.create_hint('autopkgtest', 'ignore-autopkgtest green/1')
         exc = self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},

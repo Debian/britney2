@@ -106,8 +106,10 @@ class AutopkgtestPolicy(BasePolicy):
                 self.logger.info("Ignoring ADT_ARCHES %s as it is not in architectures list", arch)
 
     def register_hints(self, hint_parser):
-        hint_parser.register_hint_type('force-badtest', britney2.hints.split_into_one_hint_per_package)
-        hint_parser.register_hint_type('force-skiptest', britney2.hints.split_into_one_hint_per_package)
+        hint_parser.register_hint_type('ignore-reverse-tests', britney2.hints.split_into_one_hint_per_package,
+                                       aliases=['force-badtest'])
+        hint_parser.register_hint_type('ignore-autopkgtest', britney2.hints.split_into_one_hint_per_package,
+                                       aliases=['force-skiptest'])
 
     def initialise(self, britney):
         super().initialise(britney)
@@ -334,7 +336,7 @@ class AutopkgtestPolicy(BasePolicy):
 
         if verdict != PolicyVerdict.PASS:
             # check for force-skiptest hint
-            hints = self.hints.search('force-skiptest', package=source_name, version=source_data_srcdist.version)
+            hints = self.hints.search('ignore-autopkgtest', package=source_name, version=source_data_srcdist.version)
             if hints:
                 excuse.addreason('skiptest')
                 excuse.addhtml("Should wait for tests relating to %s %s, but forced by %s" %
@@ -866,9 +868,9 @@ class AutopkgtestPolicy(BasePolicy):
         return (result, ver, run_id, url)
 
     def has_force_badtest(self, src, ver, arch):
-        '''Check if src/ver/arch has a force-badtest hint'''
+        """Check if src/ver/arch has a ignore-reverse-tests hint"""
 
-        hints = self.hints.search('force-badtest', package=src)
+        hints = self.hints.search('ignore-reverse-tests', package=src)
         if hints:
             self.logger.info('Checking hints for %s/%s/%s: %s', src, ver, arch, [str(h) for h in hints])
             for hint in hints:
