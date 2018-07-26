@@ -747,20 +747,6 @@ class AutopkgtestPolicy(BasePolicy):
             arch_list.append(arch)
             arch_list.sort()
             self.send_test_request(src, arch, trigger, huge=huge)
-            if self.options.adt_baseline == 'reference':
-                # Check if we already have a reference for this src on this
-                # arch (or pending).
-                try:
-                    self.test_results[REF_TRIG][src][arch]
-                except KeyError:
-                    try:
-                        arch_list = self.pending_tests[REF_TRIG][src]
-                        if arch not in arch_list:
-                            raise KeyError # fall through
-                    except KeyError:
-                        self.logger.info('Requesting %s autopkgtest on %s to set a reference',
-                                             src, arch)
-                        self.send_test_request(src, arch, REF_TRIG, huge=huge)
 
     def result_in_baseline(self, src, arch):
         '''Get the result for src on arch in the baseline
