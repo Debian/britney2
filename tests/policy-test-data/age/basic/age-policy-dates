@@ -1,0 +1,6 @@
+# <source> <version> <seen-at-day>
+# NB: The default "day" for the tests is 10. For urgency medium, this implies
+# setting <seen-at-day> to 0-5 is passing while 6-10 is too young.
+out-of-date-version 1.5 5
+almost-aged-properly 2.0 6
+aged-properly 2.0 5

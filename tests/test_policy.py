@@ -140,6 +140,10 @@ class TestAgePolicy(unittest.TestCase):
         'low': 10,
     }
 
+    @classmethod
+    def reset_age(cls, policy, effective_date=10):
+        policy._date_now = effective_date
+
     def test_missing_age_file(self):
         age_file = os.path.join(POLICY_DATA_BASE_DIR, 'age', 'missing-age-file', 'age-policy-dates')
         assert not os.path.exists(age_file)
@@ -154,6 +158,47 @@ class TestAgePolicy(unittest.TestCase):
         finally:
             if os.path.exists(age_file):
                 os.unlink(age_file)
+
+    def test_age_new(self):
+        src_name = 'unlisted-source-package'
+        policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
+        age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+        assert age_policy_info['current-age'] == 0
+
+    def test_age_urgented(self):
+        src_name = 'unlisted-source-package'
+        policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS,
+                                   hints=['urgent unlisted-source-package/2.0'])
+        age_policy_info = apply_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
+        assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+        assert age_policy_info['current-age'] == 0
+        assert age_policy_info['age-requirement-reduced']['new-requirement'] == 0
+        assert age_policy_info['age-requirement-reduced']['changed-by'] == TEST_HINTER
+
+    def test_age_old_version_aged(self):
+        src_name = 'out-of-date-version'
+        policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
+        self.reset_age(policy)
+        age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+        assert age_policy_info['current-age'] == 0
+
+    def test_age_almost_aged(self):
+        src_name = 'almost-aged-properly'
+        policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
+        self.reset_age(policy)
+        age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+        assert age_policy_info['current-age'] == 4
+
+    def test_age_aged_properly(self):
+        src_name = 'aged-properly'
+        policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
+        self.reset_age(policy)
+        age_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
+        assert age_policy_info['current-age'] == 5
 
 
 class TestPiupartsPolicy(unittest.TestCase):
@@ -194,6 +239,7 @@ class TestPiupartsPolicy(unittest.TestCase):
         piu_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
         assert piu_policy_info['test-results'] == 'failed'
         assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/f/failed-not-regression.html'
+
 
 if __name__ == '__main__':
     unittest.main()
