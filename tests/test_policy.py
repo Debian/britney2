@@ -55,6 +55,9 @@ def create_policy_objects(source_name, target_version, source_version):
 
 def apply_policy(policy, expected_verdict, src_name, *, suite='unstable', source_version='1.0', target_version='2.0'):
     src_t, src_u, excuse, policy_info = create_policy_objects(src_name, source_version, target_version)
+    suite_info = policy.suite_info
+    suite_info.target_suite.sources[src_name] = src_t
+    suite_info[suite].sources[src_name] = src_u
     verdict = policy.apply_policy(policy_info, suite, src_name, src_t, src_u, excuse)
     pinfo = policy_info[policy.policy_id]
     assert verdict == expected_verdict
