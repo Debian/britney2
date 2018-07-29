@@ -641,22 +641,22 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
         test_installability(inst_tester, name, pkg_id, broken, nuninst_arch)
 
 
-def possibly_compressed(path, permitted_compressesion=None):
+def possibly_compressed(path, *, permitted_compressions=None):
     """Find and select a (possibly compressed) variant of a path
 
     If the given path exists, it will be returned
 
     :param path The base path.
-    :param permitted_compressesion An optional list of alternative extensions to look for.
+    :param permitted_compressions An optional list of alternative extensions to look for.
       Defaults to "gz" and "xz".
     :returns The path given possibly with one of the permitted extensions.  Will raise a
      FileNotFoundError
     """
     if os.path.exists(path):
         return path
-    if permitted_compressesion is None:
-        permitted_compressesion = ['gz', 'xz']
-    for ext in permitted_compressesion:
+    if permitted_compressions is None:
+        permitted_compressions = ['gz', 'xz']
+    for ext in permitted_compressions:
         cpath = "%s.%s" % (path, ext)
         if os.path.exists(cpath):
             return cpath
