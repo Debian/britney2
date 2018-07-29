@@ -312,7 +312,10 @@ class AgePolicy(BasePolicy):
         try:
             with open(filename, encoding='utf-8') as fd:
                 for line in fd:
-                    # <source> <version> <date>
+                    if line.startswith('#'):
+                        # Ignore comment lines (mostly used for tests)
+                        continue
+                    # <source> <version> <date>)
                     l = line.split()
                     if len(l) != 3:
                         continue
@@ -344,6 +347,9 @@ class AgePolicy(BasePolicy):
 
         with open(filename, errors='surrogateescape', encoding='ascii') as fd:
             for line in fd:
+                if line.startswith('#'):
+                    # Ignore comment lines (mostly used for tests)
+                    continue
                 # <source> <version> <urgency>
                 l = line.split()
                 if len(l) != 3:
