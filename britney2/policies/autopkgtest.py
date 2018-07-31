@@ -235,10 +235,12 @@ class AutopkgtestPolicy(BasePolicy):
         binaries_info = self.suite_info[suite].sources[source_name]
         if not binaries_info.binaries:
             self.logger.info('%s hasn''t been built anywhere, skipping autopkgtest policy', excuse.name)
+            excuse.addhtml("nothing built yet, autopkgtest delayed")
             verdict = PolicyVerdict.REJECTED_TEMPORARILY
 
         if 'all' in excuse.missing_builds:
             self.logger.info('%s hasn''t been built for arch:all, skipping autopkgtest policy', source_name)
+            excuse.addhtml("arch:all not built yet, autopkgtest delayed")
             verdict = PolicyVerdict.REJECTED_TEMPORARILY
 
         if verdict == PolicyVerdict.PASS:
@@ -254,9 +256,11 @@ class AutopkgtestPolicy(BasePolicy):
                 if arch in excuse.missing_builds:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
                     self.logger.info('%s hasn''t been built on arch %s, delay autopkgtest there', source_name, arch)
+                    excuse.addhtml("arch:%s not built yet, autopkgtest delayed there" % arch)
                 elif arch in excuse.unsatisfiable_on_archs:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
                     self.logger.info('%s is uninstallable on arch %s, delay autopkgtest there', source_name, arch)
+                    excuse.addhtml("uninstallable on arch %s, autopkgtest delayed there" % arch)
                 else:
                     # request tests (unless they were already requested earlier or have a result)
                     tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
