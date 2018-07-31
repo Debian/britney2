@@ -167,23 +167,24 @@ class AutopkgtestPolicy(BasePolicy):
                     # Blacklisted tests don't get a version
                     if res['version'] is None:
                         res['version'] = 'blacklisted'
-                    (trigger, src, arch, ver, status, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'], str(res['run_id'])])
-                    if trigger is None:
+                    (triggers, src, arch, ver, status, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'], str(res['run_id'])])
+                    if triggers is None:
                         # not requested for this policy, so ignore
                         continue
-                    if status is None:
-                        # still running => pending
-                        arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
-                        if arch not in arch_list:
-                            self.logger.info('Pending autopkgtest %s on %s to verify %s',src, arch, trigger)
-                            arch_list.append(arch)
-                            arch_list.sort()
-                    elif status == 'tmpfail':
-                        # let's see if we still need it
-                        continue
-                    else:
-                        self.logger.info('Results %s %s %s added', src, trigger, status)
-                        self.add_trigger_to_results(trigger, src, ver, arch, stamp, Result[status.upper()])
+                    for trigger in triggers.split():
+                        if status is None:
+                            # still running => pending
+                            arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
+                            if arch not in arch_list:
+                                self.logger.info('Pending autopkgtest %s on %s to verify %s',src, arch, trigger)
+                                arch_list.append(arch)
+                                arch_list.sort()
+                        elif status == 'tmpfail':
+                            # let's see if we still need it
+                            continue
+                        else:
+                            self.logger.info('Results %s %s %s added', src, trigger, status)
+                            self.add_trigger_to_results(trigger, src, ver, arch, stamp, Result[status.upper()])
             else:
                 self.logger.info('%s does not exist, no new data will be processed', debci_file)
 
