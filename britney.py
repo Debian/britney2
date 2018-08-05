@@ -2161,7 +2161,7 @@ class Britney(object):
         # removed binaries.  Otherwise, uninstallable binaries that were
         # removed by the item would still be counted.
 
-        nuninst_after = clone_nuninst(nuninst_now, packages_t, affected_architectures)
+        nuninst_after = clone_nuninst(nuninst_now, packages_s=packages_t, architectures=affected_architectures)
         must_be_installable = self.constraints['keep-installable']
 
         # check the affected packages on all the architectures

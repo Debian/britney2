@@ -537,18 +537,28 @@ def is_nuninst_asgood_generous(constraints, architectures, old, new, break_arche
     return True
 
 
-def clone_nuninst(nuninst, packages_s, architectures):
-    """Selectively deep clone nuninst
+def clone_nuninst(nuninst, *, packages_s=None, architectures=None):
+    """Completely or Selectively deep clone nuninst
 
     Given nuninst table, the package table for a given suite and
     a list of architectures, this function will clone the nuninst
     table.  Only the listed architectures will be deep cloned -
-    the rest will only be shallow cloned.
+    the rest will only be shallow cloned.  When packages_s is given,
+    packages not listed in packages_s will be pruned from the clone
+    (if packages_s is omitted, the per architecture nuninst is cloned
+    as-is)
     """
     clone = nuninst.copy()
-    for arch in architectures:
-        clone[arch] = set(x for x in nuninst[arch] if x in packages_s[arch])
-        clone[arch + "+all"] = set(x for x in nuninst[arch + "+all"] if x in packages_s[arch])
+    if architectures is None:
+        return clone
+    if packages_s is not None:
+        for arch in architectures:
+            clone[arch] = set(x for x in nuninst[arch] if x in packages_s[arch])
+            clone[arch + "+all"] = set(x for x in nuninst[arch + "+all"] if x in packages_s[arch])
+    else:
+        for arch in architectures:
+            clone[arch] = set(nuninst[arch])
+            clone[arch + "+all"] = set(nuninst[arch + "+all"])
     return clone
 
 
