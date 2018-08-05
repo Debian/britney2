@@ -35,6 +35,10 @@ class BasePolicy(object):
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
 
+    @property
+    def state_dir(self):
+        return self.options.state_dir
+
     def register_hints(self, hint_parser):  # pragma: no cover
         """Register new hints that this policy accepts
 
@@ -299,7 +303,7 @@ class AgePolicy(BasePolicy):
         fallback_filename = os.path.join(self.suite_info.target_suite.path, 'Dates')
         using_new_name = False
         try:
-            filename = os.path.join(self.options.state_dir, 'age-policy-dates')
+            filename = os.path.join(self.state_dir, 'age-policy-dates')
             if not os.path.exists(filename) and os.path.exists(fallback_filename):
                 filename = fallback_filename
             else:
@@ -337,7 +341,7 @@ class AgePolicy(BasePolicy):
         min_days_default = self._min_days_default
         fallback_filename = os.path.join(self.suite_info.target_suite.path, 'Urgency')
         try:
-            filename = os.path.join(self.options.state_dir, 'age-policy-urgencies')
+            filename = os.path.join(self.state_dir, 'age-policy-urgencies')
             if not os.path.exists(filename) and os.path.exists(fallback_filename):
                 filename = fallback_filename
         except AttributeError:
@@ -381,7 +385,7 @@ class AgePolicy(BasePolicy):
     def _write_dates_file(self):
         dates = self._dates
         try:
-            directory = self.options.state_dir
+            directory = self.state_dir
             basename = 'age-policy-dates'
             old_file = os.path.join(self.suite_info.target_suite.path, 'Dates')
         except AttributeError:
@@ -433,8 +437,8 @@ class RCBugPolicy(BasePolicy):
         fallback_unstable = os.path.join(source_suite.path, 'BugsV')
         fallback_testing = os.path.join(target_suite.path, 'BugsV')
         try:
-            filename_unstable = os.path.join(self.options.state_dir, 'rc-bugs-%s' % source_suite.name)
-            filename_testing = os.path.join(self.options.state_dir, 'rc-bugs-%s' % target_suite.name)
+            filename_unstable = os.path.join(self.state_dir, 'rc-bugs-%s' % source_suite.name)
+            filename_testing = os.path.join(self.state_dir, 'rc-bugs-%s' % target_suite.name)
             if not os.path.exists(filename_unstable) and not os.path.exists(filename_testing) and \
                os.path.exists(fallback_unstable) and os.path.exists(fallback_testing):
                 filename_unstable = fallback_unstable
@@ -560,8 +564,8 @@ class PiupartsPolicy(BasePolicy):
         source_suite = self.suite_info.primary_source_suite
         target_suite = self.suite_info.target_suite
         try:
-            filename_unstable = os.path.join(self.options.state_dir, 'piuparts-summary-%s.json' % source_suite.name)
-            filename_testing = os.path.join(self.options.state_dir, 'piuparts-summary-%s.json' % target_suite.name)
+            filename_unstable = os.path.join(self.state_dir, 'piuparts-summary-%s.json' % source_suite.name)
+            filename_testing = os.path.join(self.state_dir, 'piuparts-summary-%s.json' % target_suite.name)
         except AttributeError as e:  # pragma: no cover
             raise RuntimeError("Please set STATE_DIR in the britney configuration") from e
         self._piuparts['source'] = self._read_piuparts_summary(filename_unstable, keep_url=True)
