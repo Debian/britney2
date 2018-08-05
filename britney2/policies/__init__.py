@@ -43,6 +43,7 @@ class PolicyVerdict(Enum):
     def is_rejected(self):
         return True if self.name.startswith('REJECTED') else False
 
+    @property
     def is_blocked(self):
         """Whether the item (probably) needs a fix or manual assistance to migrate"""
         return self in {
