@@ -357,6 +357,7 @@ class Britney(object):
             self.logger.info("Building the list of non-installable packages for the full archive")
             self._inst_tester.compute_testing_installability()
             nuninst = self.get_nuninst(build=True)
+            self.nuninst_orig = nuninst
             for arch in self.options.architectures:
                 self.logger.info("> Found %d non-installable packages", len(nuninst[arch]))
                 if self.options.print_uninst:
@@ -376,6 +377,12 @@ class Britney(object):
                 self.logger.info(">  %s", arch)
                 for stat in arch_stat.stat_summary():
                     self.logger.info(">  - %s", stat)
+        else:
+            self.logger.info("Loading uninstallability counters from cache")
+            self.nuninst_orig = self.get_nuninst()
+
+        # nuninst_orig may get updated during the upgrade process
+        self.nuninst_orig_save = clone_nuninst(self.nuninst_orig, architectures=self.options.architectures)
 
         for policy in self.policies:
             policy.hints = self.hints
@@ -2449,11 +2456,6 @@ class Britney(object):
         output_logger.info("Generated on: %s", time.strftime("%Y.%m.%d %H:%M:%S %z", time.gmtime(time.time())))
         output_logger.info("Arch order is: %s", ", ".join(self.options.architectures))
 
-        self.logger.info("> Calculating current uninstallability counters")
-        self.nuninst_orig = self.get_nuninst()
-        # nuninst_orig may get updated during the upgrade process
-        self.nuninst_orig_save = self.get_nuninst()
-
         if not self.options.actions:
             # process `easy' hints
             for x in self.hints['easy']:
@@ -2584,10 +2586,6 @@ class Britney(object):
         This method provides a command line interface for the release team to
         try hints and evaluate the results.
         """
-        self.logger.info("> Calculating current uninstallability counters")
-        self.nuninst_orig = self.get_nuninst()
-        self.nuninst_orig_save = self.get_nuninst()
-
         import readline
         from britney2.completer import Completer
 
