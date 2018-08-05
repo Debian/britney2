@@ -179,14 +179,17 @@ class AgePolicy(BasePolicy):
     def __init__(self, options, suite_info, mindays):
         super().__init__('age', options, suite_info, {SuiteClass.PRIMARY_SOURCE_SUITE})
         self._min_days = mindays
-        if options.default_urgency not in mindays:  # pragma: no cover
-            raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % options.default_urgency)
-        self._min_days_default = mindays[options.default_urgency]
+        self._min_days_default = None  # initialised later
         # britney's "day" begins at 7pm (we want aging to occur in the 22:00Z run and we run Britney 2-4 times a day)
         # NB: _date_now is used in tests
         self._date_now = int(((time.time() / (60*60)) - 19) / 24)
         self._dates = {}
         self._urgencies = {}
+        self._default_urgency = self.options.default_urgency
+        self._penalty_immune_urgencies = frozenset()
+        if hasattr(self.options, 'no_penalties'):
+            self._penalty_immune_urgencies = frozenset(x.strip() for x in self.options.no_penalties.split())
+        self._bounty_min_age = None  # initialised later
 
     def register_hints(self, hint_parser):
         hint_parser.register_hint_type('age-days', simple_policy_hint_parser_function(AgeDayHint, int), min_args=2)
@@ -196,6 +199,19 @@ class AgePolicy(BasePolicy):
         super().initialise(britney)
         self._read_dates_file()
         self._read_urgencies_file()
+        if self._default_urgency not in self._min_days:  # pragma: no cover
+            raise ValueError("Missing age-requirement for default urgency (MINDAYS_%s)" % self._default_urgency)
+        self._min_days_default = self._min_days[self._default_urgency]
+        try:
+            self._bounty_min_age = int(self.options.bounty_min_age)
+        except ValueError:
+            if self.options.bounty_min_age in self._min_days:
+                self._bounty_min_age = self._min_days[self.options.bounty_min_age]
+            else:  # pragma: no cover
+                raise ValueError('Please fix BOUNTY_MIN_AGE in the britney configuration')
+        except AttributeError:
+            # The option wasn't defined in the configuration
+            self._bounty_min_age = 0
 
     def save_state(self, britney):
         super().save_state(britney)
@@ -204,19 +220,19 @@ class AgePolicy(BasePolicy):
     def apply_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         # retrieve the urgency for the upload, ignoring it if this is a NEW package
         # (not present in the target suite)
-        urgency = self._urgencies.get(source_name, self.options.default_urgency)
+        urgency = self._urgencies.get(source_name, self._default_urgency)
 
         if urgency not in self._min_days:
             age_info['unknown-urgency'] = urgency
-            urgency = self.options.default_urgency
+            urgency = self._default_urgency
 
         if not source_data_tdist:
             if self._min_days[urgency] < self._min_days_default:
                 age_info['urgency-reduced'] = {
                     'from': urgency,
-                    'to': self.options.default_urgency,
+                    'to': self._default_urgency,
                 }
-                urgency = self.options.default_urgency
+                urgency = self._default_urgency
 
         if source_name not in self._dates:
             self._dates[source_name] = (source_data_srcdist.version, self._date_now)
@@ -231,27 +247,17 @@ class AgePolicy(BasePolicy):
             excuse.addhtml('Required age reduced by %d days because of %s' %
                          (excuse.bounty[bounty], bounty))
             min_days -= excuse.bounty[bounty]
-        if not hasattr(self.options, 'no_penalties') or \
-          urgency not in self.options.no_penalties:
+        if urgency not in self._penalty_immune_urgencies:
             for penalty in excuse.penalty:
                 self.logger.info('Applying penalty for %s given by %s: %d days',
                                  source_name, penalty, excuse.penalty[penalty])
                 excuse.addhtml('Required age increased by %d days because of %s' %
                          (excuse.penalty[penalty], penalty))
                 min_days += excuse.penalty[penalty]
-        try:
-            bounty_min_age = int(self.options.bounty_min_age)
-        except ValueError:
-            if self.options.bounty_min_age in self._min_days:
-                bounty_min_age = self._min_days[self.options.bounty_min_age]
-            else:
-                raise ValueError('Please fix BOUNTY_MIN_AGE in the britney configuration')
-        except AttributeError:
-            # The option wasn't defined in the configuration
-            bounty_min_age = 0
+
         # the age in BOUNTY_MIN_AGE can be higher than the one associated with
         # the real urgency, so don't forget to take it into account
-        bounty_min_age =  min(bounty_min_age, self._min_days[urgency])
+        bounty_min_age =  min(self._bounty_min_age, self._min_days[urgency])
         if min_days < bounty_min_age:
             min_days = bounty_min_age
             excuse.addhtml('Required age is not allowed to drop below %d days' % min_days)
