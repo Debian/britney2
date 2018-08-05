@@ -312,7 +312,8 @@ class Britney(object):
         if self.options.nuninst_cache:
             self.logger.info("Not building the list of non-installable packages, as requested")
             if self.options.print_uninst:
-                nuninst = self.get_nuninst(build=False)
+                nuninst = read_nuninst(self.options.noninst_status,
+                                       self.options.architectures)
                 print('* summary')
                 print('\n'.join('%4d %s' % (len(nuninst[x]), x) for x in self.options.architectures))
                 return
@@ -356,7 +357,10 @@ class Britney(object):
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
             self._inst_tester.compute_testing_installability()
-            nuninst = self.get_nuninst(build=True)
+            nuninst = compile_nuninst(self.suite_info.target_suite.binaries,
+                                      self._inst_tester,
+                                      self.options.architectures,
+                                      self.options.nobreakall_arches)
             self.nuninst_orig = nuninst
             for arch in self.options.architectures:
                 self.logger.info("> Found %d non-installable packages", len(nuninst[arch]))
@@ -379,7 +383,8 @@ class Britney(object):
                     self.logger.info(">  - %s", stat)
         else:
             self.logger.info("Loading uninstallability counters from cache")
-            self.nuninst_orig = self.get_nuninst()
+            self.nuninst_orig = read_nuninst(self.options.noninst_status,
+                                             self.options.architectures)
 
         # nuninst_orig may get updated during the upgrade process
         self.nuninst_orig_save = clone_nuninst(self.nuninst_orig, architectures=self.options.architectures)
@@ -1735,28 +1740,6 @@ class Britney(object):
     # Upgrade run
     # -----------
 
-    def get_nuninst(self, build=False):
-        """Return the uninstallability statistic for all the architectures
-
-        To calculate the uninstallability counters, the method checks the
-        installability of all the packages for all the architectures, and
-        tracks dependencies in a recursive way. The architecture
-        independent packages are checked only for the `nobreakall`
-        architectures.
-
-        It returns a dictionary with the architectures as keys and the list
-        of uninstallable packages as values.
-        """
-        # if we are not asked to build the nuninst, read it from the cache
-        if not build:
-            return read_nuninst(self.options.noninst_status,
-                                self.options.architectures)
-
-        return compile_nuninst(self.suite_info.target_suite.binaries,
-                               self._inst_tester,
-                               self.options.architectures,
-                               self.options.nobreakall_arches)
-
     def eval_nuninst(self, nuninst, original=None):
         """Return a string which represents the uninstallability counters
 
@@ -2416,7 +2399,10 @@ class Britney(object):
 
         cached_nuninst = self.nuninst_orig
         self._inst_tester.compute_testing_installability()
-        computed_nuninst = self.get_nuninst(build=True)
+        computed_nuninst = compile_nuninst(self.suite_info.target_suite.binaries,
+                                           self._inst_tester,
+                                           self.options.architectures,
+                                           self.options.nobreakall_arches)
         if cached_nuninst != computed_nuninst:  # pragma: no cover
             only_on_break_archs = True
             self.logger.error("==================== NUNINST OUT OF SYNC =========================")
