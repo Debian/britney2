@@ -263,6 +263,8 @@ class Excuse(object):
     def excusedata(self):
         """Render the excuse in as key-value data"""
         source = self.name
+        if '_' in source:
+            source = source.split("_")[0]
         if '/' in source:
             source = source.split("/")[0]
         if source[0] == '-':
