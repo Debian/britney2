@@ -666,7 +666,11 @@ class AutopkgtestPolicy(BasePolicy):
         # If a test runs because of its own package (newer version), ensure
         # that we got a new enough version; FIXME: this should be done more
         # generically by matching against testpkg-versions
-        (trigsrc, trigver) = trigger.split('/', 1)
+        try:
+            (trigsrc, trigver) = trigger.split('/', 1)
+        except ValueError:
+            self.logger.error('Ignoring invalid test trigger %s', trigger)
+            return
         if trigsrc == src and apt_pkg.version_compare(ver, trigver) < 0:
             self.logger.error('test trigger %s, but run for older version %s, ignoring', trigger, ver)
             return
