@@ -1632,11 +1632,11 @@ class Britney(object):
                 if pkg in sources_t:
                     for arch in architectures:
                         if should_upgrade_srcarch(pkg, arch, suite.name):
-                            upgrade_me_add("%s/%s_%s" % (pkg, arch, suite.name))
+                            upgrade_me_add("%s/%s_%s" % (pkg, arch, suite.excuses_suffix))
 
                 # check if the source package should be upgraded
                 if should_upgrade_src(pkg, suite.name):
-                    upgrade_me_add("%s_%s" % (pkg, suite.name))
+                    upgrade_me_add("%s_%s" % (pkg, suite.excuses_suffix))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
         for hint in self.hints['remove']:
