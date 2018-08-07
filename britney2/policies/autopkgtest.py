@@ -77,6 +77,7 @@ class AutopkgtestPolicy(BasePolicy):
         # trigger -> src -> [arch]
         self.pending_tests = None
         self.pending_tests_file = os.path.join(self.state_dir, 'autopkgtest-pending.json')
+        self.testsuite_triggers = {}
 
         # results map: trigger -> src -> arch -> [passed, version, run_id]
         # - trigger is "source/version" of an unstable package that triggered
@@ -116,6 +117,13 @@ class AutopkgtestPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
+        # compute inverse Testsuite-Triggers: map, unifying all series
+        self.logger.info('Building inverse testsuite_triggers map')
+        for suite in self.suite_info:
+            for src, data in suite.sources.items():
+                for trigger in data.testsuite_triggers:
+                    self.testsuite_triggers.setdefault(trigger, set()).add(src)
+
         os.makedirs(self.state_dir, exist_ok=True)
         self.read_pending_tests()
 
@@ -468,7 +476,7 @@ class AutopkgtestPolicy(BasePolicy):
                         tests.append((rdep_src, rdep_src_info.version))
                         reported_pkgs.add(rdep_src)
 
-            for tdep_src in self.britney.testsuite_triggers.get(binary.package_name, set()):
+            for tdep_src in self.testsuite_triggers.get(binary.package_name, set()):
                 if tdep_src not in reported_pkgs:
                     try:
                         tdep_src_info = sources_info[tdep_src]

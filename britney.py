@@ -325,14 +325,6 @@ class Britney(object):
             suite.sources = sources
             suite.binaries = self.read_binaries(suite, self.options.architectures)
 
-        # compute inverse Testsuite-Triggers: map, unifying all series
-        self.logger.info('Building inverse testsuite_triggers map')
-        self.testsuite_triggers = {}
-        for suite in self.suite_info:
-            for src, data in suite.sources.items():
-                for trigger in data.testsuite_triggers:
-                    self.testsuite_triggers.setdefault(trigger, set()).add(src)
-
         try:
             constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
             faux_packages = os.path.join(self.options.static_input_dir, 'faux-packages')
