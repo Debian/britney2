@@ -741,12 +741,16 @@ def read_sources_file(filename, sources=None, intern=sys.intern):
             build_deps_arch = sys.intern(build_deps_arch)
         else:
             build_deps_arch = None
+        build_deps_indep = get_field('Build-Depends-Indep')
+        if build_deps_indep is not None:
+            build_deps_indep = sys.intern(build_deps_indep)
         sources[intern(pkg)] = SourcePackage(intern(ver),
                                              section,
                                              [],
                                              maint,
                                              False,
                                              build_deps_arch,
+                                             build_deps_indep,
                                              get_field('Testsuite', '').split(),
                                              get_field('Testsuite-Triggers', '').replace(',', '').split(),
                                              )

@@ -598,14 +598,15 @@ class Britney(object):
             if component != 'main':
                 faux_section = "%s/faux" % component
             src_data = SourcePackage(version,
-                        sys.intern(faux_section),
-                        [],
-                        None,
-                        True,
-                        None,
-                        [],
-                        [],
-                        )
+                                     sys.intern(faux_section),
+                                     [],
+                                     None,
+                                     True,
+                                     None,
+                                     None,
+                                     [],
+                                     [],
+                                     )
 
             target_suite.sources[pkg_name] = src_data
             pri_source_suite.sources[pkg_name] = src_data
@@ -677,14 +678,15 @@ class Britney(object):
 
             pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '' and not x.strip().startswith("#")]
             src_data = SourcePackage(faux_version,
-                        faux_section,
-                        [],
-                        None,
-                        True,
-                        None,
-                        [],
-                        [],
-                        )
+                                     faux_section,
+                                     [],
+                                     None,
+                                     True,
+                                     None,
+                                     None,
+                                     [],
+                                     [],
+                                     )
             target_suite.sources[pkg_name] = src_data
             pri_source_suite.sources[pkg_name] = src_data
             keep_installable.append(pkg_name)
@@ -885,7 +887,7 @@ class Britney(object):
                     srcdist[source].binaries.append(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None, [], [])
+                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None, None, [], [])
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg
