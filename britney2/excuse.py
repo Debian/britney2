@@ -308,10 +308,8 @@ class Excuse(object):
                 dep_data['unsatisfiable-dependencies'] = {x: sorted(self.unsat_deps[x]) for x in self.unsat_deps}
         if self.needs_approval:
             status = 'not-approved'
-            for h in self.hints:
-                if h.type == 'unblock':
-                    status = 'approved'
-                    break
+            if any(h.type == 'unblock' for h in self.hints):
+                status = 'approved'
             excusedata['manual-approval-status'] = status
         if self.hints:
             hint_info = [{
