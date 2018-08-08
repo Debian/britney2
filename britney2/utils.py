@@ -834,11 +834,14 @@ def invalidate_excuses(excuses, valid, invalid):
     # build the reverse dependencies
     revdeps = defaultdict(list)
     revbuilddeps = defaultdict(list)
+    revindepbuilddeps = defaultdict(list)
     for exc in excuses.values():
         for d in exc.deps:
             revdeps[d].append(exc.name)
         for d in exc.arch_build_deps:
             revbuilddeps[d].append(exc.name)
+        for d in exc.indep_build_deps:
+            revindepbuilddeps[d].append(exc.name)
 
     # loop on the invalid excuses
     for ename in iter_except(invalid.pop, KeyError):
@@ -880,6 +883,20 @@ def invalidate_excuses(excuses, valid, invalid):
                     valid.discard(x)
                     invalid.add(x)
                     excuses[x].addhtml("Invalidated by build-dependency")
+                    if excuses[x].policy_verdict.value < rdep_verdict.value:
+                        excuses[x].policy_verdict = rdep_verdict
+
+        if ename in revindepbuilddeps:
+            for x in revindepbuilddeps[ename]:
+                # if the item is valid and it is not marked as `forced', then we invalidate it
+                if x in valid and not excuses[x].forced:
+
+                    # otherwise, invalidate the dependency and mark as invalidated and
+                    # remove the depending excuses
+                    excuses[x].invalidate_build_dep(ename)
+                    valid.discard(x)
+                    invalid.add(x)
+                    excuses[x].addhtml("Invalidated by build-dependency (indep)")
                     if excuses[x].policy_verdict.value < rdep_verdict.value:
                         excuses[x].policy_verdict = rdep_verdict
 

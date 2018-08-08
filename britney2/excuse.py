@@ -78,6 +78,7 @@ class Excuse(object):
         self.invalid_build_deps = set()
         self.deps = {}
         self.arch_build_deps = {}
+        self.indep_build_deps = {}
         self.sane_deps = []
         self.break_deps = []
         self.unsatisfiable_on_archs = []
@@ -151,6 +152,11 @@ class Excuse(object):
         if name not in self.arch_build_deps:
             self.arch_build_deps[name] = []
         self.arch_build_deps[name].append(arch)
+
+    def add_indep_build_dep(self, name, arch):
+        if name not in self.indep_build_deps:
+            self.indep_build_deps[name] = []
+        self.indep_build_deps[name].append(arch)
 
     def add_unsatisfiable_dep(self, signature, arch):
         """Add an unsatisfiable dependency"""
@@ -245,6 +251,16 @@ class Excuse(object):
             else:
                 res = res + "<li>Build-Depends(-Arch): %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
 
+        for x in sorted(self.indep_build_deps, key=lambda x: x.split('/')[0]):
+            dep = x.split('/')[0]
+            if dep == lastdep:
+                continue
+            lastdep = dep
+            if x in self.invalid_build_deps:
+                res = res + "<li>Build-Depends-Indep: %s <a href=\"#%s\">%s</a> (not ready)\n" % (self.name, dep, dep)
+            else:
+                res = res + "<li>Build-Depends-Indep: %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
+
         res = res + "</ul>\n"
         return res
 
@@ -292,10 +308,11 @@ class Excuse(object):
                 'on-architectures': sorted(self.missing_builds),
                 'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
             }
-        if self.deps or self.invalid_deps or self.arch_build_deps or self.invalid_build_deps or self.break_deps or self.unsat_deps:
+        if self.deps or self.invalid_deps or self.arch_build_deps or self.indep_build_deps \
+                or self.invalid_build_deps or self.break_deps or self.unsat_deps:
             excusedata['dependencies'] = dep_data = {}
-            migrate_after = sorted((self.deps.keys() - self.invalid_deps)
-                                   | (self.arch_build_deps.keys() - self.invalid_build_deps))
+            migrate_after_bd = (self.arch_build_deps.keys() | self.indep_build_deps.keys()) - self.invalid_build_deps
+            migrate_after = sorted((self.deps.keys() - self.invalid_deps) | migrate_after_bd)
             break_deps = [x for x, _ in self.break_deps if x not in self.deps]
 
             if self.invalid_deps or self.invalid_build_deps:
