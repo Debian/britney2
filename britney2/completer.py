@@ -35,28 +35,29 @@ class Completer(object):
                      'block', 'block-udeb', 'unblock', 'unblock-udeb',
                      'approve', 'exit', 'quit']
         self.britney = britney
+        suite_info = britney.suite_info
         # generate a completion list from excuses.
         # - it might contain too many items, but meh
         complete = []
         tpu = []
         for e in britney.excuses.values():
             pkg = e.name
-            suite = 'unstable'
+            suite = suite_info.primary_source_suite.name
             if pkg[0] == '-':
-                suite = 'testing'
+                suite = suite_info.target_suite.name
                 pkg = pkg[1:]
             if "_" in pkg:
                 (pkg, suite) = pkg.split("_")
             if "/" in pkg:
                 pkg = pkg.split("/")[0]
-            name = "%s/%s" % (e.name, britney.sources[suite][pkg].version)
+            name = "%s/%s" % (e.name, suite_info[suite].sources[pkg].version)
             complete.append(name)
-            if suite == 'tpu':
+            if suite_info[suite].suite_class.is_additional_source:
                 tpu.append(name)
         self.packages = sorted(complete)
         self.tpu_packages = sorted(tpu)
-        testing = britney.sources['testing']
-        self.testing_packages = sorted("%s/%s" % (pkg, testing[pkg].version) for pkg in testing)
+        target_suite = suite_info.target_suite.sources
+        self.testing_packages = sorted("%s/%s" % (pkg, target_suite[pkg].version) for pkg in target_suite)
         
     def completer(self, text, state):
         """readline completer (see the readline API)"""
