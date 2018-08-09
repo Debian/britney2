@@ -2170,8 +2170,9 @@ class Britney(object):
         #   (e.g. "force-hint" or "hint")
         if automatic_revert:
             affected_all -= affected_direct
+            affected_first_round = affected_direct
         else:
-            affected_direct = set()
+            affected_first_round = set()
 
         # Copy nuninst_comp - we have to deep clone affected
         # architectures.
@@ -2187,7 +2188,7 @@ class Britney(object):
         for arch in affected_architectures:
             check_archall = arch in nobreakall_arches
 
-            check_installability(self._inst_tester, packages_t, arch, affected_direct, affected_all,
+            check_installability(self._inst_tester, packages_t, arch, affected_first_round, affected_all,
                                  check_archall, nuninst_after)
 
             # if the uninstallability counter is worse than before, break the loop
@@ -2210,7 +2211,7 @@ class Britney(object):
             undo_copy = list(reversed(undo_list))
             undo_changes(undo_copy, self._inst_tester, self.suite_info, self.all_binaries)
 
-        return (is_accepted, nuninst_after, undo_list, arch)
+        return (is_accepted, nuninst_after, undo_list, arch, affected_direct)
 
     def iter_packages(self, packages, selected, nuninst=None, lundo=None):
         """Iter on the list of actions and apply them one-by-one
@@ -2249,7 +2250,9 @@ class Britney(object):
                 comp = worklist.pop()
                 comp_name = ' '.join(item.uvname for item in comp)
                 output_logger.info("trying: %s" % comp_name)
-                accepted, nuninst_after, comp_undo, failed_arch = self.try_migration(comp, nuninst_last_accepted, lundo)
+                accepted, nuninst_after, comp_undo, failed_arch, affected_direct = self.try_migration(comp,
+                                                                                                      nuninst_last_accepted,
+                                                                                                      lundo)
                 if accepted:
                     selected.extend(comp)
                     if lundo is not None:
@@ -2268,8 +2271,18 @@ class Britney(object):
                     rescheduled_packages.extend(maybe_rescheduled_packages)
                     maybe_rescheduled_packages.clear()
                 else:
-                    broken = sorted(b for b in nuninst_after[failed_arch]
-                                    if b not in nuninst_last_accepted[failed_arch])
+                    newly_broken = set(b for b in nuninst_after[failed_arch]
+                                       if b not in nuninst_last_accepted[failed_arch])
+                    directly_broken = newly_broken.intersection(p.package_name for p in affected_direct)
+                    post_text = ''
+                    if directly_broken:
+                        broken = sorted(directly_broken)
+                        no_indirect_broken = len(newly_broken) - len(directly_broken)
+                        if no_indirect_broken:
+                            post_text = ', and %d indirectly broken' % no_indirect_broken
+                    else:
+                        broken = sorted(newly_broken)
+
                     compare_nuninst = None
                     if any(item for item in comp if item.architecture != 'source'):
                         compare_nuninst = nuninst_last_accepted
@@ -2281,7 +2294,7 @@ class Britney(object):
                                        len(worklist)
                                        )
                     output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
-                    output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
+                    output_logger.info("    * %s: %s%s", failed_arch, ", ".join(broken), post_text)
 
                     if len(comp) > 1:
                         output_logger.info("    - splitting the component into single items and retrying them")
@@ -2343,10 +2356,10 @@ class Britney(object):
 
         if init:
             # init => a hint (e.g. "easy") - so do the hint run
-            (_, nuninst_end, undo_list, _) = self.try_migration(selected,
-                                                                self.nuninst_orig,
-                                                                lundo=lundo,
-                                                                automatic_revert=False)
+            (_, nuninst_end, undo_list, _, _) = self.try_migration(selected,
+                                                                   self.nuninst_orig,
+                                                                   lundo=lundo,
+                                                                   automatic_revert=False)
 
             if lundo is not None:
                 lundo.extend(undo_list)
