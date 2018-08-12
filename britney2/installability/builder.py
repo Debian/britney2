@@ -37,13 +37,8 @@ def build_installability_tester(suite_info, archs):
                                       in_testing=is_target):
                 continue
 
-            depends = []
-            conflicts = []
-            possible_dep_ranges = {}
-
-            # We do not differentiate between depends and pre-depends
-
             if pkgdata.conflicts:
+                conflicts = []
                 conflicts_parsed = apt_pkg.parse_depends(pkgdata.conflicts, False)
                 # Breaks/Conflicts are so simple that we do not need to keep align the relation
                 # with the suite.  This enables us to do a few optimizations.
@@ -52,8 +47,12 @@ def build_installability_tester(suite_info, archs):
                         # if a package satisfies its own conflicts relation, then it is using §7.6.2
                         conflicts.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
                                          if s.pkg_id != pkg_id)
+            else:
+                conflicts = None
 
             if pkgdata.depends:
+                depends = []
+                possible_dep_ranges = {}
                 for block in apt_pkg.parse_depends(pkgdata.depends, False):
                     sat = {s.pkg_id for binaries_s_a, provides_s_a in bin_prov
                            for s in solvers(block, binaries_s_a, provides_s_a)}
@@ -88,6 +87,8 @@ def build_installability_tester(suite_info, archs):
 
                 if possible_dep_ranges:
                     depends.extend(possible_dep_ranges.values())
+            else:
+                depends = None
 
             builder.set_relations(pkg_id, depends, conflicts)
 
