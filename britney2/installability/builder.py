@@ -28,11 +28,12 @@ def build_installability_tester(suite_info, archs):
 
     for (suite, arch) in product(suite_info, archs):
         packages_s_a = suite.binaries[arch][0]
+        is_target = suite.suite_class.is_target
         for pkgdata in packages_s_a.values():
             pkg_id = pkgdata.pkg_id
             if not builder.add_binary(pkg_id,
                                       essential=pkgdata.is_essential,
-                                      in_testing=suite.suite_class.is_target):
+                                      in_testing=is_target):
                 continue
 
             depends = []
