@@ -28,8 +28,7 @@ def build_installability_tester(suite_info, archs):
 
     for (suite, arch) in product(suite_info, archs):
         packages_s_a = suite.binaries[arch][0]
-        for pkgname in packages_s_a:
-            pkgdata = packages_s_a[pkgname]
+        for pkgdata in packages_s_a.values():
             pkg_id = pkgdata.pkg_id
             if not builder.add_binary(pkg_id,
                                       essential=pkgdata.is_essential,
