@@ -63,6 +63,7 @@ def build_installability_tester(suite_info, archs):
                     if rels:
                         relations.add_breaks(rels)
 
+                dep_relations = []
                 for block in depends:
                     sat = set()
 
@@ -71,7 +72,7 @@ def build_installability_tester(suite_info, archs):
                         sat.update(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a))
 
                     if len(block) != 1:
-                        relations.add_dependency_clause(sat)
+                        dep_relations.append(sat)
                     else:
                         # This dependency might be a part
                         # of a version-range a la:
@@ -98,8 +99,10 @@ def build_installability_tester(suite_info, archs):
                         else:
                             possible_dep_ranges[key] = sat
 
-                for clause in possible_dep_ranges.values():
-                    relations.add_dependency_clause(clause)
+                if possible_dep_ranges:
+                    dep_relations.extend(possible_dep_ranges.values())
+
+                relations.add_dependency_clauses(dep_relations)
 
     return builder.build()
 
@@ -114,12 +117,11 @@ class _RelationBuilder(object):
         self._new_deps = set(binary_data[0])
         self._new_breaks = set(binary_data[1])
 
+    def add_dependency_clauses(self, or_clauses):
+        """Add a dependency clauses
 
-    def add_dependency_clause(self, or_clause):
-        """Add a dependency clause
-
-        The clause must be a sequence of (name, version, architecture)
-        tuples.  The clause is an OR clause, i.e. any tuple in the
+        Each clause must be a sequence BinaryPackageIDs.  The clause
+        is an OR clause, i.e. any BinaryPackageID in the
         sequence can satisfy the relation.  It is irrelevant if the
         dependency is from the "Depends" or the "Pre-Depends" field.
 
@@ -132,16 +134,18 @@ class _RelationBuilder(object):
         called.
         """
         itbuilder = self._itbuilder
-        clause = itbuilder._intern_set(or_clause)
         binary = self._binary
-        okay = False
-        for dep_tuple in clause:
-            okay = True
-            rdeps, _, rdep_relations = itbuilder._reverse_relations(dep_tuple)
-            rdeps.add(binary)
-            rdep_relations.add(clause)
+        interned_or_clauses = [itbuilder._intern_set(c) for c in or_clauses]
+        okay = True
+        for or_clause in interned_or_clauses:
+            if not or_clause:
+                okay = False
+            for dep_tuple in or_clause:
+                rdeps, _, rdep_relations = itbuilder._reverse_relations(dep_tuple)
+                rdeps.add(binary)
+                rdep_relations.add(or_clause)
 
-        self._new_deps.add(clause)
+        self._new_deps.update(interned_or_clauses)
         if not okay:
             itbuilder._broken.add(binary)
 

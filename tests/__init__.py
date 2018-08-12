@@ -132,8 +132,7 @@ class UniverseBuilder(object):
                                in_testing=pkg_builder._in_testing,
                                )
             with builder.relation_builder(pkg_id) as rel:
-                for or_clause in pkg_builder._dependencies:
-                    rel.add_dependency_clause(or_clause)
+                rel.add_dependency_clauses(pkg_builder._dependencies)
                 rel.add_breaks(pkg_builder._conflicts)
         return builder.build()
 
