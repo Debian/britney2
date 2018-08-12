@@ -23,7 +23,7 @@ from britney2.utils import iter_except
 class InstallabilityTester(object):
 
     def __init__(self, universe, revuniverse, testing, broken, essentials,
-                 safe_set, eqv_table):
+                 eqv_table):
         """Create a new installability tester
 
         universe is a dict mapping package ids to their
@@ -40,10 +40,6 @@ class InstallabilityTester(object):
 
         essentials is a set of packages with "Essential: yes".
 
-        safe_set is a set of all packages which have no conflicts and
-        either have no dependencies or only depends on other "safe"
-        packages.
-
         Package id: (pkg_name, pkg_version, pkg_arch)
           - NB: arch:all packages are "re-mapped" to given architecture.
             (simplifies caches and dependency checking)
@@ -54,7 +50,6 @@ class InstallabilityTester(object):
         self._broken = broken
         self._essentials = essentials
         self._revuniverse = revuniverse
-        self._safe_set = safe_set
         self._eqv_table = eqv_table
         self._stats = InstallabilityStats()
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
@@ -258,14 +253,10 @@ class InstallabilityTester(object):
 
     def _check_inst(self, t, musts=None, never=None, choices=None):
         # See the explanation of musts, never and choices below.
-
-        cache_inst = self._cache_inst
         stats = self._stats
-
         universe = self._universe
         testing = self._testing
         cbroken = self._cache_broken
-        safe_set = self._safe_set
         eqv_table = self._eqv_table
 
         # Our installability verdict - start with "yes" and change if
@@ -352,23 +343,6 @@ class InstallabilityTester(object):
                 # have changed since the choice was discovered and it
                 # is smaller than testing (so presumably faster)
                 remain = choice - never - cbroken
-
-                if len(remain) > 1 and not remain.isdisjoint(safe_set):
-                    first = None
-                    for r in filter(safe_set.__contains__, remain):
-                        # don't bother giving extra arguments to _check_inst.  "safe" packages are
-                        # usually trivial to satisfy on their own and will not involve conflicts
-                        # (so never will not help)
-                        if r in cache_inst or self._check_inst(r):
-                            first = r
-                            break
-                    if first:
-                        musts.add(first)
-                        check.add(first)
-                        stats.choice_resolved_using_safe_set += 1
-                        continue
-                    # None of the safe set choices are installable, so drop them
-                    remain -= safe_set
 
                 if len(remain) == 1:
                     # the choice was reduced to one package we haven't checked - check that
@@ -664,7 +638,6 @@ class InstallabilityStats(object):
         self.backtrace_restore_point_used = 0
         self.backtrace_last_option = 0
         self.choice_presolved = 0
-        self.choice_resolved_using_safe_set = 0
         self.choice_resolved_without_restore_point = 0
         self.is_installable_calls = 0
         self.solved_installable = 0
@@ -679,7 +652,7 @@ class InstallabilityStats(object):
         formats = [
             "Requests - is_installable: {is_installable_calls}",
             "Cache - hits: {cache_hits}, misses: {cache_misses}, drops: {cache_drops}",
-            "Choices - pre-solved: {choice_presolved}, safe-set: {choice_resolved_using_safe_set}, No RP: {choice_resolved_without_restore_point}",
+            "Choices - pre-solved: {choice_presolved}, No RP: {choice_resolved_without_restore_point}",
             "Backtrace - RP created: {backtrace_restore_point_created}, RP used: {backtrace_restore_point_used}, reached last option: {backtrace_last_option}",
             "Solved - installable: {solved_installable}, uninstallable: {solved_uninstallable}, conflicts essential: {conflicts_essential}",
             "Eqv - times used: {eqv_table_times_used}, perfect reductions: {eqv_table_reduced_to_one}, failed reductions: {eqv_table_reduced_by_zero}, total no. of alternatives pruned: {eqv_table_total_number_of_alternatives_eliminated}",

@@ -133,7 +133,7 @@ def compute_scc(graph):
 class InstallabilitySolver(InstallabilityTester):
 
     def __init__(self, universe, revuniverse, testing, broken, essentials,
-                 safe_set, eqv_table):
+                 eqv_table):
         """Create a new installability solver
 
         universe is a dict mapping package tuples to their
@@ -153,7 +153,7 @@ class InstallabilitySolver(InstallabilityTester):
             (simplifies caches and dependency checking)
         """
         super().__init__(universe, revuniverse, testing,
-                         broken, essentials, safe_set, eqv_table)
+                         broken, essentials, eqv_table)
 
     def solve_groups(self, groups):
         sat_in_testing = self._testing.isdisjoint

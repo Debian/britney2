@@ -228,20 +228,9 @@ class InstallabilityTesterBuilder(object):
         package_table = self._package_table
         reverse_package_table = self._reverse_package_table
         intern_set = self._intern_set
-        safe_set = set()
         broken = self._broken
         not_broken = ifilter_except(broken)
         check = set(broken)
-
-        def safe_set_satisfies(t):
-            """Check if t's dependencies can be satisfied by the safe set"""
-            if not package_table[t][0]:
-                # If it has no dependencies at all, then it is safe.  :)
-                return True
-            for depgroup in package_table[t][0]:
-                if not any(dep for dep in depgroup if dep in safe_set):
-                    return False
-            return True
 
         # Merge reverse conflicts with conflicts - this saves some
         # operations in _check_loop since we only have to check one
@@ -306,38 +295,13 @@ class InstallabilityTesterBuilder(object):
                 if b in reverse_package_table:
                     del reverse_package_table[b]
 
-        # Now find an initial safe set (if any)
-        check = set()
-        for pkg in package_table:
-
-            if package_table[pkg][1]:
-                # has (reverse) conflicts - not safe
-                continue
-            if not safe_set_satisfies(pkg):
-                continue
-            safe_set.add(pkg)
-            if pkg in reverse_package_table:
-                # add all rdeps (except those already in the safe_set)
-                check.update(reverse_package_table[pkg][0] - safe_set)
-
-        # Check if we can expand the initial safe set
-        for pkg in iter_except(check.pop, KeyError):
-            if package_table[pkg][1]:
-                # has (reverse) conflicts - not safe
-                continue
-            if safe_set_satisfies(pkg):
-                safe_set.add(pkg)
-                if pkg in reverse_package_table:
-                    # add all rdeps (except those already in the safe_set)
-                    check.update(reverse_package_table[pkg][0] - safe_set)
-
-        eqv_table = self._build_eqv_packages_table(package_table,
-                                       reverse_package_table)
+        eqv_table = self._build_eqv_packages_table(package_table, reverse_package_table)
 
         return InstallabilitySolver(package_table,
                                     reverse_package_table,
-                                    self._testing, self._broken,
-                                    self._essentials, safe_set,
+                                    self._testing,
+                                    self._broken,
+                                    self._essentials,
                                     eqv_table)
 
     def _build_eqv_packages_table(self, package_table,
