@@ -1068,14 +1068,14 @@ class Britney(object):
             packages = get_dependency_solvers(block, binaries_t_a, provides_t_a)
             if packages:
                 for p in packages:
-                    if p not in binaries_s_a:
+                    if p.pkg_id.package_name not in binaries_s_a:
                         continue
-                    excuse.add_sane_dep(binaries_s_a[p].source)
+                    excuse.add_sane_dep(p.source)
                 continue
 
             # check if the block can be satisfied in the source suite, and list the solving packages
             packages = get_dependency_solvers(block, binaries_s_a, provides_s_a)
-            packages = [binaries_s_a[p].source for p in packages]
+            packages = [p.source for p in packages]
 
             # if the dependency can be satisfied by the same source package, skip the block:
             # obviously both binary packages will enter testing together

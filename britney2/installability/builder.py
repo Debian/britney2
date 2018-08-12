@@ -58,11 +58,7 @@ def build_installability_tester(suite_info, archs):
                         for dep_suite in suite_info:
                             dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
                             pkgs = solvers(block, dep_binaries_s_a, dep_provides_s_a)
-                            for p in pkgs:
-                                # version and arch is already interned, but solvers use
-                                # the package name extracted from the field and it is therefore
-                                # not interned.
-                                pdata = dep_binaries_s_a[p]
+                            for pdata in pkgs:
                                 dep_pkg_id = pdata.pkg_id
                                 if dep:
                                     sat.add(dep_pkg_id)

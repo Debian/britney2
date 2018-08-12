@@ -793,17 +793,17 @@ def get_dependency_solvers(block, binaries_s_a, provides_s_a, *, build_depends=F
             # (if present)
             if (op == '' and version == '') or apt_pkg.check_dep(package.version, op, version):
                 if archqual is None:
-                    packages.append(name)
+                    packages.append(package)
                 elif build_depends:
                     # Multi-arch handling for build-dependencies
                     # - :native is ok iff the target is arch:any
                     if archqual == 'native' and package.architecture != 'all':
-                        packages.append(name)
+                        packages.append(package)
 
                 # Multi-arch handling for both build-dependencies and regular dependencies
                 # - :any is ok iff the target has "M-A: allowed"
                 if archqual == 'any' and package.multi_arch == 'allowed':
-                    packages.append(name)
+                    packages.append(package)
 
         # look for the package in the virtual packages list and loop on them
         for prov, prov_version in provides_s_a.get(name, empty_set):
@@ -818,7 +818,7 @@ def get_dependency_solvers(block, binaries_s_a, provides_s_a, *, build_depends=F
                 continue
             if (op == '' and version == '') or \
                     (prov_version != '' and apt_pkg.check_dep(prov_version, op, version)):
-                packages.append(prov)
+                packages.append(binaries_s_a[prov])
 
     return packages
 
