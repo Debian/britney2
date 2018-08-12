@@ -14,7 +14,6 @@
 
 import apt_pkg
 from collections import defaultdict
-from contextlib import contextmanager
 from itertools import product
 
 from britney2.utils import ifilter_except, iter_except, get_dependency_solvers
@@ -42,29 +41,20 @@ def build_installability_tester(suite_info, archs):
             possible_dep_ranges = {}
 
             # We do not differentiate between depends and pre-depends
-            if pkgdata.depends:
-                depends.extend(apt_pkg.parse_depends(pkgdata.depends, False))
 
             if pkgdata.conflicts:
-                conflicts = apt_pkg.parse_depends(pkgdata.conflicts, False)
-
-            with builder.relation_builder(pkg_id) as relations:
-
+                conflicts_parsed = apt_pkg.parse_depends(pkgdata.conflicts, False)
                 # Breaks/Conflicts are so simple that we do not need to keep align the relation
                 # with the suite.  This enables us to do a few optimizations.
-                if conflicts:
-                    rels = []
-                    for dep_suite in suite_info:
-                        dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
-                        for block in (relation for relation in conflicts):
-                            # if a package satisfies its own conflicts relation, then it is using §7.6.2
-                            rels.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
-                                        if s.pkg_id != pkg_id)
-                    if rels:
-                        relations.add_breaks(rels)
+                for dep_suite in suite_info:
+                    dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
+                    for block in (relation for relation in conflicts_parsed):
+                        # if a package satisfies its own conflicts relation, then it is using §7.6.2
+                        conflicts.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
+                                         if s.pkg_id != pkg_id)
 
-                dep_relations = []
-                for block in depends:
+            if pkgdata.depends:
+                for block in apt_pkg.parse_depends(pkgdata.depends, False):
                     sat = set()
 
                     for dep_suite in suite_info:
@@ -72,7 +62,7 @@ def build_installability_tester(suite_info, archs):
                         sat.update(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a))
 
                     if len(block) != 1:
-                        dep_relations.append(sat)
+                        depends.append(sat)
                     else:
                         # This dependency might be a part
                         # of a version-range a la:
@@ -100,79 +90,11 @@ def build_installability_tester(suite_info, archs):
                             possible_dep_ranges[key] = sat
 
                 if possible_dep_ranges:
-                    dep_relations.extend(possible_dep_ranges.values())
+                    depends.extend(possible_dep_ranges.values())
 
-                relations.add_dependency_clauses(dep_relations)
+            builder.set_relations(pkg_id, depends, conflicts)
 
     return builder.build()
-
-
-class _RelationBuilder(object):
-    """Private helper class to "build" relations"""
-
-    def __init__(self, itbuilder, binary):
-        self._itbuilder = itbuilder
-        self._binary = binary
-        binary_data = itbuilder._package_table[binary]
-        self._new_deps = set(binary_data[0])
-        self._new_breaks = set(binary_data[1])
-
-    def add_dependency_clauses(self, or_clauses):
-        """Add a dependency clauses
-
-        Each clause must be a sequence BinaryPackageIDs.  The clause
-        is an OR clause, i.e. any BinaryPackageID in the
-        sequence can satisfy the relation.  It is irrelevant if the
-        dependency is from the "Depends" or the "Pre-Depends" field.
-
-        Note that is the sequence is empty, the dependency is assumed
-        to be unsatisfiable.
-
-        The binaries in the clause are not required to have been added
-        to the InstallabilityTesterBuilder when this method is called.
-        However, they must be added before the "build()" method is
-        called.
-        """
-        itbuilder = self._itbuilder
-        binary = self._binary
-        interned_or_clauses = [itbuilder._intern_set(c) for c in or_clauses]
-        okay = True
-        for or_clause in interned_or_clauses:
-            if not or_clause:
-                okay = False
-            for dep_tuple in or_clause:
-                rdeps, _, rdep_relations = itbuilder._reverse_relations(dep_tuple)
-                rdeps.add(binary)
-                rdep_relations.add(or_clause)
-
-        self._new_deps.update(interned_or_clauses)
-        if not okay:
-            itbuilder._broken.add(binary)
-
-    def add_breaks(self, breaks_relations):
-        """Add a Breaks/Conflict-clauses
-
-        Marks the given binary as being broken by any of the packages.
-        That is, the given package satisfies a relation
-        in either the "Breaks" or the "Conflicts" field for any of the
-        listed packages.
-
-        :param breaks_relations: An list/set of BinaryPackageIDs that has a Breaks/Conflicts relation
-          on the current package
-        :return: None
-        """
-        itbuilder = self._itbuilder
-        self._new_breaks.update(breaks_relations)
-        this_package = self._binary
-        for broken_binary in breaks_relations:
-            reverse_relations = itbuilder._reverse_relations(broken_binary)
-            reverse_relations[1].add(this_package)
-
-    def _commit(self):
-        itbuilder = self._itbuilder
-        data = (itbuilder._intern_set(self._new_deps),
-                itbuilder._intern_set(self._new_breaks))
-        itbuilder._package_table[self._binary] = data
 
 
 class InstallabilityTesterBuilder(object):
@@ -185,7 +107,7 @@ class InstallabilityTesterBuilder(object):
         self._testing = set()
         self._internmap = {}
         self._broken = set()
-
+        self._empty_set = self._intern_set(frozenset())
 
     def add_binary(self, binary, essential=False, in_testing=False,
                    frozenset=frozenset):
@@ -226,31 +148,43 @@ class InstallabilityTesterBuilder(object):
             return True
         return False
 
+    def set_relations(self, pkg_id, dependency_clauses, breaks):
+        """The dependency and breaks realtions for a given package
 
-    @contextmanager
-    def relation_builder(self, binary):
-        """Returns a _RelationBuilder for a given binary [context]
-
-        This method returns a context-managed _RelationBuilder for a
-        given binary.  So it should be used in a "with"-statment,
-        like:
-
-            with it.relation_builder(binary) as rel:
-                rel.add_dependency_clause(dependency_clause)
-                rel.add_breaks(pkgtuple)
-                ...
-
-        The binary given must be a (name, version, architecture)-tuple.
-
-        Note, this method is optimised to be called at most once per
-        binary.
+        :param pkg_id: BinaryPackageID determining which package will have its relations set
+        :param dependency_clauses: A list/set of OR clauses (i.e. CNF with each element in
+          dependency_clauses being a disjunction).  Each OR cause (disjunction) should be a
+          set/list of BinaryPackageIDs that satisfy that relation.
+        :param breaks: An list/set of BinaryPackageIDs that has a Breaks/Conflicts relation
+            on the current package.  Can be None
+        :return: No return value
         """
-        if binary not in self._package_table:  # pragma: no cover
-            raise ValueError("Binary %s/%s/%s does not exist" % binary)
-        rel = _RelationBuilder(self, binary)
-        yield rel
-        rel._commit()
+        if dependency_clauses is not None:
+            interned_or_clauses = self._intern_set(self._intern_set(c) for c in dependency_clauses)
+            satisfiable = True
+            for or_clause in interned_or_clauses:
+                if not or_clause:
+                    satisfiable = False
+                for dep_tuple in or_clause:
+                    rdeps, _, rdep_relations = self._reverse_relations(dep_tuple)
+                    rdeps.add(pkg_id)
+                    rdep_relations.add(or_clause)
 
+            if not satisfiable:
+                self._broken.add(pkg_id)
+        else:
+            interned_or_clauses = self._empty_set
+
+        if breaks is not None:
+            # Breaks
+            breaks_relations = self._intern_set(breaks)
+            for broken_binary in breaks_relations:
+                reverse_relations = self._reverse_relations(broken_binary)
+                reverse_relations[1].add(pkg_id)
+        else:
+            breaks_relations = self._empty_set
+
+        self._package_table[pkg_id] = (interned_or_clauses, breaks_relations)
 
     def _intern_set(self, s, frozenset=frozenset):
         """Freeze and intern a given sequence (set variant of intern())
@@ -272,7 +206,6 @@ class InstallabilityTesterBuilder(object):
             return self._internmap[fset]
         self._internmap[fset] = fset
         return fset
-
 
     def _reverse_relations(self, binary, set=set):
         """Return the reverse relations for a binary
@@ -311,7 +244,6 @@ class InstallabilityTesterBuilder(object):
                 if not any(dep for dep in depgroup if dep in safe_set):
                     return False
             return True
-
 
         # Merge reverse conflicts with conflicts - this saves some
         # operations in _check_loop since we only have to check one
@@ -409,7 +341,6 @@ class InstallabilityTesterBuilder(object):
                                     self._testing, self._broken,
                                     self._essentials, safe_set,
                                     eqv_table)
-
 
     def _build_eqv_packages_table(self, package_table,
                                   reverse_package_table,

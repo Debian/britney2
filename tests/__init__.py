@@ -131,9 +131,8 @@ class UniverseBuilder(object):
                                essential=pkg_builder._is_essential,
                                in_testing=pkg_builder._in_testing,
                                )
-            with builder.relation_builder(pkg_id) as rel:
-                rel.add_dependency_clauses(pkg_builder._dependencies)
-                rel.add_breaks(pkg_builder._conflicts)
+
+            builder.set_relations(pkg_id, pkg_builder._dependencies, pkg_builder._conflicts)
         return builder.build()
 
     def pkg_id(self, pkgish):
