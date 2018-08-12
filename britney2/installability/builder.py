@@ -29,6 +29,7 @@ def build_installability_tester(suite_info, archs):
     for (suite, arch) in product(suite_info, archs):
         packages_s_a = suite.binaries[arch][0]
         is_target = suite.suite_class.is_target
+        bin_prov = [s.binaries[arch] for s in suite_info]
         for pkgdata in packages_s_a.values():
             pkg_id = pkgdata.pkg_id
             if not builder.add_binary(pkg_id,
@@ -46,8 +47,7 @@ def build_installability_tester(suite_info, archs):
                 conflicts_parsed = apt_pkg.parse_depends(pkgdata.conflicts, False)
                 # Breaks/Conflicts are so simple that we do not need to keep align the relation
                 # with the suite.  This enables us to do a few optimizations.
-                for dep_suite in suite_info:
-                    dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
+                for dep_binaries_s_a, dep_provides_s_a in bin_prov:
                     for block in (relation for relation in conflicts_parsed):
                         # if a package satisfies its own conflicts relation, then it is using §7.6.2
                         conflicts.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
@@ -55,11 +55,8 @@ def build_installability_tester(suite_info, archs):
 
             if pkgdata.depends:
                 for block in apt_pkg.parse_depends(pkgdata.depends, False):
-                    sat = set()
-
-                    for dep_suite in suite_info:
-                        dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
-                        sat.update(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a))
+                    sat = {s.pkg_id for binaries_s_a, provides_s_a in bin_prov
+                           for s in solvers(block, binaries_s_a, provides_s_a)}
 
                     if len(block) != 1:
                         depends.append(sat)
