@@ -50,55 +50,55 @@ def build_installability_tester(suite_info, archs):
 
             with builder.relation_builder(pkg_id) as relations:
 
-                for (al, dep) in [(depends, True), (conflicts, False)]:
+                # Breaks/Conflicts are so simple that we do not need to keep align the relation
+                # with the suite.  This enables us to do a few optimizations.
+                if conflicts:
+                    for dep_suite in suite_info:
+                        dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
+                        for block in (relation for relation in conflicts):
+                            # if a package satisfies its own conflicts relation, then it is using §7.6.2
+                            rels = (s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
+                                        if s.pkg_id != pkg_id)
+                            for r in rels:
+                                relations.add_breaks(r)
 
-                    for block in al:
-                        sat = set()
+                for block in depends:
+                    sat = set()
 
-                        for dep_suite in suite_info:
-                            dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
-                            pkgs = solvers(block, dep_binaries_s_a, dep_provides_s_a)
-                            for pdata in pkgs:
-                                dep_pkg_id = pdata.pkg_id
-                                if dep:
-                                    sat.add(dep_pkg_id)
-                                elif pkg_id != dep_pkg_id:
-                                    # if t satisfies its own
-                                    # conflicts relation, then it
-                                    # is using §7.6.2
-                                    relations.add_breaks(dep_pkg_id)
-                        if dep:
-                            if len(block) != 1:
-                                relations.add_dependency_clause(sat)
-                            else:
-                                # This dependency might be a part
-                                # of a version-range a la:
-                                #
-                                #   Depends: pkg-a (>= 1),
-                                #            pkg-a (<< 2~)
-                                #
-                                # In such a case we want to reduce
-                                # that to a single clause for
-                                # efficiency.
-                                #
-                                # In theory, it could also happen
-                                # with "non-minimal" dependencies
-                                # a la:
-                                #
-                                #   Depends: pkg-a, pkg-a (>= 1)
-                                #
-                                # But dpkg is known to fix that up
-                                # at build time, so we will
-                                # probably only see "ranges" here.
-                                key = block[0][0]
-                                if key in possible_dep_ranges:
-                                    possible_dep_ranges[key] &= sat
-                                else:
-                                    possible_dep_ranges[key] = sat
+                    for dep_suite in suite_info:
+                        dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
+                        sat.update(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a))
 
-                    if dep:
-                        for clause in possible_dep_ranges.values():
-                            relations.add_dependency_clause(clause)
+                    if len(block) != 1:
+                        relations.add_dependency_clause(sat)
+                    else:
+                        # This dependency might be a part
+                        # of a version-range a la:
+                        #
+                        #   Depends: pkg-a (>= 1),
+                        #            pkg-a (<< 2~)
+                        #
+                        # In such a case we want to reduce
+                        # that to a single clause for
+                        # efficiency.
+                        #
+                        # In theory, it could also happen
+                        # with "non-minimal" dependencies
+                        # a la:
+                        #
+                        #   Depends: pkg-a, pkg-a (>= 1)
+                        #
+                        # But dpkg is known to fix that up
+                        # at build time, so we will
+                        # probably only see "ranges" here.
+                        key = block[0][0]
+                        if key in possible_dep_ranges:
+                            possible_dep_ranges[key] &= sat
+                        else:
+                            possible_dep_ranges[key] = sat
+
+                for clause in possible_dep_ranges.values():
+                    relations.add_dependency_clause(clause)
 
     return builder.build()
 
