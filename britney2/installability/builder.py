@@ -316,7 +316,7 @@ class InstallabilityTesterBuilder(object):
         # At the same time, intern the rdep sets
         for pkg in reverse_package_table:
             if pkg not in package_table:  # pragma: no cover
-                raise RuntimeError("%s/%s/%s referenced but not added!" % pkg)
+                raise AssertionError("%s referenced but not added!" % str(pkg))
             deps, con = package_table[pkg]
             rdeps, rcon, rdep_relations = reverse_package_table[pkg]
             if rcon:
