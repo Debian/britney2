@@ -262,24 +262,6 @@ class InstallabilityTester(object):
         cache_inst = self._cache_inst
         stats = self._stats
 
-        if musts and t in cache_inst and not never:
-            # use the inst cache only for direct queries/simple queries.
-            cache = True
-            if choices:
-                # This is a recursive call, where there is no "never" so far.
-                # We know t satisfies at least one of the remaining choices.
-                # If it satisfies all remaining choices, we can use the cache
-                # in this case (since never is empty).
-                #
-                # Otherwise, a later choice may be incompatible with t.
-                for choice in choices:
-                    if t in choice:
-                        continue
-                    cache = False
-                    break
-            if cache:
-                return True
-
         universe = self._universe
         testing = self._testing
         cbroken = self._cache_broken
