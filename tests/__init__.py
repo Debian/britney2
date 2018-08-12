@@ -134,8 +134,7 @@ class UniverseBuilder(object):
             with builder.relation_builder(pkg_id) as rel:
                 for or_clause in pkg_builder._dependencies:
                     rel.add_dependency_clause(or_clause)
-                for break_pkg_id in pkg_builder._conflicts:
-                    rel.add_breaks(break_pkg_id)
+                rel.add_breaks(pkg_builder._conflicts)
         return builder.build()
 
     def pkg_id(self, pkgish):

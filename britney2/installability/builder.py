@@ -53,14 +53,15 @@ def build_installability_tester(suite_info, archs):
                 # Breaks/Conflicts are so simple that we do not need to keep align the relation
                 # with the suite.  This enables us to do a few optimizations.
                 if conflicts:
+                    rels = []
                     for dep_suite in suite_info:
                         dep_binaries_s_a, dep_provides_s_a = dep_suite.binaries[arch]
                         for block in (relation for relation in conflicts):
                             # if a package satisfies its own conflicts relation, then it is using §7.6.2
-                            rels = (s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
+                            rels.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
                                         if s.pkg_id != pkg_id)
-                            for r in rels:
-                                relations.add_breaks(r)
+                    if rels:
+                        relations.add_breaks(rels)
 
                 for block in depends:
                     sat = set()
@@ -144,24 +145,24 @@ class _RelationBuilder(object):
         if not okay:
             itbuilder._broken.add(binary)
 
+    def add_breaks(self, breaks_relations):
+        """Add a Breaks/Conflict-clauses
 
-    def add_breaks(self, broken_binary):
-        """Add a Breaks-clause
+        Marks the given binary as being broken by any of the packages.
+        That is, the given package satisfies a relation
+        in either the "Breaks" or the "Conflicts" field for any of the
+        listed packages.
 
-        Marks the given binary as being broken by the current
-        package.  That is, the given package satisfies a relation
-        in either the "Breaks" or the "Conflicts" field.  The binary
-        given must be a (name, version, architecture)-tuple.
-
-        The binary is not required to have been added to the
-        InstallabilityTesterBuilder when this method is called.  However,
-        it must be added before the "build()" method is called.
+        :param breaks_relations: An list/set of BinaryPackageIDs that has a Breaks/Conflicts relation
+          on the current package
+        :return: None
         """
         itbuilder = self._itbuilder
-        self._new_breaks.add(broken_binary)
-        reverse_relations = itbuilder._reverse_relations(broken_binary)
-        reverse_relations[1].add(self._binary)
-
+        self._new_breaks.update(breaks_relations)
+        this_package = self._binary
+        for broken_binary in breaks_relations:
+            reverse_relations = itbuilder._reverse_relations(broken_binary)
+            reverse_relations[1].add(this_package)
 
     def _commit(self):
         itbuilder = self._itbuilder
