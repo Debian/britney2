@@ -31,6 +31,8 @@ class TestInstTester(unittest.TestCase):
         universe.remove_testing_binary(pkg_perl)
         assert not universe.any_of_these_are_in_testing((pkg_perl,))
         assert universe.any_of_these_are_in_testing((pkg_lintian,))
+        assert not universe.is_pkg_in_testing(pkg_perl)
+        assert universe.is_pkg_in_testing(pkg_lintian)
         assert not universe.is_installable(pkg_lintian)
         assert not universe.is_installable(pkg_perl)
         universe.add_testing_binary(pkg_perl)
