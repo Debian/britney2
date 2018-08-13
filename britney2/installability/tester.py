@@ -277,7 +277,7 @@ class InstallabilityTester(object):
             choices = set()
 
         # The subset of musts we haven't checked yet.
-        check = {t}
+        check = [t]
 
         if len(musts) == 1:
             # Include the essential packages in testing as a starting point.
@@ -346,7 +346,7 @@ class InstallabilityTester(object):
 
                 if len(remain) == 1:
                     # the choice was reduced to one package we haven't checked - check that
-                    check.update(remain)
+                    check.extend(remain)
                     musts.update(remain)
                     stats.choice_presolved += 1
                     continue
@@ -413,7 +413,7 @@ class InstallabilityTester(object):
                 musts_copy = musts.copy()
                 never_tmp = set()
                 choices_tmp = set()
-                check_tmp = {p}
+                check_tmp = [p]
                 if not self._check_loop(universe, testing, eqv_table,
                                         stats, musts_copy, never_tmp,
                                         cbroken, choices_tmp,
@@ -461,7 +461,7 @@ class InstallabilityTester(object):
                 # and just assume the last will lead to a solution.  If it
                 # doesn't there is no solution and if it does, we don't
                 # have to back-track anyway.
-                check.add(last)
+                check.append(last)
                 musts.add(last)
                 stats.backtrace_last_option += 1
                 return False
@@ -480,7 +480,7 @@ class InstallabilityTester(object):
 
         # While we have guaranteed dependencies (in check), examine all
         # of them.
-        for cur in iter_except(check.pop, KeyError):
+        for cur in iter_except(check.pop, IndexError):
             (deps, cons) = universe[cur]
 
             if cons:
@@ -522,7 +522,7 @@ class InstallabilityTester(object):
                 if len(candidates) == 1:
                     # only one possible solution to this choice and we
                     # haven't seen it before
-                    check.update(candidates)
+                    check.extend(candidates)
                     musts.update(candidates)
                 else:
                     possible_eqv = set(x for x in candidates if x in eqv_table)
@@ -544,7 +544,7 @@ class InstallabilityTester(object):
                             possible_eqv -= eqv_table[chosen]
                         stats.eqv_table_total_number_of_alternatives_eliminated += len(candidates) - len(new_cand)
                         if len(new_cand) == 1:
-                            check.update(new_cand)
+                            check.extend(new_cand)
                             musts.update(new_cand)
                             stats.eqv_table_reduced_to_one += 1
                             continue
@@ -569,7 +569,7 @@ class InstallabilityTester(object):
             universe = self._universe
             stats = self._stats
 
-            ess_base = set(x for x in self._essentials if x.architecture == arch and x in testing)
+            ess_base = [x for x in self._essentials if x.architecture == arch and x in testing]
             start = set(ess_base)
             ess_never = set()
             ess_choices = set()
@@ -587,7 +587,7 @@ class InstallabilityTester(object):
                         for c in choice:
                             if universe[c][1] <= ess_never and \
                                     not any(not_satisfied(universe[c][0])):
-                                ess_base.add(c)
+                                ess_base.append(c)
                                 b = True
                                 break
                         if not b:
