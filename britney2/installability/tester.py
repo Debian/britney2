@@ -414,6 +414,8 @@ class InstallabilityTester(object):
                 never_tmp = set()
                 choices_tmp = set()
                 check_tmp = [p]
+                # _check_loop assumes that "musts" is up to date
+                musts_copy.add(p)
                 if not self._check_loop(universe, testing, eqv_table,
                                         stats, musts_copy, never_tmp,
                                         cbroken, choices_tmp,
