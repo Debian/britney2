@@ -33,6 +33,7 @@ import britney2.hints
 
 from britney2 import SuiteClass
 from britney2.policies.policy import BasePolicy, PolicyVerdict
+from britney2.utils import iter_except
 
 
 class Result(Enum):
@@ -271,17 +272,7 @@ class AutopkgtestPolicy(BasePolicy):
                     self.logger.info('%s is uninstallable on arch %s, delay autopkgtest there', source_name, arch)
                     excuse.addhtml("uninstallable on arch %s, autopkgtest delayed there" % arch)
                 else:
-                    # request tests (unless they were already requested earlier or have a result)
-                    tests = self.tests_for_source(source_name, source_data_srcdist.version, arch)
-                    is_huge = False
-                    try:
-                        is_huge = len(tests) > int(self.options.adt_huge)
-                    except AttributeError:
-                        pass
-                    for (testsrc, testver) in tests:
-                        self.pkg_test_request(testsrc, arch, trigger, huge=is_huge)
-                        (result, real_ver, run_id, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
-                        pkg_arch_result[(testsrc, real_ver)][arch] = (result, run_id, url)
+                    self.request_tests_for_source(suite, arch, source_name, source_data_srcdist.version, pkg_arch_result)
 
             # add test result details to Excuse
             cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
@@ -396,6 +387,128 @@ class AutopkgtestPolicy(BasePolicy):
             if 'dkms' in (bininfo.depends or ''):
                 return True
         return False
+
+    def request_tests_for_source(self, suite, arch, source_name, source_version, pkg_arch_result):
+        inst_tester = self.britney._inst_tester
+        suite_info = self.suite_info
+        sources_s = suite_info[suite].sources
+        binaries_info = sources_s[source_name]
+        packages_s_a = suite_info[suite].binaries[arch][0]
+        # request tests (unless they were already requested earlier or have a result)
+        tests = self.tests_for_source(source_name, source_version, arch)
+        is_huge = False
+        try:
+            is_huge = len(tests) > int(self.options.adt_huge)
+        except AttributeError:
+            pass
+
+        # Here we figure out what is required from the source suite
+        # for the test to install successfully.
+        #
+        # Loop over all binary packages from trigger and
+        # recursively look up which *versioned* dependencies are
+        # only satisfied in the source suite.
+        #
+        # For all binaries found, look up which packages they
+        # break/conflict with in the target suite, but not in the
+        # source suite. The main reason to do this is to cover test
+        # dependencies, so we will check Testsuite-Triggers as
+        # well.
+        #
+        # OI: do we need to do the first check in a smart way
+        # (i.e. only for the packages that are actully going to be
+        # installed) for the breaks/conflicts set as well, i.e. do
+        # we need to check if any of the packages that we now
+        # enforce being from the source suite, actually have new
+        # versioned depends and new breaks/conflicts.
+        #
+        # For all binaries found, add the set of unique source
+        # packages to the list of triggers.
+
+        bin_depends = set()
+        bin_new = set(binaries_info.binaries)
+        for binary in iter_except(bin_new.pop, KeyError):
+            if binary in bin_depends:
+                continue
+            bin_depends.add(binary)
+
+            # Check if there is a dependency that is not
+            # available in the target suite.
+            # We add slightly too much here, because new binaries
+            # will also show up, but they are already properly
+            # installed. Nevermind.
+            depends = inst_tester.dependencies_of(binary)
+            names_testing = set()
+            names_unstable = set()
+            # depends is a frozenset{frozenset{BinaryPackageId, ..}}
+            for deps_of_bin in depends:
+                for dep in deps_of_bin:
+                    if inst_tester.is_pkg_in_testing(dep):
+                        names_testing.add(dep.package_name)
+                    else:
+                        names_unstable.add(dep.package_name)
+            for name in names_unstable - names_testing:
+                for deps_of_bin in depends:
+                    # We'll figure out which version later
+                    bin_new.update(d for d in deps_of_bin if d.package_name == name)
+
+        # Check if the package breaks/conflicts anything. We might
+        # be adding slightly too many source packages due to the
+        # check here as a binary package that is broken may be
+        # coming from a different source package in the source
+        # suite. Nevermind.
+        bin_triggers = bin_depends.copy()
+        bin_broken = set()
+        for binary in bin_depends:
+            # broken is a frozenset{BinaryPackageId, ..}
+            broken = inst_tester.negative_dependencies_of(binary)
+            names_testing = set()
+            names_unstable = set()
+            for broken_bin in broken:
+                if inst_tester.is_pkg_in_testing(broken_bin):
+                    names_testing.add(broken_bin.package_name)
+                else:
+                    names_unstable.add(broken_bin.package_name)
+            for name in names_testing - names_unstable:
+                # We'll figure out which version later
+                bin_triggers.update(b for b in broken if b.package_name == name)
+                bin_broken.update(b for b in broken if b.package_name == name)
+
+        triggers = set()
+        for binary in bin_triggers:
+            if binary.architecture == arch:
+                try:
+                    source_of_bin = packages_s_a[binary.package_name].source
+                    triggers.add(
+                        source_of_bin + '/' + \
+                        sources_s[source_of_bin].version)
+                except KeyError:
+                    # Apparently the package was removed from
+                    # unstable e.g. if packages are replaced
+                    # (e.g. -dbg to -dbgsym)
+                    pass
+                if binary in bin_broken:
+                    for tdep_src in self.testsuite_triggers.get(binary.package_name, set()):
+                        try:
+                            triggers.add(
+                                tdep_src + '/' + \
+                                sources_s[tdep_src].version)
+                        except KeyError:
+                            # Apparently the source was removed from
+                            # unstable (testsuite_triggers are unified
+                            # over all suites)
+                            pass
+        trigger = source_name + '/' + source_version
+        triggers.discard(trigger)
+        trigger_str = trigger
+        if triggers:
+            # Make the order (minus the "real" trigger) deterministic
+            trigger_str += ' ' + ' '.join(sorted(list(triggers)))
+
+        for (testsrc, testver) in tests:
+            self.pkg_test_request(testsrc, arch, trigger_str, huge=is_huge)
+            (result, real_ver, run_id, url) = self.pkg_test_result(testsrc, testver, arch, trigger)
+            pkg_arch_result[(testsrc, real_ver)][arch] = (result, run_id, url)
 
     def tests_for_source(self, src, ver, arch):
         '''Iterate over all tests that should be run for given source and arch'''
@@ -722,7 +835,7 @@ class AutopkgtestPolicy(BasePolicy):
             with open(self.amqp_file, 'a') as f:
                 f.write('%s:%s %s\n' % (qname, src, params))
 
-    def pkg_test_request(self, src, arch, trigger, huge=False):
+    def pkg_test_request(self, src, arch, full_trigger, huge=False):
         '''Request one package test for one particular trigger
 
         trigger is "pkgname/version" of the package that triggers the testing
@@ -734,6 +847,7 @@ class AutopkgtestPolicy(BasePolicy):
         is a result for it. This ensures to download current results for this
         package before requesting any test.
         '''
+        trigger = full_trigger.split()[0]
         # Don't re-request if we already have a result
         try:
             result = self.test_results[trigger][src][arch][0]
@@ -763,7 +877,7 @@ class AutopkgtestPolicy(BasePolicy):
             self.logger.info('Requesting %s autopkgtest on %s to verify %s', src, arch, trigger)
             arch_list.append(arch)
             arch_list.sort()
-            self.send_test_request(src, arch, trigger, huge=huge)
+            self.send_test_request(src, arch, full_trigger, huge=huge)
 
     def result_in_baseline(self, src, arch):
         '''Get the result for src on arch in the baseline

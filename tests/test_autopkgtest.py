@@ -1074,8 +1074,8 @@ class T(TestBase):
                  'debci-testing-amd64:green {"triggers": ["green/2"]}',
                  'debci-testing-i386:lightgreen {"triggers": ["green/2"]}',
                  'debci-testing-amd64:lightgreen {"triggers": ["green/2"]}',
-                 'debci-testing-i386:lightgreen {"triggers": ["lightgreen/2"]}',
-                 'debci-testing-amd64:lightgreen {"triggers": ["lightgreen/2"]}',
+                 'debci-testing-i386:lightgreen {"triggers": ["lightgreen/2 green/2"]}',
+                 'debci-testing-amd64:lightgreen {"triggers": ["lightgreen/2 green/2"]}',
                  'debci-testing-i386:darkgreen {"triggers": ["green/2"]}',
                  'debci-testing-amd64:darkgreen {"triggers": ["green/2"]}']))
 
