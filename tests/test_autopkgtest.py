@@ -2173,6 +2173,21 @@ class T(TestBase):
                                'linux': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'}})})[1]
         self.assertNotIn('notme 1', exc['gcc-5']['policy_info']['autopkgtest'])
 
+    def test_gcc_hastest(self):
+        '''gcc triggers itself when it has a testsuite'''
+
+        self.data.add('gcc-7', False, {}, testsuite='autopkgtest')
+
+        # gcc-7 has passed before on i386 only, therefore ALWAYSFAIL on amd64
+        self.swift.set_results({'autopkgtest-series': {
+            'series/i386/g/gcc-7/20150101_100000@': (0, 'gcc-7 1', tr('passedbefore/1')),
+        }})
+
+        exc = self.do_test(
+            [('gcc-7', {'Source': 'gcc-7', 'Version': '2'}, 'autopkgtest')],
+            {'gcc-7': (False, {'gcc-7': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'}})})[1]
+        self.assertIn('gcc-7', exc['gcc-7']['policy_info']['autopkgtest'])
+
     def test_alternative_gcc(self):
         '''alternative gcc does not trigger anything'''
 
