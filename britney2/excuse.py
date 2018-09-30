@@ -118,9 +118,11 @@ class Excuse(object):
 
     def set_vers(self, tver, uver):
         """Set the versions of the item from target and source suite"""
-        if tver:
+        if tver and uver:
+            self.ver = (tver, uver)
+        elif tver:
             self.ver = (tver, self.ver[1])
-        if uver:
+        elif uver:
             self.ver = (self.ver[0], uver)
 
     def set_maint(self, maint):
