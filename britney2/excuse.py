@@ -52,7 +52,7 @@ class Excuse(object):
     have been updated or not.
     """
 
-    ## @var reemail
+    # @var reemail
     # Regular expression for removing the email address
     reemail = re.compile(r" *<.*?>")
 
@@ -96,7 +96,7 @@ class Excuse(object):
         self.penalty = {}
 
     def sortkey(self):
-        if self.daysold == None:
+        if self.daysold is None:
             return (-1, self.name)
         return (self.daysold, self.name)
 
@@ -118,8 +118,10 @@ class Excuse(object):
 
     def set_vers(self, tver, uver):
         """Set the versions of the item from target and source suite"""
-        if tver: self.ver = (tver, self.ver[1])
-        if uver: self.ver = (self.ver[0], uver)
+        if tver:
+            self.ver = (tver, self.ver[1])
+        if uver:
+            self.ver = (self.ver[0], uver)
 
     def set_maint(self, maint):
         """Set the package maintainer's name"""
@@ -131,7 +133,8 @@ class Excuse(object):
 
     def add_dep(self, name, arch):
         """Add a dependency"""
-        if name not in self.deps: self.deps[name]=[]
+        if name not in self.deps:
+            self.deps[name]=[]
         self.deps[name].append(arch)
 
     def add_sane_dep(self, name):
@@ -145,7 +148,7 @@ class Excuse(object):
 
     def add_unsatisfiable_on_arch(self,  arch):
         """Add an arch that has unsatisfiable dependencies"""
-        if  arch not in self.unsatisfiable_on_archs:
+        if arch not in self.unsatisfiable_on_archs:
             self.unsatisfiable_on_archs.append(arch)
 
     def add_arch_build_dep(self, name, arch):
@@ -232,20 +235,20 @@ class Excuse(object):
             res = res + "<li>Maintainer: %s\n" % (self.maint)
         if self.section and self.section.find("/") > -1:
             res = res + "<li>Section: %s\n" % (self.section)
-        if self.daysold != None:
+        if self.daysold is not None:
             if self.mindays == 0:
                 res = res + ("<li>%d days old\n" % self.daysold)
             elif self.daysold < self.mindays:
                 res = res + ("<li>Too young, only %d of %d days old\n" %
-                (self.daysold, self.mindays))
+                             (self.daysold, self.mindays))
             else:
                 res = res + ("<li>%d days old (needed %d days)\n" %
-                (self.daysold, self.mindays))
+                             (self.daysold, self.mindays))
         for x in self.htmlline:
             res = res + "<li>" + x + "\n"
         res += self._render_dep_issue(self.deps, self.invalid_deps, 'Depends')
 
-        for (n,a) in self.break_deps:
+        for (n, a) in self.break_deps:
             if n not in self.deps:
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)
 
