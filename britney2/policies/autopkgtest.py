@@ -16,6 +16,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import calendar
 import collections
 from copy import deepcopy
 from enum import Enum
@@ -26,6 +27,7 @@ import io
 import itertools
 import re
 import sys
+import time
 import urllib.parse
 from urllib.request import urlopen
 
@@ -83,15 +85,15 @@ class AutopkgtestPolicy(BasePolicy):
         self.testsuite_triggers = {}
         self.result_in_baseline_cache = collections.defaultdict(dict)
 
-        # results map: trigger -> src -> arch -> [passed, version, run_id]
+        # results map: trigger -> src -> arch -> [passed, version, run_id, seen]
         # - trigger is "source/version" of an unstable package that triggered
         #   this test run.
         # - "passed" is a bool
         # - "version" is the package version  of "src" of that test
         # - "run_id" is an opaque ID that identifies a particular test run for
-        #   a given src/arch. It's usually a time stamp like "20150120_125959".
-        #   This is also used for tracking the latest seen time stamp for
-        #   requesting only newer results.
+        #   a given src/arch.
+        # - "seen" is an approximate time stamp of the test run. How this is
+        #   deduced depends on the interface used.
         self.test_results = {}
         if self.options.adt_shared_results_cache:
             self.results_cache_file = self.options.adt_shared_results_cache
@@ -121,6 +123,8 @@ class AutopkgtestPolicy(BasePolicy):
 
     def initialise(self, britney):
         super().initialise(britney)
+        # We want to use the "current" time stamp in multiple locations
+        self._now = round(time.time())
         # compute inverse Testsuite-Triggers: map, unifying all series
         self.logger.info('Building inverse testsuite_triggers map')
         for suite in self.suite_info:
@@ -153,6 +157,11 @@ class AutopkgtestPolicy(BasePolicy):
                                         result[0] = Result.FAIL
                                 else:
                                     raise
+                            # More legacy support
+                            try:
+                                dummy = result[3]
+                            except IndexError:
+                                result.append(self._now)
                 self.test_results = results
             self.logger.info('Read previous results from %s', self.results_cache_file)
         else:
@@ -171,7 +180,14 @@ class AutopkgtestPolicy(BasePolicy):
                     # Blacklisted tests don't get a version
                     if res['version'] is None:
                         res['version'] = 'blacklisted'
-                    (triggers, src, arch, ver, status, stamp) = ([res['trigger'], res['package'], res['arch'], res['version'], res['status'], str(res['run_id'])])
+                    (triggers, src, arch, ver, status, run_id, seen) = ([
+                        res['trigger'],
+                        res['package'],
+                        res['arch'],
+                        res['version'],
+                        res['status'],
+                        str(res['run_id']),
+                        round(calendar.timegm(time.strptime(res['updated_at'][0:-5], '%Y-%m-%dT%H:%M:%S')))])
                     if triggers is None:
                         # not requested for this policy, so ignore
                         continue
@@ -188,7 +204,7 @@ class AutopkgtestPolicy(BasePolicy):
                             continue
                         else:
                             self.logger.info('Results %s %s %s added', src, trigger, status)
-                            self.add_trigger_to_results(trigger, src, ver, arch, stamp, Result[status.upper()])
+                            self.add_trigger_to_results(trigger, src, ver, arch, run_id, seen, Result[status.upper()])
             else:
                 self.logger.info('%s does not exist, no new data will be processed', debci_file)
 
@@ -760,7 +776,8 @@ class AutopkgtestPolicy(BasePolicy):
             self.logger.error('%s result has no ADT_TEST_TRIGGERS, ignoring')
             return
 
-        stamp = os.path.basename(os.path.dirname(url))
+        run_id = os.path.basename(os.path.dirname(url))
+        seen = round(calendar.timegm(time.strptime(run_id, '%Y%m%d_%H%M%S@')))
         # allow some skipped tests, but nothing else
         if exitcode in [0, 2]:
             result = Result.PASS
@@ -770,7 +787,7 @@ class AutopkgtestPolicy(BasePolicy):
             result = Result.FAIL
 
         self.logger.info('Fetched test result for %s/%s/%s %s (triggers: %s): %s',
-                 src, ver, arch, stamp, result_triggers, result.name.lower())
+                 src, ver, arch, run_id, result_triggers, result.name.lower())
 
         # remove matching test requests
         for trigger in result_triggers:
@@ -778,7 +795,7 @@ class AutopkgtestPolicy(BasePolicy):
 
         # add this result
         for trigger in result_triggers:
-            self.add_trigger_to_results(trigger, src, ver, arch, stamp, result)
+            self.add_trigger_to_results(trigger, src, ver, arch, run_id, seen, result)
 
     def remove_from_pending(self, trigger, src, arch):
         try:
@@ -792,7 +809,7 @@ class AutopkgtestPolicy(BasePolicy):
         except (KeyError, ValueError):
             self.logger.info('-> does not match any pending request for %s/%s', src, arch)
 
-    def add_trigger_to_results(self, trigger, src, ver, arch, stamp, status):
+    def add_trigger_to_results(self, trigger, src, ver, arch, run_id, seen, status):
         # If a test runs because of its own package (newer version), ensure
         # that we got a new enough version; FIXME: this should be done more
         # generically by matching against testpkg-versions
@@ -806,7 +823,7 @@ class AutopkgtestPolicy(BasePolicy):
             return
 
         result = self.test_results.setdefault(trigger, {}).setdefault(
-            src, {}).setdefault(arch, [Result.FAIL, None, ''])
+            src, {}).setdefault(arch, [Result.FAIL, None, '', 0])
 
         # don't clobber existing passed results with non-passing ones from
         # re-runs, except for reference updates
@@ -814,7 +831,8 @@ class AutopkgtestPolicy(BasePolicy):
           (self.options.adt_baseline == 'reference' and trigger == REF_TRIG):
             result[0] = status
             result[1] = ver
-            result[2] = stamp
+            result[2] = run_id
+            result[3] = seen
 
 
     def send_test_request(self, src, arch, trigger, huge=False):

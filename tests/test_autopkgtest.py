@@ -371,10 +371,10 @@ class T(TestBase):
         with open(os.path.join(self.data.path, 'data/testing/state/autopkgtest-results.cache')) as f:
             res = json.load(f)
         self.assertEqual(res['green/1']['green']['amd64'],
-                         ['FAIL', '1', '20150101_020000@'])
+                         ['FAIL', '1', '20150101_020000@', 1420077600])
         self.assertEqual(set(res['green/2']), {'darkgreen', 'green', 'lightgreen'})
         self.assertEqual(res['green/2']['lightgreen']['i386'],
-                         ['PASS', '1', '20150101_100100@'])
+                         ['PASS', '1', '20150101_100100@', 1420106460])
 
         # third run should not trigger any new tests, should all be in the
         # cache
@@ -2436,15 +2436,15 @@ class T(TestBase):
 {
   "until": 12345,
   "results": [
-  {"trigger": "green/2", "package": "darkgreen",  "arch": "i386",  "version": "1", "status": "pass", "run_id": "100000"},
-  {"trigger": "green/2", "package": "darkgreen",  "arch": "amd64", "version": "1", "status": "pass", "run_id": "100000"},
-  {"trigger": "green/1", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "pass", "run_id": "101000"},
-  {"trigger": "green/2", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "fail", "run_id": "101001"},
-  {"trigger": "green/1", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "pass", "run_id": "101000"},
-  {"trigger": "green/2", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "fail", "run_id": "101001"},
-  {"trigger": "green/2", "package": "green",      "arch": "i386",  "version": "2", "status": "pass", "run_id": "102000"},
-  {"trigger": "green/1", "package": "green",      "arch": "amd64", "version": "2", "status": "pass", "run_id": "102000"},
-  {"trigger": "green/2", "package": "green",      "arch": "amd64", "version": "2", "status": "fail", "run_id": "102001"}
+  {"trigger": "green/2", "package": "darkgreen",  "arch": "i386",  "version": "1", "status": "pass", "run_id": "100000", "updated_at": "2018-10-04T11:18:00.000Z"},
+  {"trigger": "green/2", "package": "darkgreen",  "arch": "amd64", "version": "1", "status": "pass", "run_id": "100000", "updated_at": "2018-10-04T11:18:01.000Z"},
+  {"trigger": "green/1", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "pass", "run_id": "101000", "updated_at": "2018-10-04T11:18:02.000Z"},
+  {"trigger": "green/2", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "fail", "run_id": "101001", "updated_at": "2018-10-04T11:18:03.000Z"},
+  {"trigger": "green/1", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "pass", "run_id": "101000", "updated_at": "2018-10-04T11:18:04.000Z"},
+  {"trigger": "green/2", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "fail", "run_id": "101001", "updated_at": "2018-10-04T11:18:05.000Z"},
+  {"trigger": "green/2", "package": "green",      "arch": "i386",  "version": "2", "status": "pass", "run_id": "102000", "updated_at": "2018-10-04T11:18:06.000Z"},
+  {"trigger": "green/1", "package": "green",      "arch": "amd64", "version": "2", "status": "pass", "run_id": "102000", "updated_at": "2018-10-04T11:18:07.000Z"},
+  {"trigger": "green/2", "package": "green",      "arch": "amd64", "version": "2", "status": "fail", "run_id": "102001", "updated_at": "2018-10-04T11:18:08.000Z"}
   ]
 }
 ''')
