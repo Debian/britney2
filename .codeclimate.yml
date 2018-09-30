@@ -1,0 +1,20 @@
+version: "2"         # required to adjust maintainability checks
+checks:
+  argument-count:
+    config:
+      threshold: 6
+  complex-logic:
+    config:
+      threshold: 9
+  file-lines:
+    config:
+      threshold: 500
+  method-complexity:
+    config:
+      threshold: 9
+  method-count:
+    config:
+      threshold: 40
+  method-lines:
+    config:
+      threshold: 50
