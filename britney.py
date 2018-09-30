@@ -1368,12 +1368,10 @@ class Britney(object):
         # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
         blocked = {}
         for hint in self.hints.search(package=src):
-            if hint.type == 'block':
-                blocked['block'] = hint
+            if hint.type in {'block', 'block-udeb'}:
+                blocked[hint.type] = hint
                 excuse.add_hint(hint)
-            if hint.type == 'block-udeb':
-                blocked['block-udeb'] = hint
-                excuse.add_hint(hint)
+
         if 'block' not in blocked:
             for hint in self.hints.search(type='block-all'):
                 if hint.package == 'source' or (not source_t and hint.package == 'new-source'):
