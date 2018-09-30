@@ -1984,13 +1984,12 @@ class Britney(object):
         # remove all the binaries which aren't being smooth updated
         for rm_pkg_id in rms:
             binary, version, parch = rm_pkg_id
-            p = (binary, parch)
-            binaries_t_a, provides_t_a = packages_t[parch]
             pkey = (binary, parch)
+            binaries_t_a, provides_t_a = packages_t[parch]
 
             pkg_data = binaries_t_a[binary]
             # save the old binary for undo
-            undo['binaries'][p] = rm_pkg_id
+            undo['binaries'][pkey] = rm_pkg_id
             if pkey not in eqv_set:
                 # all the reverse dependencies are affected by
                 # the change
