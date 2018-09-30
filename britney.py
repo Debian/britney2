@@ -211,6 +211,7 @@ from britney2.utils import (log_and_format_old_libraries, undo_changes,
                             create_provides_map, read_release_file,
                             read_sources_file, get_dependency_solvers,
                             invalidate_excuses, compile_nuninst,
+                            find_smooth_updateable_binaries,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -1838,14 +1839,12 @@ class Britney(object):
                 source_data = sources_t[source_name]
 
                 bins = []
-                check = set()
                 # remove all the binaries
 
                 # first, build a list of eligible binaries
                 for pkg_id in source_data.binaries:
                     binary, _, parch = pkg_id
-                    if (migration_architecture != 'source'
-                        and parch != migration_architecture):
+                    if migration_architecture != 'source' and parch != migration_architecture:
                         continue
 
                     # Work around #815995
@@ -1857,57 +1856,17 @@ class Britney(object):
                         continue
                     bins.append(pkg_id)
 
-                for pkg_id in bins:
-                    binary, _, parch = pkg_id
-                    # if a smooth update is possible for the package, skip it
-                    if allow_smooth_updates and source_suite.suite_class.is_primary_source and \
-                       binary not in binaries_s[parch][0] and \
-                       ('ALL' in self.options.smooth_updates or \
-                        binaries_t[parch][0][binary].section in self.options.smooth_updates):
-
-                        # if the package has reverse-dependencies which are
-                        # built from other sources, it's a valid candidate for
-                        # a smooth update.  if not, it may still be a valid
-                        # candidate if one if its r-deps is itself a candidate,
-                        # so note it for checking later
-                        rdeps = set(inst_tester.reverse_dependencies_of(pkg_id))
-                        # We ignore all binaries listed in "removals" as we
-                        # assume they will leave at the same time as the
-                        # given package.
-                        rdeps.difference_update(removals, bins)
-
-                        smooth_update_it = False
-                        if inst_tester.any_of_these_are_in_testing(rdeps):
-                            combined = set(smoothbins)
-                            combined.add(pkg_id)
-                            for rdep in rdeps:
-                                for dep_clause in inst_tester.dependencies_of(rdep):
-                                    if dep_clause <= combined:
-                                        smooth_update_it = True
-                                        break
-
-                        if smooth_update_it:
-                            smoothbins = combined
-                        else:
-                            check.add(pkg_id)
-
-                # check whether we should perform a smooth update for
-                # packages which are candidates but do not have r-deps
-                # outside of the current source
-                while 1:
-                    found_any = False
-                    for pkg_id in check:
-                        rdeps = inst_tester.reverse_dependencies_of(pkg_id)
-                        if not rdeps.isdisjoint(smoothbins):
-                            smoothbins.add(pkg_id)
-                            found_any = True
-                    if not found_any:
-                        break
-                    check = [x for x in check if x not in smoothbins]
+                if allow_smooth_updates and source_suite.suite_class.is_primary_source:
+                    smoothbins = find_smooth_updateable_binaries(bins,
+                                                                 inst_tester,
+                                                                 binaries_t,
+                                                                 binaries_s,
+                                                                 removals,
+                                                                 self.options.smooth_updates)
 
                 # remove all the binaries which aren't being smooth updated
                 for pkg_id in (pkg_id for pkg_id in bins if pkg_id not in smoothbins):
-                    binary, version, parch = pkg_id
+                    binary, _, parch = pkg_id
                     # if this is a binary migration from *pu, only the arch:any
                     # packages will be present. ideally dak would also populate
                     # the arch-indep packages, but as that's not the case we
