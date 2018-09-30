@@ -1286,13 +1286,12 @@ class Britney(object):
                         # the removed binary is only interesting if this is a binary-only migration,
                         # as otherwise the updated source will already cause the binary packages
                         # to be updated
-                        if ssrc:
+                        if ssrc and pkg_id not in smoothbins:
                             # Special-case, if the binary is a candidate for a smooth update, we do not consider
                             # it "interesting" on its own.  This case happens quite often with smooth updatable
                             # packages, where the old binary "survives" a full run because it still has
                             # reverse dependencies.
-                            if pkg_id not in smoothbins:
-                                anyworthdoing = True
+                            anyworthdoing = True
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
