@@ -208,6 +208,21 @@ class Excuse(object):
             return VERDICT2DESC[verdict]
         return "UNKNOWN: Missing description for {0} - Please file a bug against Britney".format(verdict.name)
 
+    def _render_dep_issue(self, dep_issues, invalid_deps, field):
+        lastdep = ""
+        res = []
+        for x in sorted(dep_issues, key=lambda x: x.split('/')[0]):
+            dep = x.split('/')[0]
+            if dep == lastdep:
+                continue
+            lastdep = dep
+            if x in invalid_deps:
+                res.append("<li>%s: %s <a href=\"#%s\">%s</a> (not considered)\n" % (field, self.name, dep, dep))
+            else:
+                res.append("<li>%s: %s <a href=\"#%s\">%s</a>\n" % (field, self.name, dep, dep))
+
+        return "".join(res)
+
     def html(self):
         """Render the excuse in HTML"""
         res = "<a id=\"%s\" name=\"%s\">%s</a> (%s to %s)\n<ul>\n" % \
@@ -228,38 +243,14 @@ class Excuse(object):
                 (self.daysold, self.mindays))
         for x in self.htmlline:
             res = res + "<li>" + x + "\n"
-        lastdep = ""
-        for x in sorted(self.deps, key=lambda x: x.split('/')[0]):
-            dep = x.split('/')[0]
-            if dep == lastdep: continue
-            lastdep = dep
-            if x in self.invalid_deps:
-                res = res + "<li>Depends: %s <a href=\"#%s\">%s</a> (not considered)\n" % (self.name, dep, dep)
-            else:
-                res = res + "<li>Depends: %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
+        res += self._render_dep_issue(self.deps, self.invalid_deps, 'Depends')
+
         for (n,a) in self.break_deps:
             if n not in self.deps:
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)
-        lastdep = ""
-        for x in sorted(self.arch_build_deps, key=lambda x: x.split('/')[0]):
-            dep = x.split('/')[0]
-            if dep == lastdep:
-                continue
-            lastdep = dep
-            if x in self.invalid_build_deps:
-                res = res + "<li>Build-Depends(-Arch): %s <a href=\"#%s\">%s</a> (not ready)\n" % (self.name, dep, dep)
-            else:
-                res = res + "<li>Build-Depends(-Arch): %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
 
-        for x in sorted(self.indep_build_deps, key=lambda x: x.split('/')[0]):
-            dep = x.split('/')[0]
-            if dep == lastdep:
-                continue
-            lastdep = dep
-            if x in self.invalid_build_deps:
-                res = res + "<li>Build-Depends-Indep: %s <a href=\"#%s\">%s</a> (not ready)\n" % (self.name, dep, dep)
-            else:
-                res = res + "<li>Build-Depends-Indep: %s <a href=\"#%s\">%s</a>\n" % (self.name, dep, dep)
+        res += self._render_dep_issue(self.arch_build_deps, self.invalid_build_deps, 'Build-Depends(-Arch)')
+        res += self._render_dep_issue(self.indep_build_deps, self.invalid_build_deps, 'Build-Depends-Indep')
 
         res = res + "</ul>\n"
         return res
