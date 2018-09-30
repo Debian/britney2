@@ -23,76 +23,86 @@ from britney2.installability.solver import InstallabilitySolver
 def build_installability_tester(suite_info, archs):
     """Create the installability tester"""
 
-    solvers = get_dependency_solvers
     builder = InstallabilityTesterBuilder()
 
     for (suite, arch) in product(suite_info, archs):
-        packages_s_a = suite.binaries[arch][0]
-        is_target = suite.suite_class.is_target
-        bin_prov = [s.binaries[arch] for s in suite_info]
-        for pkgdata in packages_s_a.values():
-            pkg_id = pkgdata.pkg_id
-            if not builder.add_binary(pkg_id,
-                                      essential=pkgdata.is_essential,
-                                      in_testing=is_target):
-                continue
-
-            if pkgdata.conflicts:
-                conflicts = []
-                conflicts_parsed = apt_pkg.parse_depends(pkgdata.conflicts, False)
-                # Breaks/Conflicts are so simple that we do not need to keep align the relation
-                # with the suite.  This enables us to do a few optimizations.
-                for dep_binaries_s_a, dep_provides_s_a in bin_prov:
-                    for block in (relation for relation in conflicts_parsed):
-                        # if a package satisfies its own conflicts relation, then it is using §7.6.2
-                        conflicts.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
-                                         if s.pkg_id != pkg_id)
-            else:
-                conflicts = None
-
-            if pkgdata.depends:
-                depends = []
-                possible_dep_ranges = {}
-                for block in apt_pkg.parse_depends(pkgdata.depends, False):
-                    sat = {s.pkg_id for binaries_s_a, provides_s_a in bin_prov
-                           for s in solvers(block, binaries_s_a, provides_s_a)}
-
-                    if len(block) != 1:
-                        depends.append(sat)
-                    else:
-                        # This dependency might be a part
-                        # of a version-range a la:
-                        #
-                        #   Depends: pkg-a (>= 1),
-                        #            pkg-a (<< 2~)
-                        #
-                        # In such a case we want to reduce
-                        # that to a single clause for
-                        # efficiency.
-                        #
-                        # In theory, it could also happen
-                        # with "non-minimal" dependencies
-                        # a la:
-                        #
-                        #   Depends: pkg-a, pkg-a (>= 1)
-                        #
-                        # But dpkg is known to fix that up
-                        # at build time, so we will
-                        # probably only see "ranges" here.
-                        key = block[0][0]
-                        if key in possible_dep_ranges:
-                            possible_dep_ranges[key] &= sat
-                        else:
-                            possible_dep_ranges[key] = sat
-
-                if possible_dep_ranges:
-                    depends.extend(possible_dep_ranges.values())
-            else:
-                depends = None
-
-            builder.set_relations(pkg_id, depends, conflicts)
+        _build_inst_tester_on_suite_arch(builder, suite_info, suite, arch)
 
     return builder.build()
+
+
+def _build_inst_tester_on_suite_arch(builder, suite_info, suite, arch):
+    packages_s_a = suite.binaries[arch][0]
+    is_target = suite.suite_class.is_target
+    bin_prov = [s.binaries[arch] for s in suite_info]
+    solvers = get_dependency_solvers
+    for pkgdata in packages_s_a.values():
+        pkg_id = pkgdata.pkg_id
+        if not builder.add_binary(pkg_id,
+                                  essential=pkgdata.is_essential,
+                                  in_testing=is_target):
+            continue
+
+        if pkgdata.conflicts:
+            conflicts = []
+            conflicts_parsed = apt_pkg.parse_depends(pkgdata.conflicts, False)
+            # Breaks/Conflicts are so simple that we do not need to keep align the relation
+            # with the suite.  This enables us to do a few optimizations.
+            for dep_binaries_s_a, dep_provides_s_a in bin_prov:
+                for block in (relation for relation in conflicts_parsed):
+                    # if a package satisfies its own conflicts relation, then it is using §7.6.2
+                    conflicts.extend(s.pkg_id for s in solvers(block, dep_binaries_s_a, dep_provides_s_a)
+                                     if s.pkg_id != pkg_id)
+        else:
+            conflicts = None
+
+        if pkgdata.depends:
+            depends = _compute_depends(pkgdata, bin_prov, solvers)
+        else:
+            depends = None
+
+        builder.set_relations(pkg_id, depends, conflicts)
+
+
+def _compute_depends(pkgdata, bin_prov, solvers):
+    depends = []
+    possible_dep_ranges = {}
+    for block in apt_pkg.parse_depends(pkgdata.depends, False):
+        sat = {s.pkg_id for binaries_s_a, provides_s_a in bin_prov
+               for s in solvers(block, binaries_s_a, provides_s_a)}
+
+        if len(block) != 1:
+            depends.append(sat)
+        else:
+            # This dependency might be a part
+            # of a version-range a la:
+            #
+            #   Depends: pkg-a (>= 1),
+            #            pkg-a (<< 2~)
+            #
+            # In such a case we want to reduce
+            # that to a single clause for
+            # efficiency.
+            #
+            # In theory, it could also happen
+            # with "non-minimal" dependencies
+            # a la:
+            #
+            #   Depends: pkg-a, pkg-a (>= 1)
+            #
+            # But dpkg is known to fix that up
+            # at build time, so we will
+            # probably only see "ranges" here.
+            key = block[0][0]
+            if key in possible_dep_ranges:
+                possible_dep_ranges[key] &= sat
+            else:
+                possible_dep_ranges[key] = sat
+
+    if possible_dep_ranges:
+        depends.extend(possible_dep_ranges.values())
+
+    return depends
 
 
 class InstallabilityTesterBuilder(object):
