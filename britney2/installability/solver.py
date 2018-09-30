@@ -252,15 +252,14 @@ class InstallabilitySolver(InstallabilityTester):
                     other_adds = set()
                     other_rms = set()
                     for d in ifilter_only(ptable, depgroup):
+                        other = ptable[d]
                         if d in going_in:
                             # "other" provides something "key" needs,
                             # schedule accordingly.
-                            other = ptable[d]
                             other_adds.add(other)
                         else:
                             # "other" removes something "key" needs,
                             # schedule accordingly.
-                            other = ptable[d]
                             other_rms.add(other)
 
                     for other in (other_adds - other_rms):
