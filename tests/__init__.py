@@ -401,6 +401,7 @@ ADT_HUGE          = 20
 ADT_SUCCESS_BOUNTY     =
 ADT_REGRESSION_PENALTY =
 ADT_BASELINE           =
+ADT_RETRY_OLDER_THAN   =
 ''')
         assert os.path.exists(self.britney)
 

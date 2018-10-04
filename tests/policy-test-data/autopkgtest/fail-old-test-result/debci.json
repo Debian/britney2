@@ -1,0 +1,8 @@
+{"results":
+ [
+     {"trigger": "migration-reference/0", "package": "broken", "arch": "amd64", "version": "1.0", "status": "pass", "run_id": "1", "updated_at": "2018-10-03T21:12:00.000Z"},
+     {"trigger": "broken/2.0", "package": "broken", "arch": "amd64", "version": "2.0", "status": "pass", "run_id": "2", "updated_at": "2018-10-03T21:12:00.000Z"},
+     {"trigger": "migration-reference/0", "package": "inter", "arch": "amd64", "version": "1.0", "status": "pass", "run_id": "3", "updated_at": "2018-10-03T21:12:00.000Z"},
+     {"trigger": "broken/2.0", "package": "inter", "arch": "amd64", "version": "0.9", "status": "pass", "run_id": "4", "updated_at": "2018-10-03T21:12:00.000Z"}
+ ]
+}

@@ -44,6 +44,7 @@ class Result(Enum):
     FAIL = 1
     PASS = 2
     NEUTRAL = 3
+    NONE = 4
 
 
 EXCUSES_LABELS = {
@@ -54,10 +55,13 @@ EXCUSES_LABELS = {
     "REGRESSION": '<span style="background:#ff6666">Regression</span>',
     "IGNORE-FAIL": '<span style="background:#e5c545">Ignored failure</span>',
     "RUNNING": '<span style="background:#99ddff">Test in progress</span>',
+    "RUNNING-REFERENCE": '<span style="background:#ff6666">Reference test in progress, but real test failed already</span>',
     "RUNNING-ALWAYSFAIL": '<span style="background:#99ddff">Test in progress (will not be considered a regression)</span>',
 }
 
 REF_TRIG = 'migration-reference/0'
+
+SECPERDAY = 24 * 60 * 60
 
 
 def srchash(src):
@@ -164,6 +168,13 @@ class AutopkgtestPolicy(BasePolicy):
                                 result.append(self._now)
                 self.test_results = results
             self.logger.info('Read previous results from %s', self.results_cache_file)
+
+            # The cache can contain results against versions of packages that
+            # are not in any suite anymore. Strip those out, as we don't want
+            # to use those results.
+            if self.options.adt_baseline == 'reference':
+                self.filter_results_for_old_versions()
+
         else:
             self.logger.info('%s does not exist, re-downloading all results from swift', self.results_cache_file)
 
@@ -234,6 +245,51 @@ class AutopkgtestPolicy(BasePolicy):
         else:
             raise RuntimeError('Unknown ADT_AMQP schema %s' % amqp_url.split(':', 1)[0])
 
+    def filter_results_for_old_versions(self):
+        '''Remove results for old versions from the cache'''
+
+        test_results = self.test_results
+        test_results_new = deepcopy(test_results)
+
+        for (trigger, trigger_data) in test_results.items():
+            for (src, results) in trigger_data.items():
+                for (arch, result) in results.items():
+                    if not self.test_version_in_any_suite(src, result[1]):
+                        del test_results_new[trigger][src][arch]
+                if len(test_results_new[trigger][src]) == 0:
+                    del test_results_new[trigger][src]
+            if len(test_results_new[trigger]) == 0:
+                del test_results_new[trigger]
+
+        self.test_results = test_results_new
+
+    def test_version_in_any_suite(self, src, version):
+        '''Check if the mentioned version of src is found in a suite
+
+        To prevent regressions in the target suite, the result should be
+        from a test with the version of the package in either the source
+        suite or the target suite. The source suite is also valid,
+        because due to versioned test dependencies and Breaks/Conflicts
+        relations, regularly the version in the source suite is used
+        during testing.
+        '''
+
+        versions = set()
+        for suite in self.suite_info:
+            try:
+                srcinfo = suite.sources[src]
+            except KeyError:
+                continue
+            versions.add(srcinfo.version)
+
+        valid_version = False
+        for ver in versions:
+            if apt_pkg.version_compare(ver, version) == 0:
+                valid_version = True
+                break
+
+        return valid_version
+
     def save_state(self, britney):
         super().save_state(britney)
 
@@ -300,7 +356,7 @@ class AutopkgtestPolicy(BasePolicy):
                 r = {v[0] for v in arch_results.values()}
                 if 'REGRESSION' in r:
                     verdict = PolicyVerdict.REJECTED_PERMANENTLY
-                elif 'RUNNING' in r and verdict == PolicyVerdict.PASS:
+                elif ('RUNNING' in r or 'RUNNING-REFERENCE' in r) and verdict == PolicyVerdict.PASS:
                     verdict = PolicyVerdict.REJECTED_TEMPORARILY
                 # skip version if still running on all arches
                 if not r - {'RUNNING', 'RUNNING-ALWAYSFAIL'}:
@@ -810,9 +866,7 @@ class AutopkgtestPolicy(BasePolicy):
             self.logger.info('-> does not match any pending request for %s/%s', src, arch)
 
     def add_trigger_to_results(self, trigger, src, ver, arch, run_id, seen, status):
-        # If a test runs because of its own package (newer version), ensure
-        # that we got a new enough version; FIXME: this should be done more
-        # generically by matching against testpkg-versions
+        # Ensure that we got a new enough version
         try:
             (trigsrc, trigver) = trigger.split('/', 1)
         except ValueError:
@@ -820,6 +874,12 @@ class AutopkgtestPolicy(BasePolicy):
             return
         if trigsrc == src and apt_pkg.version_compare(ver, trigver) < 0:
             self.logger.error('test trigger %s, but run for older version %s, ignoring', trigger, ver)
+            return
+        if self.options.adt_baseline == 'reference' and \
+           not self.test_version_in_any_suite(src, ver):
+            self.logger.error(
+                "Ignoring result for source %s and trigger %s as the tested version %s isn't found in any suite",
+                src, trigger, ver)
             return
 
         result = self.test_results.setdefault(trigger, {}).setdefault(
@@ -868,32 +928,53 @@ class AutopkgtestPolicy(BasePolicy):
         of src. If huge is true, then the request will be put into the -huge
         instead of normal queue.
 
-        This will only be done if that test wasn't already requested in a
-        previous run (i. e. not already in self.pending_tests) or there already
-        is a result for it. This ensures to download current results for this
-        package before requesting any test.
-        '''
+        This will only be done if that test wasn't already requested in
+        a previous run (i. e. if it's not already in self.pending_tests)
+        or if there is already a fresh or a positive result for it. This
+        ensures to download current results for this package before
+        requesting any test.
+'''
         trigger = full_trigger.split()[0]
-        # Don't re-request if we already have a result
+        uses_swift = not self.options.adt_swift_url.startswith('file://')
         try:
-            result = self.test_results[trigger][src][arch][0]
-            if self.options.adt_swift_url.startswith('file://'):
+            result = self.test_results[trigger][src][arch]
+            has_result = True
+        except KeyError:
+            has_result = False
+
+        if has_result:
+            result_state = result[0]
+            version = result[1]
+            baseline = self.result_in_baseline(src, arch)
+            if result_state == Result.FAIL and \
+                baseline[0] in {Result.PASS, Result.NEUTRAL} and \
+                self.options.adt_retry_older_than and \
+                result[3] + int(self.options.adt_retry_older_than) * SECPERDAY < self._now:
+                # We might want to retry this failure, so continue
+                pass
+            elif not uses_swift:
+                # We're done if we don't retrigger and we're not using swift
                 return
-            if result in [Result.PASS, Result.NEUTRAL]:
+            elif result_state in {Result.PASS, Result.NEUTRAL}:
                 self.logger.info('%s/%s triggered by %s already known', src, arch, trigger)
                 return
+
+        # Without swift we don't expect new results
+        if uses_swift:
             self.logger.info('Checking for new results for failed %s/%s for trigger %s', src, arch, trigger)
-            raise KeyError  # fall through
-        except KeyError:
-            # Without swift we don't expect new results
-            if not self.options.adt_swift_url.startswith('file://'):
-                self.fetch_swift_results(self.options.adt_swift_url, src, arch)
-                # do we have one now?
-                try:
-                    self.test_results[trigger][src][arch]
-                    return
-                except KeyError:
-                    pass
+            self.fetch_swift_results(self.options.adt_swift_url, src, arch)
+            # do we have one now?
+            try:
+                self.test_results[trigger][src][arch]
+                return
+            except KeyError:
+                pass
+
+        self.request_test_if_not_queued(src, arch, trigger, full_trigger, huge=huge)
+
+    def request_test_if_not_queued(self, src, arch, trigger, full_trigger=None, huge=False):
+        if full_trigger is None:
+            full_trigger = trigger
 
         # Don't re-request if it's already pending
         arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
@@ -918,31 +999,34 @@ class AutopkgtestPolicy(BasePolicy):
         except KeyError:
             pass
 
-        result_reference = Result.FAIL
+        result_reference = [Result.NONE, None, '', 0]
         if self.options.adt_baseline == 'reference':
             try:
-                result_reference = self.test_results[REF_TRIG][src][arch][0]
+                result_reference = self.test_results[REF_TRIG][src][arch]
                 self.logger.info('Found result for src %s in reference: %s',
-                                 src, result_reference.name)
+                                 src, result_reference[0].name)
             except KeyError:
                 self.logger.info('Found NO result for src %s in reference: %s',
-                                 src, result_reference.name)
+                                 src, result_reference[0].name)
                 pass
             self.result_in_baseline_cache[src][arch] = deepcopy(result_reference)
             return result_reference
 
-        result_ever = Result.FAIL
+        result_ever = [Result.FAIL, None, '', 0]
         for srcmap in self.test_results.values():
             try:
                 if srcmap[src][arch][0] != Result.FAIL:
-                    result_ever = srcmap[src][arch][0]
-                if result_ever == Result.PASS:
+                    result_ever = srcmap[src][arch]
+                # If we are not looking at a reference run, We don't really
+                # care about anything except the status, so we're done
+                # once we find a PASS.
+                if result_ever[0] == Result.PASS:
                     break
             except KeyError:
                 pass
 
         self.result_in_baseline_cache[src][arch] = deepcopy(result_ever)
-        self.logger.info('Result for src %s ever: %s', src, result_ever.name)
+        self.logger.info('Result for src %s ever: %s', src, result_ever[0].name)
         return result_ever
 
     def pkg_test_result(self, src, ver, arch, trigger):
@@ -952,7 +1036,7 @@ class AutopkgtestPolicy(BasePolicy):
         EXCUSES_LABELS. run_id is None if the test is still running.
         '''
         # determine current test result status
-        baseline_result = self.result_in_baseline(src, arch)
+        baseline_result = self.result_in_baseline(src, arch)[0]
 
         url = None
         run_id = None
@@ -973,11 +1057,24 @@ class AutopkgtestPolicy(BasePolicy):
 
                 if baseline_result == Result.FAIL:
                     result = 'ALWAYSFAIL'
-                else:
-                    if self.has_force_badtest(src, ver, arch):
-                        result = 'IGNORE-FAIL'
+                elif self.has_force_badtest(src, ver, arch):
+                    result = 'IGNORE-FAIL'
+                elif baseline_result == Result.NONE:
+                    # Check if the autopkgtest exists in the target suite and request it
+                    test_in_target = False
+                    try:
+                        srcinfo = self.suite_info.target_suite.sources[src]
+                        if 'autopkgtest' in srcinfo.testsuite:
+                            test_in_target = True
+                    except KeyError:
+                        pass
+                    if test_in_target:
+                        self.request_test_if_not_queued(src, arch, REF_TRIG)
+                        result = 'RUNNING-REFERENCE'
                     else:
-                        result = 'REGRESSION'
+                        result = 'ALWAYSFAIL'
+                else:
+                    result = 'REGRESSION'
             else:
                 result = r[0].name
 
