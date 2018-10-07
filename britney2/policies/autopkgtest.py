@@ -488,7 +488,7 @@ class AutopkgtestPolicy(BasePolicy):
                     # unstable e.g. if packages are replaced
                     # (e.g. -dbg to -dbgsym)
                     pass
-                if binary in bin_broken:
+                if binary not in binaries_info.binaries:
                     for tdep_src in self.testsuite_triggers.get(binary.package_name, set()):
                         try:
                             triggers.add(
