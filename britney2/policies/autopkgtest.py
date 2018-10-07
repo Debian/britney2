@@ -427,12 +427,12 @@ class AutopkgtestPolicy(BasePolicy):
         # For all binaries found, add the set of unique source
         # packages to the list of triggers.
 
-        bin_depends = set()
+        bin_triggers = set()
         bin_new = set(binaries_info.binaries)
         for binary in iter_except(bin_new.pop, KeyError):
-            if binary in bin_depends:
+            if binary in bin_triggers:
                 continue
-            bin_depends.add(binary)
+            bin_triggers.add(binary)
 
             # Check if there is a dependency that is not
             # available in the target suite.
@@ -459,9 +459,8 @@ class AutopkgtestPolicy(BasePolicy):
         # check here as a binary package that is broken may be
         # coming from a different source package in the source
         # suite. Nevermind.
-        bin_triggers = bin_depends.copy()
         bin_broken = set()
-        for binary in bin_depends:
+        for binary in bin_triggers:
             # broken is a frozenset{BinaryPackageId, ..}
             broken = pkg_universe.negative_dependencies_of(binary)
             names_testing = set()
@@ -473,8 +472,8 @@ class AutopkgtestPolicy(BasePolicy):
                     names_unstable.add(broken_bin.package_name)
             for name in names_testing - names_unstable:
                 # We'll figure out which version later
-                bin_triggers.update(b for b in broken if b.package_name == name)
                 bin_broken.update(b for b in broken if b.package_name == name)
+        bin_triggers.update(bin_broken)
 
         triggers = set()
         for binary in bin_triggers:
