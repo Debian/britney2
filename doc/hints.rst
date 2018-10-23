@@ -187,6 +187,48 @@ you will have to combine it with a `force-hint`.  However, please read
 the warning in the documentation for `force-hint` before you do this.
 
 
+force-badtest `<action list>`
+^^^^^^^^^^^^^^^^^^^^^
+
+Ignore the autopkgtest regressions for the items in `<action list>`.  This hint
+acts on the tests that are part of the source package of those items (in
+contrast to `force-skiptest`).  It basically marks a particular test as not
+useful for the autopkgtest policy, e.g. because they are flaky.  All items in
+the `<action list>` must be versioned items (potentially versioned 'all').
+
+The effect of this hint is not limited to the items listed in `<action list>`:
+this hint influences how autopkgtest regressions are treated for all the
+dependencies of the items in `<action list>`.  The hint only influences the
+treatment of the tests that are part of the source packages listed in `<action
+list>`.  If the dependencies trigger regressions in autopkgtests that are part
+of source packages not listed in `<action list>`, this hint will not affect
+those, so they can still cause items not to migrate.
+
+This hint does not guarantee that any item will migrate, it merely influences
+how an autopkgtest regression is treated.  Migration can still be blocked or
+delayed for other reasons (like age, dependencies, piuparts regressions, etc).
+
+
+force-skiptest `<action list>`
+^^^^^^^^^^^^^^^^^^^^^
+
+Ignore the autopkgtest regressions for the items in `<action list>`.  This hint
+acts on all the tests that are triggered to test the items in the `<action
+list>`, but only when evaluting those items (in contrast to `force-badtest`).
+It disables autopkgtest policy from blocking items from the `<action list>`.
+All items in the `<action list>` must be versioned items.
+
+The effect of this hint is limited to the items listed in `<action list>`. Any
+autopkgtest result that would otherwise affect the migration of these items,
+will be ignored for these items only.  These tests can still affect the
+migration of other items.
+
+This hint guarantees that the listed items will not be blocked or delayed by
+autopkgtest regression, but it does not guarantee that any item will migrate.
+Migration can still be blocked or delayed for other reasons (like age,
+dependencies, piuparts regressions, etc).
+
+
 Migration selection hints
 -------------------------
 
