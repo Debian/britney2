@@ -935,15 +935,24 @@ def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
     return nuninst
 
 
-def find_smooth_updateable_binaries(binaries_to_check, inst_tester, binaries_t, binaries_s, removals, smooth_updates):
+def find_smooth_updateable_binaries(binaries_to_check, source_data,
+                                    inst_tester, binaries_t, binaries_s, removals, smooth_updates):
     check = set()
     smoothbins = set()
 
     for pkg_id in binaries_to_check:
         binary, _, parch = pkg_id
-        # if a smooth update is possible for the package, skip it
-        if binary not in binaries_s[parch][0] and \
-                ('ALL' in smooth_updates or binaries_t[parch][0][binary].section in smooth_updates):
+
+        cruft = False
+
+        # Not a candidate for smooth up date (newer non-cruft version in unstable)
+        if binary in binaries_s[parch][0]:
+            if binaries_s[parch][0][binary].source_version == source_data.version:
+                continue
+            cruft = True
+
+        # Maybe a candidate (cruft or removed binary): check if config allows us to smooth update it.
+        if cruft or 'ALL' in smooth_updates or binaries_t[parch][0][binary].section in smooth_updates:
 
             # if the package has reverse-dependencies which are
             # built from other sources, it's a valid candidate for

@@ -1267,7 +1267,7 @@ class Britney(object):
             primary_source_suite = self.suite_info.primary_source_suite
             if not (ssrc and source_suite is not primary_source_suite):
                 # for every binary package produced by this source in testing for this architecture
-                _, _, smoothbins = self._compute_groups(src,
+                _, _, smoothbins, _ = self._compute_groups(src,
                                                         primary_source_suite,
                                                         arch,
                                                         False)
@@ -1831,6 +1831,7 @@ class Britney(object):
         adds = set()
         rms = set()
         smoothbins = set()
+        skip = set()
 
         # remove all binary packages (if the source already exists)
         if migration_architecture == 'source' or not is_removal:
@@ -1858,6 +1859,7 @@ class Britney(object):
 
                 if allow_smooth_updates and source_suite.suite_class.is_primary_source:
                     smoothbins = find_smooth_updateable_binaries(bins,
+                                                                 source_suite.sources[source_name],
                                                                  inst_tester,
                                                                  binaries_t,
                                                                  binaries_s,
@@ -1890,7 +1892,7 @@ class Britney(object):
         if not is_removal:
             source_data = source_suite.sources[source_name]
             for pkg_id in source_data.binaries:
-                binary, _, parch = pkg_id
+                binary, ver, parch = pkg_id
                 if migration_architecture not in ['source', parch]:
                     continue
 
@@ -1906,15 +1908,19 @@ class Britney(object):
                                 rms.remove((rm_b, rm_v, rm_p))
                     continue
 
-                # Don't add the binary if it is old cruft that is no longer in testing
+                # Don't add the binary if it is cruft; smooth updates will keep it if possible
                 if (parch not in self.options.outofsync_arches and
-                    source_data.version != binaries_s[parch][0][binary].source_version and
-                    binary not in binaries_t[parch][0]):
+                    source_data.version != binaries_s[parch][0][binary].source_version):
+                    # if the package was in testing, list it as skipped, so it
+                    # will come back in case of an undo
+                    if (binary in binaries_t[parch][0] and
+                        binaries_t[parch][0][binary].version == ver):
+                        skip.add(pkg_id)
                     continue
 
                 adds.add(pkg_id)
 
-        return (adds, rms, smoothbins)
+        return (adds, rms, smoothbins, skip)
 
     def doop_source(self, item, hint_undo=None, removals=frozenset()):
         """Apply a change to the target suite as requested by `item`
@@ -1945,7 +1951,7 @@ class Britney(object):
         inst_tester = self._inst_tester
         eqv_set = set()
 
-        updates, rms, _ = self._compute_groups(item.package,
+        updates, rms, _, skip = self._compute_groups(item.package,
                                                source_suite,
                                                item.architecture,
                                                item.is_removal,
@@ -2008,6 +2014,16 @@ class Britney(object):
             # finally, remove the binary package
             del binaries_t_a[binary]
             inst_tester.remove_testing_binary(rm_pkg_id)
+
+        # skipped binaries are binaries in testing, that are also in unstable
+        # (as cruft), but are skipped there. in case of undo, they will be
+        # removed with (newer) the source package, so they need to be put back
+        for skip_pkg_id in skip:
+            binary, version, parch = skip_pkg_id
+            pkey = (binary, parch)
+            if pkey in undo['binaries']:
+                assert(undo['binaries'][pkey] == skip_pkg_id)
+            undo['binaries'][pkey] = skip_pkg_id
 
         # Add/Update binary packages in testing
         if updates:
@@ -2102,7 +2118,7 @@ class Britney(object):
             affected_direct = set()
             affected_all = set()
             for item in actions:
-                _, rms, _ = self._compute_groups(item.package, item.suite,
+                _, rms, _, _ = self._compute_groups(item.package, item.suite,
                                                  item.architecture,
                                                  item.is_removal,
                                                  allow_smooth_updates=False)
@@ -2182,7 +2198,7 @@ class Britney(object):
         output_logger = self.output_logger
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
-            updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
+            updates, rms, _, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
             result = (y, frozenset(updates), frozenset(rms))
             group_info[y] = result
 
