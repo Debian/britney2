@@ -371,7 +371,7 @@ class AutopkgtestPolicy(BasePolicy):
         '''Check if package  is covered by autodep8
 
         srcinfo is an item from self.britney.sources
-        binaries is self.britney.binaries['unstable'][arch][0]
+        binaries is self.britney.binaries['unstable'][arch]
         '''
         # autodep8?
         for t in srcinfo.testsuite:
@@ -393,7 +393,7 @@ class AutopkgtestPolicy(BasePolicy):
         suite_info = self.suite_info
         sources_s = suite_info[suite].sources
         binaries_info = sources_s[source_name]
-        packages_s_a = suite_info[suite].binaries[arch][0]
+        packages_s_a = suite_info[suite].binaries[arch]
         # request tests (unless they were already requested earlier or have a result)
         tests = self.tests_for_source(source_name, source_version, arch)
         is_huge = False
@@ -516,7 +516,7 @@ class AutopkgtestPolicy(BasePolicy):
         source_suite = self.suite_info.primary_source_suite
         target_suite = self.suite_info.target_suite
         sources_info = target_suite.sources
-        binaries_info = target_suite.binaries[arch][0]
+        binaries_info = target_suite.binaries[arch]
 
         reported_pkgs = set()
 

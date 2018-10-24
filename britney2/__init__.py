@@ -35,6 +35,7 @@ class Suite(object):
         self.suite_short_name = suite_short_name if suite_short_name else ''
         self.sources = {}
         self.binaries = {}
+        self.provides_table = {}
 
     @property
     def excuses_suffix(self):

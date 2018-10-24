@@ -115,6 +115,7 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
     target_suite = suite_info.target_suite
     sources_t = target_suite.sources
     binaries_t = target_suite.binaries
+    provides_t = target_suite.provides_table
 
     # STEP 1
     # undo all the changes for sources
@@ -134,7 +135,7 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
                 binary, _, arch = pkg_id
                 if item.architecture in ['source', arch]:
                     try:
-                        del binaries_t[arch][0][binary]
+                        del binaries_t[arch][binary]
                     except KeyError:
                         # If this happens, pkg_id must be a cruft item that
                         # was *not* migrated.
@@ -147,7 +148,7 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
     for (undo, item) in lundo:
         for p in undo['binaries']:
             binary, arch = p
-            binaries_t_a = binaries_t[arch][0]
+            binaries_t_a = binaries_t[arch]
             assert binary not in binaries_t_a
             pkgdata = all_binary_packages[undo['binaries'][p]]
             binaries_t_a[binary] = pkgdata
@@ -157,10 +158,10 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
     # undo all changes to virtual packages
     for (undo, item) in lundo:
         for provided_pkg, arch in undo['nvirtual']:
-            del binaries_t[arch][1][provided_pkg]
+            del provides_t[arch][provided_pkg]
         for p in undo['virtual']:
             provided_pkg, arch = p
-            binaries_t[arch][1][provided_pkg] = undo['virtual'][p]
+            provides_t[arch][provided_pkg] = undo['virtual'][p]
 
 
 def log_and_format_old_libraries(logger, libs):
@@ -290,7 +291,7 @@ def write_heidi(filename, target_suite, *, outofsync_arches=frozenset(), sorted=
 
         # write binary packages
         for arch in sorted(packages_t):
-            binaries = packages_t[arch][0]
+            binaries = packages_t[arch]
             for pkg_name in sorted(binaries):
                 pkg = binaries[pkg_name]
                 pkgv = pkg.version
@@ -442,7 +443,7 @@ def write_controlfiles(target_suite):
 
     for arch in packages_s:
         filename = os.path.join(basedir, 'Packages_%s' % arch)
-        binaries = packages_s[arch][0]
+        binaries = packages_s[arch]
         with open(filename, 'w', encoding='utf-8') as f:
             for pkg in binaries:
                 output = "Package: %s\n" % pkg
@@ -493,10 +494,10 @@ def old_libraries(suite_info, outofsync_arches=frozenset()):
     binaries_s = suite_info.primary_source_suite.binaries
     removals = []
     for arch in binaries_t:
-        for pkg_name in binaries_t[arch][0]:
-            pkg = binaries_t[arch][0][pkg_name]
+        for pkg_name in binaries_t[arch]:
+            pkg = binaries_t[arch][pkg_name]
             if sources_t[pkg.source].version != pkg.source_version and \
-                (arch not in outofsync_arches or pkg_name not in binaries_s[arch][0]):
+                (arch not in outofsync_arches or pkg_name not in binaries_s[arch]):
                 migration = "-" + "/".join((pkg_name, arch, pkg.source_version))
                 removals.append(MigrationItem(migration))
     return removals
@@ -546,8 +547,8 @@ def clone_nuninst(nuninst, packages_s, architectures):
     """
     clone = nuninst.copy()
     for arch in architectures:
-        clone[arch] = set(x for x in nuninst[arch] if x in packages_s[arch][0])
-        clone[arch + "+all"] = set(x for x in nuninst[arch + "+all"] if x in packages_s[arch][0])
+        clone[arch] = set(x for x in nuninst[arch] if x in packages_s[arch])
+        clone[arch + "+all"] = set(x for x in nuninst[arch + "+all"] if x in packages_s[arch])
     return clone
 
 
@@ -585,7 +586,7 @@ def test_installability(inst_tester, pkg_name, pkg_id, broken, nuninst_arch):
 
 def check_installability(inst_tester, binaries, arch, updates, affected, check_archall, nuninst):
     broken = nuninst[arch + "+all"]
-    packages_t_a = binaries[arch][0]
+    packages_t_a = binaries[arch]
     improvement = 0
 
     # broken packages (first round)
@@ -918,7 +919,7 @@ def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
 
         # check all the packages for this architecture
         nuninst[arch] = set()
-        packages_t_a = binaries_t[arch][0]
+        packages_t_a = binaries_t[arch]
         for pkg_name, pkg_data in packages_t_a.items():
             r = inst_tester.is_installable(pkg_data.pkg_id)
             if not r:
@@ -946,14 +947,13 @@ def find_smooth_updateable_binaries(binaries_to_check, source_data,
         cruft = False
 
         # Not a candidate for smooth up date (newer non-cruft version in unstable)
-        if binary in binaries_s[parch][0]:
-            if binaries_s[parch][0][binary].source_version == source_data.version:
+        if binary in binaries_s[parch]:
+            if binaries_s[parch][binary].source_version == source_data.version:
                 continue
             cruft = True
 
         # Maybe a candidate (cruft or removed binary): check if config allows us to smooth update it.
-        if cruft or 'ALL' in smooth_updates or binaries_t[parch][0][binary].section in smooth_updates:
-
+        if cruft or 'ALL' in smooth_updates or binaries_t[parch][binary].section in smooth_updates:
             # if the package has reverse-dependencies which are
             # built from other sources, it's a valid candidate for
             # a smooth update.  if not, it may still be a valid

@@ -32,9 +32,9 @@ def build_installability_tester(suite_info, archs):
 
 
 def _build_inst_tester_on_suite_arch(builder, suite_info, suite, arch):
-    packages_s_a = suite.binaries[arch][0]
+    packages_s_a = suite.binaries[arch]
     is_target = suite.suite_class.is_target
-    bin_prov = [s.binaries[arch] for s in suite_info]
+    bin_prov = [(s.binaries[arch], s.provides_table[arch]) for s in suite_info]
     solvers = get_dependency_solvers
     for pkgdata in packages_s_a.values():
         pkg_id = pkgdata.pkg_id

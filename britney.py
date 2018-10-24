@@ -325,7 +325,7 @@ class Britney(object):
         for suite in self.suite_info:
             sources = self.read_sources(suite.path)
             suite.sources = sources
-            suite.binaries = self.read_binaries(suite, self.options.architectures)
+            (suite.binaries, suite.provides_table) = self.read_binaries(suite, self.options.architectures)
 
         try:
             constraints_file = os.path.join(self.options.static_input_dir, 'constraints')
@@ -633,8 +633,8 @@ class Britney(object):
                                          )
 
                 src_data.binaries.append(pkg_id)
-                target_suite.binaries[arch][0][pkg_name] = bin_data
-                pri_source_suite.binaries[arch][0][pkg_name] = bin_data
+                target_suite.binaries[arch][pkg_name] = bin_data
+                pri_source_suite.binaries[arch][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data
 
     def _load_constraints(self, constraints_file):
@@ -727,8 +727,8 @@ class Britney(object):
                                          pkg_id,
                                          )
                 src_data.binaries.append(pkg_id)
-                target_suite.binaries[arch][0][pkg_name] = bin_data
-                pri_source_suite.binaries[arch][0][pkg_name] = bin_data
+                target_suite.binaries[arch][pkg_name] = bin_data
+                pri_source_suite.binaries[arch][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data
 
         return constraints
@@ -921,12 +921,13 @@ class Britney(object):
 
         The `Provides' field is used to populate the virtual packages list.
 
-        The method returns a dict mapping an architecture name to a 2-element
-        tuple.  The first element in the tuple is a map from binary package
-        names to "BinaryPackage" objects; the second element is a dictionary
-        which maps virtual packages to real packages that provide them.
+        The method returns a tuple of two dicts with architecture as key and
+        another dict as value.  The value dicts of the first dict map
+        from binary package name to "BinaryPackage" objects; the other second
+        value dicts map a package name to the packages providing them.
         """
-        arch2packages = {}
+        binaries = {}
+        provides_table = {}
         basedir = suite.path
 
         if self.options.components:
@@ -937,7 +938,8 @@ class Britney(object):
                 if arch not in listed_archs:
                     self.logger.info("Skipping arch %s for %s: It is not listed in the Release file",
                                      arch, suite.name)
-                    arch2packages[arch] = ({}, {})
+                    binaries[arch] = {}
+                    provides_table[arch] = {}
                     continue
                 for component in self.options.components:
                     binary_dir = "binary-%s" % arch
@@ -964,7 +966,8 @@ class Britney(object):
                                              packages)
                 # create provides
                 provides = create_provides_map(packages)
-                arch2packages[arch] = (packages, provides)
+                binaries[arch] = packages
+                provides_table[arch] = provides
         else:
             for arch in architectures:
                 filename = os.path.join(basedir, "Packages_%s" % arch)
@@ -972,9 +975,10 @@ class Britney(object):
                                                     arch,
                                                     suite.sources)
                 provides = create_provides_map(packages)
-                arch2packages[arch] = (packages, provides)
+                binaries[arch] = packages
+                provides_table[arch] = provides
 
-        return arch2packages
+        return (binaries, provides_table)
 
     def read_hints(self, hintsdir):
         """Read the hint commands from the specified directory
@@ -1051,8 +1055,10 @@ class Britney(object):
         """
         # retrieve the binary package from the specified suite and arch
         target_suite = self.suite_info.target_suite
-        binaries_s_a, provides_s_a = source_suite.binaries[arch]
-        binaries_t_a, provides_t_a = target_suite.binaries[arch]
+        binaries_s_a = source_suite.binaries[arch]
+        provides_s_a = source_suite.provides_table[arch]
+        binaries_t_a = target_suite.binaries[arch]
+        provides_t_a = target_suite.provides_table[arch]
         binary_u = binaries_s_a[pkg]
 
         # local copies for better performance
@@ -1189,8 +1195,8 @@ class Britney(object):
         anywrongver = False
         anyworthdoing = False
 
-        packages_t_a = target_suite.binaries[arch][0]
-        packages_s_a = source_suite.binaries[arch][0]
+        packages_t_a = target_suite.binaries[arch]
+        packages_s_a = source_suite.binaries[arch]
 
         # for every binary package produced by this source in unstable for this architecture
         for pkg_id in sorted(x for x in source_u.binaries if x.architecture == arch):
@@ -1545,7 +1551,7 @@ class Britney(object):
                 # this architecture then we assume it's ok. this allows for
                 # uploads to (t-)p-u which intentionally drop binary
                 # packages
-                if any(x for x in source_suite.binaries[arch][0].values()
+                if any(x for x in source_suite.binaries[arch].values()
                        if x.source == src and x.source_version == source_u.version and
                           x.architecture != 'all'):
                     continue
@@ -1849,11 +1855,11 @@ class Britney(object):
                         continue
 
                     # Work around #815995
-                    if migration_architecture == 'source' and is_removal and binary not in binaries_t[parch][0]:
+                    if migration_architecture == 'source' and is_removal and binary not in binaries_t[parch]:
                         continue
 
                     # Do not include hijacked binaries
-                    if binaries_t[parch][0][binary].source != source_name:
+                    if binaries_t[parch][binary].source != source_name:
                         continue
                     bins.append(pkg_id)
 
@@ -1876,7 +1882,7 @@ class Britney(object):
                     # migration so will end up missing from testing
                     if migration_architecture != 'source' and \
                          source_suite.suite_class.is_additional_source and \
-                         binaries_t[parch][0][binary].architecture == 'all':
+                         binaries_t[parch][binary].architecture == 'all':
                         continue
                     else:
                         rms.add(pkg_id)
@@ -1884,8 +1890,8 @@ class Britney(object):
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
         else:
-            assert source_name in binaries_t[migration_architecture][0]
-            pkg_id = binaries_t[migration_architecture][0][source_name].pkg_id
+            assert source_name in binaries_t[migration_architecture]
+            pkg_id = binaries_t[migration_architecture][source_name].pkg_id
             rms.add(pkg_id)
 
         # add the new binary packages (if we are not removing)
@@ -1896,7 +1902,7 @@ class Britney(object):
                 if migration_architecture not in ['source', parch]:
                     continue
 
-                if binaries_s[parch][0][binary].source != source_name:
+                if binaries_s[parch][binary].source != source_name:
                     # This binary package has been hijacked by some other source.
                     # So don't add it as part of this update.
                     #
@@ -1910,11 +1916,11 @@ class Britney(object):
 
                 # Don't add the binary if it is cruft; smooth updates will keep it if possible
                 if (parch not in self.options.outofsync_arches and
-                    source_data.version != binaries_s[parch][0][binary].source_version):
+                    source_data.version != binaries_s[parch][binary].source_version):
                     # if the package was in testing, list it as skipped, so it
                     # will come back in case of an undo
-                    if (binary in binaries_t[parch][0] and
-                        binaries_t[parch][0][binary].version == ver):
+                    if (binary in binaries_t[parch] and
+                            binaries_t[parch][binary].version == ver):
                         skip.add(pkg_id)
                     continue
 
@@ -1948,6 +1954,7 @@ class Britney(object):
         source_suite = item.suite
         target_suite = self.suite_info.target_suite
         packages_t = target_suite.binaries
+        provides_t = target_suite.provides_table
         inst_tester = self._inst_tester
         eqv_set = set()
 
@@ -1992,7 +1999,8 @@ class Britney(object):
         for rm_pkg_id in rms:
             binary, version, parch = rm_pkg_id
             pkey = (binary, parch)
-            binaries_t_a, provides_t_a = packages_t[parch]
+            binaries_t_a = packages_t[parch]
+            provides_t_a = provides_t[parch]
 
             pkg_data = binaries_t_a[binary]
             # save the old binary for undo
@@ -2032,7 +2040,8 @@ class Britney(object):
             for updated_pkg_id in updates:
                 binary, new_version, parch = updated_pkg_id
                 key = (binary, parch)
-                binaries_t_a, provides_t_a = packages_t[parch]
+                binaries_t_a = packages_t[parch]
+                provides_t_a = provides_t[parch]
                 equivalent_replacement = key in eqv_set
 
                 # obviously, added/modified packages are affected
@@ -2068,7 +2077,7 @@ class Britney(object):
                             affected_direct.update(inst_tester.reverse_dependencies_of(tpkg_id))
 
                 # add/update the binary package from the source suite
-                new_pkg_data = packages_s[parch][0][binary]
+                new_pkg_data = packages_s[parch][binary]
                 binaries_t_a[binary] = new_pkg_data
                 inst_tester.add_testing_binary(updated_pkg_id)
                 # register new provided packages
@@ -2501,9 +2510,9 @@ class Britney(object):
             target_suite = self.suite_info.target_suite
             sources_t = target_suite.sources
             binaries_t = target_suite.binaries
-            used = set(binaries_t[arch][0][binary].source
+            used = set(binaries_t[arch][binary].source
                        for arch in binaries_t
-                       for binary in binaries_t[arch][0]
+                       for binary in binaries_t[arch]
                        )
             removals = [MigrationItem("-%s/%s" % (source, sources_t[source].version))
                         for source in sources_t if source not in used
@@ -2776,7 +2785,7 @@ class Britney(object):
         all = defaultdict(set)
         binaries_t = self.suite_info.target_suite.binaries
         for p in nuninst[arch]:
-            pkg = binaries_t[arch][0][p]
+            pkg = binaries_t[arch][p]
             all[(pkg.source, pkg.source_version)].add(p)
 
         print('* %s' % arch)

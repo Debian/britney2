@@ -686,15 +686,19 @@ class BuildDependsPolicy(BasePolicy):
         source_suite = self.suite_info[suite]
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
+        provides_s = source_suite.provides_table
         binaries_t = target_suite.binaries
+        provides_t = target_suite.provides_table
         unsat_bd = {}
         relevant_archs = {binary.architecture for binary in source_data_srcdist.binaries
                           if britney.all_binaries[binary].architecture != 'all'}
 
         for arch in (arch for arch in self.options.architectures if arch in relevant_archs):
             # retrieve the binary package from the specified suite and arch
-            binaries_s_a, provides_s_a = binaries_s[arch]
-            binaries_t_a, provides_t_a = binaries_t[arch]
+            binaries_s_a = binaries_s[arch]
+            provides_s_a = provides_s[arch]
+            binaries_t_a = binaries_t[arch]
+            provides_t_a = provides_t[arch]
             # for every dependency block (formed as conjunction of disjunction)
             for block_txt in deps.split(','):
                 block = parse_src_depends(block_txt, False, arch)
