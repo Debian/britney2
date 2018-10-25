@@ -188,7 +188,7 @@ the warning in the documentation for `force-hint` before you do this.
 
 
 force-badtest `<action list>`
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Ignore the autopkgtest regressions for the items in `<action list>`.  This hint
 acts on the tests that are part of the source package of those items (in
@@ -210,7 +210,7 @@ delayed for other reasons (like age, dependencies, piuparts regressions, etc).
 
 
 force-skiptest `<action list>`
-^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Ignore the autopkgtest regressions for the items in `<action list>`.  This hint
 acts on all the tests that are triggered to test the items in the `<action
