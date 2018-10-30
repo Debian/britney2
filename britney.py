@@ -1073,6 +1073,13 @@ class Britney(object):
         provides_t_a = target_suite.provides_table[arch]
         binary_u = binaries_s_a[pkg]
 
+        source_s = source_suite.sources[binary_u.source]
+        if (binary_u.source_version != source_s.version):
+            # we don't want cruft to block packages, so if this is cruft, we
+            # can simply ignore it; if the cruft would migrate to testing, the
+            # installability check will catch missing deps
+            return True
+
         # local copies for better performance
         parse_depends = apt_pkg.parse_depends
 
