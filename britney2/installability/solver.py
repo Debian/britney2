@@ -132,15 +132,10 @@ def compute_scc(graph):
 
 class InstallabilitySolver(InstallabilityTester):
 
-    def __init__(self, universe, revuniverse, testing, broken, essentials,
-                 eqv_table):
+    def __init__(self, universe, testing, broken, essentials, eqv_table):
         """Create a new installability solver
 
-        universe is a dict mapping package tuples to their
-        dependencies and conflicts.
-
-        revuniverse is a dict mapping package tuples to their reverse
-        dependencies and reverse conflicts.
+        universe is a BinaryPackageUniverse.
 
         testing is a (mutable) set of package tuples that determines
         which of the packages in universe are currently in testing.
@@ -152,13 +147,11 @@ class InstallabilitySolver(InstallabilityTester):
           - NB: arch:all packages are "re-mapped" to given architecture.
             (simplifies caches and dependency checking)
         """
-        super().__init__(universe, revuniverse, testing,
-                         broken, essentials, eqv_table)
+        super().__init__(universe, testing, broken, essentials, eqv_table)
 
     def solve_groups(self, groups):
         sat_in_testing = self._testing.isdisjoint
         universe = self._universe
-        revuniverse = self._revuniverse
         result = []
         emitted = set()
         queue = deque()
@@ -191,9 +184,9 @@ class InstallabilitySolver(InstallabilityTester):
             oldcons = set()
             newcons = set()
             for r in rms:
-                oldcons.update(universe[r][1])
+                oldcons.update(universe.negative_dependencies_of(r))
             for a in adds:
-                newcons.update(universe[a][1])
+                newcons.update(universe.negative_dependencies_of(a))
             current = newcons & oldcons
             oldcons -= current
             newcons -= current
@@ -213,11 +206,11 @@ class InstallabilitySolver(InstallabilityTester):
                     order[key]['before'].add(other)
                     order[other]['after'].add(key)
 
-            for r in ifilter_only(revuniverse, rms):
+            for r in rms:
                 # The binaries have reverse dependencies in testing;
                 # check if we can/should migrate them first.
-                for rdep in revuniverse[r][0]:
-                    for depgroup in universe[rdep][0]:
+                for rdep in universe.reverse_dependencies_of(r):
+                    for depgroup in universe.dependencies_of(rdep):
                         rigid = depgroup - going_out
                         if not sat_in_testing(rigid):
                             # (partly) satisfied by testing, assume it is okay
@@ -236,7 +229,7 @@ class InstallabilitySolver(InstallabilityTester):
                 # Check if this item should migrate before others
                 # (e.g. because they depend on a new [version of a]
                 # binary provided by this item).
-                for depgroup in universe[a][0]:
+                for depgroup in universe.dependencies_of(a):
                     rigid = depgroup - going_out
                     if not sat_in_testing(rigid):
                         # (partly) satisfied by testing, assume it is okay

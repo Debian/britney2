@@ -22,15 +22,10 @@ from britney2.utils import iter_except
 
 class InstallabilityTester(object):
 
-    def __init__(self, universe, revuniverse, testing, broken, essentials,
-                 eqv_table):
+    def __init__(self, universe, testing, broken, essentials, eqv_table):
         """Create a new installability tester
 
-        universe is a dict mapping package ids to their
-        dependencies and conflicts.
-
-        revuniverse is a table containing all packages with reverse
-        relations mapping them to their reverse relations.
+        universe is a BinaryPackageUniverse
 
         testing is a (mutable) set of package ids that determines
         which of the packages in universe are currently in testing.
@@ -49,7 +44,6 @@ class InstallabilityTester(object):
         self._testing = testing
         self._broken = broken
         self._essentials = essentials
-        self._revuniverse = revuniverse
         self._eqv_table = eqv_table
         self._stats = InstallabilityStats()
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
@@ -122,10 +116,7 @@ class InstallabilityTester(object):
         :return: A set containing the package ids all of the reverse
         dependencies of the input package.  The result is suite agnostic.
         """
-        revuniverse = self._revuniverse
-        if pkg_id not in revuniverse:
-            return frozenset()
-        return revuniverse[pkg_id][0]
+        return self._universe.reverse_dependencies_of(pkg_id)
 
     def negative_dependencies_of(self, pkg_id):
         """Returns the set of negative dependencies of a given package
@@ -138,7 +129,7 @@ class InstallabilityTester(object):
         :return: A set containing the package ids all of the negative
         dependencies of the input package.  The result is suite agnostic.
         """
-        return self._universe[pkg_id][1]
+        return self._universe.negative_dependencies_of(pkg_id)
 
     def dependencies_of(self, pkg_id):
         """Returns the set of dependencies of a given package
@@ -147,7 +138,7 @@ class InstallabilityTester(object):
         :return: A set containing the package ids all of the dependencies
         of the input package.  The result is suite agnostic.
         """
-        return self._universe[pkg_id][0]
+        return self._universe.dependencies_of(pkg_id)
 
     def any_of_these_are_in_testing(self, pkgs):
         """Test if at least one package of a given set is in testing
@@ -214,7 +205,7 @@ class InstallabilityTester(object):
                 # Removes a package from the "pseudo-essential set"
                 del self._cache_ess[pkg_id.architecture]
 
-            if pkg_id not in self._revuniverse:
+            if not self._universe.reverse_dependencies_of(pkg_id):
                 # no reverse relations - safe
                 return True
             if pkg_id not in self._broken and pkg_id in self._cache_inst:
@@ -483,9 +474,9 @@ class InstallabilityTester(object):
         # While we have guaranteed dependencies (in check), examine all
         # of them.
         for cur in iter_except(check.pop, IndexError):
-            (deps, cons) = universe[cur]
+            relations = universe.relations_of(cur)
 
-            if cons:
+            if relations.negative_dependencies:
                 # Conflicts?
                 if cur in never:
                     # cur adds a (reverse) conflict, so check if cur
@@ -498,11 +489,11 @@ class InstallabilityTester(object):
                     return False
                 # We must install cur for the package to be installable,
                 # so "obviously" we can never choose any of its conflicts
-                never.update(cons & testing)
+                never.update(relations.negative_dependencies & testing)
 
             # depgroup can be satisfied by picking something that is
             # already in musts - lets pick that (again).  :)
-            for depgroup in not_satisfied(deps):
+            for depgroup in not_satisfied(relations.dependencies):
 
                 # Of all the packages listed in the relation remove those that
                 # are either:
@@ -587,8 +578,9 @@ class InstallabilityTester(object):
                     for choice in not_satisfied(ess_choices):
                         b = False
                         for c in choice:
-                            if universe[c][1] <= ess_never and \
-                                    not any(not_satisfied(universe[c][0])):
+                            relations = universe.relations_of(c)
+                            if relations.negative_dependencies <= ess_never and \
+                                    not any(not_satisfied(relations.dependencies)):
                                 ess_base.append(c)
                                 b = True
                                 break
@@ -599,7 +591,7 @@ class InstallabilityTester(object):
                     break
 
             for x in start:
-                ess_never.update(universe[x][1])
+                ess_never.update(universe.negative_dependencies_of(x))
             self._cache_ess[arch] = (frozenset(start), frozenset(ess_never), frozenset(ess_choices))
 
         return self._cache_ess[arch]
@@ -612,7 +604,7 @@ class InstallabilityTester(object):
 
         for pkg in universe:
             (pkg_name, pkg_version, pkg_arch) = pkg
-            deps, con = universe[pkg]
+            relations = universe.relations_of(pkg)
             arch_stats = graph_stats[pkg_arch]
 
             arch_stats.nodes += 1
@@ -621,8 +613,8 @@ class InstallabilityTester(object):
                 eqv = [e for e in eqv_table[pkg] if e.architecture == pkg_arch]
                 arch_stats.eqv_nodes += len(eqv)
 
-            arch_stats.add_dep_edges(deps)
-            arch_stats.add_con_edges(con)
+            arch_stats.add_dep_edges(relations.dependencies)
+            arch_stats.add_con_edges(relations.negative_dependencies)
 
         for stat in graph_stats.values():
             stat.compute_all()

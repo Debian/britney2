@@ -18,6 +18,7 @@ from itertools import product
 
 from britney2.utils import ifilter_except, iter_except, get_dependency_solvers
 from britney2.installability.solver import InstallabilitySolver
+from britney2.installability.universe import BinaryPackageRelation, BinaryPackageUniverse
 
 
 def build_installability_tester(suite_info, archs):
@@ -305,10 +306,11 @@ class InstallabilityTesterBuilder(object):
                 if b in reverse_package_table:
                     del reverse_package_table[b]
 
-        eqv_table = self._build_eqv_packages_table(package_table, reverse_package_table)
+        relations, eqv_table = self._build_eqv_packages_table(package_table, reverse_package_table)
 
-        return InstallabilitySolver(package_table,
-                                    reverse_package_table,
+        universe = BinaryPackageUniverse(relations)
+
+        return InstallabilitySolver(universe,
                                     self._testing,
                                     self._broken,
                                     self._essentials,
@@ -369,6 +371,8 @@ class InstallabilityTesterBuilder(object):
 
         find_eqv_table = defaultdict(list)
         eqv_table = {}
+        relations = {}
+        emptyset = frozenset()
 
         for pkg in reverse_package_table:
             rdeps = reverse_package_table[pkg][2]
@@ -380,12 +384,21 @@ class InstallabilityTesterBuilder(object):
             ekey = (deps, con, rdeps)
             find_eqv_table[ekey].append(pkg)
 
-        for pkg_list in find_eqv_table.values():
+        for pkg_relations, pkg_list in find_eqv_table.items():
+            rel = BinaryPackageRelation(pkg_relations[0], pkg_relations[1], reverse_package_table[pkg_list[0]][0])
             if len(pkg_list) < 2:
+                relations[pkg_list[0]] = rel
                 continue
 
             eqv_set = frozenset(pkg_list)
             for pkg in pkg_list:
                 eqv_table[pkg] = eqv_set
+                relations[pkg] = rel
 
-        return eqv_table
+        for pkg, forward_relations in package_table.items():
+            if pkg in relations:
+                continue
+            rel = BinaryPackageRelation(forward_relations[0], forward_relations[1], emptyset)
+            relations[pkg] = rel
+
+        return relations, eqv_table
