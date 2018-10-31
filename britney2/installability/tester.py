@@ -157,13 +157,13 @@ class InstallabilityTester(object):
         """
         return not self._testing.isdisjoint(pkgs)
 
-    def is_pkg_in_testing(self, pkg):
+    def is_pkg_in_testing(self, pkg_id):
         """Test if the package of is in testing
 
-        :param pkgs: A package id (as defined in the constructor)
+        :param pkg_id: A package id (as defined in the constructor)
         :return: True if the pkg is currently in testing
         """
-        return pkg in self._testing
+        return pkg_id in self._testing
 
     def add_testing_binary(self, pkg_id):
         """Add a binary package to "testing"
