@@ -97,48 +97,6 @@ class InstallabilityTester(object):
     def stats(self):
         return self._stats
 
-    def are_equivalent(self, pkg_id1, pkg_id2):
-        """Test if pkg_id1 and pkg_id2 are equivalent
-
-        :param pkg_id1 The id of the first package
-        :param pkg_id2 The id of the second package
-        :return: True if pkg_id1 and pkg_id2 have the same "signature" in
-        the package dependency graph (i.e. relations can not tell
-        them apart semantically except for their name). Otherwise False
-        """
-        return self._universe.are_equivalent(pkg_id1, pkg_id2)
-
-    def reverse_dependencies_of(self, pkg_id):
-        """Returns the set of reverse dependencies of a given package
-
-        :param pkg_id: The package id as defined in the constructor.
-        :return: A set containing the package ids all of the reverse
-        dependencies of the input package.  The result is suite agnostic.
-        """
-        return self._universe.reverse_dependencies_of(pkg_id)
-
-    def negative_dependencies_of(self, pkg_id):
-        """Returns the set of negative dependencies of a given package
-
-        Note that there is no "reverse_negative_dependencies_of" method,
-        since negative dependencies have no "direction" unlike positive
-        dependencies.
-
-        :param pkg_id: The package id as defined in the constructor.
-        :return: A set containing the package ids all of the negative
-        dependencies of the input package.  The result is suite agnostic.
-        """
-        return self._universe.negative_dependencies_of(pkg_id)
-
-    def dependencies_of(self, pkg_id):
-        """Returns the set of dependencies of a given package
-
-        :param pkg_id: The package id as defined in the constructor.
-        :return: A set containing the package ids all of the dependencies
-        of the input package.  The result is suite agnostic.
-        """
-        return self._universe.dependencies_of(pkg_id)
-
     def any_of_these_are_in_testing(self, pkgs):
         """Test if at least one package of a given set is in testing
 
