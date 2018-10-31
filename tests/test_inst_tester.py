@@ -11,7 +11,7 @@ class TestInstTester(unittest.TestCase):
 
     def test_basic_inst_test(self):
         builder = new_pkg_universe_builder()
-        universe = builder.new_package('lintian').depends_on('perl').depends_on_any_of('awk', 'mawk').\
+        universe, inst_tester = builder.new_package('lintian').depends_on('perl').depends_on_any_of('awk', 'mawk').\
             new_package('perl-base').is_essential().\
             new_package('dpkg').is_essential(). \
             new_package('perl').\
@@ -23,21 +23,21 @@ class TestInstTester(unittest.TestCase):
         pkg_mawk = builder.pkg_id('mawk')
         pkg_perl = builder.pkg_id('perl')
         pkg_perl_base = builder.pkg_id('perl-base')
-        assert universe.is_installable(pkg_lintian)
-        assert universe.is_installable(pkg_perl)
-        assert universe.any_of_these_are_in_testing((pkg_lintian, pkg_perl))
-        assert not universe.is_installable(pkg_awk)
-        assert not universe.any_of_these_are_in_testing((pkg_awk,))
-        universe.remove_testing_binary(pkg_perl)
-        assert not universe.any_of_these_are_in_testing((pkg_perl,))
-        assert universe.any_of_these_are_in_testing((pkg_lintian,))
-        assert not universe.is_pkg_in_testing(pkg_perl)
-        assert universe.is_pkg_in_testing(pkg_lintian)
-        assert not universe.is_installable(pkg_lintian)
-        assert not universe.is_installable(pkg_perl)
-        universe.add_testing_binary(pkg_perl)
-        assert universe.is_installable(pkg_lintian)
-        assert universe.is_installable(pkg_perl)
+        assert inst_tester.is_installable(pkg_lintian)
+        assert inst_tester.is_installable(pkg_perl)
+        assert inst_tester.any_of_these_are_in_testing((pkg_lintian, pkg_perl))
+        assert not inst_tester.is_installable(pkg_awk)
+        assert not inst_tester.any_of_these_are_in_testing((pkg_awk,))
+        inst_tester.remove_testing_binary(pkg_perl)
+        assert not inst_tester.any_of_these_are_in_testing((pkg_perl,))
+        assert inst_tester.any_of_these_are_in_testing((pkg_lintian,))
+        assert not inst_tester.is_pkg_in_testing(pkg_perl)
+        assert inst_tester.is_pkg_in_testing(pkg_lintian)
+        assert not inst_tester.is_installable(pkg_lintian)
+        assert not inst_tester.is_installable(pkg_perl)
+        inst_tester.add_testing_binary(pkg_perl)
+        assert inst_tester.is_installable(pkg_lintian)
+        assert inst_tester.is_installable(pkg_perl)
 
         assert universe.reverse_dependencies_of(pkg_perl) == {pkg_lintian}
         assert universe.reverse_dependencies_of(pkg_lintian) == frozenset()
@@ -49,11 +49,11 @@ class TestInstTester(unittest.TestCase):
         assert not universe.are_equivalent(pkg_mawk, pkg_perl)
 
         # Trivial test of the special case for adding and removing an essential package
-        universe.remove_testing_binary(pkg_perl_base)
-        universe.add_testing_binary(pkg_perl_base)
+        inst_tester.remove_testing_binary(pkg_perl_base)
+        inst_tester.add_testing_binary(pkg_perl_base)
 
-        universe.add_testing_binary(pkg_awk)
-        assert universe.is_installable(pkg_lintian)
+        inst_tester.add_testing_binary(pkg_awk)
+        assert inst_tester.is_installable(pkg_lintian)
 
     def test_basic_essential_conflict(self):
         builder = new_pkg_universe_builder()
@@ -67,18 +67,18 @@ class TestInstTester(unittest.TestCase):
         conflict_installable1 = builder.new_package('conflict-inst1').conflicts_with(pseudo_ess1)
         conflict_installable2 = builder.new_package('conflict-inst2').conflicts_with(pseudo_ess2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
-        assert universe.is_installable(essential_simple.pkg_id)
-        assert universe.is_installable(essential_with_deps.pkg_id)
-        assert universe.is_installable(conflict_installable1.pkg_id)
-        assert universe.is_installable(conflict_installable2.pkg_id)
-        assert not universe.is_installable(conflict1.pkg_id)
-        assert not universe.is_installable(conflict2.pkg_id)
+        assert inst_tester.is_installable(essential_simple.pkg_id)
+        assert inst_tester.is_installable(essential_with_deps.pkg_id)
+        assert inst_tester.is_installable(conflict_installable1.pkg_id)
+        assert inst_tester.is_installable(conflict_installable2.pkg_id)
+        assert not inst_tester.is_installable(conflict1.pkg_id)
+        assert not inst_tester.is_installable(conflict2.pkg_id)
 
-        for line in universe.stats.stats():
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.conflicts_essential == 1
+        assert inst_tester.stats.conflicts_essential == 1
 
     def test_basic_simple_choice(self):
         builder = new_pkg_universe_builder()
@@ -93,19 +93,19 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(pkg1, pkg2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # The dependencies of "root" are not equivalent (if they were, we would trigger
         # an optimization, which takes another code path)
         assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
 
-        assert universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
 
     def test_basic_simple_choice_deadend(self):
         builder = new_pkg_universe_builder()
@@ -118,23 +118,23 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(pkg1, pkg2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # The dependencies of "root" are not equivalent (if they were, we would trigger
         # an optimization, which takes another code path)
         assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
 
-        assert not universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert not inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
         # This case is simple enough that the installability tester will assert it does not
         # need to recurse to reject the first option
-        assert universe.stats.backtrace_restore_point_used == 0
-        assert universe.stats.backtrace_last_option == 1
+        assert inst_tester.stats.backtrace_restore_point_used == 0
+        assert inst_tester.stats.backtrace_last_option == 1
 
     def test_basic_simple_choice_opt_no_restore_needed(self):
         builder = new_pkg_universe_builder()
@@ -151,22 +151,22 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(pkg1, pkg2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # The dependencies of "root" are not equivalent (if they were, we would trigger
         # an optimization, which takes another code path)
         assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
 
-        assert universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
-        assert universe.stats.backtrace_restore_point_used == 0
-        assert universe.stats.backtrace_last_option == 0
-        assert universe.stats.choice_resolved_without_restore_point == 1
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.backtrace_restore_point_used == 0
+        assert inst_tester.stats.backtrace_last_option == 0
+        assert inst_tester.stats.choice_resolved_without_restore_point == 1
 
     def test_basic_simple_choice_opt_no_restore_needed_deadend(self):
         builder = new_pkg_universe_builder()
@@ -185,22 +185,22 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(pkg1, pkg2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # The dependencies of "root" are not equivalent (if they were, we would trigger
         # an optimization, which takes another code path)
         assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
 
-        assert not universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert not inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
-        assert universe.stats.backtrace_restore_point_used == 0
-        assert universe.stats.choice_resolved_without_restore_point == 0
-        assert universe.stats.backtrace_last_option == 1
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.backtrace_restore_point_used == 0
+        assert inst_tester.stats.choice_resolved_without_restore_point == 0
+        assert inst_tester.stats.backtrace_last_option == 1
 
     def test_basic_choice_deadend_restore_point_needed(self):
         builder = new_pkg_universe_builder()
@@ -214,23 +214,23 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(pkg1, pkg2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # The dependencies of "root" are not equivalent (if they were, we would trigger
         # an optimization, which takes another code path)
         assert not universe.are_equivalent(pkg1.pkg_id, pkg2.pkg_id)
 
-        assert not universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert not inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
         # This case is simple enough that the installability tester will assert it does not
         # need to recurse to reject the first option
-        assert universe.stats.backtrace_restore_point_used == 1
-        assert universe.stats.backtrace_last_option == 1
+        assert inst_tester.stats.backtrace_restore_point_used == 1
+        assert inst_tester.stats.backtrace_last_option == 1
 
     def test_corner_case_dependencies_inter_conflict(self):
         builder = new_pkg_universe_builder()
@@ -238,7 +238,7 @@ class TestInstTester(unittest.TestCase):
         conflicting1 = builder.new_package('conflict1').conflicts_with('conflict2')
         conflicting2 = builder.new_package('conflict2').conflicts_with('conflict1')
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # They should not be eqv.
         assert not universe.are_equivalent(conflicting1.pkg_id, conflicting2.pkg_id)
@@ -247,7 +247,7 @@ class TestInstTester(unittest.TestCase):
         # the installability tester has both conflicting packages in its "check" set
         # Technically, we cannot assert we hit that path with this test, but we can at least
         # check it does not regress
-        assert not universe.is_installable(root_pkg.pkg_id)
+        assert not inst_tester.is_installable(root_pkg.pkg_id)
 
     def test_basic_choice_deadend_pre_solvable(self):
         builder = new_pkg_universe_builder()
@@ -274,15 +274,15 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(path1a, path1b).depends_on_any_of(path2a, path2b)
 
-        universe = builder.build()
+        _, inst_tester = builder.build()
 
-        assert not universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert not inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
 
         # The following numbers are observed due to:
         #   * Pick an option from (pathXa | pathXb)
@@ -290,9 +290,9 @@ class TestInstTester(unittest.TestCase):
         #   * Undo and do "last option" on the remaining
         #   * "last option" -> obviously unsolvable
         #   * unsolvable
-        assert universe.stats.backtrace_restore_point_used == 1
-        assert universe.stats.backtrace_last_option == 1
-        assert universe.stats.choice_presolved == 2
+        assert inst_tester.stats.backtrace_restore_point_used == 1
+        assert inst_tester.stats.backtrace_last_option == 1
+        assert inst_tester.stats.choice_presolved == 2
 
     def test_basic_choice_pre_solvable(self):
         builder = new_pkg_universe_builder()
@@ -316,19 +316,19 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(path1a, path1b).depends_on_any_of(path2a, path2b)
 
-        universe = builder.build()
+        _, inst_tester = builder.build()
 
-        assert universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 0
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 0
+        assert inst_tester.stats.eqv_table_times_used == 0
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 0
 
         # After its first guess, the tester can pre-solve remaining choice
-        assert universe.stats.backtrace_restore_point_used == 0
-        assert universe.stats.choice_presolved == 1
+        assert inst_tester.stats.backtrace_restore_point_used == 0
+        assert inst_tester.stats.choice_presolved == 1
 
     def test_optimisation_simple_full_eqv_reduction(self):
         builder = new_pkg_universe_builder()
@@ -342,7 +342,7 @@ class TestInstTester(unittest.TestCase):
         root_pkg.depends_on_any_of(*row1)
         for pkg in row1:
             builder.new_package(pkg).depends_on(bottom1_pkg)
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         pkg_row1 = builder.pkg_id(row1[0])
 
@@ -350,12 +350,12 @@ class TestInstTester(unittest.TestCase):
         for pkg in row1:
             assert universe.are_equivalent(builder.pkg_id(pkg), pkg_row1)
 
-        assert universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 1
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 999
-        assert universe.stats.eqv_table_reduced_to_one == 1
+        assert inst_tester.stats.eqv_table_times_used == 1
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 999
+        assert inst_tester.stats.eqv_table_reduced_to_one == 1
 
     def test_optimisation_simple_partial_eqv_reduction(self):
         builder = new_pkg_universe_builder()
@@ -370,7 +370,7 @@ class TestInstTester(unittest.TestCase):
         root_pkg.depends_on_any_of(another_pkg, *row1)
         for pkg in row1:
             builder.new_package(pkg).depends_on(bottom1_pkg)
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         pkg_row1 = builder.pkg_id(row1[0])
 
@@ -378,12 +378,12 @@ class TestInstTester(unittest.TestCase):
         for pkg in row1:
             assert universe.are_equivalent(builder.pkg_id(pkg), pkg_row1)
 
-        assert universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 1
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 999
-        assert universe.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_times_used == 1
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 999
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
 
     def test_optimisation_simple_zero_eqv_reduction(self):
         builder = new_pkg_universe_builder()
@@ -403,20 +403,20 @@ class TestInstTester(unittest.TestCase):
 
         root_pkg.depends_on_any_of(pkg1_v1, pkg1_v2, pkg2_v1, pkg2_v2)
 
-        universe = builder.build()
+        universe, inst_tester = builder.build()
 
         # The packages in the pairs are equivalent, but the two pairs are not
         assert universe.are_equivalent(pkg1_v1.pkg_id, pkg1_v2.pkg_id)
         assert universe.are_equivalent(pkg2_v1.pkg_id, pkg2_v2.pkg_id)
         assert not universe.are_equivalent(pkg1_v1.pkg_id, pkg2_v1.pkg_id)
 
-        assert universe.is_installable(root_pkg.pkg_id)
-        for line in universe.stats.stats():
+        assert inst_tester.is_installable(root_pkg.pkg_id)
+        for line in inst_tester.stats.stats():
             print(line)
-        assert universe.stats.eqv_table_times_used == 1
-        assert universe.stats.eqv_table_total_number_of_alternatives_eliminated == 0
-        assert universe.stats.eqv_table_reduced_to_one == 0
-        assert universe.stats.eqv_table_reduced_by_zero == 1
+        assert inst_tester.stats.eqv_table_times_used == 1
+        assert inst_tester.stats.eqv_table_total_number_of_alternatives_eliminated == 0
+        assert inst_tester.stats.eqv_table_reduced_to_one == 0
+        assert inst_tester.stats.eqv_table_reduced_by_zero == 1
 
     def test_solver_recursion_limit(self):
         builder = new_pkg_universe_builder()
@@ -433,7 +433,7 @@ class TestInstTester(unittest.TestCase):
 
         try:
             sys.setrecursionlimit(recursion_limit)
-            universe = builder.build()
+            _, inst_tester = builder.build()
             groups = []
 
             for pkg in pkgs:
@@ -441,7 +441,7 @@ class TestInstTester(unittest.TestCase):
                 groups.append(group)
 
             expected = {g[0] for g in groups}
-            actual = universe.solve_groups(groups)
+            actual = inst_tester.solve_groups(groups)
             assert actual
             assert expected == set(actual[0])
             assert len(actual) == 1
@@ -478,7 +478,7 @@ class TestInstTester(unittest.TestCase):
         pkgg.depends_on(pkgh)
         pkgh.depends_on(pkge).depends_on(pkgi)
 
-        universe = builder.build()
+        _, inst_tester = builder.build()
         expected = [
             # SSC 3 first
             {pkgi.pkg_id.package_name},
@@ -493,7 +493,7 @@ class TestInstTester(unittest.TestCase):
             for node in ssc:
                 groups.append((node, {builder.pkg_id(node)}, {}))
 
-        actual = [set(x) for x in universe.solve_groups(groups)]
+        actual = [set(x) for x in inst_tester.solve_groups(groups)]
         print("EXPECTED: %s" % str(expected))
         print("ACTUAL  : %s" % str(actual))
         assert expected == actual
@@ -557,6 +557,7 @@ class TestInstTester(unittest.TestCase):
         print("EXPECTED: %s" % str(expected))
         print("ACTUAL  : %s" % str(actual))
         assert expected == actual
+
 
 if __name__ == '__main__':
     unittest.main()

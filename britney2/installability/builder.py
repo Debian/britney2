@@ -310,11 +310,13 @@ class InstallabilityTesterBuilder(object):
 
         universe = BinaryPackageUniverse(relations)
 
-        return InstallabilitySolver(universe,
-                                    self._testing,
-                                    self._broken,
-                                    self._essentials,
-                                    eqv_table)
+        solver = InstallabilitySolver(universe,
+                                      self._testing,
+                                      self._broken,
+                                      self._essentials,
+                                      eqv_table)
+
+        return universe, solver
 
     def _build_eqv_packages_table(self, package_table,
                                   reverse_package_table,
