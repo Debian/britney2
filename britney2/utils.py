@@ -140,7 +140,7 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
                         # If this happens, pkg_id must be a cruft item that
                         # was *not* migrated.
                         assert source_data.version != all_binary_packages[pkg_id].version
-                        assert not inst_tester.any_of_these_are_in_testing((pkg_id,))
+                        assert not inst_tester.is_pkg_in_testing(pkg_id)
                     inst_tester.remove_testing_binary(pkg_id)
 
     # STEP 3

@@ -1460,7 +1460,7 @@ class Britney(object):
                 #  on a subset of all nobreak architectures).
                 # This forgivness is only done if the package is already in testing AND it is broken
                 # in testing on this architecture already.  Anything else would be a regression
-                if inst_tester.any_of_these_are_in_testing({pkg_id}) and not inst_tester.is_installable(pkg_id):
+                if inst_tester.is_pkg_in_testing(pkg_id) and not inst_tester.is_installable(pkg_id):
                     # It is a regression.
                     excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
