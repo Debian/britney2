@@ -18,7 +18,6 @@ import logging
 from collections import deque
 
 from britney2.utils import (ifilter_only, iter_except)
-from britney2.installability.tester import InstallabilityTester
 
 
 def compute_scc(graph):
@@ -130,27 +129,20 @@ def compute_scc(graph):
     return result
 
 
-class InstallabilitySolver(InstallabilityTester):
+class InstallabilitySolver(object):
 
-    def __init__(self, universe, testing, broken, essentials, eqv_table):
+    def __init__(self, universe, inst_tester):
         """Create a new installability solver
 
         universe is a BinaryPackageUniverse.
-
-        testing is a (mutable) set of package tuples that determines
-        which of the packages in universe are currently in testing.
-
-        broken is a (mutable) set of package tuples that are known to
-        be uninstallable.
-
-        Package tuple: (pkg_name, pkg_version, pkg_arch)
-          - NB: arch:all packages are "re-mapped" to given architecture.
-            (simplifies caches and dependency checking)
         """
-        super().__init__(universe, testing, broken, essentials, eqv_table)
+        self._universe = universe
+        self._inst_tester = inst_tester
+        logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
+        self.logger = logging.getLogger(logger_name)
 
     def solve_groups(self, groups):
-        sat_in_testing = self._testing.isdisjoint
+        sat_in_testing = self._inst_tester.any_of_these_are_in_testing
         universe = self._universe
         result = []
         emitted = set()
@@ -212,7 +204,7 @@ class InstallabilitySolver(InstallabilityTester):
                 for rdep in universe.reverse_dependencies_of(r):
                     for depgroup in universe.dependencies_of(rdep):
                         rigid = depgroup - going_out
-                        if not sat_in_testing(rigid):
+                        if sat_in_testing(rigid):
                             # (partly) satisfied by testing, assume it is okay
                             continue
                         if rdep in ptable:
@@ -231,7 +223,7 @@ class InstallabilitySolver(InstallabilityTester):
                 # binary provided by this item).
                 for depgroup in universe.dependencies_of(a):
                     rigid = depgroup - going_out
-                    if not sat_in_testing(rigid):
+                    if sat_in_testing(rigid):
                         # (partly) satisfied by testing, assume it is okay
                         continue
                     # okay - we got three cases now.

@@ -198,6 +198,7 @@ from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.installability.builder import build_installability_tester
+from britney2.installability.solver import InstallabilitySolver
 from britney2.migrationitem import MigrationItem
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
@@ -2205,6 +2206,7 @@ class Britney(object):
         rescheduled_packages = packages
         maybe_rescheduled_packages = []
         output_logger = self.output_logger
+        solver = InstallabilitySolver(self.pkg_universe, self._inst_tester)
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             updates, rms, _, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
@@ -2221,7 +2223,7 @@ class Britney(object):
         output_logger.info("recur: [] %s %d/0", ",".join(x.uvname for x in selected), len(packages))
         while rescheduled_packages:
             groups = {group_info[x] for x in rescheduled_packages}
-            worklist = self._inst_tester.solve_groups(groups)
+            worklist = solver.solve_groups(groups)
             rescheduled_packages = []
 
             worklist.reverse()

@@ -17,7 +17,7 @@ from collections import defaultdict
 from itertools import product
 
 from britney2.utils import ifilter_except, iter_except, get_dependency_solvers
-from britney2.installability.solver import InstallabilitySolver
+from britney2.installability.tester import InstallabilityTester
 from britney2.installability.universe import BinaryPackageRelation, BinaryPackageUniverse
 
 
@@ -310,7 +310,7 @@ class InstallabilityTesterBuilder(object):
 
         universe = BinaryPackageUniverse(relations)
 
-        solver = InstallabilitySolver(universe,
+        solver = InstallabilityTester(universe,
                                       self._testing,
                                       self._broken,
                                       self._essentials,

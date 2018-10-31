@@ -4,7 +4,7 @@ import unittest
 from collections import OrderedDict
 
 from . import new_pkg_universe_builder
-from britney2.installability.solver import compute_scc
+from britney2.installability.solver import compute_scc, InstallabilitySolver
 
 
 class TestInstTester(unittest.TestCase):
@@ -433,7 +433,8 @@ class TestInstTester(unittest.TestCase):
 
         try:
             sys.setrecursionlimit(recursion_limit)
-            _, inst_tester = builder.build()
+            universe, inst_tester = builder.build()
+            solver = InstallabilitySolver(universe, inst_tester)
             groups = []
 
             for pkg in pkgs:
@@ -441,7 +442,7 @@ class TestInstTester(unittest.TestCase):
                 groups.append(group)
 
             expected = {g[0] for g in groups}
-            actual = inst_tester.solve_groups(groups)
+            actual = solver.solve_groups(groups)
             assert actual
             assert expected == set(actual[0])
             assert len(actual) == 1
@@ -478,7 +479,8 @@ class TestInstTester(unittest.TestCase):
         pkgg.depends_on(pkgh)
         pkgh.depends_on(pkge).depends_on(pkgi)
 
-        _, inst_tester = builder.build()
+        universe, inst_tester = builder.build()
+        solver = InstallabilitySolver(universe, inst_tester)
         expected = [
             # SSC 3 first
             {pkgi.pkg_id.package_name},
@@ -493,7 +495,7 @@ class TestInstTester(unittest.TestCase):
             for node in ssc:
                 groups.append((node, {builder.pkg_id(node)}, {}))
 
-        actual = [set(x) for x in inst_tester.solve_groups(groups)]
+        actual = [set(x) for x in solver.solve_groups(groups)]
         print("EXPECTED: %s" % str(expected))
         print("ACTUAL  : %s" % str(actual))
         assert expected == actual
