@@ -373,6 +373,7 @@ class InstallabilityTesterBuilder(object):
         eqv_table = {}
         relations = {}
         emptyset = frozenset()
+        intern_set = self._intern_set
 
         for pkg in reverse_package_table:
             rdeps = reverse_package_table[pkg][2]
@@ -385,7 +386,8 @@ class InstallabilityTesterBuilder(object):
             find_eqv_table[ekey].append(pkg)
 
         for pkg_relations, pkg_list in find_eqv_table.items():
-            rel = BinaryPackageRelation(pkg_relations[0], pkg_relations[1], reverse_package_table[pkg_list[0]][0])
+            rdeps = reverse_package_table[pkg_list[0]][0]
+            rel = BinaryPackageRelation(intern_set(pkg_list), pkg_relations[0], pkg_relations[1], rdeps)
             if len(pkg_list) < 2:
                 relations[pkg_list[0]] = rel
                 continue
@@ -398,7 +400,7 @@ class InstallabilityTesterBuilder(object):
         for pkg, forward_relations in package_table.items():
             if pkg in relations:
                 continue
-            rel = BinaryPackageRelation(forward_relations[0], forward_relations[1], emptyset)
+            rel = BinaryPackageRelation(intern_set((pkg,)), forward_relations[0], forward_relations[1], emptyset)
             relations[pkg] = rel
 
         return relations, eqv_table

@@ -16,9 +16,10 @@
 class BinaryPackageRelation(object):
     """All relations of a given binary package"""
 
-    __slots__ = ['dependencies', 'negative_dependencies', 'reverse_dependencies']
+    __slots__ = ['pkg_ids', 'dependencies', 'negative_dependencies', 'reverse_dependencies']
 
-    def __init__(self, dependencies, negative_dependencies, reverse_dependencies):
+    def __init__(self, pkg_ids, dependencies, negative_dependencies, reverse_dependencies):
+        self.pkg_ids = pkg_ids
         self.dependencies = dependencies
         self.negative_dependencies = negative_dependencies
         self.reverse_dependencies = reverse_dependencies
@@ -97,7 +98,7 @@ class BinaryPackageUniverse(object):
         input package.  Note that this set always includes the input
         package assuming it is a known package.
         """
-        return NotImplemented
+        return self._relations[pkg_id].pkg_ids
 
     def relations_of(self, pkg_id):
         """Get the direct relations of a given packge

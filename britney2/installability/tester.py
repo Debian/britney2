@@ -106,8 +106,7 @@ class InstallabilityTester(object):
         the package dependency graph (i.e. relations can not tell
         them apart semantically except for their name). Otherwise False
         """
-        eqv_table = self._eqv_table
-        return pkg_id1 in eqv_table and pkg_id2 in eqv_table[pkg_id1]
+        return self._universe.are_equivalent(pkg_id1, pkg_id2)
 
     def reverse_dependencies_of(self, pkg_id):
         """Returns the set of reverse dependencies of a given package
