@@ -157,7 +157,7 @@ class InstallabilityTesterBuilder(object):
         return False
 
     def set_relations(self, pkg_id, dependency_clauses, breaks):
-        """The dependency and breaks realtions for a given package
+        """The dependency and breaks relations for a given package
 
         :param pkg_id: BinaryPackageID determining which package will have its relations set
         :param dependency_clauses: A list/set of OR clauses (i.e. CNF with each element in
@@ -356,7 +356,7 @@ class InstallabilityTesterBuilder(object):
 
         (With the same definitions as above).  Note that equivalency
         is just a special-case of substitutability, where A and B can
-        substitute each other (i.e. a two-way substituation).
+        substitute each other (i.e. a two-way substitution).
 
         Finally, note that the "depends(A) == depends(B)" for
         substitutability is actually not a strict requirement.  There
