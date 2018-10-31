@@ -352,7 +352,7 @@ class Britney(object):
             }
 
         self.logger.info("Compiling Installability tester")
-        _, self._inst_tester = build_installability_tester(self.suite_info, self.options.architectures)
+        self.pkg_universe, self._inst_tester = build_installability_tester(self.suite_info, self.options.architectures)
 
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
@@ -1830,6 +1830,7 @@ class Britney(object):
         binaries_s = source_suite.binaries
         binaries_t = target_suite.binaries
         inst_tester = self._inst_tester
+        pkg_universe = self.pkg_universe
 
         adds = set()
         rms = set()
@@ -1863,6 +1864,7 @@ class Britney(object):
                 if allow_smooth_updates and source_suite.suite_class.is_primary_source:
                     smoothbins = find_smooth_updateable_binaries(bins,
                                                                  source_suite.sources[source_name],
+                                                                 pkg_universe,
                                                                  inst_tester,
                                                                  binaries_t,
                                                                  binaries_s,
@@ -1953,6 +1955,7 @@ class Britney(object):
         packages_t = target_suite.binaries
         provides_t = target_suite.provides_table
         inst_tester = self._inst_tester
+        pkg_universe = self.pkg_universe
         eqv_set = set()
 
         updates, rms, _, skip = self._compute_groups(item.package,
@@ -1989,7 +1992,7 @@ class Britney(object):
                 key = (binary, parch)
                 old_pkg_id = eqv_table.get(key)
                 if old_pkg_id is not None:
-                    if inst_tester.are_equivalent(new_pkg_id, old_pkg_id):
+                    if pkg_universe.are_equivalent(new_pkg_id, old_pkg_id):
                         eqv_set.add(key)
 
         # remove all the binaries which aren't being smooth updated
@@ -2005,8 +2008,8 @@ class Britney(object):
             if pkey not in eqv_set:
                 # all the reverse dependencies are affected by
                 # the change
-                affected_direct.update(inst_tester.reverse_dependencies_of(rm_pkg_id))
-                affected_direct.update(inst_tester.negative_dependencies_of(rm_pkg_id))
+                affected_direct.update(pkg_universe.reverse_dependencies_of(rm_pkg_id))
+                affected_direct.update(pkg_universe.negative_dependencies_of(rm_pkg_id))
 
             # remove the provided virtual packages
             for provided_pkg, prov_version, _ in pkg_data.provides:
@@ -2055,7 +2058,7 @@ class Britney(object):
                     undo['binaries'][key] = old_pkg_id
                     if not equivalent_replacement:
                         # all the reverse conflicts
-                        affected_direct.update(inst_tester.reverse_dependencies_of(old_pkg_id))
+                        affected_direct.update(pkg_universe.reverse_dependencies_of(old_pkg_id))
                     inst_tester.remove_testing_binary(old_pkg_id)
                 elif hint_undo:
                     # the binary isn't in testing, but it may have been at
@@ -2071,7 +2074,7 @@ class Britney(object):
                     for (tundo, tpkg) in hint_undo:
                         if key in tundo['binaries']:
                             tpkg_id = tundo['binaries'][key]
-                            affected_direct.update(inst_tester.reverse_dependencies_of(tpkg_id))
+                            affected_direct.update(pkg_universe.reverse_dependencies_of(tpkg_id))
 
                 # add/update the binary package from the source suite
                 new_pkg_data = packages_s[parch][binary]
@@ -2089,11 +2092,11 @@ class Britney(object):
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
                     affected_direct.add(updated_pkg_id)
-                    affected_direct.update(inst_tester.negative_dependencies_of(updated_pkg_id))
+                    affected_direct.update(pkg_universe.negative_dependencies_of(updated_pkg_id))
 
         # Also include the transitive rdeps of the packages found so far
         affected_all = affected_direct.copy()
-        compute_reverse_tree(inst_tester, affected_all)
+        compute_reverse_tree(pkg_universe, affected_all)
         # return the package name, the suite, the list of affected packages and the undo dictionary
         return (affected_direct, affected_all, undo)
 

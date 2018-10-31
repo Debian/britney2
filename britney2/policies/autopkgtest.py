@@ -389,6 +389,7 @@ class AutopkgtestPolicy(BasePolicy):
         return False
 
     def request_tests_for_source(self, suite, arch, source_name, source_version, pkg_arch_result):
+        pkg_universe = self.britney.pkg_universe
         inst_tester = self.britney._inst_tester
         suite_info = self.suite_info
         sources_s = suite_info[suite].sources
@@ -437,7 +438,7 @@ class AutopkgtestPolicy(BasePolicy):
             # We add slightly too much here, because new binaries
             # will also show up, but they are already properly
             # installed. Nevermind.
-            depends = inst_tester.dependencies_of(binary)
+            depends = pkg_universe.dependencies_of(binary)
             names_testing = set()
             names_unstable = set()
             # depends is a frozenset{frozenset{BinaryPackageId, ..}}
@@ -461,7 +462,7 @@ class AutopkgtestPolicy(BasePolicy):
         bin_broken = set()
         for binary in bin_depends:
             # broken is a frozenset{BinaryPackageId, ..}
-            broken = inst_tester.negative_dependencies_of(binary)
+            broken = pkg_universe.negative_dependencies_of(binary)
             names_testing = set()
             names_unstable = set()
             for broken_bin in broken:
@@ -573,10 +574,11 @@ class AutopkgtestPolicy(BasePolicy):
                     except KeyError:
                         pass
 
+        pkg_universe = self.britney.pkg_universe
         # plus all direct reverse dependencies and test triggers of its
         # binaries which have an autopkgtest
         for binary in srcinfo.binaries + extra_bins:
-            rdeps = self.britney._inst_tester.reverse_dependencies_of(binary)
+            rdeps = pkg_universe.reverse_dependencies_of(binary)
             for rdep in rdeps:
                 try:
                     rdep_src = binaries_info[rdep.package_name].source

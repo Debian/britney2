@@ -178,13 +178,12 @@ def log_and_format_old_libraries(logger, libs):
         logger.info(" %s: %s", lib, " ".join(libraries[lib]))
 
 
-def compute_reverse_tree(inst_tester, affected):
+def compute_reverse_tree(pkg_universe, affected):
     """Calculate the full dependency tree for a set of packages
 
     This method returns the full dependency tree for a given set of
-    packages.  The first argument is an instance of the InstallabilityTester
-    and the second argument are a set of packages ids (as defined in
-    the constructor of the InstallabilityTester).
+    packages.  The first argument is an instance of the BinaryPackageUniverse
+    and the second argument are a set of BinaryPackageId.
 
     The set of affected packages will be updated in place and must
     therefore be mutable.
@@ -192,7 +191,7 @@ def compute_reverse_tree(inst_tester, affected):
     remain = list(affected)
     while remain:
         pkg_id = remain.pop()
-        new_pkg_ids = inst_tester.reverse_dependencies_of(pkg_id) - affected
+        new_pkg_ids = pkg_universe.reverse_dependencies_of(pkg_id) - affected
         affected.update(new_pkg_ids)
         remain.extend(new_pkg_ids)
     return None
@@ -946,8 +945,14 @@ def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
     return nuninst
 
 
-def find_smooth_updateable_binaries(binaries_to_check, source_data,
-                                    inst_tester, binaries_t, binaries_s, removals, smooth_updates):
+def find_smooth_updateable_binaries(binaries_to_check,
+                                    source_data,
+                                    pkg_universe,
+                                    inst_tester,
+                                    binaries_t,
+                                    binaries_s,
+                                    removals,
+                                    smooth_updates):
     check = set()
     smoothbins = set()
 
@@ -969,7 +974,7 @@ def find_smooth_updateable_binaries(binaries_to_check, source_data,
             # a smooth update.  if not, it may still be a valid
             # candidate if one if its r-deps is itself a candidate,
             # so note it for checking later
-            rdeps = set(inst_tester.reverse_dependencies_of(pkg_id))
+            rdeps = set(pkg_universe.reverse_dependencies_of(pkg_id))
             # We ignore all binaries listed in "removals" as we
             # assume they will leave at the same time as the
             # given package.
@@ -980,7 +985,7 @@ def find_smooth_updateable_binaries(binaries_to_check, source_data,
                 combined = set(smoothbins)
                 combined.add(pkg_id)
                 for rdep in rdeps:
-                    for dep_clause in inst_tester.dependencies_of(rdep):
+                    for dep_clause in pkg_universe.dependencies_of(rdep):
                         if dep_clause <= combined:
                             smooth_update_it = True
                             break
@@ -996,7 +1001,7 @@ def find_smooth_updateable_binaries(binaries_to_check, source_data,
     while 1:
         found_any = False
         for pkg_id in check:
-            rdeps = inst_tester.reverse_dependencies_of(pkg_id)
+            rdeps = pkg_universe.reverse_dependencies_of(pkg_id)
             if not rdeps.isdisjoint(smoothbins):
                 smoothbins.add(pkg_id)
                 found_any = True
