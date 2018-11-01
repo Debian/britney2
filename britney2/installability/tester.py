@@ -22,16 +22,13 @@ from britney2.utils import iter_except
 
 class InstallabilityTester(object):
 
-    def __init__(self, universe, testing, broken, eqv_table):
+    def __init__(self, universe, testing, eqv_table):
         """Create a new installability tester
 
         universe is a BinaryPackageUniverse
 
         testing is a (mutable) set of package ids that determines
         which of the packages in universe are currently in testing.
-
-        broken is a (mutable) set of package ids that are known to
-        be uninstallable.
 
         Package id: (pkg_name, pkg_version, pkg_arch)
           - NB: arch:all packages are "re-mapped" to given architecture.
@@ -40,7 +37,6 @@ class InstallabilityTester(object):
 
         self._universe = universe
         self._testing = testing
-        self._broken = broken
         self._eqv_table = eqv_table
         self._stats = InstallabilityStats()
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
@@ -122,7 +118,7 @@ class InstallabilityTester(object):
         if pkg_id not in self._universe:  # pragma: no cover
             raise KeyError(str(pkg_id))
 
-        if pkg_id in self._broken:
+        if pkg_id in self._universe.broken_packages:
             self._testing.add(pkg_id)
         elif pkg_id not in self._testing:
             self._testing.add(pkg_id)
@@ -162,7 +158,7 @@ class InstallabilityTester(object):
             if not self._universe.reverse_dependencies_of(pkg_id):
                 # no reverse relations - safe
                 return True
-            if pkg_id not in self._broken and pkg_id in self._cache_inst:
+            if pkg_id not in self._universe.broken_packages and pkg_id in self._cache_inst:
                 # It is in our cache (and not guaranteed to be broken) - throw out the cache
                 self._cache_inst = set()
                 self._stats.cache_drops += 1
@@ -185,7 +181,7 @@ class InstallabilityTester(object):
         if pkg_id not in self._universe:  # pragma: no cover
             raise KeyError(str(pkg_id))
 
-        if pkg_id not in self._testing or pkg_id in self._broken:
+        if pkg_id not in self._testing or pkg_id in self._universe.broken_packages:
             self._stats.cache_hits += 1
             return False
 

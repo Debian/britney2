@@ -36,11 +36,25 @@ class BinaryPackageUniverse(object):
     Being immutable, the universe does *not* track stateful data such
     as "which package is in what suite?" nor "is this package installable
     in that suite?".
+
+    The universe also includes some packages that are considered "broken".
+    These packages have been identified to always be uninstallability
+    regardless of the selection of package available (e.g. the depend
+    on a non-existent package or has a relation that is impossible to
+    satisfy).
+
+    For these packages, the universe only tracks that they
+    exist and that they are broken.  This implies that their relations
+    have been nulled into empty sets and they have been removed from
+    the relations of other packages.  This optimizes analysis of the
+    universe on packages that is/can be installable at the expense
+    of a "minor" lie about the "broken" packages.
     """
 
-    def __init__(self, relations, essential_packages):
+    def __init__(self, relations, essential_packages, broken_packages):
         self._relations = relations
         self._essential_packages = essential_packages
+        self._broken_packages = broken_packages
 
     def dependencies_of(self, pkg_id):
         """Returns the set of dependencies of a given package
@@ -96,8 +110,7 @@ class BinaryPackageUniverse(object):
 
         :param pkg_id: The BinaryPackageId of a binary package.
         :return: A frozenset of all package ids that are equivalent to the
-        input package.  Note that this set always includes the input
-        package assuming it is a known package.
+        input package.
         """
         return self._relations[pkg_id].pkg_ids
 
@@ -118,6 +131,15 @@ class BinaryPackageUniverse(object):
         marked as essential.
         """
         return self._essential_packages
+
+    @property
+    def broken_packages(self):
+        """A frozenset of all broken binaries in the universe
+
+        :return A frozenset of BinaryPackageIds of all binaries that are
+        considered "broken" and had their relations nulled.
+        """
+        return self._broken_packages
 
     def __contains__(self, pkg_id):
         return pkg_id in self._relations
