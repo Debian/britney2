@@ -390,8 +390,8 @@ class AutopkgtestPolicy(BasePolicy):
 
     def request_tests_for_source(self, suite, arch, source_name, source_version, pkg_arch_result):
         pkg_universe = self.britney.pkg_universe
-        inst_tester = self.britney._inst_tester
         suite_info = self.suite_info
+        target_suite = suite_info.target_suite
         sources_s = suite_info[suite].sources
         binaries_info = sources_s[source_name]
         packages_s_a = suite_info[suite].binaries[arch]
@@ -444,7 +444,7 @@ class AutopkgtestPolicy(BasePolicy):
             # depends is a frozenset{frozenset{BinaryPackageId, ..}}
             for deps_of_bin in depends:
                 for dep in deps_of_bin:
-                    if inst_tester.is_pkg_in_testing(dep):
+                    if target_suite.is_pkg_in_the_suite(dep):
                         names_testing.add(dep.package_name)
                     else:
                         names_unstable.add(dep.package_name)
@@ -466,7 +466,7 @@ class AutopkgtestPolicy(BasePolicy):
             names_testing = set()
             names_unstable = set()
             for broken_bin in broken:
-                if inst_tester.is_pkg_in_testing(broken_bin):
+                if target_suite.is_pkg_in_the_suite(broken_bin):
                     names_testing.add(broken_bin.package_name)
                 else:
                     names_unstable.add(broken_bin.package_name)

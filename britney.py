@@ -360,8 +360,7 @@ class Britney(object):
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
             self._inst_tester.compute_testing_installability()
-            nuninst = compile_nuninst(self.suite_info.target_suite.binaries,
-                                      self._inst_tester,
+            nuninst = compile_nuninst(target_suite,
                                       self.options.architectures,
                                       self.options.nobreakall_arches)
             self.nuninst_orig = nuninst
@@ -1459,13 +1458,12 @@ class Britney(object):
             # handled everything for us correctly.  However, arch:all have some special-casing IRT
             # nobreakall that we deal with ourselves here.
             if binary_u.architecture == 'all' and pkg_id.architecture in self.options.nobreakall_arches:
-                inst_tester = self._inst_tester
                 # We sometimes forgive uninstallable arch:all packages on nobreakall architectures
                 # (e.g. we sometimes force-hint in arch:all packages that are only installable on
                 #  on a subset of all nobreak architectures).
                 # This forgivness is only done if the package is already in testing AND it is broken
                 # in testing on this architecture already.  Anything else would be a regression
-                if inst_tester.is_pkg_in_testing(pkg_id) and not inst_tester.is_installable(pkg_id):
+                if target_suite.is_pkg_in_the_suite(pkg_id) and not target_suite.is_installable(pkg_id):
                     # It is a regression.
                     excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
@@ -1834,7 +1832,6 @@ class Britney(object):
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
         binaries_t = target_suite.binaries
-        inst_tester = self._inst_tester
         pkg_universe = self.pkg_universe
 
         adds = set()
@@ -1870,7 +1867,7 @@ class Britney(object):
                     smoothbins = find_smooth_updateable_binaries(bins,
                                                                  source_suite.sources[source_name],
                                                                  pkg_universe,
-                                                                 inst_tester,
+                                                                 target_suite,
                                                                  binaries_t,
                                                                  binaries_s,
                                                                  removals,
@@ -2173,7 +2170,7 @@ class Britney(object):
         for arch in affected_architectures:
             check_archall = arch in nobreakall_arches
 
-            check_installability(self._inst_tester, packages_t, arch, affected_direct, affected_all,
+            check_installability(target_suite, packages_t, arch, affected_direct, affected_all,
                                  check_archall, nuninst_after)
 
             # if the uninstallability counter is worse than before, break the loop
@@ -2415,8 +2412,7 @@ class Britney(object):
 
         cached_nuninst = self.nuninst_orig
         self._inst_tester.compute_testing_installability()
-        computed_nuninst = compile_nuninst(self.suite_info.target_suite.binaries,
-                                           self._inst_tester,
+        computed_nuninst = compile_nuninst(self.suite_info.target_suite,
                                            self.options.architectures,
                                            self.options.nobreakall_arches)
         if cached_nuninst != computed_nuninst:  # pragma: no cover

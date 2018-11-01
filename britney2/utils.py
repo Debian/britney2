@@ -561,7 +561,7 @@ def clone_nuninst(nuninst, *, packages_s=None, architectures=None):
     return clone
 
 
-def test_installability(inst_tester, pkg_name, pkg_id, broken, nuninst_arch):
+def test_installability(target_suite, pkg_name, pkg_id, broken, nuninst_arch):
     """Test for installability of a package on an architecture
 
     (pkg_name, pkg_version, pkg_arch) is the package to check.
@@ -574,7 +574,7 @@ def test_installability(inst_tester, pkg_name, pkg_id, broken, nuninst_arch):
     way as broken is.
     """
     c = 0
-    r = inst_tester.is_installable(pkg_id)
+    r = target_suite.is_installable(pkg_id)
     if not r:
         # not installable
         if pkg_name not in broken:
@@ -593,7 +593,7 @@ def test_installability(inst_tester, pkg_name, pkg_id, broken, nuninst_arch):
     return c
 
 
-def check_installability(inst_tester, binaries, arch, updates, affected, check_archall, nuninst):
+def check_installability(target_suite, binaries, arch, updates, affected, check_archall, nuninst):
     broken = nuninst[arch + "+all"]
     packages_t_a = binaries[arch]
     improvement = 0
@@ -614,7 +614,7 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
             nuninst_arch = nuninst[parch]
         else:
             nuninst[parch].discard(name)
-        result = test_installability(inst_tester, name, pkg_id, broken, nuninst_arch)
+        result = test_installability(target_suite, name, pkg_id, broken, nuninst_arch)
         if improvement > 0 or not result:
             # Any improvement could in theory fix all of its rdeps, so
             # stop updating "improvement" after that.
@@ -648,7 +648,7 @@ def check_installability(inst_tester, binaries, arch, updates, affected, check_a
             nuninst_arch = nuninst[parch]
         elif actual_arch == 'all':
             nuninst[parch].discard(name)
-        test_installability(inst_tester, name, pkg_id, broken, nuninst_arch)
+        test_installability(target_suite, name, pkg_id, broken, nuninst_arch)
 
 
 def possibly_compressed(path, *, permitted_compressions=None):
@@ -911,15 +911,16 @@ def invalidate_excuses(excuses, valid, invalid):
                         excuses[x].policy_verdict = rdep_verdict
 
 
-def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
+def compile_nuninst(target_suite, architectures, nobreakall_arches):
     """Compile a nuninst dict from the current testing
 
-    :param binaries_t: Britney's binaries data structure for testing
+    :param suite: The target suite
     :param inst_tester: Britney's installability tester
     :param architectures: List of architectures
     :param nobreakall_arches: List of architectures where arch:all packages must be installable
     """
     nuninst = {}
+    binaries_t = target_suite.binaries
 
     # for all the architectures
     for arch in architectures:
@@ -930,7 +931,7 @@ def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
         nuninst[arch] = set()
         packages_t_a = binaries_t[arch]
         for pkg_name, pkg_data in packages_t_a.items():
-            r = inst_tester.is_installable(pkg_data.pkg_id)
+            r = target_suite.is_installable(pkg_data.pkg_id)
             if not r:
                 nuninst[arch].add(pkg_name)
 
@@ -948,7 +949,7 @@ def compile_nuninst(binaries_t, inst_tester, architectures, nobreakall_arches):
 def find_smooth_updateable_binaries(binaries_to_check,
                                     source_data,
                                     pkg_universe,
-                                    inst_tester,
+                                    target_suite,
                                     binaries_t,
                                     binaries_s,
                                     removals,
@@ -981,7 +982,7 @@ def find_smooth_updateable_binaries(binaries_to_check,
             rdeps.difference_update(removals, binaries_to_check)
 
             smooth_update_it = False
-            if inst_tester.any_of_these_are_in_testing(rdeps):
+            if target_suite.any_of_these_are_in_the_suite(rdeps):
                 combined = set(smoothbins)
                 combined.add(pkg_id)
                 for rdep in rdeps:
