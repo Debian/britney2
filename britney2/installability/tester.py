@@ -22,7 +22,7 @@ from britney2.utils import iter_except
 
 class InstallabilityTester(object):
 
-    def __init__(self, universe, testing, broken, essentials, eqv_table):
+    def __init__(self, universe, testing, broken, eqv_table):
         """Create a new installability tester
 
         universe is a BinaryPackageUniverse
@@ -33,8 +33,6 @@ class InstallabilityTester(object):
         broken is a (mutable) set of package ids that are known to
         be uninstallable.
 
-        essentials is a set of packages with "Essential: yes".
-
         Package id: (pkg_name, pkg_version, pkg_arch)
           - NB: arch:all packages are "re-mapped" to given architecture.
             (simplifies caches and dependency checking)
@@ -43,7 +41,6 @@ class InstallabilityTester(object):
         self._universe = universe
         self._testing = testing
         self._broken = broken
-        self._essentials = essentials
         self._eqv_table = eqv_table
         self._stats = InstallabilityStats()
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
@@ -136,7 +133,7 @@ class InstallabilityTester(object):
                 # Re-add broken packages as some of them may now be installable
                 self._testing |= self._cache_broken
                 self._cache_broken = set()
-            if pkg_id in self._essentials and pkg_id.architecture in self._cache_ess:
+            if pkg_id in self._universe.essential_packages and pkg_id.architecture in self._cache_ess:
                 # Adds new essential => "pseudo-essential" set needs to be
                 # recomputed
                 del self._cache_ess[pkg_id.architecture]
@@ -519,7 +516,7 @@ class InstallabilityTester(object):
             universe = self._universe
             stats = self._stats
 
-            ess_base = [x for x in self._essentials if x.architecture == arch and x in testing]
+            ess_base = [x for x in self._universe.essential_packages if x.architecture == arch and x in testing]
             start = set(ess_base)
             ess_never = set()
             ess_choices = set()

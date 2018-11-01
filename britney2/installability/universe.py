@@ -38,8 +38,9 @@ class BinaryPackageUniverse(object):
     in that suite?".
     """
 
-    def __init__(self, relations):
+    def __init__(self, relations, essential_packages):
         self._relations = relations
+        self._essential_packages = essential_packages
 
     def dependencies_of(self, pkg_id):
         """Returns the set of dependencies of a given package
@@ -108,6 +109,15 @@ class BinaryPackageUniverse(object):
         relations for the package.
         """
         return self._relations[pkg_id]
+
+    @property
+    def essential_packages(self):
+        """A frozenset of all "Essential: yes" binaries in the universe
+
+        :return A frozenset of BinaryPackageIds of all binaries that are
+        marked as essential.
+        """
+        return self._essential_packages
 
     def __contains__(self, pkg_id):
         return pkg_id in self._relations
