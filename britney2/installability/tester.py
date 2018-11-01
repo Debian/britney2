@@ -22,7 +22,7 @@ from britney2.utils import iter_except
 
 class InstallabilityTester(object):
 
-    def __init__(self, universe, testing, eqv_table):
+    def __init__(self, universe, testing):
         """Create a new installability tester
 
         universe is a BinaryPackageUniverse
@@ -37,7 +37,6 @@ class InstallabilityTester(object):
 
         self._universe = universe
         self._testing = testing
-        self._eqv_table = eqv_table
         self._stats = InstallabilityStats()
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
@@ -67,18 +66,18 @@ class InstallabilityTester(object):
         in testing.
         """
 
+        universe = self._universe
         check_inst = self._check_inst
         cbroken = self._cache_broken
         cache_inst = self._cache_inst
-        eqv_table = self._eqv_table
         testing = self._testing
         tcopy = [x for x in testing]
         for t in filterfalse(cache_inst.__contains__, tcopy):
             if t in cbroken:
                 continue
             res = check_inst(t)
-            if t in eqv_table:
-                eqv = (x for x in eqv_table[t] if x in testing)
+            if t in universe.equivalent_packages:
+                eqv = (x for x in universe.packages_equivalent_to(t) if x in testing)
                 if res:
                     cache_inst.update(eqv)
                 else:
@@ -198,7 +197,6 @@ class InstallabilityTester(object):
         universe = self._universe
         testing = self._testing
         cbroken = self._cache_broken
-        eqv_table = self._eqv_table
 
         # Our installability verdict - start with "yes" and change if
         # prove otherwise.
@@ -242,7 +240,7 @@ class InstallabilityTester(object):
 
         # curry check_loop
         check_loop = partial(self._check_loop, universe, testing,
-                             eqv_table, stats, musts, never, cbroken)
+                             stats, musts, never, cbroken)
 
         # Useful things to remember:
         #
@@ -340,7 +338,6 @@ class InstallabilityTester(object):
     def resolve_choices(self, check, musts, never, choices):
         universe = self._universe
         testing = self._testing
-        eqv_table = self._eqv_table
         stats = self._stats
         cbroken = self._cache_broken
 
@@ -357,7 +354,7 @@ class InstallabilityTester(object):
                 check_tmp = [p]
                 # _check_loop assumes that "musts" is up to date
                 musts_copy.add(p)
-                if not self._check_loop(universe, testing, eqv_table,
+                if not self._check_loop(universe, testing,
                                         stats, musts_copy, never_tmp,
                                         cbroken, choices_tmp,
                                         check_tmp):
@@ -409,7 +406,7 @@ class InstallabilityTester(object):
                 stats.backtrace_last_option += 1
                 return False
 
-    def _check_loop(self, universe, testing, eqv_table, stats, musts, never,
+    def _check_loop(self, universe, testing, stats, musts, never,
                     cbroken, choices, check, len=len,
                     frozenset=frozenset):
         """Finds all guaranteed dependencies via "check".
@@ -468,7 +465,7 @@ class InstallabilityTester(object):
                     check.extend(candidates)
                     musts.update(candidates)
                 else:
-                    possible_eqv = set(x for x in candidates if x in eqv_table)
+                    possible_eqv = set(x for x in candidates if x in universe.equivalent_packages)
                     if len(possible_eqv) > 1:
                         # Exploit equivalency to reduce the number of
                         # candidates if possible.  Basically, this
@@ -484,7 +481,7 @@ class InstallabilityTester(object):
 
                         for chosen in iter_except(possible_eqv.pop, KeyError):
                             new_cand.add(chosen)
-                            possible_eqv -= eqv_table[chosen]
+                            possible_eqv -= universe.packages_equivalent_to(chosen)
                         stats.eqv_table_total_number_of_alternatives_eliminated += len(candidates) - len(new_cand)
                         if len(new_cand) == 1:
                             check.extend(new_cand)
@@ -507,7 +504,6 @@ class InstallabilityTester(object):
             # The minimal essential set cache is not present -
             # compute it now.
             testing = self._testing
-            eqv_table = self._eqv_table
             cbroken = self._cache_broken
             universe = self._universe
             stats = self._stats
@@ -519,7 +515,7 @@ class InstallabilityTester(object):
             not_satisfied = partial(filter, start.isdisjoint)
 
             while ess_base:
-                self._check_loop(universe, testing, eqv_table, stats,
+                self._check_loop(universe, testing, stats,
                                  start, ess_never, cbroken,
                                  ess_choices, ess_base)
                 if ess_choices:
@@ -548,7 +544,6 @@ class InstallabilityTester(object):
 
     def compute_stats(self):
         universe = self._universe
-        eqv_table = self._eqv_table
         graph_stats = defaultdict(ArchStats)
         seen_eqv = defaultdict(set)
 
@@ -559,8 +554,8 @@ class InstallabilityTester(object):
 
             arch_stats.nodes += 1
 
-            if pkg in eqv_table and pkg not in seen_eqv[pkg_arch]:
-                eqv = [e for e in eqv_table[pkg] if e.architecture == pkg_arch]
+            if pkg in universe.equivalent_packages and pkg not in seen_eqv[pkg_arch]:
+                eqv = [e for e in universe.packages_equivalent_to(pkg) if e.architecture == pkg_arch]
                 arch_stats.eqv_nodes += len(eqv)
 
             arch_stats.add_dep_edges(relations.dependencies)

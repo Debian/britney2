@@ -51,10 +51,11 @@ class BinaryPackageUniverse(object):
     of a "minor" lie about the "broken" packages.
     """
 
-    def __init__(self, relations, essential_packages, broken_packages):
+    def __init__(self, relations, essential_packages, broken_packages, equivalent_packages):
         self._relations = relations
         self._essential_packages = essential_packages
         self._broken_packages = broken_packages
+        self._equivalent_packages = equivalent_packages
 
     def dependencies_of(self, pkg_id):
         """Returns the set of dependencies of a given package
@@ -140,6 +141,17 @@ class BinaryPackageUniverse(object):
         considered "broken" and had their relations nulled.
         """
         return self._broken_packages
+
+    @property
+    def equivalent_packages(self):
+        """A frozenset of all binary packages that are equivalent to at least one other package
+
+        The binary packages in this set has the property that "universe.packages_equivalent_to(pkg_id)"
+        will return a set of at least 2 or more elements for each of them.
+
+        :return A frozenset of BinaryPackageIds of packages that are equivalent to other packages.
+        """
+        return self._equivalent_packages
 
     def __contains__(self, pkg_id):
         return pkg_id in self._relations
