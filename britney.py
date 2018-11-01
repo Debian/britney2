@@ -193,7 +193,7 @@ from urllib.parse import quote
 import apt_pkg
 
 # Check the "check_field_name" reflection before removing an import here.
-from britney2 import Suites, Suite, SuiteClass, SourcePackage, BinaryPackageId, BinaryPackage
+from britney2 import Suites, Suite, SuiteClass, TargetSuite, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.consts import (SOURCE, SOURCEVER, ARCHITECTURE, CONFLICTS, DEPENDS, PROVIDES, MULTIARCH)
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
@@ -354,6 +354,8 @@ class Britney(object):
 
         self.logger.info("Compiling Installability tester")
         self.pkg_universe, self._inst_tester = build_installability_tester(self.suite_info, self.options.architectures)
+        target_suite = self.suite_info.target_suite
+        target_suite.inst_tester = self._inst_tester
 
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
@@ -496,7 +498,9 @@ class Britney(object):
                 suite_class = SuiteClass.TARGET_SUITE
                 if suite != 'testing':
                     suite_class = SuiteClass.ADDITIONAL_SOURCE_SUITE if suffix else SuiteClass.PRIMARY_SOURCE_SUITE
-                suites.append(Suite(suite_class, suite, suite_path, suite_short_name=suffix))
+                    suites.append(Suite(suite_class, suite, suite_path, suite_short_name=suffix))
+                else:
+                    suites.append(TargetSuite(suite_class, suite, suite_path, suite_short_name=suffix))
             else:
                 if suite in {'testing', 'unstable'}:  # pragma: no cover
                     self.logger.error("Mandatory configuration %s is not set in the config", suite.upper())

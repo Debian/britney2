@@ -34,12 +34,73 @@ class Suite(object):
         self.path = path
         self.suite_short_name = suite_short_name if suite_short_name else ''
         self.sources = {}
-        self.binaries = {}
+        self._binaries = {}
         self.provides_table = {}
+        self._all_binaries_in_suite = None
 
     @property
     def excuses_suffix(self):
         return self.suite_short_name
+
+    @property
+    def binaries(self):
+        return self._binaries
+
+    @binaries.setter
+    def binaries(self, binaries):
+        self._binaries = binaries
+        self._all_binaries_in_suite = {x.pkg_id: x for a in binaries for x in binaries[a].values()}
+
+    def any_of_these_are_in_the_suite(self, pkgs):
+        """Test if at least one package of a given set is in the suite
+
+        :param pkgs: A set of BinaryPackageId
+        :return: True if any of the packages in pkgs are currently in the suite
+        """
+        return not self._all_binaries_in_suite.isdisjoint(pkgs)
+
+    def is_pkg_in_the_suite(self, pkg_id):
+        """Test if the package of is in testing
+
+        :param pkg_id: A BinaryPackageId
+        :return: True if the pkg is currently in the suite
+        """
+        return pkg_id in self._all_binaries_in_suite
+
+
+class TargetSuite(Suite):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.inst_tester = None
+
+    # FIXME: Make this independent of the inst_tester once _all_binaries_in_suite
+    # is kept in sync
+    def any_of_these_are_in_the_suite(self, pkg_ids):
+        """Test if at least one package of a given set is in the suite
+
+        :param pkg_ids: A set of BinaryPackageId
+        :return: True if any of the packages in pkgs are currently in the suite
+        """
+        return self.inst_tester.any_of_these_are_in_testing(pkg_ids)
+
+    # FIXME: Make this independent of the inst_tester once _all_binaries_in_suite
+    # is kept in sync
+    def is_pkg_in_the_suite(self, pkg_id):
+        """Test if the package of is in testing
+
+        :param pkg_id: A BinaryPackageId
+        :return: True if the pkg is currently in the suite
+        """
+        return self.inst_tester.is_pkg_in_testing(pkg_id)
+
+    def is_installable(self, pkg_id):
+        """Determine whether the given package can be installed in the suite
+
+        :param pkg_id: A BinaryPackageId
+        :return: True if the pkg is currently installable in the suite
+        """
+        return self.inst_tester.is_installable(pkg_id)
 
 
 class Suites(object):
