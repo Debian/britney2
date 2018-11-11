@@ -1,0 +1,5 @@
+{"results":
+ [
+     {"trigger": "migration-reference/0", "package": "pkg", "arch": "amd64", "version": "2.0", "status": "neutral", "run_id": "1", "updated_at": "2018-10-03T21:12:00.000Z"}
+ ]
+}

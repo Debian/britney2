@@ -104,6 +104,8 @@ class UniverseBuilder(object):
             architecture = self._default_architecture
         if type(pkgish) == str:
             pkg_id = BinaryPackageId(pkgish, version, architecture)
+        elif isinstance(pkgish, BinaryPackageId):
+            pkg_id = pkgish
         elif type(pkgish) == tuple:
             if len(pkgish) == 2:
                 pkg_id = BinaryPackageId(pkgish[0], pkgish[1], architecture)
