@@ -1681,10 +1681,22 @@ class Britney(object):
                 continue
 
             # add the removal of the package to upgrade_me and build a new excuse
-            upgrade_me_add("-%s" % (src))
             excuse = Excuse("-%s" % (src))
             excuse.set_vers(tsrcv, None)
             excuse.addhtml("Removal request by %s" % (hint.user))
+            # if the removal of the package is blocked, skip it
+            blocked = False
+            for blockhint in self.hints.search('block', package=src, removal=True):
+                excuse.addhtml("Not removing package, due to block hint by %s "
+                    "(contact debian-release if update is needed)" % blockhint.user)
+                excuse.addreason("block")
+                blocked = True
+
+            if blocked:
+                excuses[excuse.name] = excuse
+                continue
+
+            upgrade_me_add("-%s" % (src))
             excuse.addhtml("Package is broken, will try to remove")
             excuse.add_hint(hint)
             # Using "PASS" here as "Created by a hint" != "accepted due to hint".  In a future
