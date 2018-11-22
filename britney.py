@@ -1305,7 +1305,7 @@ class Britney(object):
                     pkg = pkg_id.package_name
                     # if the package is architecture-independent, then ignore it
                     tpkg_data = packages_t_a[pkg]
-                    if tpkg_data.version == 'all':
+                    if tpkg_data.architecture == 'all':
                         if pkg_id not in source_u.binaries:
                             # only add a note if the arch:all does not match the expected version
                             excuse.addhtml("Ignoring removal of %s as it is arch: all" % (pkg))
