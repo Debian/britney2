@@ -1295,12 +1295,14 @@ class Britney(object):
             # removing binary packages
             primary_source_suite = self.suite_info.primary_source_suite
             if not (ssrc and source_suite is not primary_source_suite):
-                # for every binary package produced by this source in testing for this architecture
-                _, _, smoothbins, _ = self._compute_groups(src,
-                                                        primary_source_suite,
-                                                        arch,
-                                                        False)
+                smoothbins = set()
+                if src in primary_source_suite.sources:
+                    _, _, smoothbins, _ = self._compute_groups(src,
+                                                            primary_source_suite,
+                                                            arch,
+                                                            False)
 
+                # for every binary package produced by this source in testing for this architecture
                 for pkg_id in sorted(x for x in source_t.binaries if x.architecture == arch):
                     pkg = pkg_id.package_name
                     # if the package is architecture-independent, then ignore it
