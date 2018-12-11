@@ -1290,13 +1290,20 @@ class Britney(object):
         # package is not fake, then check what packages should be removed
         if not anywrongver and (anyworthdoing or not source_u.is_fakesrc):
             srcv = source_u.version
-            ssrc = source_t.version == srcv
-            # if this is a binary-only migration via *pu, we never want to try
-            # removing binary packages
+            same_source = source_t.version == srcv
             primary_source_suite = self.suite_info.primary_source_suite
-            if not (ssrc and source_suite is not primary_source_suite):
+            is_primary_source = source_suite == primary_source_suite
+            # we want to remove binaries that are no longer produced by the
+            # new source, but there are some special cases:
+            # - if this is binary-only (same_source) and not from the primary
+            #   source, we don't do any removals:
+            #   binNMUs in *pu on some architectures would otherwise result in
+            #   the removal of binaries on other architectures
+            # - for the primary source, smooth binaries in the target suite
+            #   are not considered for removal
+            if not same_source or is_primary_source:
                 smoothbins = set()
-                if src in primary_source_suite.sources:
+                if is_primary_source:
                     _, _, smoothbins, _ = self._compute_groups(src,
                                                             primary_source_suite,
                                                             arch,
@@ -1318,7 +1325,7 @@ class Britney(object):
                         # the removed binary is only interesting if this is a binary-only migration,
                         # as otherwise the updated source will already cause the binary packages
                         # to be updated
-                        if ssrc and pkg_id not in smoothbins:
+                        if same_source and pkg_id not in smoothbins:
                             # Special-case, if the binary is a candidate for a smooth update, we do not consider
                             # it "interesting" on its own.  This case happens quite often with smooth updatable
                             # packages, where the old binary "survives" a full run because it still has
