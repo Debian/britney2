@@ -961,11 +961,13 @@ def find_smooth_updateable_binaries(binaries_to_check,
         binary, _, parch = pkg_id
 
         cruft = False
+        cruftbins = set()
 
         # Not a candidate for smooth up date (newer non-cruft version in unstable)
         if binary in binaries_s[parch]:
             if binaries_s[parch][binary].source_version == source_data.version:
                 continue
+            cruftbins.add(binaries_s[parch][binary].pkg_id)
             cruft = True
 
         # Maybe a candidate (cruft or removed binary): check if config allows us to smooth update it.
@@ -987,7 +989,10 @@ def find_smooth_updateable_binaries(binaries_to_check,
                 combined.add(pkg_id)
                 for rdep in rdeps:
                     for dep_clause in pkg_universe.dependencies_of(rdep):
-                        if dep_clause <= combined:
+                        # filter out cruft binaries from unstable, because
+                        # they will not be added to the set of packages that
+                        # will be migrated
+                        if dep_clause - cruftbins <= combined:
                             smooth_update_it = True
                             break
 
