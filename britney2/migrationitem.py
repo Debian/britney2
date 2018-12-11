@@ -97,6 +97,9 @@ class MigrationItem(object):
             else:
                 self._architecture = 'source'
 
+        if '_' in self._architecture:
+            self._architecture, suite_name = self._architecture.split('_', 2)
+
         if self._version in self.__class__.get_architectures():
             (self._architecture, self._version) = \
             (self._version, self._architecture)
