@@ -1286,13 +1286,14 @@ class Britney(object):
                 excuse.addhtml("Updated binary: %s (%s to %s)" % (pkg_name, binary_t.version, binary_u.version))
                 anyworthdoing = True
 
+        srcv = source_u.version
+        same_source = source_t.version == srcv
+        primary_source_suite = self.suite_info.primary_source_suite
+        is_primary_source = source_suite == primary_source_suite
+
         # if there is nothing wrong and there is something worth doing or the source
         # package is not fake, then check what packages should be removed
         if not anywrongver and (anyworthdoing or not source_u.is_fakesrc):
-            srcv = source_u.version
-            same_source = source_t.version == srcv
-            primary_source_suite = self.suite_info.primary_source_suite
-            is_primary_source = source_suite == primary_source_suite
             # we want to remove binaries that are no longer produced by the
             # new source, but there are some special cases:
             # - if this is binary-only (same_source) and not from the primary
@@ -1331,6 +1332,14 @@ class Britney(object):
                             # packages, where the old binary "survives" a full run because it still has
                             # reverse dependencies.
                             anyworthdoing = True
+
+        if anyworthdoing and same_source and not is_primary_source:
+            # support for binNMUs from *pu is currently broken, so disable it
+            # for now
+            # see https://bugs.debian.org/916209 for more info
+            excuse.addhtml("Ignoring binaries for %s from %s on %s (see https://bugs.debian.org/916209)" % (src, source_suite.name, arch))
+            self.excuses[excuse.name] = excuse
+            return False
 
         # if there is nothing wrong and there is something worth doing, this is a valid candidate
         if not anywrongver and anyworthdoing:
