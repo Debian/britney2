@@ -1016,3 +1016,26 @@ def find_smooth_updateable_binaries(binaries_to_check,
         check = [x for x in check if x not in smoothbins]
 
     return smoothbins
+
+
+def parse_provides(provides_raw, pkg_id=None, logger=None):
+    parts = apt_pkg.parse_depends(provides_raw, False)
+    nprov = []
+    for or_clause in parts:
+        if len(or_clause) != 1:  # pragma: no cover
+            if logger is not None:
+                msg = "Ignoring invalid provides in %s: Alternatives [%s]"
+                logger.warning(msg, str(pkg_id), str(or_clause))
+            continue
+        for part in or_clause:
+            provided, provided_version, op = part
+            if op != '' and op != '=':  # pragma: no cover
+                if logger is not None:
+                    msg = "Ignoring invalid provides in %s: %s (%s %s)"
+                    logger.warning(msg, str(pkg_id), provided, op, provided_version)
+                continue
+            provided = sys.intern(provided)
+            provided_version = sys.intern(provided_version)
+            part = (provided, provided_version, sys.intern(op))
+            nprov.append(part)
+    return nprov

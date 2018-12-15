@@ -213,7 +213,7 @@ from britney2.utils import (log_and_format_old_libraries, undo_changes,
                             create_provides_map, read_release_file,
                             read_sources_file, get_dependency_solvers,
                             invalidate_excuses, compile_nuninst,
-                            find_smooth_updateable_binaries,
+                            find_smooth_updateable_binaries, parse_provides,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -632,7 +632,7 @@ class Britney(object):
             for arch in archs:
                 pkg_id = BinaryPackageId(pkg_name, version, arch)
                 if provides_raw:
-                    provides = self._parse_provides(pkg_id, provides_raw)
+                    provides = parse_provides(provides_raw, pkg_id=pkg_id, logger=self.logger)
                 else:
                     provides = []
                 bin_data = BinaryPackage(version,
@@ -778,26 +778,6 @@ class Britney(object):
 
         return sources
 
-    def _parse_provides(self, pkg_id, provides_raw):
-        parts = apt_pkg.parse_depends(provides_raw, False)
-        nprov = []
-        for or_clause in parts:
-            if len(or_clause) != 1:  # pragma: no cover
-                msg = "Ignoring invalid provides in %s: Alternatives [%s]"
-                self.logger.warning(msg, str(pkg_id), str(or_clause))
-                continue
-            for part in or_clause:
-                provided, provided_version, op = part
-                if op != '' and op != '=':  # pragma: no cover
-                    msg = "Ignoring invalid provides in %s: %s (%s %s)"
-                    self.logger.warning(msg, str(pkg_id), provided, op, provided_version)
-                    continue
-                provided = sys.intern(provided)
-                provided_version = sys.intern(provided_version)
-                part = (provided, provided_version, sys.intern(op))
-                nprov.append(part)
-        return nprov
-
     def _read_packages_file(self, filename, arch, srcdist, packages=None, intern=sys.intern):
         self.logger.info("Loading binary packages from %s", filename)
 
@@ -871,7 +851,7 @@ class Britney(object):
 
             provides_raw = get_field('Provides')
             if provides_raw:
-                provides = self._parse_provides(pkg_id, provides_raw)
+                provides = parse_provides(provides_raw, pkg_id=pkg_id, logger=self.logger)
             else:
                 provides = []
 
