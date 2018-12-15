@@ -74,8 +74,6 @@ class TargetSuite(Suite):
         super().__init__(*args, **kwargs)
         self.inst_tester = None
 
-    # FIXME: Make this independent of the inst_tester once _all_binaries_in_suite
-    # is kept in sync
     def any_of_these_are_in_the_suite(self, pkg_ids):
         """Test if at least one package of a given set is in the suite
 
@@ -84,8 +82,6 @@ class TargetSuite(Suite):
         """
         return self.inst_tester.any_of_these_are_in_testing(pkg_ids)
 
-    # FIXME: Make this independent of the inst_tester once _all_binaries_in_suite
-    # is kept in sync
     def is_pkg_in_the_suite(self, pkg_id):
         """Test if the package of is in testing
 
@@ -101,6 +97,25 @@ class TargetSuite(Suite):
         :return: True if the pkg is currently installable in the suite
         """
         return self.inst_tester.is_installable(pkg_id)
+
+    def add_binary(self, pkg_id):
+        """Add a binary package to the suite
+
+        If the package is not known, this method will throw an
+        KeyError.
+
+        :param pkg_id The id of the package
+        """
+        self.inst_tester.add_binary(pkg_id)
+
+    def remove_binary(self, pkg_id):
+        """Remove a binary from the suite
+
+        :param pkg_id The id of the package
+        If the package is not known, this method will throw an
+        KeyError.
+        """
+        self.inst_tester.remove_binary(pkg_id)
 
 
 class Suites(object):

@@ -1656,7 +1656,6 @@ class Britney(object):
         target_suite = self.suite_info.target_suite
         packages_t = target_suite.binaries
         provides_t = target_suite.provides_table
-        inst_tester = self._inst_tester
         pkg_universe = self.pkg_universe
         eqv_set = set()
 
@@ -1723,7 +1722,7 @@ class Britney(object):
                     del provides_t_a[provided_pkg]
             # finally, remove the binary package
             del binaries_t_a[binary]
-            inst_tester.remove_testing_binary(rm_pkg_id)
+            target_suite.remove_binary(rm_pkg_id)
 
         # skipped binaries are binaries in testing, that are also in unstable
         # (as cruft), but are skipped there. in case of undo, they will be
@@ -1761,7 +1760,7 @@ class Britney(object):
                     if not equivalent_replacement:
                         # all the reverse conflicts
                         affected_direct.update(pkg_universe.reverse_dependencies_of(old_pkg_id))
-                    inst_tester.remove_testing_binary(old_pkg_id)
+                    target_suite.remove_binary(old_pkg_id)
                 elif hint_undo:
                     # the binary isn't in testing, but it may have been at
                     # the start of the current hint and have been removed
@@ -1781,7 +1780,7 @@ class Britney(object):
                 # add/update the binary package from the source suite
                 new_pkg_data = packages_s[parch][binary]
                 binaries_t_a[binary] = new_pkg_data
-                inst_tester.add_testing_binary(updated_pkg_id)
+                target_suite.add_binary(updated_pkg_id)
                 # register new provided packages
                 for provided_pkg, prov_version, _ in new_pkg_data.provides:
                     key = (provided_pkg, parch)
@@ -1891,7 +1890,7 @@ class Britney(object):
         # check if the action improved the uninstallability counters
         if not is_accepted and automatic_revert:
             undo_copy = list(reversed(undo_list))
-            undo_changes(undo_copy, self._inst_tester, self.suite_info, self.all_binaries)
+            undo_changes(undo_copy, self.suite_info, self.all_binaries)
 
         return (is_accepted, nuninst_after, undo_list, arch)
 
@@ -2103,7 +2102,7 @@ class Britney(object):
                 return
             lundo.reverse()
 
-            undo_changes(lundo, self._inst_tester, self.suite_info, self.all_binaries)
+            undo_changes(lundo, self.suite_info, self.all_binaries)
 
         output_logger.info("")
 

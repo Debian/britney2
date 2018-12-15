@@ -28,14 +28,14 @@ class TestInstTester(unittest.TestCase):
         assert inst_tester.any_of_these_are_in_testing((pkg_lintian, pkg_perl))
         assert not inst_tester.is_installable(pkg_awk)
         assert not inst_tester.any_of_these_are_in_testing((pkg_awk,))
-        inst_tester.remove_testing_binary(pkg_perl)
+        inst_tester.remove_binary(pkg_perl)
         assert not inst_tester.any_of_these_are_in_testing((pkg_perl,))
         assert inst_tester.any_of_these_are_in_testing((pkg_lintian,))
         assert not inst_tester.is_pkg_in_testing(pkg_perl)
         assert inst_tester.is_pkg_in_testing(pkg_lintian)
         assert not inst_tester.is_installable(pkg_lintian)
         assert not inst_tester.is_installable(pkg_perl)
-        inst_tester.add_testing_binary(pkg_perl)
+        inst_tester.add_binary(pkg_perl)
         assert inst_tester.is_installable(pkg_lintian)
         assert inst_tester.is_installable(pkg_perl)
 
@@ -49,10 +49,10 @@ class TestInstTester(unittest.TestCase):
         assert not universe.are_equivalent(pkg_mawk, pkg_perl)
 
         # Trivial test of the special case for adding and removing an essential package
-        inst_tester.remove_testing_binary(pkg_perl_base)
-        inst_tester.add_testing_binary(pkg_perl_base)
+        inst_tester.remove_binary(pkg_perl_base)
+        inst_tester.add_binary(pkg_perl_base)
 
-        inst_tester.add_testing_binary(pkg_awk)
+        inst_tester.add_binary(pkg_awk)
         assert inst_tester.is_installable(pkg_lintian)
 
     def test_basic_essential_conflict(self):

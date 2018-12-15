@@ -95,11 +95,10 @@ def iter_except(func, exception, first=None):
         pass
 
 
-def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
+def undo_changes(lundo, suite_info, all_binary_packages):
     """Undoes one or more changes to the target suite
 
     * lundo is a list of (undo, item)-tuples
-    * inst_tester is an InstallabilityTester
     * suite_info is the Suites object
     * all_binary_packages is the table of all binary packages for
       all suites and architectures
@@ -140,8 +139,8 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
                         # If this happens, pkg_id must be a cruft item that
                         # was *not* migrated.
                         assert source_data.version != all_binary_packages[pkg_id].version
-                        assert not inst_tester.is_pkg_in_testing(pkg_id)
-                    inst_tester.remove_testing_binary(pkg_id)
+                        assert not target_suite.is_pkg_in_the_suite(pkg_id)
+                    target_suite.remove_binary(pkg_id)
 
     # STEP 3
     # undo all other binary package changes (except virtual packages)
@@ -152,7 +151,7 @@ def undo_changes(lundo, inst_tester, suite_info, all_binary_packages):
             assert binary not in binaries_t_a
             pkgdata = all_binary_packages[undo['binaries'][p]]
             binaries_t_a[binary] = pkgdata
-            inst_tester.add_testing_binary(pkgdata.pkg_id)
+            target_suite.add_binary(pkgdata.pkg_id)
 
     # STEP 4
     # undo all changes to virtual packages

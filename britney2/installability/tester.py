@@ -22,13 +22,13 @@ from britney2.utils import iter_except
 
 class InstallabilityTester(object):
 
-    def __init__(self, universe, testing):
+    def __init__(self, universe, suite_contents):
         """Create a new installability tester
 
         universe is a BinaryPackageUniverse
 
-        testing is a (mutable) set of package ids that determines
-        which of the packages in universe are currently in testing.
+        suite_contents is a (mutable) set of package ids that determines
+        which of the packages in universe are currently in the suite.
 
         Package id: (pkg_name, pkg_version, pkg_arch)
           - NB: arch:all packages are "re-mapped" to given architecture.
@@ -36,7 +36,8 @@ class InstallabilityTester(object):
         """
 
         self._universe = universe
-        self._testing = testing
+        # FIXME: Move this field to TargetSuite
+        self._suite_contents = suite_contents
         self._stats = InstallabilityStats()
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
@@ -70,7 +71,7 @@ class InstallabilityTester(object):
         check_inst = self._check_inst
         cbroken = self._cache_broken
         cache_inst = self._cache_inst
-        testing = self._testing
+        testing = self._suite_contents
         tcopy = [x for x in testing]
         for t in filterfalse(cache_inst.__contains__, tcopy):
             if t in cbroken:
@@ -95,7 +96,7 @@ class InstallabilityTester(object):
         :param pkgs: A set of package ids (as defined in the constructor)
         :return: True if any of the packages in pkgs are currently in testing
         """
-        return not self._testing.isdisjoint(pkgs)
+        return not self._suite_contents.isdisjoint(pkgs)
 
     def is_pkg_in_testing(self, pkg_id):
         """Test if the package of is in testing
@@ -103,10 +104,10 @@ class InstallabilityTester(object):
         :param pkg_id: A package id (as defined in the constructor)
         :return: True if the pkg is currently in testing
         """
-        return pkg_id in self._testing
+        return pkg_id in self._suite_contents
 
-    def add_testing_binary(self, pkg_id):
-        """Add a binary package to "testing"
+    def add_binary(self, pkg_id):
+        """Add a binary package to the suite
 
         If the package is not known, this method will throw an
         KeyError.
@@ -118,15 +119,15 @@ class InstallabilityTester(object):
             raise KeyError(str(pkg_id))
 
         if pkg_id in self._universe.broken_packages:
-            self._testing.add(pkg_id)
-        elif pkg_id not in self._testing:
-            self._testing.add(pkg_id)
+            self._suite_contents.add(pkg_id)
+        elif pkg_id not in self._suite_contents:
+            self._suite_contents.add(pkg_id)
             if self._cache_inst:
                 self._stats.cache_drops += 1
             self._cache_inst = set()
             if self._cache_broken:
                 # Re-add broken packages as some of them may now be installable
-                self._testing |= self._cache_broken
+                self._suite_contents |= self._cache_broken
                 self._cache_broken = set()
             if pkg_id in self._universe.essential_packages and pkg_id.architecture in self._cache_ess:
                 # Adds new essential => "pseudo-essential" set needs to be
@@ -135,8 +136,8 @@ class InstallabilityTester(object):
 
         return True
 
-    def remove_testing_binary(self, pkg_id):
-        """Remove a binary from "testing"
+    def remove_binary(self, pkg_id):
+        """Remove a binary from the suite
 
         :param pkg_id The id of the package
         If the package is not known, this method will throw an
@@ -148,8 +149,8 @@ class InstallabilityTester(object):
 
         self._cache_broken.discard(pkg_id)
 
-        if pkg_id in self._testing:
-            self._testing.remove(pkg_id)
+        if pkg_id in self._suite_contents:
+            self._suite_contents.remove(pkg_id)
             if pkg_id.architecture in self._cache_ess and pkg_id in self._cache_ess[pkg_id.architecture][0]:
                 # Removes a package from the "pseudo-essential set"
                 del self._cache_ess[pkg_id.architecture]
@@ -180,7 +181,7 @@ class InstallabilityTester(object):
         if pkg_id not in self._universe:  # pragma: no cover
             raise KeyError(str(pkg_id))
 
-        if pkg_id not in self._testing or pkg_id in self._universe.broken_packages:
+        if pkg_id not in self._suite_contents or pkg_id in self._universe.broken_packages:
             self._stats.cache_hits += 1
             return False
 
@@ -195,7 +196,7 @@ class InstallabilityTester(object):
         # See the explanation of musts, never and choices below.
         stats = self._stats
         universe = self._universe
-        testing = self._testing
+        testing = self._suite_contents
         cbroken = self._cache_broken
 
         # Our installability verdict - start with "yes" and change if
@@ -337,7 +338,7 @@ class InstallabilityTester(object):
 
     def resolve_choices(self, check, musts, never, choices):
         universe = self._universe
-        testing = self._testing
+        testing = self._suite_contents
         stats = self._stats
         cbroken = self._cache_broken
 
@@ -503,7 +504,7 @@ class InstallabilityTester(object):
         if arch not in self._cache_ess:
             # The minimal essential set cache is not present -
             # compute it now.
-            testing = self._testing
+            testing = self._suite_contents
             cbroken = self._cache_broken
             universe = self._universe
             stats = self._stats
