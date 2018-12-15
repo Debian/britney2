@@ -58,51 +58,51 @@ class InstallabilityTester(object):
         # on one of them
         self._cache_ess = {}
 
-    def compute_testing_installability(self):
-        """Computes the installability of packages in testing
+    def compute_installability(self):
+        """Computes the installability of all the packages in the suite
 
         This method computes the installability of all packages in
-        testing and caches the result.  This has the advantage of
+        the suite and caches the result.  This has the advantage of
         making "is_installable" queries very fast for all packages
-        in testing.
+        in the suite.
         """
 
         universe = self._universe
         check_inst = self._check_inst
         cbroken = self._cache_broken
         cache_inst = self._cache_inst
-        testing = self._suite_contents
-        tcopy = [x for x in testing]
+        suite_contents = self._suite_contents
+        tcopy = [x for x in suite_contents]
         for t in filterfalse(cache_inst.__contains__, tcopy):
             if t in cbroken:
                 continue
             res = check_inst(t)
             if t in universe.equivalent_packages:
-                eqv = (x for x in universe.packages_equivalent_to(t) if x in testing)
+                eqv = (x for x in universe.packages_equivalent_to(t) if x in suite_contents)
                 if res:
                     cache_inst.update(eqv)
                 else:
                     eqv_set = frozenset(eqv)
-                    testing -= eqv_set
+                    suite_contents -= eqv_set
                     cbroken |= eqv_set
 
     @property
     def stats(self):
         return self._stats
 
-    def any_of_these_are_in_testing(self, pkgs):
-        """Test if at least one package of a given set is in testing
+    def any_of_these_are_in_the_suite(self, pkgs):
+        """Test if at least one package of a given set is in the suite
 
         :param pkgs: A set of package ids (as defined in the constructor)
-        :return: True if any of the packages in pkgs are currently in testing
+        :return: True if any of the packages in pkgs are currently in the suite
         """
         return not self._suite_contents.isdisjoint(pkgs)
 
-    def is_pkg_in_testing(self, pkg_id):
-        """Test if the package of is in testing
+    def is_pkg_in_the_suite(self, pkg_id):
+        """Test if the package of is in the suite
 
         :param pkg_id: A package id (as defined in the constructor)
-        :return: True if the pkg is currently in testing
+        :return: True if the pkg is currently in the suite
         """
         return pkg_id in self._suite_contents
 
@@ -168,8 +168,8 @@ class InstallabilityTester(object):
     def is_installable(self, pkg_id):
         """Test if a package is installable in this package set
 
-        The package is assumed to be in "testing" and only packages in
-        "testing" can be used to satisfy relations.
+        The package is assumed to be in the suite and only packages in
+        the suite can be used to satisfy relations.
 
         :param pkg_id The id of the package
         Returns True iff the package is installable.
@@ -196,7 +196,7 @@ class InstallabilityTester(object):
         # See the explanation of musts, never and choices below.
         stats = self._stats
         universe = self._universe
-        testing = self._suite_contents
+        suite_contents = self._suite_contents
         cbroken = self._cache_broken
 
         # Our installability verdict - start with "yes" and change if
@@ -220,7 +220,7 @@ class InstallabilityTester(object):
         check = [t]
 
         if len(musts) == 1:
-            # Include the essential packages in testing as a starting point.
+            # Include the essential packages in the suite as a starting point.
             if t.architecture not in self._cache_ess:
                 # The minimal essential set cache is not present -
                 # compute it now.
@@ -232,7 +232,7 @@ class InstallabilityTester(object):
                 # t conflicts with something in the essential set or the essential
                 # set conflicts with t - either way, t is f***ed
                 cbroken.add(t)
-                testing.remove(t)
+                suite_contents.remove(t)
                 stats.conflicts_essential += 1
                 return False
             musts.update(start)
@@ -240,7 +240,7 @@ class InstallabilityTester(object):
             choices.update(ess_choices)
 
         # curry check_loop
-        check_loop = partial(self._check_loop, universe, testing,
+        check_loop = partial(self._check_loop, universe, suite_contents,
                              stats, musts, never, cbroken)
 
         # Useful things to remember:
@@ -281,7 +281,7 @@ class InstallabilityTester(object):
             for choice in filter(musts.isdisjoint, choices):
                 # cbroken is needed here because (in theory) it could
                 # have changed since the choice was discovered and it
-                # is smaller than testing (so presumably faster)
+                # is smaller than suite_contents (so presumably faster)
                 remain = choice - never - cbroken
 
                 if len(remain) == 1:
@@ -338,7 +338,7 @@ class InstallabilityTester(object):
 
     def resolve_choices(self, check, musts, never, choices):
         universe = self._universe
-        testing = self._suite_contents
+        suite_contents = self._suite_contents
         stats = self._stats
         cbroken = self._cache_broken
 
@@ -355,7 +355,7 @@ class InstallabilityTester(object):
                 check_tmp = [p]
                 # _check_loop assumes that "musts" is up to date
                 musts_copy.add(p)
-                if not self._check_loop(universe, testing,
+                if not self._check_loop(universe, suite_contents,
                                         stats, musts_copy, never_tmp,
                                         cbroken, choices_tmp,
                                         check_tmp):
@@ -407,7 +407,7 @@ class InstallabilityTester(object):
                 stats.backtrace_last_option += 1
                 return False
 
-    def _check_loop(self, universe, testing, stats, musts, never,
+    def _check_loop(self, universe, suite_contents, stats, musts, never,
                     cbroken, choices, check, len=len,
                     frozenset=frozenset):
         """Finds all guaranteed dependencies via "check".
@@ -437,7 +437,7 @@ class InstallabilityTester(object):
                     return False
                 # We must install cur for the package to be installable,
                 # so "obviously" we can never choose any of its conflicts
-                never.update(relations.negative_dependencies & testing)
+                never.update(relations.negative_dependencies & suite_contents)
 
             # depgroup can be satisfied by picking something that is
             # already in musts - lets pick that (again).  :)
@@ -445,20 +445,20 @@ class InstallabilityTester(object):
 
                 # Of all the packages listed in the relation remove those that
                 # are either:
-                #  - not in testing
+                #  - not in the suite
                 #  - known to be broken (by cache)
                 #  - in never
-                candidates = (depgroup & testing) - never
+                candidates = (depgroup & suite_contents) - never
 
                 if not candidates:
                     # We got no candidates to satisfy it - this
                     # package cannot be installed with the current
-                    # testing
+                    # (version of the) suite
                     if cur not in cbroken and depgroup.isdisjoint(never):
                         # cur's dependency cannot be satisfied even if never was empty.
                         # This means that cur itself is broken (as well).
                         cbroken.add(cur)
-                        testing.remove(cur)
+                        suite_contents.remove(cur)
                     return False
                 if len(candidates) == 1:
                     # only one possible solution to this choice and we
@@ -504,19 +504,19 @@ class InstallabilityTester(object):
         if arch not in self._cache_ess:
             # The minimal essential set cache is not present -
             # compute it now.
-            testing = self._suite_contents
+            suite_contents = self._suite_contents
             cbroken = self._cache_broken
             universe = self._universe
             stats = self._stats
 
-            ess_base = [x for x in self._universe.essential_packages if x.architecture == arch and x in testing]
+            ess_base = [x for x in self._universe.essential_packages if x.architecture == arch and x in suite_contents]
             start = set(ess_base)
             ess_never = set()
             ess_choices = set()
             not_satisfied = partial(filter, start.isdisjoint)
 
             while ess_base:
-                self._check_loop(universe, testing, stats,
+                self._check_loop(universe, suite_contents, stats,
                                  start, ess_never, cbroken,
                                  ess_choices, ess_base)
                 if ess_choices:

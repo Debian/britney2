@@ -334,7 +334,7 @@ class Britney(object):
 
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
-            self._inst_tester.compute_testing_installability()
+            self._inst_tester.compute_installability()
             nuninst = compile_nuninst(target_suite,
                                       self.options.architectures,
                                       self.options.nobreakall_arches)
@@ -2110,7 +2110,7 @@ class Britney(object):
         self.logger.info("> Update complete - Verifying non-installability counters")
 
         cached_nuninst = self.nuninst_orig
-        self._inst_tester.compute_testing_installability()
+        self._inst_tester.compute_installability()
         computed_nuninst = compile_nuninst(self.suite_info.target_suite,
                                            self.options.architectures,
                                            self.options.nobreakall_arches)

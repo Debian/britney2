@@ -142,7 +142,7 @@ class InstallabilitySolver(object):
         self.logger = logging.getLogger(logger_name)
 
     def solve_groups(self, groups):
-        sat_in_testing = self._inst_tester.any_of_these_are_in_testing
+        sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
         universe = self._universe
         result = []
         emitted = set()

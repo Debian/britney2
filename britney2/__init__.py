@@ -80,7 +80,7 @@ class TargetSuite(Suite):
         :param pkg_ids: A set of BinaryPackageId
         :return: True if any of the packages in pkgs are currently in the suite
         """
-        return self.inst_tester.any_of_these_are_in_testing(pkg_ids)
+        return self.inst_tester.any_of_these_are_in_the_suite(pkg_ids)
 
     def is_pkg_in_the_suite(self, pkg_id):
         """Test if the package of is in testing
@@ -88,7 +88,7 @@ class TargetSuite(Suite):
         :param pkg_id: A BinaryPackageId
         :return: True if the pkg is currently in the suite
         """
-        return self.inst_tester.is_pkg_in_testing(pkg_id)
+        return self.inst_tester.is_pkg_in_the_suite(pkg_id)
 
     def is_installable(self, pkg_id):
         """Determine whether the given package can be installed in the suite
