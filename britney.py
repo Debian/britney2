@@ -263,7 +263,7 @@ class Britney(object):
 
         old_factory = logging.getLogRecordFactory()
         short_level_mapping = {
-            'CRITIAL': 'F',
+            'CRITICAL': 'F',
             'INFO': 'I',
             'WARNING': 'W',
             'ERROR': 'E',
