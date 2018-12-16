@@ -202,7 +202,8 @@ from britney2.migrationitem import MigrationItem
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
-from britney2.utils import (log_and_format_old_libraries, undo_changes,
+from britney2.transaction import start_transaction
+from britney2.utils import (log_and_format_old_libraries,
                             compute_reverse_tree, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
                             format_and_log_uninst, newly_uninst, make_migrationitem,
@@ -1632,11 +1633,11 @@ class Britney(object):
 
         return (adds, rms, smoothbins, skip)
 
-    def doop_source(self, item, hint_undo=None, removals=frozenset()):
+    def doop_source(self, item, transaction, removals=frozenset()):
         """Apply a change to the target suite as requested by `item`
 
-        An optional list of undo actions related to packages processed earlier
-        in a hint may be passed in `hint_undo`.
+        A transaction in which all changes will be recorded.  Can be None (e.g.
+        during a "force-hint"), when the changes will not be rolled back.
 
         An optional set of binaries may be passed in "removals". Binaries listed
         in this set will be assumed to be removed at the same time as the "item"
@@ -1764,8 +1765,8 @@ class Britney(object):
                         # all the reverse conflicts
                         affected_direct.update(pkg_universe.reverse_dependencies_of(old_pkg_id))
                     target_suite.remove_binary(old_pkg_id)
-                elif hint_undo:
-                    # the binary isn't in testing, but it may have been at
+                elif transaction and transaction.parent_transaction:
+                    # the binary isn't in the target suite, but it may have been at
                     # the start of the current hint and have been removed
                     # by an earlier migration. if that's the case then we
                     # will have a record of the older instance of the binary
@@ -1775,7 +1776,7 @@ class Britney(object):
                     # reverse dependencies built from this source can be
                     # ignored as their reverse trees are already handled
                     # by this function
-                    for (tundo, tpkg) in hint_undo:
+                    for (tundo, tpkg) in transaction.parent_transaction.undo_items:
                         if key in tundo['binaries']:
                             tpkg_id = tundo['binaries'][key]
                             affected_direct.update(pkg_universe.reverse_dependencies_of(tpkg_id))
@@ -1801,10 +1802,12 @@ class Britney(object):
         # Also include the transitive rdeps of the packages found so far
         affected_all = affected_direct.copy()
         compute_reverse_tree(pkg_universe, affected_all)
-        # return the package name, the suite, the list of affected packages and the undo dictionary
-        return (affected_direct, affected_all, undo)
+        if transaction:
+            transaction.add_undo_item(undo, item)
+        # return the affected packages (direct and than all)
+        return (affected_direct, affected_all)
 
-    def try_migration(self, actions, nuninst_now, lundo=None, automatic_revert=True):
+    def try_migration(self, actions, nuninst_now, transaction, automatic_revert=True):
         is_accepted = True
         affected_architectures = set()
         item = actions
@@ -1819,14 +1822,12 @@ class Britney(object):
         if len(actions) == 1:
             item = actions[0]
             # apply the changes
-            affected_direct, affected_all, undo = self.doop_source(item, hint_undo=lundo)
-            undo_list = [(undo, item)]
+            affected_direct, affected_all = self.doop_source(item, transaction)
             if item.architecture == 'source':
                 affected_architectures = set(self.options.architectures)
             else:
                 affected_architectures.add(item.architecture)
         else:
-            undo_list = []
             removals = set()
             affected_direct = set()
             affected_all = set()
@@ -1842,12 +1843,11 @@ class Britney(object):
                 affected_architectures = set(self.options.architectures)
 
             for item in actions:
-                item_affected_direct, item_affected_all, undo = self.doop_source(item,
-                                                                                 hint_undo=lundo,
-                                                                                 removals=removals)
+                item_affected_direct, item_affected_all = self.doop_source(item,
+                                                                           transaction,
+                                                                           removals=removals)
                 affected_direct.update(item_affected_direct)
                 affected_all.update(item_affected_all)
-                undo_list.append((undo, item))
 
         # Optimise the test if we may revert directly.
         # - The automatic-revert is needed since some callers (notably via hints) may
@@ -1892,12 +1892,11 @@ class Britney(object):
 
         # check if the action improved the uninstallability counters
         if not is_accepted and automatic_revert:
-            undo_copy = list(reversed(undo_list))
-            undo_changes(undo_copy, self.suite_info, self.all_binaries)
+            transaction.rollback()
 
-        return (is_accepted, nuninst_after, undo_list, arch)
+        return (is_accepted, nuninst_after, arch)
 
-    def iter_packages(self, packages, selected, nuninst=None, lundo=None):
+    def iter_packages(self, packages, selected, nuninst=None, parent_transaction=None):
         """Iter on the list of actions and apply them one-by-one
 
         This method applies the changes from `packages` to testing, checking the uninstallability
@@ -1909,6 +1908,8 @@ class Britney(object):
         rescheduled_packages = packages
         maybe_rescheduled_packages = []
         output_logger = self.output_logger
+        suite_info = self.suite_info
+        all_binaries = self.all_binaries
         solver = InstallabilitySolver(self.pkg_universe, self._inst_tester)
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
@@ -1935,45 +1936,47 @@ class Britney(object):
                 comp = worklist.pop()
                 comp_name = ' '.join(item.uvname for item in comp)
                 output_logger.info("trying: %s" % comp_name)
-                accepted, nuninst_after, comp_undo, failed_arch = self.try_migration(comp, nuninst_last_accepted, lundo)
-                if accepted:
-                    selected.extend(comp)
-                    if lundo is not None:
-                        lundo.extend(comp_undo)
-                    output_logger.info("accepted: %s", comp_name)
-                    output_logger.info("   ori: %s", self.eval_nuninst(nuninst_orig))
-                    output_logger.info("   pre: %s", self.eval_nuninst(nuninst_last_accepted))
-                    output_logger.info("   now: %s", self.eval_nuninst(nuninst_after))
-                    if len(selected) <= 20:
-                        output_logger.info("   all: %s", " ".join(x.uvname for x in selected))
+                with start_transaction(suite_info, all_binaries, parent_transaction) as transaction:
+                    accepted, nuninst_after, failed_arch = self.try_migration(comp,
+                                                                              nuninst_last_accepted,
+                                                                              transaction)
+                    if accepted:
+                        selected.extend(comp)
+                        transaction.commit()
+                        output_logger.info("accepted: %s", comp_name)
+                        output_logger.info("   ori: %s", self.eval_nuninst(nuninst_orig))
+                        output_logger.info("   pre: %s", self.eval_nuninst(nuninst_last_accepted))
+                        output_logger.info("   now: %s", self.eval_nuninst(nuninst_after))
+                        if len(selected) <= 20:
+                            output_logger.info("   all: %s", " ".join(x.uvname for x in selected))
+                        else:
+                            output_logger.info("  most: (%d) .. %s",
+                                               len(selected),
+                                               " ".join(x.uvname for x in selected[-20:]))
+                        nuninst_last_accepted = nuninst_after
+                        rescheduled_packages.extend(maybe_rescheduled_packages)
+                        maybe_rescheduled_packages.clear()
                     else:
-                        output_logger.info("  most: (%d) .. %s",
-                                           len(selected),
-                                           " ".join(x.uvname for x in selected[-20:]))
-                    nuninst_last_accepted = nuninst_after
-                    rescheduled_packages.extend(maybe_rescheduled_packages)
-                    maybe_rescheduled_packages.clear()
-                else:
-                    broken = sorted(b for b in nuninst_after[failed_arch]
-                                    if b not in nuninst_last_accepted[failed_arch])
-                    compare_nuninst = None
-                    if any(item for item in comp if item.architecture != 'source'):
-                        compare_nuninst = nuninst_last_accepted
-                    # NB: try_migration already reverted this for us, so just print the results and move on
-                    output_logger.info("skipped: %s (%d, %d, %d)",
-                                       comp_name,
-                                       len(rescheduled_packages),
-                                       len(maybe_rescheduled_packages),
-                                       len(worklist)
-                                       )
-                    output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
-                    output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
+                        broken = sorted(b for b in nuninst_after[failed_arch]
+                                        if b not in nuninst_last_accepted[failed_arch])
+                        compare_nuninst = None
+                        if any(item for item in comp if item.architecture != 'source'):
+                            compare_nuninst = nuninst_last_accepted
+                        # NB: try_migration already reverted this for us, so just print the results and move on
+                        output_logger.info("skipped: %s (%d, %d, %d)",
+                                           comp_name,
+                                           len(rescheduled_packages),
+                                           len(maybe_rescheduled_packages),
+                                           len(worklist)
+                                           )
+                        output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
+                        output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
 
-                    if len(comp) > 1:
-                        output_logger.info("    - splitting the component into single items and retrying them")
-                        worklist.extend([item] for item in comp)
-                    else:
-                        maybe_rescheduled_packages.append(comp[0])
+                        if len(comp) > 1:
+                            output_logger.info("    - splitting the component into single items and retrying them")
+                            worklist.extend([item] for item in comp)
+                        else:
+                            maybe_rescheduled_packages.append(comp[0])
 
         output_logger.info(" finish: [%s]", ",".join(x.uvname for x in selected))
         output_logger.info("endloop: %s", self.eval_nuninst(self.nuninst_orig))
@@ -1985,7 +1988,6 @@ class Britney(object):
         output_logger.info("")
 
         return (nuninst_last_accepted, maybe_rescheduled_packages)
-
 
     def do_all(self, hinttype=None, init=None, actions=None):
         """Testing update runner
@@ -2005,7 +2007,6 @@ class Britney(object):
         # these are special parameters for hints processing
         force = False
         recurse = True
-        lundo = None
         nuninst_end = None
         extra = []
 
@@ -2015,8 +2016,6 @@ class Britney(object):
 
         # if we have a list of initial packages, check them
         if init:
-            if not force:
-                lundo = []
             for x in init:
                 if x not in upgrade_me:
                     output_logger.warning("failed: %s is not a valid candidate (or it already migrated)", x.uvname)
@@ -2027,85 +2026,91 @@ class Britney(object):
         output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
         output_logger.info("orig: %s", self.eval_nuninst(nuninst_start))
 
-        if init:
-            # init => a hint (e.g. "easy") - so do the hint run
-            (_, nuninst_end, undo_list, _) = self.try_migration(selected,
-                                                                self.nuninst_orig,
-                                                                lundo=lundo,
-                                                                automatic_revert=False)
+        with start_transaction(self.suite_info, self.all_binaries) as transaction:
+            if not init or force:
+                # Throw away the (outer) transaction as we will not be using it
+                transaction.rollback()
+                transaction = None
 
-            if lundo is not None:
-                lundo.extend(undo_list)
+            if init:
+                # init => a hint (e.g. "easy") - so do the hint run
+                (_, nuninst_end, undo_list,) = self.try_migration(selected,
+                                                                  self.nuninst_orig,
+                                                                  transaction,
+                                                                  automatic_revert=False)
+
+                if recurse:
+                    # Ensure upgrade_me and selected do not overlap, if we
+                    # follow-up with a recurse ("hint"-hint).
+                    upgrade_me = [x for x in upgrade_me if x not in set(selected)]
 
             if recurse:
-                # Ensure upgrade_me and selected do not overlap, if we
-                # follow-up with a recurse ("hint"-hint).
-                upgrade_me = [x for x in upgrade_me if x not in set(selected)]
+                # Either the main run or the recursive run of a "hint"-hint.
+                (nuninst_end, extra) = self.iter_packages(upgrade_me,
+                                                          selected,
+                                                          nuninst=nuninst_end,
+                                                          parent_transaction=transaction)
 
-        if recurse:
-            # Either the main run or the recursive run of a "hint"-hint.
-            (nuninst_end, extra) = self.iter_packages(upgrade_me, selected, nuninst=nuninst_end, lundo=lundo)
+            nuninst_end_str = self.eval_nuninst(nuninst_end)
 
-        nuninst_end_str = self.eval_nuninst(nuninst_end)
+            if not recurse:
+                # easy or force-hint
+                output_logger.info("easy: %s", nuninst_end_str)
 
-        if not recurse:
-            # easy or force-hint
-            output_logger.info("easy: %s", nuninst_end_str)
-
-            if not force:
-                format_and_log_uninst(self.output_logger,
-                                      self.options.architectures,
-                                      newly_uninst(nuninst_start, nuninst_end)
-                                      )
-
-        if force:
-            # Force implies "unconditionally better"
-            better = True
-        else:
-            break_arches = set(self.options.break_arches)
-            if all(x.architecture in break_arches for x in selected):
-                # If we only migrated items from break-arches, then we
-                # do not allow any regressions on these architectures.
-                # This usually only happens with hints
-                break_arches = set()
-            better = is_nuninst_asgood_generous(self.constraints,
-                                                self.options.architectures,
-                                                self.nuninst_orig,
-                                                nuninst_end,
-                                                break_arches)
-
-        if better:
-            # Result accepted either by force or by being better than the original result.
-            output_logger.info("final: %s", ",".join(sorted(x.uvname for x in selected)))
-            output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
-            output_logger.info(" orig: %s", self.eval_nuninst(self.nuninst_orig))
-            output_logger.info("  end: %s", nuninst_end_str)
-            if force:
-                broken = newly_uninst(nuninst_start, nuninst_end)
-                if broken:
-                    output_logger.warning("force breaks:")
+                if not force:
                     format_and_log_uninst(self.output_logger,
                                           self.options.architectures,
-                                          broken,
-                                          loglevel=logging.WARNING,
+                                          newly_uninst(nuninst_start, nuninst_end)
                                           )
-                else:
-                    output_logger.info("force did not break any packages")
-            output_logger.info("SUCCESS (%d/%d)", len(actions or self.upgrade_me), len(extra))
-            self.nuninst_orig = nuninst_end
-            self.all_selected += selected
-            if not actions:
-                if recurse:
-                    self.upgrade_me = extra
-                else:
-                    self.upgrade_me = [x for x in self.upgrade_me if x not in set(selected)]
-        else:
-            output_logger.info("FAILED\n")
-            if not lundo:
-                return
-            lundo.reverse()
 
-            undo_changes(lundo, self.suite_info, self.all_binaries)
+            if force:
+                # Force implies "unconditionally better"
+                better = True
+            else:
+                break_arches = set(self.options.break_arches)
+                if all(x.architecture in break_arches for x in selected):
+                    # If we only migrated items from break-arches, then we
+                    # do not allow any regressions on these architectures.
+                    # This usually only happens with hints
+                    break_arches = set()
+                better = is_nuninst_asgood_generous(self.constraints,
+                                                    self.options.architectures,
+                                                    self.nuninst_orig,
+                                                    nuninst_end,
+                                                    break_arches)
+
+            if better:
+                # Result accepted either by force or by being better than the original result.
+                output_logger.info("final: %s", ",".join(sorted(x.uvname for x in selected)))
+                output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
+                output_logger.info(" orig: %s", self.eval_nuninst(self.nuninst_orig))
+                output_logger.info("  end: %s", nuninst_end_str)
+                if force:
+                    broken = newly_uninst(nuninst_start, nuninst_end)
+                    if broken:
+                        output_logger.warning("force breaks:")
+                        format_and_log_uninst(self.output_logger,
+                                              self.options.architectures,
+                                              broken,
+                                              loglevel=logging.WARNING,
+                                              )
+                    else:
+                        output_logger.info("force did not break any packages")
+                output_logger.info("SUCCESS (%d/%d)", len(actions or self.upgrade_me), len(extra))
+                self.nuninst_orig = nuninst_end
+                self.all_selected += selected
+                if transaction:
+                    transaction.commit()
+                if not actions:
+                    if recurse:
+                        self.upgrade_me = extra
+                    else:
+                        self.upgrade_me = [x for x in self.upgrade_me if x not in set(selected)]
+            else:
+                output_logger.info("FAILED\n")
+                if not transaction:
+                    return
+                transaction.rollback()
 
         output_logger.info("")
 
