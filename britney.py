@@ -398,8 +398,6 @@ class Britney(object):
                                help="do not build the non-installability status, use the cache from file")
         parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
                                help="just print a summary of uninstallable packages")
-        parser.add_option("", "--components", action="store", dest="components",
-                               help="Sources/Packages are laid out by components listed (, sep)")
         parser.add_option("", "--compute-migrations", action="store_true", dest="compute_migrations", default=True,
                           help="Compute which packages can migrate (the default)")
         parser.add_option("", "--no-compute-migrations", action="store_false", dest="compute_migrations",
@@ -447,6 +445,11 @@ class Britney(object):
                     elif not hasattr(self.options, k.lower()) or \
                          not getattr(self.options, k.lower()):
                         setattr(self.options, k.lower(), v)
+
+        if hasattr(self.options, 'components'):
+            self.logger.error("The COMPONENTS configuration has been removed.")
+            self.logger.error("Britney will read the value from the Release file automatically")
+            sys.exit(1)
 
         suite_loader = DebMirrorLikeSuiteContentLoader(self.options)
 

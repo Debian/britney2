@@ -9,11 +9,6 @@ TESTING           = /path/to/target/suite
 # TPU               = /path/to/secondary-source/suite
 # PU                = /path/to/another-source/suite
 
-# Defaults to the value from testing's Release file (if present)
-# - Not used with the legacy layout.
-#
-#COMPONENTS        = main, non-free, contrib
-
 # Output
 NONINST_STATUS      = /path/to/britneys-output-dir/non-installable-status
 EXCUSES_OUTPUT      = /path/to/britneys-output-dir/excuses.html

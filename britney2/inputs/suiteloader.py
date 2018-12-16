@@ -23,7 +23,7 @@ class SuiteContentLoader(object):
         self._outofsync_arches = SuiteContentLoader.config_str_as_list(base_config.outofsync_arches, [])
         self._break_arches = SuiteContentLoader.config_str_as_list(base_config.break_arches, [])
         self._new_arches = SuiteContentLoader.config_str_as_list(base_config.new_arches, [])
-        self._components = SuiteContentLoader.config_str_as_list(base_config.components)
+        self._components = []
         self._all_binaries = {}
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
@@ -142,7 +142,7 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
             self.logger.info("The %s suite does not have a Release file.", target_suite.name)
             release_file = None
 
-        if self._components is None and release_file is not None:
+        if release_file is not None:
             self._components = release_file['Components'].split()
             self.logger.info("Using components listed in Release file: %s", ' '.join(self._components))
 
