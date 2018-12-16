@@ -106,16 +106,7 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
         assert target_suite is not None
 
         self._check_release_file(target_suite, missing_config_msg)
-
-        allarches = self._architectures
-        arches = [x for x in allarches if x in self._nobreakall_arches]
-        arches += [x for x in allarches if x not in arches and x not in self._outofsync_arches]
-        arches += [x for x in allarches if x not in arches and x not in self._break_arches]
-        arches += [x for x in allarches if x not in arches and x not in self._new_arches]
-        arches += [x for x in allarches if x not in arches]
-
-        # Intern architectures for efficiency
-        self._architectures = [sys.intern(arch) for arch in allarches]
+        self._setup_architectures()
 
         # read the source and binary packages for the involved distributions.  Notes:
         # - Load testing last as some live-data tests have more complete information in
@@ -127,6 +118,21 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
             (suite.binaries, suite.provides_table) = self._read_binaries(suite, self._architectures)
 
         return Suites(suites[0], suites[1:])
+
+    def _setup_architectures(self):
+        allarches = self._architectures
+        # Re-order the architectures such as that the most important architectures are listed first
+        # (this is to make the log easier to read as most important architectures will be listed
+        #  first)
+        arches = [x for x in allarches if x in self._nobreakall_arches]
+        arches += [x for x in allarches if x not in arches and x not in self._outofsync_arches]
+        arches += [x for x in allarches if x not in arches and x not in self._break_arches]
+        arches += [x for x in allarches if x not in arches and x not in self._new_arches]
+        arches += [x for x in allarches if x not in arches]
+
+        # Intern architectures for efficiency; items in this list will be used for lookups and
+        # building items/keys - by intern strings we reduce memory (considerably).
+        self._architectures = [sys.intern(arch) for arch in allarches]
 
     def _check_release_file(self, target_suite, missing_config_msg):
         try:
