@@ -23,9 +23,9 @@ class MigrationTransactionState(object):
         self._is_committed = False
         self._undo_items = []
 
-    def add_undo_item(self, undo, item):
+    def add_undo_item(self, undo, updated_binaries):
         self._assert_open_transaction()
-        self._undo_items.append((undo, item))
+        self._undo_items.append((undo, updated_binaries))
 
     def _assert_open_transaction(self):
         assert not self._is_rolled_back and not self._is_committed
@@ -63,22 +63,26 @@ class MigrationTransactionState(object):
         lundo = self._undo_items
         lundo.reverse()
 
-        # We do the undo process in "4 steps" and each step must be
-        # fully completed for each undo-item before starting on the
-        # next.
-        #
-        # see commit:ef71f0e33a7c3d8ef223ec9ad5e9843777e68133 and
-        # #624716 for the issues we had when we did not do this.
-
         all_binary_packages = self._all_binaries
         target_suite = self._suite_info.target_suite
         sources_t = target_suite.sources
         binaries_t = target_suite.binaries
         provides_t = target_suite.provides_table
 
+        # Historically, we have done the undo process in "4 steps"
+        # with the rule that each step must be fully completed for
+        # each undo-item before starting on the next.
+        #
+        # see commit:ef71f0e33a7c3d8ef223ec9ad5e9843777e68133 and
+        # #624716 for the issues we had when we did not do this.
+        #
+        # Today, only STEP 2 and STEP 3 are known to potentially
+        # clash.  If there is a point in merging the loops/steps,
+        # then it is now feasible.
+
         # STEP 1
         # undo all the changes for sources
-        for (undo, item) in lundo:
+        for (undo, updated_binaries) in lundo:
             for k in undo['sources']:
                 if k[0] == '-':
                     del sources_t[k[1:]]
@@ -86,36 +90,32 @@ class MigrationTransactionState(object):
                     sources_t[k] = undo['sources'][k]
 
         # STEP 2
-        # undo all new binaries (consequence of the above)
-        for (undo, item) in lundo:
-            if not item.is_removal and item.package in item.suite.sources:
-                source_data = item.suite.sources[item.package]
-                for pkg_id in source_data.binaries:
-                    binary, _, arch = pkg_id
-                    if item.architecture in ['source', arch]:
-                        try:
-                            del binaries_t[arch][binary]
-                        except KeyError:
-                            # If this happens, pkg_id must be a cruft item that
-                            # was *not* migrated.
-                            assert source_data.version != all_binary_packages[pkg_id].version
-                            assert not target_suite.is_pkg_in_the_suite(pkg_id)
-                        target_suite.remove_binary(pkg_id)
+        # undo all new/updated binaries
+        # Note this must be completed fully before starting STEP 3
+        # as it potentially breaks STEP 3 if the two are interleaved.
+        for (_, updated_binaries) in lundo:
+            for pkg_id in updated_binaries:
+                pkg_name, _, pkg_arch = pkg_id
+                try:
+                    del binaries_t[pkg_arch][pkg_name]
+                except KeyError:
+                    continue
+
+                target_suite.remove_binary(pkg_id)
 
         # STEP 3
         # undo all other binary package changes (except virtual packages)
-        for (undo, item) in lundo:
+        for (undo, updated_binaries) in lundo:
             for p in undo['binaries']:
                 binary, arch = p
                 binaries_t_a = binaries_t[arch]
-                assert binary not in binaries_t_a
                 pkgdata = all_binary_packages[undo['binaries'][p]]
                 binaries_t_a[binary] = pkgdata
                 target_suite.add_binary(pkgdata.pkg_id)
 
         # STEP 4
         # undo all changes to virtual packages
-        for (undo, item) in lundo:
+        for (undo, updated_binaries) in lundo:
             for provided_pkg, arch in undo['nvirtual']:
                 del provides_t[arch][provided_pkg]
             for p in undo['virtual']:

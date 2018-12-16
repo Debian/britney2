@@ -1654,6 +1654,7 @@ class Britney(object):
         undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
 
         affected_direct = set()
+        updated_binaries = set()
 
         # local copies for better performance
         source_suite = item.suite
@@ -1785,6 +1786,7 @@ class Britney(object):
                 new_pkg_data = packages_s[parch][binary]
                 binaries_t_a[binary] = new_pkg_data
                 target_suite.add_binary(updated_pkg_id)
+                updated_binaries.add(updated_pkg_id)
                 # register new provided packages
                 for provided_pkg, prov_version, _ in new_pkg_data.provides:
                     key = (provided_pkg, parch)
@@ -1803,7 +1805,7 @@ class Britney(object):
         affected_all = affected_direct.copy()
         compute_reverse_tree(pkg_universe, affected_all)
         if transaction:
-            transaction.add_undo_item(undo, item)
+            transaction.add_undo_item(undo, updated_binaries)
         # return the affected packages (direct and than all)
         return (affected_direct, affected_all)
 
