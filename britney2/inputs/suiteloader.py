@@ -183,6 +183,12 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
 
         return sources
 
+    @staticmethod
+    def merge_fields(get_field, *field_names, separator=', '):
+        """Merge two or more fields (filtering out empty fields; returning None if all are empty)
+        """
+        return separator.join(filter(None, (get_field(x) for x in field_names))) or None
+
     def _read_packages_file(self, filename, arch, srcdist, packages=None, intern=sys.intern):
         self.logger.info("Loading binary packages from %s", filename)
 
@@ -226,24 +232,12 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
             # Merge Pre-Depends with Depends and Conflicts with
             # Breaks. Britney is not interested in the "finer
             # semantic differences" of these fields anyway.
-            pdeps = get_field('Pre-Depends')
-            deps = get_field('Depends')
-            if deps and pdeps:
-                deps = pdeps + ', ' + deps
-            elif pdeps:
-                deps = pdeps
+            deps = DebMirrorLikeSuiteContentLoader.merge_fields(get_field, 'Pre-Depends', 'Depends')
+            conflicts = DebMirrorLikeSuiteContentLoader.merge_fields(get_field, 'Conflicts', 'Breaks')
 
             ess = False
             if get_field('Essential', 'no') == 'yes':
                 ess = True
-
-            final_conflicts_list = []
-            conflicts = get_field('Conflicts')
-            if conflicts:
-                final_conflicts_list.append(conflicts)
-            breaks = get_field('Breaks')
-            if breaks:
-                final_conflicts_list.append(breaks)
 
             source = pkg
             source_version = version
@@ -272,7 +266,7 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
                                  raw_arch,
                                  get_field('Multi-Arch'),
                                  deps,
-                                 ', '.join(final_conflicts_list) or None,
+                                 conflicts,
                                  provides,
                                  ess,
                                  pkg_id,
