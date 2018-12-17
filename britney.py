@@ -1237,10 +1237,6 @@ class Britney(object):
             excuse.addreason("no-binaries")
             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        # if the suite is unstable, then we have to check the urgency and the minimum days of
-        # permanence in unstable before updating testing; if the source package is too young,
-        # the check fails and we set is_valid to False to block the update; consider
-        # the age-days hint, if specified for the package
         policy_verdict = excuse.policy_verdict
         policy_info = excuse.policy_info
         suite_class = source_suite.suite_class
