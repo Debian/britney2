@@ -2057,10 +2057,10 @@ class Britney(object):
 
             if init:
                 # init => a hint (e.g. "easy") - so do the hint run
-                (_, nuninst_end, undo_list,) = self.try_migration(selected,
-                                                                  self.nuninst_orig,
-                                                                  transaction,
-                                                                  stop_on_first_regression=False)
+                (_, nuninst_end, _) = self.try_migration(selected,
+                                                         self.nuninst_orig,
+                                                         transaction,
+                                                         stop_on_first_regression=False)
 
                 if recurse:
                     # Ensure upgrade_me and selected do not overlap, if we
