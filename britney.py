@@ -1809,7 +1809,7 @@ class Britney(object):
         # return the affected packages (direct and than all)
         return (affected_direct, affected_all)
 
-    def try_migration(self, actions, nuninst_now, transaction, automatic_revert=True):
+    def try_migration(self, actions, nuninst_now, transaction, stop_on_first_regression=True):
         is_accepted = True
         affected_architectures = set()
         item = actions
@@ -1855,7 +1855,7 @@ class Britney(object):
         # - The automatic-revert is needed since some callers (notably via hints) may
         #   accept the outcome of this migration and expect nuninst to be updated.
         #   (e.g. "force-hint" or "hint")
-        if automatic_revert:
+        if stop_on_first_regression:
             affected_all -= affected_direct
         else:
             affected_direct = set()
@@ -1878,7 +1878,7 @@ class Britney(object):
                                  check_archall, nuninst_after)
 
             # if the uninstallability counter is worse than before, break the loop
-            if automatic_revert:
+            if stop_on_first_regression:
                 worse = False
                 if len(nuninst_after[arch]) > len(nuninst_now[arch]):
                     worse = True
@@ -1891,10 +1891,6 @@ class Britney(object):
                    (arch not in break_arches)):
                     is_accepted = False
                     break
-
-        # check if the action improved the uninstallability counters
-        if not is_accepted and automatic_revert:
-            transaction.rollback()
 
         return (is_accepted, nuninst_after, arch)
 
@@ -1959,6 +1955,7 @@ class Britney(object):
                         rescheduled_packages.extend(maybe_rescheduled_packages)
                         maybe_rescheduled_packages.clear()
                     else:
+                        transaction.rollback()
                         broken = sorted(b for b in nuninst_after[failed_arch]
                                         if b not in nuninst_last_accepted[failed_arch])
                         compare_nuninst = None
@@ -2039,7 +2036,7 @@ class Britney(object):
                 (_, nuninst_end, undo_list,) = self.try_migration(selected,
                                                                   self.nuninst_orig,
                                                                   transaction,
-                                                                  automatic_revert=False)
+                                                                  stop_on_first_regression=False)
 
                 if recurse:
                     # Ensure upgrade_me and selected do not overlap, if we
