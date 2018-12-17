@@ -42,6 +42,9 @@ from britney2.consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
 from britney2.migrationitem import MigrationItem, UnversionnedMigrationItem
 from britney2.policies import PolicyVerdict
 
+class MigrationConstraintException(Exception):
+    pass
+
 
 def ifilter_except(container, iterable=None):
     """Filter out elements in container

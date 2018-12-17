@@ -212,6 +212,7 @@ from britney2.utils import (log_and_format_old_libraries,
                             clone_nuninst, check_installability,
                             invalidate_excuses, compile_nuninst,
                             find_smooth_updateable_binaries, parse_provides,
+                            MigrationConstraintException,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -1598,6 +1599,13 @@ class Britney(object):
         # add the new binary packages (if we are not removing)
         if not is_removal:
             source_data = source_suite.sources[source_name]
+            source_ver_new = source_data.version
+            if source_name in sources_t:
+                source_data_old = sources_t[source_name]
+                source_ver_old = source_data_old.version
+                if apt_pkg.version_compare(source_ver_old,source_ver_new) > 0:
+                    raise MigrationConstraintException("trying src:%s %s, while %s has %s"%(source_name,source_ver_new,target_suite.name,source_ver_old))
+
             for pkg_id in source_data.binaries:
                 binary, ver, parch = pkg_id
                 if migration_architecture not in ['source', parch]:
@@ -1624,6 +1632,12 @@ class Britney(object):
                             binaries_t[parch][binary].version == ver):
                         skip.add(pkg_id)
                     continue
+
+                if binary in binaries_t[parch]:
+                    oldver = binaries_t[parch][binary].version
+                    if apt_pkg.version_compare(oldver,ver) > 0:
+                        raise MigrationConstraintException("trying %s %s from src:%s %s, while %s has %s"
+                            %(binary,ver,source_name,source_ver_new,target_suite.name,oldver))
 
                 adds.add(pkg_id)
 
@@ -1907,9 +1921,15 @@ class Britney(object):
         solver = InstallabilitySolver(self.pkg_universe, self._inst_tester)
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
-            updates, rms, _, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
-            result = (y, frozenset(updates), frozenset(rms))
-            group_info[y] = result
+            try:
+                updates, rms, _, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
+                result = (y, frozenset(updates), frozenset(rms))
+                group_info[y] = result
+            except MigrationConstraintException as e:
+                rescheduled_packages.remove(y)
+                output_logger.info("not adding package to list: %s",(y.package))
+                output_logger.info("    got exception: %s"%(repr(e)))
+
 
         if nuninst:
             nuninst_orig = nuninst
@@ -1931,42 +1951,55 @@ class Britney(object):
                 comp_name = ' '.join(item.uvname for item in comp)
                 output_logger.info("trying: %s" % comp_name)
                 with start_transaction(suite_info, all_binaries, parent_transaction) as transaction:
-                    accepted, nuninst_after, failed_arch = self.try_migration(comp,
-                                                                              nuninst_last_accepted,
-                                                                              transaction)
-                    if accepted:
-                        selected.extend(comp)
-                        transaction.commit()
-                        output_logger.info("accepted: %s", comp_name)
-                        output_logger.info("   ori: %s", self.eval_nuninst(nuninst_orig))
-                        output_logger.info("   pre: %s", self.eval_nuninst(nuninst_last_accepted))
-                        output_logger.info("   now: %s", self.eval_nuninst(nuninst_after))
-                        if len(selected) <= 20:
-                            output_logger.info("   all: %s", " ".join(x.uvname for x in selected))
+                    accepted = False
+                    try:
+                        accepted, nuninst_after, failed_arch = self.try_migration(comp,
+                                                                                  nuninst_last_accepted,
+                                                                                  transaction)
+                        if accepted:
+                            selected.extend(comp)
+                            transaction.commit()
+                            output_logger.info("accepted: %s", comp_name)
+                            output_logger.info("   ori: %s", self.eval_nuninst(nuninst_orig))
+                            output_logger.info("   pre: %s", self.eval_nuninst(nuninst_last_accepted))
+                            output_logger.info("   now: %s", self.eval_nuninst(nuninst_after))
+                            if len(selected) <= 20:
+                                output_logger.info("   all: %s", " ".join(x.uvname for x in selected))
+                            else:
+                                output_logger.info("  most: (%d) .. %s",
+                                                   len(selected),
+                                                   " ".join(x.uvname for x in selected[-20:]))
+                            nuninst_last_accepted = nuninst_after
+                            rescheduled_packages.extend(maybe_rescheduled_packages)
+                            maybe_rescheduled_packages.clear()
                         else:
-                            output_logger.info("  most: (%d) .. %s",
-                                               len(selected),
-                                               " ".join(x.uvname for x in selected[-20:]))
-                        nuninst_last_accepted = nuninst_after
-                        rescheduled_packages.extend(maybe_rescheduled_packages)
-                        maybe_rescheduled_packages.clear()
-                    else:
+                            transaction.rollback()
+                            broken = sorted(b for b in nuninst_after[failed_arch]
+                                            if b not in nuninst_last_accepted[failed_arch])
+                            compare_nuninst = None
+                            if any(item for item in comp if item.architecture != 'source'):
+                                compare_nuninst = nuninst_last_accepted
+                            # NB: try_migration already reverted this for us, so just print the results and move on
+                            output_logger.info("skipped: %s (%d, %d, %d)",
+                                               comp_name,
+                                               len(rescheduled_packages),
+                                               len(maybe_rescheduled_packages),
+                                               len(worklist)
+                                               )
+                            output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
+                            output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
+
+                    except MigrationConstraintException as e:
                         transaction.rollback()
-                        broken = sorted(b for b in nuninst_after[failed_arch]
-                                        if b not in nuninst_last_accepted[failed_arch])
-                        compare_nuninst = None
-                        if any(item for item in comp if item.architecture != 'source'):
-                            compare_nuninst = nuninst_last_accepted
-                        # NB: try_migration already reverted this for us, so just print the results and move on
                         output_logger.info("skipped: %s (%d, %d, %d)",
                                            comp_name,
                                            len(rescheduled_packages),
                                            len(maybe_rescheduled_packages),
                                            len(worklist)
                                            )
-                        output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
-                        output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
+                        output_logger.info("    got exception: %s"%(repr(e)))
 
+                    if not accepted:
                         if len(comp) > 1:
                             output_logger.info("    - splitting the component into single items and retrying them")
                             worklist.extend([item] for item in comp)
