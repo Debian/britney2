@@ -980,7 +980,7 @@ class Britney(object):
             if not same_source or is_primary_source:
                 smoothbins = set()
                 if is_primary_source:
-                    _, _, smoothbins, _ = self._compute_groups(src,
+                    _, _, smoothbins = self._compute_groups(src,
                                                             primary_source_suite,
                                                             arch,
                                                             False)
@@ -1538,7 +1538,6 @@ class Britney(object):
         adds = set()
         rms = set()
         smoothbins = set()
-        skip = set()
 
         # remove all binary packages (if the source already exists)
         if migration_architecture == 'source' or not is_removal:
@@ -1625,12 +1624,7 @@ class Britney(object):
 
                 # Don't add the binary if it is cruft; smooth updates will keep it if possible
                 if (parch not in self.options.outofsync_arches and
-                    source_data.version != binaries_s[parch][binary].source_version):
-                    # if the package was in testing, list it as skipped, so it
-                    # will come back in case of an undo
-                    if (binary in binaries_t[parch] and
-                            binaries_t[parch][binary].version == ver):
-                        skip.add(pkg_id)
+                        source_data.version != binaries_s[parch][binary].source_version):
                     continue
 
                 if binary in binaries_t[parch]:
@@ -1641,7 +1635,7 @@ class Britney(object):
 
                 adds.add(pkg_id)
 
-        return (adds, rms, smoothbins, skip)
+        return (adds, rms, smoothbins)
 
     def doop_source(self, item, transaction, removals=frozenset()):
         """Apply a change to the target suite as requested by `item`
@@ -1674,7 +1668,7 @@ class Britney(object):
         pkg_universe = self.pkg_universe
         eqv_set = set()
 
-        updates, rms, _, skip = self._compute_groups(item.package,
+        updates, rms, _ = self._compute_groups(item.package,
                                                source_suite,
                                                item.architecture,
                                                item.is_removal,
@@ -1738,16 +1732,6 @@ class Britney(object):
             # finally, remove the binary package
             del binaries_t_a[binary]
             target_suite.remove_binary(rm_pkg_id)
-
-        # skipped binaries are binaries in testing, that are also in unstable
-        # (as cruft), but are skipped there. in case of undo, they will be
-        # removed with (newer) the source package, so they need to be put back
-        for skip_pkg_id in skip:
-            binary, version, parch = skip_pkg_id
-            pkey = (binary, parch)
-            if pkey in undo['binaries']:
-                assert(undo['binaries'][pkey] == skip_pkg_id)
-            undo['binaries'][pkey] = skip_pkg_id
 
         # Add/Update binary packages in testing
         if updates:
@@ -1844,7 +1828,7 @@ class Britney(object):
             affected_direct = set()
             affected_all = set()
             for item in actions:
-                _, rms, _, _ = self._compute_groups(item.package, item.suite,
+                _, rms, _ = self._compute_groups(item.package, item.suite,
                                                  item.architecture,
                                                  item.is_removal,
                                                  allow_smooth_updates=False)
@@ -1922,14 +1906,13 @@ class Britney(object):
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             try:
-                updates, rms, _, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
+                updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
                 result = (y, frozenset(updates), frozenset(rms))
                 group_info[y] = result
             except MigrationConstraintException as e:
                 rescheduled_packages.remove(y)
                 output_logger.info("not adding package to list: %s",(y.package))
                 output_logger.info("    got exception: %s"%(repr(e)))
-
 
         if nuninst:
             nuninst_orig = nuninst
