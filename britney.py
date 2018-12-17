@@ -980,10 +980,16 @@ class Britney(object):
             if not same_source or is_primary_source:
                 smoothbins = set()
                 if is_primary_source:
-                    _, _, smoothbins = self._compute_groups(src,
-                                                            primary_source_suite,
-                                                            arch,
-                                                            False)
+                    binaries_t = target_suite.binaries
+                    possible_smooth_updates = [p for p in source_u.binaries if p.architecture == arch]
+                    smoothbins = find_smooth_updateable_binaries(possible_smooth_updates,
+                                                                 source_suite.sources[src],
+                                                                 self.pkg_universe,
+                                                                 target_suite,
+                                                                 binaries_t,
+                                                                 source_suite.binaries,
+                                                                 frozenset(),
+                                                                 self.options.smooth_updates)
 
                 # for every binary package produced by this source in testing for this architecture
                 for pkg_id in sorted(x for x in source_t.binaries if x.architecture == arch):
