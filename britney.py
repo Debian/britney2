@@ -1573,19 +1573,18 @@ class Britney(object):
                                                                  self.options.smooth_updates)
 
                 # remove all the binaries which aren't being smooth updated
-                for pkg_id in (pkg_id for pkg_id in bins if pkg_id not in smoothbins):
-                    binary, _, parch = pkg_id
+                if item.architecture != 'source' and source_suite.suite_class.is_additional_source:
+                    # Special-case for pu/tpu:
                     # if this is a binary migration from *pu, only the arch:any
                     # packages will be present. ideally dak would also populate
                     # the arch-indep packages, but as that's not the case we
                     # must keep them around; they will not be re-added by the
                     # migration so will end up missing from testing
-                    if item.architecture != 'source' and \
-                            source_suite.suite_class.is_additional_source and \
-                         binaries_t[parch][binary].architecture == 'all':
-                        continue
-                    else:
-                        rms.add(pkg_id)
+                    all_binaries = self.all_binaries
+                    rms = {pkg_id for pkg_id in bins
+                           if pkg_id not in smoothbins and all_binaries[pkg_id].architecture != 'all'}
+                else:
+                    rms = {pkg_id for pkg_id in bins if pkg_id not in smoothbins}
 
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
