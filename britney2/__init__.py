@@ -215,4 +215,5 @@ BinaryPackage = namedtuple('BinaryPackage', [
     'provides',
     'is_essential',
     'pkg_id',
+    'builtusing',
 ])

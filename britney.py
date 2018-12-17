@@ -563,6 +563,7 @@ class Britney(object):
                                          provides,
                                          False,
                                          pkg_id,
+                                         [],
                                          )
 
                 src_data.binaries.add(pkg_id)
@@ -658,6 +659,7 @@ class Britney(object):
                                          [],
                                          False,
                                          pkg_id,
+                                         [],
                                          )
                 src_data.binaries.add(pkg_id)
                 target_suite.binaries[arch][pkg_name] = bin_data

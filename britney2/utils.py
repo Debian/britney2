@@ -880,3 +880,26 @@ def compute_item_name(sources_t, sources_s, source_name, parch):
     if source_name in sources_t and sources_t[source_name].version == sources_s[source_name].version:
         return "%s/%s" % (source_name, parch)
     return source_name
+
+
+def parse_builtusing(builtusing_raw, pkg_id=None, logger=None):
+    parts = apt_pkg.parse_depends(builtusing_raw, False)
+    nbu = []
+    for or_clause in parts:
+        if len(or_clause) != 1:  # pragma: no cover
+            if logger is not None:
+                msg = "Ignoring invalid builtusing in %s: Alternatives [%s]"
+                logger.warning(msg, str(pkg_id), str(or_clause))
+            continue
+        for part in or_clause:
+            bu, bu_version, op = part
+            if op != '=':  # pragma: no cover
+                if logger is not None:
+                    msg = "Ignoring invalid builtusing in %s: %s (%s %s)"
+                    logger.warning(msg, str(pkg_id), bu, op, bu_version)
+                continue
+            bu = sys.intern(bu)
+            bu_version = sys.intern(bu_version)
+            part = (bu, bu_version)
+            nbu.append(part)
+    return nbu

@@ -82,6 +82,7 @@ def create_bin_package(pkg_id, source_name=None, depends=None, conflicts=None):
         None,
         False,
         pkg_id,
+        [],
         )
 
 

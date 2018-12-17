@@ -6,7 +6,7 @@ import sys
 
 from britney2 import SuiteClass, Suite, TargetSuite, Suites, BinaryPackage, BinaryPackageId, SourcePackage
 from britney2.utils import (
-    read_release_file, possibly_compressed, read_sources_file, create_provides_map, parse_provides
+    read_release_file, possibly_compressed, read_sources_file, create_provides_map, parse_provides, parse_builtusing
 )
 
 
@@ -258,6 +258,12 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
                 raise AssertionError("%s has wrong architecture (%s) - should be either %s or all" % (
                     str(pkg_id), raw_arch, arch))
 
+            builtusing_raw = get_field('Built-Using')
+            if builtusing_raw:
+                builtusing = parse_builtusing(builtusing_raw, pkg_id=pkg_id, logger=self.logger)
+            else:
+                builtusing = []
+
             dpkg = BinaryPackage(version,
                                  intern(get_field('Section')),
                                  source,
@@ -269,6 +275,7 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
                                  provides,
                                  ess,
                                  pkg_id,
+                                 builtusing,
                                  )
 
             # if the source package is available in the distribution, then register this binary package
