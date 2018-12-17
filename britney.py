@@ -1487,8 +1487,8 @@ class Britney(object):
             res.append("%s-%d" % (arch[0], n))
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
-    def _compute_groups(self, source_name, source_suite, migration_architecture,
-                        is_removal,
+    def _compute_groups(self,
+                        item,
                         allow_smooth_updates=True,
                         removals=frozenset()):
         """Compute the groups of binaries being migrated by item
@@ -1498,17 +1498,8 @@ class Britney(object):
         the removals are smooth updatable.
 
         Parameters:
-        * "source_name" is the name of the source package, whose
-          binaries are migrating.
-        * "suite" is the source suite from which the binaries are migrating.
-          [Same as item.suite, where available]
-        * "migration_architecture" is the architecture determines
-          architecture of the migrating binaries (can be "source" for
-          a "source"-migration, meaning all binaries regardless of
-          architecture).  [Same as item.architecture, where available]
-        * "is_removal" is a boolean determining if this is a removal
-           or not [Same as item.is_removal, where available]
-        * "allow_smooth_updates" is a boolean determing whether smooth-
+        * "item" is a MigrationItem
+        * "allow_smooth_updates" is a boolean determining whether smooth-
           updates are permitted in this migration.  When set to False,
           the "smoothbins" return value will always be the empty set.
           Any value that would have been there will now be in "rms"
@@ -1536,6 +1527,8 @@ class Britney(object):
         Unlike doop_source, this will not modify any data structure.
         """
         # local copies for better performances
+        source_name = item.package
+        source_suite = item.suite
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
         binaries_t = target_suite.binaries
@@ -1546,7 +1539,7 @@ class Britney(object):
         smoothbins = set()
 
         # remove all binary packages (if the source already exists)
-        if migration_architecture == 'source' or not is_removal:
+        if item.architecture == 'source' or not item.is_removal:
             sources_t = target_suite.sources
             if source_name in sources_t:
                 source_data = sources_t[source_name]
@@ -1557,11 +1550,11 @@ class Britney(object):
                 # first, build a list of eligible binaries
                 for pkg_id in source_data.binaries:
                     binary, _, parch = pkg_id
-                    if migration_architecture != 'source' and parch != migration_architecture:
+                    if item.architecture != 'source' and parch != item.architecture:
                         continue
 
                     # Work around #815995
-                    if migration_architecture == 'source' and is_removal and binary not in binaries_t[parch]:
+                    if item.architecture == 'source' and item.is_removal and binary not in binaries_t[parch]:
                         continue
 
                     # Do not include hijacked binaries
@@ -1587,8 +1580,8 @@ class Britney(object):
                     # the arch-indep packages, but as that's not the case we
                     # must keep them around; they will not be re-added by the
                     # migration so will end up missing from testing
-                    if migration_architecture != 'source' and \
-                         source_suite.suite_class.is_additional_source and \
+                    if item.architecture != 'source' and \
+                            source_suite.suite_class.is_additional_source and \
                          binaries_t[parch][binary].architecture == 'all':
                         continue
                     else:
@@ -1597,12 +1590,12 @@ class Britney(object):
         # single binary removal; used for clearing up after smooth
         # updates but not supported as a manual hint
         else:
-            assert source_name in binaries_t[migration_architecture]
-            pkg_id = binaries_t[migration_architecture][source_name].pkg_id
+            assert source_name in binaries_t[item.architecture]
+            pkg_id = binaries_t[item.architecture][source_name].pkg_id
             rms.add(pkg_id)
 
         # add the new binary packages (if we are not removing)
-        if not is_removal:
+        if not item.is_removal:
             source_data = source_suite.sources[source_name]
             source_ver_new = source_data.version
             if source_name in sources_t:
@@ -1613,7 +1606,7 @@ class Britney(object):
 
             for pkg_id in source_data.binaries:
                 binary, ver, parch = pkg_id
-                if migration_architecture not in ['source', parch]:
+                if item.architecture not in ['source', parch]:
                     continue
 
                 if binaries_s[parch][binary].source != source_name:
@@ -1622,7 +1615,7 @@ class Britney(object):
                     #
                     # Also, if this isn't a source update, don't remove
                     # the package that's been hijacked if it's present.
-                    if migration_architecture != 'source':
+                    if item.architecture != 'source':
                         for rm_b, rm_v, rm_p in list(rms):
                             if (rm_b, rm_p) == (binary, parch):
                                 rms.remove((rm_b, rm_v, rm_p))
@@ -1674,11 +1667,7 @@ class Britney(object):
         pkg_universe = self.pkg_universe
         eqv_set = set()
 
-        updates, rms, _ = self._compute_groups(item.package,
-                                               source_suite,
-                                               item.architecture,
-                                               item.is_removal,
-                                               removals=removals)
+        updates, rms, _ = self._compute_groups(item, removals=removals)
 
         # Handle the source package
         if item.architecture == 'source':
@@ -1834,10 +1823,7 @@ class Britney(object):
             affected_direct = set()
             affected_all = set()
             for item in actions:
-                _, rms, _ = self._compute_groups(item.package, item.suite,
-                                                 item.architecture,
-                                                 item.is_removal,
-                                                 allow_smooth_updates=False)
+                _, rms, _ = self._compute_groups(item, allow_smooth_updates=False)
                 removals.update(rms)
                 affected_architectures.add(item.architecture)
 
@@ -1912,7 +1898,7 @@ class Britney(object):
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             try:
-                updates, rms, _ = self._compute_groups(y.package, y.suite, y.architecture, y.is_removal)
+                updates, rms, _ = self._compute_groups(y)
                 result = (y, frozenset(updates), frozenset(rms))
                 group_info[y] = result
             except MigrationConstraintException as e:
