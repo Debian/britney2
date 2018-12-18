@@ -1,6 +1,6 @@
 import apt_pkg
 
-from britney2.utils import MigrationConstraintException, find_smooth_updateable_binaries
+from britney2.utils import MigrationConstraintException, compute_reverse_tree, find_smooth_updateable_binaries
 
 
 class MigrationManager(object):
@@ -159,3 +159,165 @@ class MigrationManager(object):
                 adds.add(pkg_id)
 
         return (adds, rms, smoothbins)
+
+    def _apply_item_to_suite(self, item, transaction, removals=frozenset()):
+        """Apply a change to the target suite as requested by `item`
+
+        A transaction in which all changes will be recorded.  Can be None (e.g.
+        during a "force-hint"), when the changes will not be rolled back.
+
+        An optional set of binaries may be passed in "removals". Binaries listed
+        in this set will be assumed to be removed at the same time as the "item"
+        will migrate.  This may change what binaries will be smooth-updated.
+        - Binaries in this set must be instances of BinaryPackageId.
+
+        This method applies the changes required by the action `item` tracking
+        them so it will be possible to revert them.
+
+        The method returns a tuple containing a set of packages
+        affected by the change (as (name, arch)-tuples) and the
+        dictionary undo which can be used to rollback the changes.
+        """
+        undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
+
+        affected_direct = set()
+        updated_binaries = set()
+
+        # local copies for better performance
+        source_suite = item.suite
+        target_suite = self.suite_info.target_suite
+        packages_t = target_suite.binaries
+        provides_t = target_suite.provides_table
+        pkg_universe = self.pkg_universe
+        eqv_set = set()
+
+        updates, rms, _ = self._compute_groups(item, removals=removals)
+
+        # Handle the source package
+        if item.architecture == 'source':
+            sources_t = target_suite.sources
+            if item.package in sources_t:
+                source = sources_t[item.package]
+                undo['sources'][item.package] = source
+                del sources_t[item.package]
+            else:
+                # the package didn't exist, so we mark it as to-be-removed in case of undo
+                undo['sources']['-' + item.package] = True
+
+            # add/update the source package
+            if not item.is_removal:
+                sources_t[item.package] = source_suite.sources[item.package]
+
+        # If we are removing *and* updating packages, then check for eqv. packages
+        if rms and updates:
+            eqv_table = {}
+            for rm_pkg_id in rms:
+                binary, _, parch = rm_pkg_id
+                key = (binary, parch)
+                eqv_table[key] = rm_pkg_id
+
+            for new_pkg_id in updates:
+                binary, _, parch = new_pkg_id
+                key = (binary, parch)
+                old_pkg_id = eqv_table.get(key)
+                if old_pkg_id is not None:
+                    if pkg_universe.are_equivalent(new_pkg_id, old_pkg_id):
+                        eqv_set.add(key)
+
+        # remove all the binaries which aren't being smooth updated
+        for rm_pkg_id in rms:
+            binary, version, parch = rm_pkg_id
+            pkey = (binary, parch)
+            binaries_t_a = packages_t[parch]
+            provides_t_a = provides_t[parch]
+
+            pkg_data = binaries_t_a[binary]
+            # save the old binary for undo
+            undo['binaries'][pkey] = rm_pkg_id
+            if pkey not in eqv_set:
+                # all the reverse dependencies are affected by
+                # the change
+                affected_direct.update(pkg_universe.reverse_dependencies_of(rm_pkg_id))
+                affected_direct.update(pkg_universe.negative_dependencies_of(rm_pkg_id))
+
+            # remove the provided virtual packages
+            for provided_pkg, prov_version, _ in pkg_data.provides:
+                key = (provided_pkg, parch)
+                if key not in undo['virtual']:
+                    undo['virtual'][key] = provides_t_a[provided_pkg].copy()
+                provides_t_a[provided_pkg].remove((binary, prov_version))
+                if not provides_t_a[provided_pkg]:
+                    del provides_t_a[provided_pkg]
+            # finally, remove the binary package
+            del binaries_t_a[binary]
+            target_suite.remove_binary(rm_pkg_id)
+
+        # Add/Update binary packages in testing
+        if updates:
+            packages_s = source_suite.binaries
+
+            for updated_pkg_id in updates:
+                binary, new_version, parch = updated_pkg_id
+                key = (binary, parch)
+                binaries_t_a = packages_t[parch]
+                provides_t_a = provides_t[parch]
+                equivalent_replacement = key in eqv_set
+
+                # obviously, added/modified packages are affected
+                if not equivalent_replacement:
+                    affected_direct.add(updated_pkg_id)
+                # if the binary already exists in testing, it is currently
+                # built by another source package. we therefore remove the
+                # version built by the other source package, after marking
+                # all of its reverse dependencies as affected
+                if binary in binaries_t_a:
+                    old_pkg_data = binaries_t_a[binary]
+                    old_pkg_id = old_pkg_data.pkg_id
+                    # save the old binary package
+                    undo['binaries'][key] = old_pkg_id
+                    if not equivalent_replacement:
+                        # all the reverse conflicts
+                        affected_direct.update(pkg_universe.reverse_dependencies_of(old_pkg_id))
+                    target_suite.remove_binary(old_pkg_id)
+                elif transaction and transaction.parent_transaction:
+                    # the binary isn't in the target suite, but it may have been at
+                    # the start of the current hint and have been removed
+                    # by an earlier migration. if that's the case then we
+                    # will have a record of the older instance of the binary
+                    # in the undo information. we can use that to ensure
+                    # that the reverse dependencies of the older binary
+                    # package are also checked.
+                    # reverse dependencies built from this source can be
+                    # ignored as their reverse trees are already handled
+                    # by this function
+                    for (tundo, tpkg) in transaction.parent_transaction.undo_items:
+                        if key in tundo['binaries']:
+                            tpkg_id = tundo['binaries'][key]
+                            affected_direct.update(pkg_universe.reverse_dependencies_of(tpkg_id))
+
+                # add/update the binary package from the source suite
+                new_pkg_data = packages_s[parch][binary]
+                binaries_t_a[binary] = new_pkg_data
+                target_suite.add_binary(updated_pkg_id)
+                updated_binaries.add(updated_pkg_id)
+                # register new provided packages
+                for provided_pkg, prov_version, _ in new_pkg_data.provides:
+                    key = (provided_pkg, parch)
+                    if provided_pkg not in provides_t_a:
+                        undo['nvirtual'].append(key)
+                        provides_t_a[provided_pkg] = set()
+                    elif key not in undo['virtual']:
+                        undo['virtual'][key] = provides_t_a[provided_pkg].copy()
+                    provides_t_a[provided_pkg].add((binary, prov_version))
+                if not equivalent_replacement:
+                    # all the reverse dependencies are affected by the change
+                    affected_direct.add(updated_pkg_id)
+                    affected_direct.update(pkg_universe.negative_dependencies_of(updated_pkg_id))
+
+        # Also include the transitive rdeps of the packages found so far
+        affected_all = affected_direct.copy()
+        compute_reverse_tree(pkg_universe, affected_all)
+        if transaction:
+            transaction.add_undo_item(undo, updated_binaries)
+        # return the affected packages (direct and than all)
+        return (affected_direct, affected_all)
