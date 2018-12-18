@@ -334,7 +334,6 @@ class MigrationManager(object):
     def migrate_item_to_target_suite(self, actions, nuninst_now, stop_on_first_regression=True):
         is_accepted = True
         affected_architectures = set()
-        item = actions
         target_suite = self.suite_info.target_suite
         packages_t = target_suite.binaries
 
