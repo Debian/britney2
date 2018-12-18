@@ -1,5 +1,7 @@
 import apt_pkg
+import contextlib
 
+from britney2.transaction import MigrationTransactionState
 from britney2.utils import (
     MigrationConstraintException, compute_reverse_tree, check_installability, clone_nuninst,
     find_smooth_updateable_binaries,
@@ -14,6 +16,11 @@ class MigrationManager(object):
         self.all_binaries = all_binaries
         self.pkg_universe = pkg_universe
         self.constraints = constraints
+        self._transactions = []
+
+    @property
+    def current_transaction(self):
+        return self._transactions[0] if self._transactions else None
 
     def _compute_groups(self,
                         item,
@@ -164,11 +171,8 @@ class MigrationManager(object):
 
         return (adds, rms, smoothbins)
 
-    def _apply_item_to_target_suite(self, item, transaction, removals=frozenset()):
+    def _apply_item_to_target_suite(self, item, removals=frozenset()):
         """Apply a change to the target suite as requested by `item`
-
-        A transaction in which all changes will be recorded.  Can be None (e.g.
-        during a "force-hint"), when the changes will not be rolled back.
 
         An optional set of binaries may be passed in "removals". Binaries listed
         in this set will be assumed to be removed at the same time as the "item"
@@ -194,6 +198,7 @@ class MigrationManager(object):
         provides_t = target_suite.provides_table
         pkg_universe = self.pkg_universe
         eqv_set = set()
+        transaction = self.current_transaction
 
         updates, rms, _ = self._compute_groups(item, removals=removals)
 
@@ -326,7 +331,7 @@ class MigrationManager(object):
         # return the affected packages (direct and than all)
         return (affected_direct, affected_all)
 
-    def migrate_item_to_target_suite(self, actions, nuninst_now, transaction, stop_on_first_regression=True):
+    def migrate_item_to_target_suite(self, actions, nuninst_now, stop_on_first_regression=True):
         is_accepted = True
         affected_architectures = set()
         item = actions
@@ -341,7 +346,7 @@ class MigrationManager(object):
         if len(actions) == 1:
             item = actions[0]
             # apply the changes
-            affected_direct, affected_all = self._apply_item_to_target_suite(item, transaction)
+            affected_direct, affected_all = self._apply_item_to_target_suite(item)
             if item.architecture == 'source':
                 affected_architectures = set(self.options.architectures)
             else:
@@ -360,7 +365,6 @@ class MigrationManager(object):
 
             for item in actions:
                 item_affected_direct, item_affected_all = self._apply_item_to_target_suite(item,
-                                                                                           transaction,
                                                                                            removals=removals)
                 affected_direct.update(item_affected_direct)
                 affected_all.update(item_affected_all)
@@ -407,3 +411,17 @@ class MigrationManager(object):
                     break
 
         return (is_accepted, nuninst_after, arch)
+
+    @contextlib.contextmanager
+    def start_transaction(self):
+        tmts = MigrationTransactionState(self.suite_info, self.all_binaries, self.current_transaction)
+        self._transactions.append(tmts)
+        try:
+            yield tmts
+        except Exception:
+            if not tmts.is_committed and not tmts.is_rolled_back:
+                tmts.rollback()
+            raise
+        finally:
+            self._transactions.pop()
+        assert tmts.is_rolled_back or tmts.is_committed

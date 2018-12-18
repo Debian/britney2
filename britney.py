@@ -179,6 +179,7 @@ does for the generation of the update excuses.
 
  * The excuses are written in an HTML file.
 """
+import contextlib
 import logging
 import optparse
 import os
@@ -203,7 +204,6 @@ from britney2.migrationitem import MigrationItem
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
-from britney2.transaction import start_transaction
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
                             format_and_log_uninst, newly_uninst, make_migrationitem,
@@ -1490,7 +1490,7 @@ class Britney(object):
             res.append("%s-%d" % (arch[0], n))
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
-    def iter_packages(self, packages, selected, nuninst=None, parent_transaction=None, try_removals=True):
+    def iter_packages(self, packages, selected, nuninst=None, try_removals=True):
         """Iter on the list of actions and apply them one-by-one
 
         This method applies the changes from `packages` to testing, checking the uninstallability
@@ -1502,8 +1502,6 @@ class Britney(object):
         rescheduled_packages = packages
         maybe_rescheduled_packages = []
         output_logger = self.output_logger
-        suite_info = self.suite_info
-        all_binaries = self.all_binaries
         solver = InstallabilitySolver(self.pkg_universe, self._inst_tester)
         mm = self._migration_manager
 
@@ -1536,12 +1534,11 @@ class Britney(object):
                 comp = worklist.pop()
                 comp_name = ' '.join(item.uvname for item in comp)
                 output_logger.info("trying: %s" % comp_name)
-                with start_transaction(suite_info, all_binaries, parent_transaction) as transaction:
+                with mm.start_transaction() as transaction:
                     accepted = False
                     try:
                         accepted, nuninst_after, failed_arch = mm.migrate_item_to_target_suite(comp,
-                                                                                               nuninst_last_accepted,
-                                                                                               transaction)
+                                                                                               nuninst_last_accepted)
                         if accepted:
                             selected.extend(comp)
                             transaction.commit()
@@ -1601,7 +1598,6 @@ class Britney(object):
                 (nuninst_last_accepted, extra) = self.iter_packages(removals,
                                                                     selected,
                                                                     nuninst=nuninst_last_accepted,
-                                                                    parent_transaction=parent_transaction,
                                                                     try_removals=False)
 
         output_logger.info(" finish: [%s]", ",".join(x.uvname for x in selected))
@@ -1635,6 +1631,7 @@ class Britney(object):
         recurse = True
         nuninst_end = None
         extra = []
+        mm = self._migration_manager
 
         if hinttype == "easy" or hinttype == "force-hint":
             force = hinttype == "force-hint"
@@ -1652,18 +1649,25 @@ class Britney(object):
         output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
         output_logger.info("orig: %s", self.eval_nuninst(nuninst_start))
 
-        with start_transaction(self.suite_info, self.all_binaries) as transaction:
-            if not init or force:
-                # Throw away the (outer) transaction as we will not be using it
-                transaction.rollback()
-                transaction = None
+        if init and not force:
+            # We will need to be able to roll back (e.g. easy or a "hint"-hint)
+            _start_transaction = mm.start_transaction
+        else:
+            # No "outer" transaction needed as we will never need to rollback
+            # (e.g. "force-hint" or a regular "main run").  Emulate the start_transaction
+            # call from the MigrationManager, so the rest of the code follows the
+            # same flow regardless of whether we need the transaction or not.
+
+            @contextlib.contextmanager
+            def _start_transaction():
+                yield None
+
+        with _start_transaction() as transaction:
 
             if init:
-                mm = self._migration_manager
                 # init => a hint (e.g. "easy") - so do the hint run
                 (_, nuninst_end, _) = mm.migrate_item_to_target_suite(selected,
                                                                       self.nuninst_orig,
-                                                                      transaction,
                                                                       stop_on_first_regression=False)
 
                 if recurse:
@@ -1675,8 +1679,7 @@ class Britney(object):
                 # Either the main run or the recursive run of a "hint"-hint.
                 (nuninst_end, extra) = self.iter_packages(upgrade_me,
                                                           selected,
-                                                          nuninst=nuninst_end,
-                                                          parent_transaction=transaction)
+                                                          nuninst=nuninst_end)
 
             nuninst_end_str = self.eval_nuninst(nuninst_end)
 

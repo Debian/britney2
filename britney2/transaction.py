@@ -1,18 +1,3 @@
-import contextlib
-
-
-@contextlib.contextmanager
-def start_transaction(suite_info, all_binaries, parent_transaction=None):
-    tmts = MigrationTransactionState(suite_info, all_binaries, parent_transaction)
-    try:
-        yield tmts
-    except Exception:
-        if not tmts.is_committed and not tmts.is_rolled_back:
-            tmts.rollback()
-        raise
-    assert tmts.is_rolled_back or tmts.is_committed
-
-
 class MigrationTransactionState(object):
 
     def __init__(self, suite_info, all_binaries, parent=None):
