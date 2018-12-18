@@ -1,15 +1,19 @@
 import apt_pkg
 
-from britney2.utils import MigrationConstraintException, compute_reverse_tree, find_smooth_updateable_binaries
+from britney2.utils import (
+    MigrationConstraintException, compute_reverse_tree, check_installability, clone_nuninst,
+    find_smooth_updateable_binaries,
+)
 
 
 class MigrationManager(object):
 
-    def __init__(self, options, suite_info, all_binaries, pkg_universe):
+    def __init__(self, options, suite_info, all_binaries, pkg_universe, constraints):
         self.options = options
         self.suite_info = suite_info
         self.all_binaries = all_binaries
         self.pkg_universe = pkg_universe
+        self.constraints = constraints
 
     def _compute_groups(self,
                         item,
@@ -160,7 +164,7 @@ class MigrationManager(object):
 
         return (adds, rms, smoothbins)
 
-    def _apply_item_to_suite(self, item, transaction, removals=frozenset()):
+    def _apply_item_to_target_suite(self, item, transaction, removals=frozenset()):
         """Apply a change to the target suite as requested by `item`
 
         A transaction in which all changes will be recorded.  Can be None (e.g.
@@ -321,3 +325,85 @@ class MigrationManager(object):
             transaction.add_undo_item(undo, updated_binaries)
         # return the affected packages (direct and than all)
         return (affected_direct, affected_all)
+
+    def migrate_item_to_target_suite(self, actions, nuninst_now, transaction, stop_on_first_regression=True):
+        is_accepted = True
+        affected_architectures = set()
+        item = actions
+        target_suite = self.suite_info.target_suite
+        packages_t = target_suite.binaries
+
+        nobreakall_arches = self.options.nobreakall_arches
+        new_arches = self.options.new_arches
+        break_arches = self.options.break_arches
+        arch = None
+
+        if len(actions) == 1:
+            item = actions[0]
+            # apply the changes
+            affected_direct, affected_all = self._apply_item_to_target_suite(item, transaction)
+            if item.architecture == 'source':
+                affected_architectures = set(self.options.architectures)
+            else:
+                affected_architectures.add(item.architecture)
+        else:
+            removals = set()
+            affected_direct = set()
+            affected_all = set()
+            for item in actions:
+                _, rms, _ = self._compute_groups(item, allow_smooth_updates=False)
+                removals.update(rms)
+                affected_architectures.add(item.architecture)
+
+            if 'source' in affected_architectures:
+                affected_architectures = set(self.options.architectures)
+
+            for item in actions:
+                item_affected_direct, item_affected_all = self._apply_item_to_target_suite(item,
+                                                                                           transaction,
+                                                                                           removals=removals)
+                affected_direct.update(item_affected_direct)
+                affected_all.update(item_affected_all)
+
+        # Optimise the test if we may revert directly.
+        # - The automatic-revert is needed since some callers (notably via hints) may
+        #   accept the outcome of this migration and expect nuninst to be updated.
+        #   (e.g. "force-hint" or "hint")
+        if stop_on_first_regression:
+            affected_all -= affected_direct
+        else:
+            affected_direct = set()
+
+        # Copy nuninst_comp - we have to deep clone affected
+        # architectures.
+
+        # NB: We do this *after* updating testing as we have to filter out
+        # removed binaries.  Otherwise, uninstallable binaries that were
+        # removed by the item would still be counted.
+
+        nuninst_after = clone_nuninst(nuninst_now, packages_s=packages_t, architectures=affected_architectures)
+        must_be_installable = self.constraints['keep-installable']
+
+        # check the affected packages on all the architectures
+        for arch in affected_architectures:
+            check_archall = arch in nobreakall_arches
+
+            check_installability(target_suite, packages_t, arch, affected_direct, affected_all,
+                                 check_archall, nuninst_after)
+
+            # if the uninstallability counter is worse than before, break the loop
+            if stop_on_first_regression:
+                worse = False
+                if len(nuninst_after[arch]) > len(nuninst_now[arch]):
+                    worse = True
+                else:
+                    regression = nuninst_after[arch] - nuninst_now[arch]
+                    if not regression.isdisjoint(must_be_installable):
+                        worse = True
+                # ... except for a few special cases
+                if worse and ((item.architecture != 'source' and arch not in new_arches) or
+                              (arch not in break_arches)):
+                    is_accepted = False
+                    break
+
+        return (is_accepted, nuninst_after, arch)

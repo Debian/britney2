@@ -209,7 +209,7 @@ from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers
                             format_and_log_uninst, newly_uninst, make_migrationitem,
                             write_excuses, write_heidi_delta, write_controlfiles,
                             old_libraries, is_nuninst_asgood_generous,
-                            clone_nuninst, check_installability,
+                            clone_nuninst,
                             invalidate_excuses, compile_nuninst,
                             find_smooth_updateable_binaries, parse_provides,
                             MigrationConstraintException,
@@ -334,7 +334,8 @@ class Britney(object):
         target_suite = self.suite_info.target_suite
         target_suite.inst_tester = self._inst_tester
 
-        self._migration_manager = MigrationManager(self.options, self.suite_info, self.all_binaries, self.pkg_universe)
+        self._migration_manager = MigrationManager(self.options, self.suite_info, self.all_binaries, self.pkg_universe,
+                                                   self.constraints)
 
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
@@ -1489,89 +1490,6 @@ class Britney(object):
             res.append("%s-%d" % (arch[0], n))
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
-    def try_migration(self, actions, nuninst_now, transaction, stop_on_first_regression=True):
-        is_accepted = True
-        affected_architectures = set()
-        item = actions
-        target_suite = self.suite_info.target_suite
-        packages_t = target_suite.binaries
-
-        nobreakall_arches = self.options.nobreakall_arches
-        new_arches = self.options.new_arches
-        break_arches = self.options.break_arches
-        arch = None
-        mm = self._migration_manager
-
-        if len(actions) == 1:
-            item = actions[0]
-            # apply the changes
-            affected_direct, affected_all = mm._apply_item_to_suite(item, transaction)
-            if item.architecture == 'source':
-                affected_architectures = set(self.options.architectures)
-            else:
-                affected_architectures.add(item.architecture)
-        else:
-            removals = set()
-            affected_direct = set()
-            affected_all = set()
-            for item in actions:
-                _, rms, _ = mm._compute_groups(item, allow_smooth_updates=False)
-                removals.update(rms)
-                affected_architectures.add(item.architecture)
-
-            if 'source' in affected_architectures:
-                affected_architectures = set(self.options.architectures)
-
-            for item in actions:
-                item_affected_direct, item_affected_all = mm._apply_item_to_suite(item,
-                                                                                  transaction,
-                                                                                  removals=removals)
-                affected_direct.update(item_affected_direct)
-                affected_all.update(item_affected_all)
-
-        # Optimise the test if we may revert directly.
-        # - The automatic-revert is needed since some callers (notably via hints) may
-        #   accept the outcome of this migration and expect nuninst to be updated.
-        #   (e.g. "force-hint" or "hint")
-        if stop_on_first_regression:
-            affected_all -= affected_direct
-        else:
-            affected_direct = set()
-
-        # Copy nuninst_comp - we have to deep clone affected
-        # architectures.
-
-        # NB: We do this *after* updating testing as we have to filter out
-        # removed binaries.  Otherwise, uninstallable binaries that were
-        # removed by the item would still be counted.
-
-        nuninst_after = clone_nuninst(nuninst_now, packages_s=packages_t, architectures=affected_architectures)
-        must_be_installable = self.constraints['keep-installable']
-
-        # check the affected packages on all the architectures
-        for arch in affected_architectures:
-            check_archall = arch in nobreakall_arches
-
-            check_installability(target_suite, packages_t, arch, affected_direct, affected_all,
-                                 check_archall, nuninst_after)
-
-            # if the uninstallability counter is worse than before, break the loop
-            if stop_on_first_regression:
-                worse = False
-                if len(nuninst_after[arch]) > len(nuninst_now[arch]):
-                    worse = True
-                else:
-                    regression = nuninst_after[arch] - nuninst_now[arch]
-                    if not regression.isdisjoint(must_be_installable):
-                        worse = True
-                # ... except for a few special cases
-                if worse and ((item.architecture != 'source' and arch not in new_arches) or
-                   (arch not in break_arches)):
-                    is_accepted = False
-                    break
-
-        return (is_accepted, nuninst_after, arch)
-
     def iter_packages(self, packages, selected, nuninst=None, parent_transaction=None, try_removals=True):
         """Iter on the list of actions and apply them one-by-one
 
@@ -1621,9 +1539,9 @@ class Britney(object):
                 with start_transaction(suite_info, all_binaries, parent_transaction) as transaction:
                     accepted = False
                     try:
-                        accepted, nuninst_after, failed_arch = self.try_migration(comp,
-                                                                                  nuninst_last_accepted,
-                                                                                  transaction)
+                        accepted, nuninst_after, failed_arch = mm.migrate_item_to_target_suite(comp,
+                                                                                               nuninst_last_accepted,
+                                                                                               transaction)
                         if accepted:
                             selected.extend(comp)
                             transaction.commit()
@@ -1741,11 +1659,12 @@ class Britney(object):
                 transaction = None
 
             if init:
+                mm = self._migration_manager
                 # init => a hint (e.g. "easy") - so do the hint run
-                (_, nuninst_end, _) = self.try_migration(selected,
-                                                         self.nuninst_orig,
-                                                         transaction,
-                                                         stop_on_first_regression=False)
+                (_, nuninst_end, _) = mm.migrate_item_to_target_suite(selected,
+                                                                      self.nuninst_orig,
+                                                                      transaction,
+                                                                      stop_on_first_regression=False)
 
                 if recurse:
                     # Ensure upgrade_me and selected do not overlap, if we
