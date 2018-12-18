@@ -1874,6 +1874,7 @@ class Britney(object):
         output_logger.info("List of old libraries in the target suite (%d):", len(removals))
         log_and_format_old_libraries(self.output_logger, removals)
 
+        self.printuninstchange()
         self.assert_nuninst_is_correct()
 
         # output files
@@ -1899,7 +1900,6 @@ class Britney(object):
                               self.all_selected)
 
 
-        self.printuninstchange()
         self.logger.info("Test completed!")
 
     def printuninstchange(self):
