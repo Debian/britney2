@@ -1836,7 +1836,7 @@ class Britney(object):
                 hintcnt += 1
 
         # run the auto hinter
-        self.auto_hinter()
+        self.run_auto_hinter()
 
         if getattr(self.options, "remove_obsolete", "yes") == "yes":
             # obsolete source packages
@@ -2025,7 +2025,7 @@ class Britney(object):
         self.do_all(hinttype, _pkgvers)
         return True
 
-    def auto_hinter(self):
+    def get_auto_hinter_hints(self, upgrade_me):
         """Auto-generate "easy" hints.
 
         This method attempts to generate "easy" hints for sets of packages which
@@ -2047,7 +2047,7 @@ class Britney(object):
         excuses = self.excuses
 
         # consider only excuses which are valid candidates and still relevant.
-        valid_excuses = frozenset(y.uvname for y in self.upgrade_me
+        valid_excuses = frozenset(y.uvname for y in upgrade_me
                                   if y not in sources_t or sources_t[y].version != excuses[y].ver[1])
         excuses_deps = {name: valid_excuses.intersection(excuse.deps)
                         for name, excuse in excuses.items() if name in valid_excuses}
@@ -2108,8 +2108,10 @@ class Britney(object):
                     if h != mincands[-1] and h not in seen_hints:
                         candidates.append(h)
                         seen_hints.add(h)
+        return [ candidates, mincands ]
 
-        for l in [ candidates, mincands ]:
+    def run_auto_hinter(self):
+        for l in self.get_auto_hinter_hints(self.upgrade_me):
             for hint in l:
                 self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in sorted(hint) ])
 
