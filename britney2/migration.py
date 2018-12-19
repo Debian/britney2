@@ -43,6 +43,7 @@ class MigrationManager(object):
         self.pkg_universe = pkg_universe
         self.constraints = constraints
         self._transactions = []
+        self._all_architectures = frozenset(self.options.architectures)
 
     @property
     def current_transaction(self):
@@ -343,18 +344,18 @@ class MigrationManager(object):
         return (affected_direct, affected_all)
 
     def _apply_multiple_items_to_target_suite(self, items):
-        affected_architectures = set()
         is_source_migration = False
         if len(items) == 1:
             item = items[0]
             # apply the changes
             affected_direct, affected_all = self._apply_item_to_target_suite(item)
             if item.architecture == 'source':
-                affected_architectures = set(self.options.architectures)
+                affected_architectures = self._all_architectures
                 is_source_migration = True
             else:
-                affected_architectures.add(item.architecture)
+                affected_architectures = {item.architecture}
         else:
+            affected_architectures = set()
             removals = set()
             affected_direct = set()
             affected_all = set()
@@ -364,7 +365,7 @@ class MigrationManager(object):
                 affected_architectures.add(item.architecture)
 
             if 'source' in affected_architectures:
-                affected_architectures = set(self.options.architectures)
+                affected_architectures = self._all_architectures
                 is_source_migration = True
 
             for item in items:
