@@ -331,9 +331,41 @@ class MigrationManager(object):
         # return the affected packages (direct and than all)
         return (affected_direct, affected_all)
 
-    def migrate_item_to_target_suite(self, actions, nuninst_now, stop_on_first_regression=True):
-        is_accepted = True
+    def _apply_multiple_items_to_target_suite(self, items):
         affected_architectures = set()
+        is_source_migration = False
+        if len(items) == 1:
+            item = items[0]
+            # apply the changes
+            affected_direct, affected_all = self._apply_item_to_target_suite(item)
+            if item.architecture == 'source':
+                affected_architectures = set(self.options.architectures)
+                is_source_migration = True
+            else:
+                affected_architectures.add(item.architecture)
+        else:
+            removals = set()
+            affected_direct = set()
+            affected_all = set()
+            for item in items:
+                _, rms, _ = self._compute_groups(item, allow_smooth_updates=False)
+                removals.update(rms)
+                affected_architectures.add(item.architecture)
+
+            if 'source' in affected_architectures:
+                affected_architectures = set(self.options.architectures)
+                is_source_migration = True
+
+            for item in items:
+                item_affected_direct, item_affected_all = self._apply_item_to_target_suite(item,
+                                                                                           removals=removals)
+                affected_direct.update(item_affected_direct)
+                affected_all.update(item_affected_all)
+
+        return is_source_migration, affected_architectures, affected_direct, affected_all
+
+    def migrate_item_to_target_suite(self, items, nuninst_now, stop_on_first_regression=True):
+        is_accepted = True
         target_suite = self.suite_info.target_suite
         packages_t = target_suite.binaries
 
@@ -342,31 +374,8 @@ class MigrationManager(object):
         break_arches = self.options.break_arches
         arch = None
 
-        if len(actions) == 1:
-            item = actions[0]
-            # apply the changes
-            affected_direct, affected_all = self._apply_item_to_target_suite(item)
-            if item.architecture == 'source':
-                affected_architectures = set(self.options.architectures)
-            else:
-                affected_architectures.add(item.architecture)
-        else:
-            removals = set()
-            affected_direct = set()
-            affected_all = set()
-            for item in actions:
-                _, rms, _ = self._compute_groups(item, allow_smooth_updates=False)
-                removals.update(rms)
-                affected_architectures.add(item.architecture)
-
-            if 'source' in affected_architectures:
-                affected_architectures = set(self.options.architectures)
-
-            for item in actions:
-                item_affected_direct, item_affected_all = self._apply_item_to_target_suite(item,
-                                                                                           removals=removals)
-                affected_direct.update(item_affected_direct)
-                affected_all.update(item_affected_all)
+        is_source_migration, affected_architectures, affected_direct, affected_all = \
+            self._apply_multiple_items_to_target_suite(items)
 
         # Optimise the test if we may revert directly.
         # - The automatic-revert is needed since some callers (notably via hints) may
@@ -404,7 +413,7 @@ class MigrationManager(object):
                     if not regression.isdisjoint(must_be_installable):
                         worse = True
                 # ... except for a few special cases
-                if worse and ((item.architecture != 'source' and arch not in new_arches) or
+                if worse and ((not is_source_migration and arch not in new_arches) or
                               (arch not in break_arches)):
                     is_accepted = False
                     break
