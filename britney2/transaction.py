@@ -100,12 +100,13 @@ class MigrationTransactionState(object):
 
         # STEP 4
         # undo all changes to virtual packages
-        for (undo, updated_binaries) in lundo:
-            for provided_pkg, arch in undo['nvirtual']:
-                del provides_t[arch][provided_pkg]
-            for p in undo['virtual']:
+        for (undo, _) in lundo:
+            for p, value in undo['virtual'].items():
                 provided_pkg, arch = p
-                provides_t[arch][provided_pkg] = undo['virtual'][p]
+                if value is None:
+                    del provides_t[arch][provided_pkg]
+                else:
+                    provides_t[arch][provided_pkg] = undo['virtual'][p]
 
     @property
     def is_rolled_back(self):

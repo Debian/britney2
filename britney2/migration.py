@@ -227,7 +227,7 @@ class MigrationManager(object):
         affected by the change (as (name, arch)-tuples) and the
         dictionary undo which can be used to rollback the changes.
         """
-        undo = {'binaries': {}, 'sources': {}, 'virtual': {}, 'nvirtual': []}
+        undo = {'binaries': {}, 'sources': {}, 'virtual': {}}
 
         affected_direct = set()
         updated_binaries = set()
@@ -338,11 +338,9 @@ class MigrationManager(object):
                 # register new provided packages
                 for provided_pkg, prov_version, _ in new_pkg_data.provides:
                     key = (provided_pkg, parch)
-                    if provided_pkg not in provides_t_a:
-                        undo['nvirtual'].append(key)
-                        provides_t_a[provided_pkg] = set()
-                    elif key not in undo['virtual']:
-                        undo['virtual'][key] = provides_t_a[provided_pkg].copy()
+                    if key not in undo['virtual']:
+                        restore_as = provides_t_a[provided_pkg].copy() if provided_pkg in provides_t_a else None
+                        undo['virtual'][key] = restore_as
                     provides_t_a[provided_pkg].add((binary, prov_version))
                 if not equivalent_replacement:
                     # all the reverse dependencies are affected by the change
