@@ -68,11 +68,11 @@ class MigrationTransactionState(object):
         # STEP 1
         # undo all the changes for sources
         for (undo, updated_binaries) in lundo:
-            for k in undo['sources']:
-                if k[0] == '-':
-                    del sources_t[k[1:]]
+            for (k, v) in undo['sources'].items():
+                if v is None:
+                    del sources_t[k]
                 else:
-                    sources_t[k] = undo['sources'][k]
+                    sources_t[k] = v
 
         # STEP 2
         # undo all new/updated binaries

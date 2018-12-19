@@ -245,16 +245,12 @@ class MigrationManager(object):
         # Handle the source package
         if item.architecture == 'source':
             sources_t = target_suite.sources
-            if item.package in sources_t:
-                source = sources_t[item.package]
-                undo['sources'][item.package] = source
-                del sources_t[item.package]
-            else:
-                # the package didn't exist, so we mark it as to-be-removed in case of undo
-                undo['sources']['-' + item.package] = True
+            undo['sources'][item.package] = sources_t.get(item.package)
 
             # add/update the source package
-            if not item.is_removal:
+            if item.is_removal:
+                del sources_t[item.package]
+            else:
                 sources_t[item.package] = source_suite.sources[item.package]
 
         eqv_set = compute_eqv_set(pkg_universe, updates, rms)
