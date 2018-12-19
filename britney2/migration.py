@@ -24,6 +24,16 @@ def compute_eqv_set(pkg_universe, updates, rms):
     return eqv_set
 
 
+def is_nuninst_worse(must_be_installable, nuninst_now_arch, nuninst_after_arch):
+    if len(nuninst_after_arch) > len(nuninst_now_arch):
+        return True
+
+    regression = nuninst_after_arch - nuninst_now_arch
+    if not regression.isdisjoint(must_be_installable):
+        return True
+    return False
+
+
 class MigrationManager(object):
 
     def __init__(self, options, suite_info, all_binaries, pkg_universe, constraints):
@@ -406,13 +416,8 @@ class MigrationManager(object):
 
             # if the uninstallability counter is worse than before, break the loop
             if stop_on_first_regression:
-                worse = False
-                if len(nuninst_after[arch]) > len(nuninst_now[arch]):
-                    worse = True
-                else:
-                    regression = nuninst_after[arch] - nuninst_now[arch]
-                    if not regression.isdisjoint(must_be_installable):
-                        worse = True
+                worse = is_nuninst_worse(must_be_installable, nuninst_now[arch], nuninst_after[arch])
+
                 # ... except for a few special cases
                 if worse and ((not is_source_migration and arch not in new_arches) or
                               (arch not in break_arches)):
