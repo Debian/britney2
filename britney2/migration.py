@@ -8,6 +8,22 @@ from britney2.utils import (
 )
 
 
+def compute_eqv_set(pkg_universe, updates, rms):
+    eqv_set = set()
+    # If we are removing *and* updating packages, then check for eqv. packages
+    if rms and updates:
+        eqv_table = {(x.package_name, x.architecture): x for x in rms}
+
+        for new_pkg_id in updates:
+            binary, _, parch = new_pkg_id
+            key = (binary, parch)
+            old_pkg_id = eqv_table.get(key)
+            if old_pkg_id is not None:
+                if pkg_universe.are_equivalent(new_pkg_id, old_pkg_id):
+                    eqv_set.add(key)
+    return eqv_set
+
+
 class MigrationManager(object):
 
     def __init__(self, options, suite_info, all_binaries, pkg_universe, constraints):
@@ -197,7 +213,6 @@ class MigrationManager(object):
         packages_t = target_suite.binaries
         provides_t = target_suite.provides_table
         pkg_universe = self.pkg_universe
-        eqv_set = set()
         transaction = self.current_transaction
 
         updates, rms, _ = self._compute_groups(item, removals=removals)
@@ -217,21 +232,7 @@ class MigrationManager(object):
             if not item.is_removal:
                 sources_t[item.package] = source_suite.sources[item.package]
 
-        # If we are removing *and* updating packages, then check for eqv. packages
-        if rms and updates:
-            eqv_table = {}
-            for rm_pkg_id in rms:
-                binary, _, parch = rm_pkg_id
-                key = (binary, parch)
-                eqv_table[key] = rm_pkg_id
-
-            for new_pkg_id in updates:
-                binary, _, parch = new_pkg_id
-                key = (binary, parch)
-                old_pkg_id = eqv_table.get(key)
-                if old_pkg_id is not None:
-                    if pkg_universe.are_equivalent(new_pkg_id, old_pkg_id):
-                        eqv_set.add(key)
+        eqv_set = compute_eqv_set(pkg_universe, updates, rms)
 
         # remove all the binaries which aren't being smooth updated
         for rm_pkg_id in rms:
