@@ -49,10 +49,10 @@ class MigrationManager(object):
     def current_transaction(self):
         return self._transactions[0] if self._transactions else None
 
-    def _compute_groups(self,
-                        item,
-                        allow_smooth_updates=True,
-                        removals=frozenset()):
+    def compute_groups(self,
+                       item,
+                       allow_smooth_updates=True,
+                       removals=frozenset()):
         """Compute the groups of binaries being migrated by item
 
         This method will compute the binaries that will be added to,
@@ -240,7 +240,7 @@ class MigrationManager(object):
         pkg_universe = self.pkg_universe
         transaction = self.current_transaction
 
-        updates, rms, _ = self._compute_groups(item, removals=removals)
+        updates, rms, _ = self.compute_groups(item, removals=removals)
 
         # Handle the source package
         if item.architecture == 'source':
@@ -374,7 +374,7 @@ class MigrationManager(object):
             affected_direct = set()
             affected_all = set()
             for item in items:
-                _, rms, _ = self._compute_groups(item, allow_smooth_updates=False)
+                _, rms, _ = self.compute_groups(item, allow_smooth_updates=False)
                 removals.update(rms)
                 affected_architectures.add(item.architecture)
 
