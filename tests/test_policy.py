@@ -356,7 +356,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_pass_to_pass(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/pass-to-pass', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/pass-to-pass',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'PASS'
@@ -367,7 +370,11 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_pass_to_fail(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/pass-to-fail', AutopkgtestPolicy, adt_amqp=self.amqp, adt_retry_older_than=1)
+        policy = initialize_policy(
+            'autopkgtest/pass-to-fail',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp,
+            adt_retry_older_than=1)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
@@ -378,7 +385,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_pass_to_neutral(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/pass-to-neutral', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/pass-to-neutral',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'NEUTRAL'
@@ -393,7 +403,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         builder_new.new_package(pkg2).not_in_testing()
         builder_new.new_package(dummy).in_testing()
         new_universe, new_inst_tester = builder_new.build()
-        policy = initialize_policy('autopkgtest/new', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/new',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, new_universe, new_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING-ALWAYSFAIL'
@@ -404,7 +417,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_pass_to_new(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/pass-to-new', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/pass-to-new',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
@@ -415,7 +431,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_fail_to_new(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/fail-to-new', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/fail-to-new',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING-ALWAYSFAIL'
@@ -426,7 +445,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_neutral_to_new(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/neutral-to-new', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/neutral-to-new',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
@@ -437,7 +459,11 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_neutral_to_fail(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/neutral-to-fail', AutopkgtestPolicy, adt_amqp=self.amqp, adt_retry_older_than=1)
+        policy = initialize_policy(
+            'autopkgtest/neutral-to-fail',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp,
+            adt_retry_older_than=1)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
@@ -448,7 +474,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
 
     def test_pass_to_new_with_breaks(self):
         src_name = 'pkg'
-        policy = initialize_policy('autopkgtest/pass-to-new-with-breaks', AutopkgtestPolicy, adt_amqp=self.amqp)
+        policy = initialize_policy(
+            'autopkgtest/pass-to-new-with-breaks',
+            AutopkgtestPolicy,
+            adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, breaks_universe, breaks_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
