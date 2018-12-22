@@ -86,7 +86,8 @@ class MigrationManager(object):
         InstallabilityTester.
 
 
-        Unlike doop_source, this will not modify any data structure.
+        Unlike migrate_item_to_target_suite, this will not modify
+        any data structure.
         """
         # local copies for better performances
         source_name = item.package

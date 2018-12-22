@@ -28,7 +28,7 @@ class MigrationTransactionState(object):
 
     @property
     def undo_items(self):
-        """Only needed by a doop_source for the "hint"-hint case"""
+        """Only needed by a _apply_item_to_target_suite for the "hint"-hint case"""
         yield from self._undo_items
 
     def commit(self):
