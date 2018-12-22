@@ -47,7 +47,7 @@ class MigrationManager(object):
 
     @property
     def current_transaction(self):
-        return self._transactions[0] if self._transactions else None
+        return self._transactions[-1] if self._transactions else None
 
     def compute_groups(self,
                        item,
