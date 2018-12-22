@@ -7,8 +7,16 @@ class MigrationTransactionState(object):
         self._is_rolled_back = False
         self._is_committed = False
         self._undo_items = []
+        self._pending_child = False
+        if self.parent_transaction:
+            # Transactions can only support one child transaction at a time
+            assert not self.parent_transaction._pending_child
+            self.parent_transaction._pending_child = True
 
     def add_undo_item(self, undo, updated_binaries):
+        # We do not accept any changes to this transaction while it has a child transaction
+        # (the undo code does not handle that case correctly)
+        assert not self._pending_child
         self._assert_open_transaction()
         self._undo_items.append((undo, updated_binaries))
 
@@ -33,6 +41,7 @@ class MigrationTransactionState(object):
         self._assert_open_transaction()
         self._is_committed = True
         if self.parent_transaction:
+            self.parent_transaction._pending_child = False
             for undo_item in self._undo_items:
                 self.parent_transaction.add_undo_item(*undo_item)
 
@@ -43,7 +52,6 @@ class MigrationTransactionState(object):
         """
 
         self._assert_open_transaction()
-
         self._is_rolled_back = True
         lundo = self._undo_items
         lundo.reverse()
@@ -107,6 +115,9 @@ class MigrationTransactionState(object):
                     del provides_t[arch][provided_pkg]
                 else:
                     provides_t[arch][provided_pkg] = undo['virtual'][p]
+
+        if self.parent_transaction:
+            self.parent_transaction._pending_child = False
 
     @property
     def is_rolled_back(self):
