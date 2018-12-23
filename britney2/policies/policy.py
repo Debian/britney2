@@ -135,9 +135,9 @@ class IgnoreRCBugHint(SimplePolicyHint):
 
 
 def simple_policy_hint_parser_function(class_name, converter):
-    def f(hints, who, hint_name, policy_parameter, *args):
-        for package in args:
-            hints.add_hint(class_name(who, hint_name, converter(policy_parameter), package))
+    def f(mi_factory, hints, who, hint_name, policy_parameter, *args):
+        for item in mi_factory.parse_items(*args):
+            hints.add_hint(class_name(who, hint_name, converter(policy_parameter), [item]))
     return f
 
 

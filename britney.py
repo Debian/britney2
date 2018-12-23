@@ -200,13 +200,13 @@ from britney2.inputs.suiteloader import DebMirrorLikeSuiteContentLoader, Missing
 from britney2.installability.builder import build_installability_tester
 from britney2.installability.solver import InstallabilitySolver
 from britney2.migration import MigrationManager
-from britney2.migrationitem import MigrationItem
+from britney2.migrationitem import MigrationItem, MigrationItemFactory
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
-                            format_and_log_uninst, newly_uninst, make_migrationitem,
+                            format_and_log_uninst, newly_uninst,
                             write_excuses, write_heidi_delta, write_controlfiles,
                             old_libraries, is_nuninst_asgood_generous,
                             clone_nuninst,
@@ -283,7 +283,6 @@ class Britney(object):
 
         # parse the command line arguments
         self.policies = []
-        self._hint_parser = HintParser()
         self.suite_info = None  # Initialized during __parse_arguments
         self.__parse_arguments()
         MigrationItem.set_architectures(self.options.architectures)
@@ -329,6 +328,8 @@ class Britney(object):
         target_suite = self.suite_info.target_suite
         target_suite.inst_tester = self._inst_tester
 
+        self._migration_item_factory = MigrationItemFactory(self.suite_info)
+        self._hint_parser = HintParser(self._migration_item_factory)
         self._migration_manager = MigrationManager(self.options, self.suite_info, self.all_binaries, self.pkg_universe,
                                                    self.constraints)
 
@@ -1442,7 +1443,8 @@ class Britney(object):
         invalidate_excuses(excuses, upgrade_me, unconsidered)
 
         # sort the list of candidates
-        self.upgrade_me = sorted(make_migrationitem(x, suite_info) for x in upgrade_me)
+        mi_factory = self._migration_item_factory
+        self.upgrade_me = sorted(mi_factory.parse_item(x, versioned=False, auto_correct=False) for x in upgrade_me)
 
         # write excuses to the output file
         if not self.options.dry_run:
@@ -1591,7 +1593,7 @@ class Britney(object):
 
         if try_removals and self.options.smooth_updates:
             self.logger.info("> Removing old packages left in the target suite from smooth updates")
-            removals = old_libraries(self.suite_info, self.options.outofsync_arches)
+            removals = old_libraries(self._migration_item_factory, self.suite_info, self.options.outofsync_arches)
             if removals:
                 output_logger.info("Removing packages left in the target suite for smooth updates (%d):", len(removals))
                 log_and_format_old_libraries(self.output_logger, removals)
@@ -1847,11 +1849,12 @@ class Britney(object):
             target_suite = self.suite_info.target_suite
             sources_t = target_suite.sources
             binaries_t = target_suite.binaries
+            mi_factory = self._migration_item_factory
             used = set(binaries_t[arch][binary].source
                        for arch in binaries_t
                        for binary in binaries_t[arch]
                        )
-            removals = [MigrationItem("-%s/%s" % (source, sources_t[source].version))
+            removals = [mi_factory.parse_item("-%s/%s" % (source, sources_t[source].version), auto_correct=False)
                         for source in sources_t if source not in used
                         ]
             if removals:
@@ -1859,14 +1862,14 @@ class Britney(object):
                 self.do_all(actions=removals)
 
         # smooth updates
-        removals = old_libraries(self.suite_info, self.options.outofsync_arches)
+        removals = old_libraries(self._migration_item_factory, self.suite_info, self.options.outofsync_arches)
         if self.options.smooth_updates:
             self.logger.info("> Removing old packages left in the target suite from smooth updates")
             if removals:
                 output_logger.info("Removing packages left in the target suite for smooth updates (%d):", len(removals))
                 log_and_format_old_libraries(self.output_logger, removals)
                 self.do_all(actions=removals)
-                removals = old_libraries(self.suite_info, self.options.outofsync_arches)
+                removals = old_libraries(self._migration_item_factory, self.suite_info, self.options.outofsync_arches)
         else:
             self.logger.info("> Not removing old packages left in the target suite from smooth updates"
                              " (smooth-updates disabled)")
@@ -1951,9 +1954,9 @@ class Britney(object):
                 break
                 # run a hint
             elif user_input and user_input[0] in ('easy', 'hint', 'force-hint'):
+                mi_factory = self._migration_item_factory
                 try:
-                    self.do_hint(user_input[0], 'hint-tester',
-                                 [k.rsplit("/", 1) for k in user_input[1:] if "/" in k])
+                    self.do_hint(user_input[0], 'hint-tester', mi_factory.parse_items(user_input[1:]))
                     self.printuninstchange()
                 except KeyboardInterrupt:
                     continue
@@ -1975,21 +1978,17 @@ class Britney(object):
         """
 
         output_logger = self.output_logger
-        if isinstance(pkgvers[0], tuple) or isinstance(pkgvers[0], list):
-            _pkgvers = [ MigrationItem('%s/%s' % (p, v)) for (p,v) in pkgvers ]
-        else:
-            _pkgvers = pkgvers
 
         suites = self.suite_info
         self.logger.info("> Processing '%s' hint from %s", hinttype, who)
         output_logger.info("Trying %s from %s: %s", hinttype, who,
-                           " ".join("%s/%s" % (x.uvname, x.version) for x in _pkgvers)
+                           " ".join("%s/%s" % (x.uvname, x.version) for x in pkgvers)
                            )
 
         issues = []
         # loop on the requested packages and versions
-        for idx in range(len(_pkgvers)):
-            pkg = _pkgvers[idx]
+        for idx in range(len(pkgvers)):
+            pkg = pkgvers[idx]
             # skip removal requests
             if pkg.is_removal:
                 continue
@@ -2003,7 +2002,7 @@ class Britney(object):
                                                                             pkg.version) == 0:
                         suite = s
                         pkg.suite = s
-                        _pkgvers[idx] = pkg
+                        pkgvers[idx] = pkg
                         break
 
             if suite.suite_class.is_additional_source:
@@ -2022,7 +2021,7 @@ class Britney(object):
             output_logger.warning("%s: Not using hint", ", ".join(issues))
             return False
 
-        self.do_all(hinttype, _pkgvers)
+        self.do_all(hinttype, pkgvers)
         return True
 
     def get_auto_hinter_hints(self, upgrade_me):
@@ -2111,9 +2110,11 @@ class Britney(object):
         return [ candidates, mincands ]
 
     def run_auto_hinter(self):
+        mi_factory = self._migration_item_factory
         for l in self.get_auto_hinter_hints(self.upgrade_me):
             for hint in l:
-                self.do_hint("easy", "autohinter", [ MigrationItem("%s/%s" % (x[0], x[1])) for x in sorted(hint) ])
+                self.do_hint("easy", "autohinter", [mi_factory.parse_item("%s/%s" % (x[0], x[1]), auto_correct=False)
+                                                    for x in sorted(hint)])
 
     def nuninst_arch_report(self, nuninst, arch):
         """Print a report of uninstallable packages for one architecture."""

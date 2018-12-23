@@ -6,7 +6,7 @@ import unittest
 from britney2 import Suites, Suite, SuiteClass, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
-from britney2.migrationitem import MigrationItem
+from britney2.migrationitem import MigrationItemFactory
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 
@@ -43,10 +43,10 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
         Suite(SuiteClass.TARGET_SUITE, target, os.path.join(test_dir, target), ''),
         [Suite(SuiteClass.PRIMARY_SOURCE_SUITE, 'unstable', os.path.join(test_dir, 'unstable'), '')],
     )
-    MigrationItem.set_suites(suite_info)
+    mi_factory = MigrationItemFactory(suite_info)
     policy = policy_class(options, suite_info, *args)
     fake_britney = MockObject(log=lambda x, y='I': None)
-    hint_parser = HintParser()
+    hint_parser = HintParser(mi_factory)
     policy.initialise(fake_britney)
     policy.register_hints(hint_parser)
     hint_parser.parse_hints(TEST_HINTER, HINTS_ALL, 'test-%s' % test_name, hints)

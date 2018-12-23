@@ -2,7 +2,7 @@ import unittest
 
 from britney2 import Suite, Suites, SuiteClass
 from britney2.hints import HintParser, single_hint_taking_list_of_packages
-from britney2.migrationitem import MigrationItem
+from britney2.migrationitem import MigrationItemFactory
 
 from . import HINTS_ALL, TEST_HINTER
 
@@ -12,11 +12,9 @@ SUITES = Suites(
 )
 
 
-MigrationItem.set_suites(SUITES)
-
-
 def new_hint_parser():
-    return HintParser()
+    mi_factory = MigrationItemFactory(SUITES)
+    return HintParser(mi_factory)
 
 
 def parse_should_not_call_this_function(*args, **kwargs):

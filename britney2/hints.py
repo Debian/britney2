@@ -16,8 +16,6 @@ import logging
 
 from itertools import chain
 
-from britney2.migrationitem import MigrationItem
-
 
 class MalformedHintException(Exception):
     pass
@@ -57,11 +55,6 @@ class Hint(object):
         self._active = True
         self._type = hint_type
         self._packages = packages
-
-        if isinstance(self._packages, str):
-            self._packages = self._packages.split(' ')
-
-        self._packages = [MigrationItem(x) for x in self._packages]
         
         self.check()
         
@@ -122,21 +115,22 @@ class Hint(object):
             return None
 
 
-def split_into_one_hint_per_package(hints, who, hint_name, *args):
-    for package in args:
-        hints.add_hint(Hint(who, hint_name, package))
+def split_into_one_hint_per_package(mi_factory, hints, who, hint_name, *args):
+    for item in mi_factory.parse_items(*args):
+        hints.add_hint(Hint(who, hint_name, [item]))
 
 
-def single_hint_taking_list_of_packages(hints, who, hint_type, *args):
-    hints.add_hint(Hint(who, hint_type, args))
+def single_hint_taking_list_of_packages(mi_factory, hints, who, hint_type, *args):
+    hints.add_hint(Hint(who, hint_type, mi_factory.parse_items(*args)))
 
 
 class HintParser(object):
 
-    def __init__(self):
+    def __init__(self, mi_factory):
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
         self.hints = HintCollection()
+        self.mi_factory = mi_factory
         self._hint_table = {
             'remark': (0, lambda *x: None),
 
@@ -205,6 +199,7 @@ class HintParser(object):
         line_no = 0
         hints = self.hints
         aliases = self._aliases
+        mi_factory = self.mi_factory
         for line in lines:
             line = line.strip()
             line_no += 1
@@ -231,7 +226,7 @@ class HintParser(object):
                                     filename, line_no, min_args, len(l) - 1)
                 continue
             try:
-                hint_parser_impl(hints, who, *l)
+                hint_parser_impl(mi_factory, hints, who, *l)
             except MalformedHintException as e:
                 self.logger.warning("Malformed hint found in %s (line %d): \"%s\"", filename, line_no, e.args[0])
                 continue

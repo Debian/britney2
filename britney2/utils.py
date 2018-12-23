@@ -39,8 +39,8 @@ from britney2.consts import (VERSION, PROVIDES, DEPENDS, CONFLICTS,
                              ARCHITECTURE, SECTION,
                              SOURCE, MAINTAINER, MULTIARCH,
                              ESSENTIAL)
-from britney2.migrationitem import MigrationItem, UnversionnedMigrationItem
 from britney2.policies import PolicyVerdict
+
 
 class MigrationConstraintException(Exception):
     pass
@@ -283,17 +283,6 @@ def write_heidi_delta(filename, all_selected):
                                            item.version, item.architecture))
 
 
-def make_migrationitem(package, suite_info):
-    """Convert a textual package specification to a MigrationItem
-    
-    sources is a list of source packages in each suite, used to determine
-    the version which should be used for the MigrationItem.
-    """
-    
-    item = UnversionnedMigrationItem(package)
-    return MigrationItem("%s/%s" % (item.uvname, suite_info[item.suite.name].sources[item.package].version))
-
-
 def write_excuses(excuselist, dest_file, output_format="yaml"):
     """Write the excuses to dest_file
 
@@ -410,7 +399,7 @@ def write_controlfiles(target_suite):
     write_sources(sources_s, os.path.join(basedir, 'Sources'))
 
 
-def old_libraries(suite_info, outofsync_arches=frozenset()):
+def old_libraries(mi_factory, suite_info, outofsync_arches=frozenset()):
     """Detect old libraries left in the target suite for smooth transitions
 
     This method detects old libraries which are in the target suite but no
@@ -430,9 +419,8 @@ def old_libraries(suite_info, outofsync_arches=frozenset()):
         for pkg_name in binaries_t[arch]:
             pkg = binaries_t[arch][pkg_name]
             if sources_t[pkg.source].version != pkg.source_version and \
-                (arch not in outofsync_arches or pkg_name not in binaries_s[arch]):
-                migration = "-" + "/".join((pkg_name, arch, pkg.source_version))
-                removals.append(MigrationItem(migration))
+                    (arch not in outofsync_arches or pkg_name not in binaries_s[arch]):
+                removals.append(mi_factory.generate_removal_for_cruft_item(pkg.pkg_id))
     return removals
 
 
