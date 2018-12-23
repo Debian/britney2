@@ -134,6 +134,8 @@ class AutopkgtestPolicy(BasePolicy):
             # Make adt_baseline optional
             setattr(self.options, 'adt_baseline', None)
 
+        self.result_in_baseline_cache = collections.defaultdict(dict)
+
         # read the cached results that we collected so far
         if os.path.exists(self.results_cache_file):
             with open(self.results_cache_file) as f:
@@ -895,7 +897,7 @@ class AutopkgtestPolicy(BasePolicy):
         # this requires iterating over all cached results and thus is expensive;
         # cache the results
         try:
-            return self.result_in_baseline._cache[src][arch]
+            return self.result_in_baseline_cache[src][arch]
         except KeyError:
             pass
 
@@ -909,7 +911,7 @@ class AutopkgtestPolicy(BasePolicy):
                 self.logger.info('Found NO result for src %s in reference: %s',
                                  src, result_reference.name)
                 pass
-            self.result_in_baseline._cache[arch] = result_reference
+            self.result_in_baseline_cache[src][arch] = deepcopy(result_reference)
             return result_reference
 
         result_ever = Result.FAIL
@@ -922,11 +924,9 @@ class AutopkgtestPolicy(BasePolicy):
             except KeyError:
                 pass
 
-        self.result_in_baseline._cache[arch] = result_ever
+        self.result_in_baseline_cache[src][arch] = deepcopy(result_ever)
         self.logger.info('Result for src %s ever: %s', src, result_ever.name)
         return result_ever
-
-    result_in_baseline._cache = collections.defaultdict(dict)
 
     def pkg_test_result(self, src, ver, arch, trigger):
         '''Get current test status of a particular package
