@@ -36,27 +36,18 @@ class MigrationItem(object):
     def get_suites(cls):
         return cls._suites
 
-    def __init__(self, name=None, versionned=True, package=None, version=None, architecture=None, uvname=None, suite=None):
-        self._name = None
-        self._uvname = None
-        self._package = None
-        self._version = None
-        self._architecture = None
-        self._suite = None
+    def __init__(self, versionned=True, package=None, version=None, architecture=None, uvname=None, suite=None):
         self._versionned = versionned
 
-        if name:
-            self.name = name
+        self._uvname = uvname
+        self._package = package
+        self._version = version
+        self._architecture = architecture
+        self._suite = suite
+        if version is not None:
+            self._name = "%s/%s" % (uvname, version)
         else:
-            self._uvname = uvname
-            self._package = package
-            self._version = version
-            self._architecture = architecture
-            self._suite = suite
-            if version is not None:
-                self._name = "%s/%s" % (uvname, version)
-            else:
-                self._name = uvname
+            self._name = uvname
 
     def __str__(self):
         if self._versionned and self.version is not None:
@@ -83,50 +74,6 @@ class MigrationItem(object):
     @property
     def name(self):
         return self._name
-
-    @name.setter
-    def name(self, value):
-        self._version = None
-        self._name = value
-        if value.startswith('-'):
-            value = value[1:]
-        parts = value.split('/', 3)
-        package = parts[0]
-        suite_name = self.__class__._suites.primary_source_suite.name
-        if '_' in package:
-            self._package, suite_name = package.split('_', 2)
-        else:
-            self._package = package
-        if self._versionned and len(parts) > 1:
-            if len(parts) == 3:
-                self._architecture = parts[1]
-                self._version = parts[2]
-            else:
-                self._architecture = 'source'
-                self._version = parts[1]
-        else:
-            if len(parts) >= 2:
-                self._architecture = parts[1]
-            else:
-                self._architecture = 'source'
-
-        if '_' in self._architecture:
-            self._architecture, suite_name = self._architecture.split('_', 2)
-
-        if self._version in self.__class__.get_architectures():
-            (self._architecture, self._version) = \
-            (self._version, self._architecture)
-
-        if '_' in self._architecture:
-            self._architecture, self._suite = \
-               self._architecture.split('_', 2)
-
-        if self.is_removal:
-            self._suite = self.__class__._suites.target_suite
-        else:
-            self._suite = self.__class__._suites.by_name_or_alias[suite_name]
-
-        self._canonicalise_name()
 
     def _canonicalise_name(self):
         parts = self._name.split('/', 3)
