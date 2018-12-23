@@ -292,11 +292,6 @@ class Britney(object):
         self.all_selected = []
         self.excuses = {}
 
-        try:
-            self.read_hints(self.options.hintsdir)
-        except AttributeError:
-            self.read_hints(os.path.join(self.suite_info['unstable'].path, 'Hints'))
-
         if self.options.nuninst_cache:
             self.logger.info("Not building the list of non-installable packages, as requested")
             if self.options.print_uninst:
@@ -370,6 +365,14 @@ class Britney(object):
 
         # nuninst_orig may get updated during the upgrade process
         self.nuninst_orig_save = clone_nuninst(self.nuninst_orig, architectures=self.options.architectures)
+
+        for policy in self.policies:
+            policy.register_hints(self._hint_parser)
+
+        try:
+            self.read_hints(self.options.hintsdir)
+        except AttributeError:
+            self.read_hints(os.path.join(self.suite_info['unstable'].path, 'Hints'))
 
         for policy in self.policies:
             policy.hints = self.hints
@@ -495,9 +498,6 @@ class Britney(object):
             self.policies.append(AutopkgtestPolicy(self.options, self.suite_info))
         self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
         self.policies.append(BuildDependsPolicy(self.options, self.suite_info))
-
-        for policy in self.policies:
-            policy.register_hints(self._hint_parser)
 
     @property
     def hints(self):
