@@ -17,6 +17,7 @@
 # GNU General Public License for more details.
 
 import collections
+from copy import deepcopy
 from enum import Enum
 import os
 import json
@@ -222,7 +223,7 @@ class AutopkgtestPolicy(BasePolicy):
         # update the results on-disk cache, unless we are using a r/o shared one
         if not self.options.adt_shared_results_cache:
             self.logger.info('Updating results cache')
-            results = self.test_results.copy()
+            results = deepcopy(self.test_results)
             for trigger in results.values():
                 for arch in trigger.values():
                     for result in arch.values():
