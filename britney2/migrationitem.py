@@ -12,6 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+import apt_pkg
 import logging
 from britney2 import SuiteClass
 
@@ -138,6 +139,17 @@ class MigrationItemFactory(object):
                              suite=self._suites.target_suite
                              )
 
+    @staticmethod
+    def _is_right_version(suite, package_name, expected_version):
+        if package_name not in suite.sources:
+            return False
+
+        actual_version = suite.sources[package_name].version
+        if apt_pkg.version_compare(actual_version, expected_version) != 0:
+            return False
+
+        return True
+
     def parse_item(self, item_text, versioned=True, auto_correct=True):
         """
 
@@ -194,6 +206,11 @@ class MigrationItemFactory(object):
         else:
             suite = suites.by_name_or_alias[suite_name]
             assert suite.suite_class != SuiteClass.TARGET_SUITE
+            if version is not None and auto_correct and not self._is_right_version(suite, package_name, version):
+                for s in suites.source_suites:
+                    if self._is_right_version(s, package_name, version):
+                        suite = s
+                        break
 
         uvname = self._canonicalise_uvname(item_text, package_name, architecture, suite, is_removal)
 

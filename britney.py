@@ -1994,27 +1994,10 @@ class Britney(object):
                 continue
 
             suite = pkg.suite
-            in_primary = pkg.package in suite.sources
-            rightversion = in_primary and apt_pkg.version_compare(suite.sources[pkg.package].version, pkg.version) == 0
-            if suite.suite_class.is_primary_source and not rightversion:
-                for s in suites.additional_source_suites:
-                    if pkg.package in s.sources and apt_pkg.version_compare(suite.sources[pkg.package].version,
-                                                                            pkg.version) == 0:
-                        suite = s
-                        pkg.suite = s
-                        pkgvers[idx] = pkg
-                        break
 
-            if suite.suite_class.is_additional_source:
-                if pkg.package not in suite.sources:
-                    continue
-                if apt_pkg.version_compare(suite.sources[pkg.package].version, pkg.version) != 0:
-                    issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
-                                                                     suite.sources[pkg.package].version))
-            # does the package exist in the primary source suite?
-            elif not in_primary:
+            if pkg.package not in suite.sources:
                 issues.append("Source %s has no version in %s" % (pkg.package, suite.name))
-            elif not rightversion:
+            elif apt_pkg.version_compare(suite.sources[pkg.package].version, pkg.version) != 0:
                 issues.append("Version mismatch, %s %s != %s" % (pkg.package, pkg.version,
                                                                  suite.sources[pkg.package].version))
         if issues:
