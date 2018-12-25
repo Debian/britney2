@@ -18,28 +18,8 @@ from britney2 import SuiteClass
 
 
 class MigrationItem(object):
-    _architectures = []
-    _suites = None
 
-    @classmethod
-    def set_architectures(cls, architectures=None):
-        cls._architectures = architectures or []
-
-    @classmethod
-    def get_architectures(cls):
-        return cls._architectures
-
-    @classmethod
-    def set_suites(cls, suites):
-        cls._suites = suites
-
-    @classmethod
-    def get_suites(cls):
-        return cls._suites
-
-    def __init__(self, versionned=True, package=None, version=None, architecture=None, uvname=None, suite=None):
-        self._versionned = versionned
-
+    def __init__(self, package=None, version=None, architecture=None, uvname=None, suite=None):
         self._uvname = uvname
         self._package = package
         self._version = version
@@ -51,7 +31,7 @@ class MigrationItem(object):
             self._name = uvname
 
     def __str__(self):
-        if self._versionned and self.version is not None:
+        if self.version is not None:
             return self.name
         else:
             return self.uvname
@@ -76,22 +56,6 @@ class MigrationItem(object):
     def name(self):
         return self._name
 
-    def _canonicalise_name(self):
-        parts = self._name.split('/', 3)
-        is_removal = self.is_removal
-        if len(parts) == 1 or self._architecture == 'source':
-            self._uvname = self._package
-        else:
-            self._uvname = "%s/%s" % (self._package, self._architecture)
-        if self._suite.suite_class.is_additional_source:
-            self._uvname = '%s_%s' % (self._uvname, self._suite.suite_short_name)
-        if is_removal:
-            self._uvname = '-%s' % (self._uvname)
-        if self._versionned:
-            self._name = '%s/%s' % (self._uvname, self._version)
-        else:
-            self._name = self._uvname
-
     @property
     def is_removal(self):
         return self._name.startswith('-')
@@ -107,11 +71,6 @@ class MigrationItem(object):
     @property
     def suite(self):
         return self._suite
-
-    @suite.setter
-    def suite(self, value):
-        self._suite = self.__class__._suites[value]
-        self._canonicalise_name()
 
     @property
     def version(self):

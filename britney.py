@@ -285,8 +285,6 @@ class Britney(object):
         self.policies = []
         self.suite_info = None  # Initialized during __parse_arguments
         self.__parse_arguments()
-        MigrationItem.set_architectures(self.options.architectures)
-        MigrationItem.set_suites(self.suite_info)
 
         self.all_selected = []
         self.excuses = {}
