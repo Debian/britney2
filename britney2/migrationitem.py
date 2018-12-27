@@ -109,6 +109,16 @@ class MigrationItemFactory(object):
 
         return True
 
+    def _find_suite_for_item(self, suites, suite_name, package_name, version, auto_correct):
+        suite = suites.by_name_or_alias[suite_name]
+        assert suite.suite_class != SuiteClass.TARGET_SUITE
+        if version is not None and auto_correct and not self._is_right_version(suite, package_name, version):
+            for s in suites.source_suites:
+                if self._is_right_version(s, package_name, version):
+                    suite = s
+                    break
+        return suite
+
     def parse_item(self, item_text, versioned=True, auto_correct=True):
         """
 
@@ -163,13 +173,7 @@ class MigrationItemFactory(object):
         if is_removal:
             suite = suites.target_suite
         else:
-            suite = suites.by_name_or_alias[suite_name]
-            assert suite.suite_class != SuiteClass.TARGET_SUITE
-            if version is not None and auto_correct and not self._is_right_version(suite, package_name, version):
-                for s in suites.source_suites:
-                    if self._is_right_version(s, package_name, version):
-                        suite = s
-                        break
+            suite = self._find_suite_for_item(suites, suite_name, package_name, version, auto_correct)
 
         uvname = self._canonicalise_uvname(item_text, package_name, architecture, suite, is_removal)
 
