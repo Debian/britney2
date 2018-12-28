@@ -71,7 +71,6 @@ class SuiteContentLoader(object):
 class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
 
     CHECK_FIELDS = [
-        'section',
         'source',
         'source_version',
         'architecture',
