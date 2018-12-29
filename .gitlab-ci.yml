@@ -3,7 +3,7 @@ tests-stretch:
   image: debian:stretch
   script:
     - apt-get update
-    - apt-get install -y python3 python3-apt python3-yaml python3-pytest git rsync libclass-accessor-perl libdpkg-perl
+    - apt-get install -y python3 python3-apt python3-yaml python3-pytest git rsync libclass-accessor-perl libdpkg-perl libyaml-syck-perl
     - ci/gitlab-ci-runner
 
 tests-sid:
@@ -11,7 +11,7 @@ tests-sid:
   image: debian:sid
   script:
     - apt-get update
-    - apt-get install -y python3 python3-apt python3-yaml python3-coverage python3-pytest python3-pytest-cov git rsync libclass-accessor-perl libdpkg-perl
+    - apt-get install -y python3 python3-apt python3-yaml python3-coverage python3-pytest python3-pytest-cov git rsync libclass-accessor-perl libdpkg-perl libyaml-syck-perl
     - ci/gitlab-ci-runner --with-coverage
   artifacts:
     paths:
