@@ -853,7 +853,7 @@ class Britney(object):
         self.excuses[excuse.name] = excuse
         return True
 
-    def should_upgrade_srcarch(self, src, arch, suite_name):
+    def should_upgrade_srcarch(self, src, arch, source_suite):
         """Check if a set of binary packages should be upgraded
 
         This method checks if the binary packages produced by the source
@@ -866,7 +866,6 @@ class Britney(object):
         """
         # retrieve the source packages for testing and suite
 
-        source_suite = self.suite_info[suite_name]
         target_suite = self.suite_info.target_suite
         source_t = target_suite.sources[src]
         source_u = source_suite.sources[src]
@@ -1037,19 +1036,19 @@ class Britney(object):
         # otherwise, return False
         return False
 
-    def should_upgrade_src(self, src, suite_name):
+    def should_upgrade_src(self, src, source_suite):
         """Check if source package should be upgraded
 
         This method checks if a source package should be upgraded. The analysis
         is performed for the source package specified by the `src' parameter, 
-        for the distribution `suite_name'.
+        for the distribution `source_suite'.
        
         It returns False if the given package doesn't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the object attribute excuses.
         """
 
-        source_suite = self.suite_info[suite_name]
+        suite_name = source_suite.name
         source_u = source_suite.sources[src]
         if source_u.is_fakesrc:
             # it is a fake package created to satisfy Britney implementation details; silently ignore it
@@ -1344,11 +1343,11 @@ class Britney(object):
             # check if it should be upgraded for every binary package
             if pkg in sources_t and not sources_t[pkg].is_fakesrc:
                 for arch in architectures:
-                    if should_upgrade_srcarch(pkg, arch, pri_source_suite.name):
+                    if should_upgrade_srcarch(pkg, arch, pri_source_suite):
                         upgrade_me_add("%s/%s" % (pkg, arch))
 
             # check if the source package should be upgraded
-            if should_upgrade_src(pkg, pri_source_suite.name):
+            if should_upgrade_src(pkg, pri_source_suite):
                 upgrade_me_add(pkg)
 
         # for every source package in the additional source suites, check if it should be upgraded
@@ -1358,11 +1357,11 @@ class Britney(object):
                 # check if it should be upgraded for every binary package
                 if pkg in sources_t:
                     for arch in architectures:
-                        if should_upgrade_srcarch(pkg, arch, suite.name):
+                        if should_upgrade_srcarch(pkg, arch, suite):
                             upgrade_me_add("%s/%s_%s" % (pkg, arch, suite.excuses_suffix))
 
                 # check if the source package should be upgraded
-                if should_upgrade_src(pkg, suite.name):
+                if should_upgrade_src(pkg, suite):
                     upgrade_me_add("%s_%s" % (pkg, suite.excuses_suffix))
 
         # process the `remove' hints, if the given package is not yet in upgrade_me
