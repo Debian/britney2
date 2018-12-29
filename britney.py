@@ -984,9 +984,9 @@ class Britney(object):
                 smoothbins = set()
                 if is_primary_source:
                     binaries_t = target_suite.binaries
-                    possible_smooth_updates = [p for p in source_u.binaries if p.architecture == arch]
+                    possible_smooth_updates = [p for p in source_t.binaries if p.architecture == arch]
                     smoothbins = find_smooth_updateable_binaries(possible_smooth_updates,
-                                                                 source_suite.sources[src],
+                                                                 source_u,
                                                                  self.pkg_universe,
                                                                  target_suite,
                                                                  binaries_t,
