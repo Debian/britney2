@@ -304,6 +304,8 @@ class Excuse(object):
                 'on-architectures': sorted(self.missing_builds),
                 'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
             }
+        if self.invalid_deps or self.invalid_build_deps:
+            excusedata['invalidated-by-other-package'] = True
         if self.deps or self.invalid_deps or self.arch_build_deps or self.indep_build_deps \
                 or self.invalid_build_deps or self.break_deps or self.unsat_deps:
             excusedata['dependencies'] = dep_data = {}
