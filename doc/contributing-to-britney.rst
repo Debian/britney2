@@ -16,7 +16,8 @@ You will need some packages to run britney and the test suites::
   apt install python3-pytest libclass-accessor-perl rsync 
   # Documentation generator
   apt install python3-sphinx
-
+  # AMQP integration for autopkgtest policy (optional runtime dependency)
+  apt install python3-amqplib
 
 Britney has some basic unit tests, which are handled by py.test.  It
 also has some larger integration tests (from the ``britney2-tests``
