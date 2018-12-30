@@ -776,21 +776,18 @@ def invalidate_excuses(excuses, valid, invalid):
     """
 
     # build the reverse dependencies
-    revdeps = defaultdict(list)
-    revbuilddeps = defaultdict(list)
-    revindepbuilddeps = defaultdict(list)
+    allrevdeps = defaultdict(dict)
     for exc in excuses.values():
-        for d in exc.deps:
-            revdeps[d].append(exc.name)
-        for d in exc.arch_build_deps:
-            revbuilddeps[d].append(exc.name)
-        for d in exc.indep_build_deps:
-            revindepbuilddeps[d].append(exc.name)
+        for d in exc.all_deps:
+            if exc.name not in allrevdeps[d]:
+                allrevdeps[d][exc.name] = set()
+            for deptype in exc.all_deps[d]:
+                allrevdeps[d][exc.name].add(deptype)
 
     # loop on the invalid excuses
     for ename in iter_except(invalid.pop, KeyError):
         # if there is no reverse dependency, skip the item
-        if ename not in revdeps and ename not in revbuilddeps:
+        if ename not in allrevdeps:
             continue
         # if the dependency can be satisfied by a testing-proposed-updates excuse, skip the item
         if (ename + "_tpu") in valid:
@@ -801,46 +798,19 @@ def invalidate_excuses(excuses, valid, invalid):
             rdep_verdict = PolicyVerdict.REJECTED_BLOCKED_BY_ANOTHER_ITEM
 
         # loop on the reverse dependencies
-        if ename in revdeps:
-            for x in revdeps[ename]:
+        if ename in allrevdeps:
+            for x in allrevdeps[ename]:
                 # if the item is valid and it is not marked as `forced', then we invalidate it
                 if x in valid and not excuses[x].forced:
 
                     # otherwise, invalidate the dependency and mark as invalidated and
                     # remove the depending excuses
-                    excuses[x].invalidate_dep(ename)
+                    excuses[x].invalidate_dependency(ename)
                     valid.discard(x)
                     invalid.add(x)
-                    excuses[x].addhtml("Invalidated by dependency")
-                    excuses[x].addreason("depends")
-                    if excuses[x].policy_verdict.value < rdep_verdict.value:
-                        excuses[x].policy_verdict = rdep_verdict
-
-        if ename in revbuilddeps:
-            for x in revbuilddeps[ename]:
-                # if the item is valid and it is not marked as `forced', then we invalidate it
-                if x in valid and not excuses[x].forced:
-
-                    # otherwise, invalidate the dependency and mark as invalidated and
-                    # remove the depending excuses
-                    excuses[x].invalidate_build_dep(ename)
-                    valid.discard(x)
-                    invalid.add(x)
-                    excuses[x].addhtml("Invalidated by build-dependency")
-                    if excuses[x].policy_verdict.value < rdep_verdict.value:
-                        excuses[x].policy_verdict = rdep_verdict
-
-        if ename in revindepbuilddeps:
-            for x in revindepbuilddeps[ename]:
-                # if the item is valid and it is not marked as `forced', then we invalidate it
-                if x in valid and not excuses[x].forced:
-
-                    # otherwise, invalidate the dependency and mark as invalidated and
-                    # remove the depending excuses
-                    excuses[x].invalidate_build_dep(ename)
-                    valid.discard(x)
-                    invalid.add(x)
-                    excuses[x].addhtml("Invalidated by build-dependency (indep)")
+                    for deptype in allrevdeps[ename][x]:
+                        excuses[x].addhtml("Invalidated by %s" % deptype.get_description())
+                        excuses[x].addreason(deptype.get_reason())
                     if excuses[x].policy_verdict.value < rdep_verdict.value:
                         excuses[x].policy_verdict = rdep_verdict
 

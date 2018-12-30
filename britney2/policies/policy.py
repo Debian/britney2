@@ -11,6 +11,7 @@ from britney2 import SuiteClass
 from britney2.hints import Hint, split_into_one_hint_per_package
 from britney2.policies import PolicyVerdict
 from britney2.utils import get_dependency_solvers
+from britney2 import DependencyType
 
 
 class BasePolicy(object):
@@ -746,9 +747,9 @@ class BuildDependsPolicy(BasePolicy):
                 for p in packages:
                     if arch not in self.options.break_arches:
                         if p in sources_t and sources_t[p].version == sources_s[p].version:
-                            excuse.add_arch_build_dep("%s/%s" % (p, arch), arch)
+                            excuse.add_dependency(DependencyType.BUILD_DEPENDS,"%s/%s" % (p, arch), arch)
                         else:
-                            excuse.add_arch_build_dep(p, arch)
+                            excuse.add_dependency(DependencyType.BUILD_DEPENDS, p, arch)
         if unsat_bd:
             build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
 

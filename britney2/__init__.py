@@ -1,6 +1,21 @@
 from collections import namedtuple
 from enum import Enum, unique
 
+class DependencyType(Enum):
+    DEPENDS = ('Depends', 'depends', 'dependency')
+    # BUILD_DEPENDS includes BUILD_DEPENDS_ARCH
+    BUILD_DEPENDS = ('Build-Depends(-Arch)', 'build-depends', 'build-dependency')
+    BUILD_DEPENDS_INDEP = ('Build-Depends-Indep', 'build-depends-indep', 'build-dependency (indep)')
+
+    def __str__(self):
+        return self.value[0]
+
+    def get_reason(self):
+        return self.value[1]
+
+    def get_description(self):
+        return self.value[2]
+
 
 @unique
 class SuiteClass(Enum):

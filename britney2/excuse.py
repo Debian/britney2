@@ -17,6 +17,7 @@
 from collections import defaultdict
 import re
 
+from britney2 import DependencyType
 from britney2.policies.policy import PolicyVerdict
 
 VERDICT2DESC = {
@@ -74,11 +75,8 @@ class Excuse(object):
         self.forced = False
         self._policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        self.invalid_deps = set()
-        self.invalid_build_deps = set()
-        self.deps = {}
-        self.arch_build_deps = {}
-        self.indep_build_deps = {}
+        self.all_invalid_deps = set()
+        self.all_deps = {}
         self.sane_deps = []
         self.break_deps = []
         self.unsatisfiable_on_archs = []
@@ -133,11 +131,24 @@ class Excuse(object):
         """Set the section of the package"""
         self.section = section
 
-    def add_dep(self, name, arch):
-        """Add a dependency"""
-        if name not in self.deps:
-            self.deps[name]=[]
-        self.deps[name].append(arch)
+    def add_dependency(self, deptype, name, arch):
+        """Add a dependency of type deptype """
+        if name not in self.all_deps:
+            self.all_deps[name]={}
+        if deptype not in self.all_deps[name]:
+            self.all_deps[name][deptype]=[]
+        self.all_deps[name][deptype].append(arch)
+
+    def get_deps(self):
+        # the autohinter uses the excuses data to query dependencies between
+        # excuses. For now, we keep the current behaviour by just returning
+        # the data that was in the old deps set
+        """ Get the dependencies of type DEPENDS """
+        deps = set()
+        for dep in self.all_deps:
+            if DependencyType.DEPENDS in self.all_deps[dep]:
+                deps.add(dep)
+        return deps
 
     def add_sane_dep(self, name):
         """Add a sane dependency"""
@@ -153,27 +164,13 @@ class Excuse(object):
         if arch not in self.unsatisfiable_on_archs:
             self.unsatisfiable_on_archs.append(arch)
 
-    def add_arch_build_dep(self, name, arch):
-        if name not in self.arch_build_deps:
-            self.arch_build_deps[name] = []
-        self.arch_build_deps[name].append(arch)
-
-    def add_indep_build_dep(self, name, arch):
-        if name not in self.indep_build_deps:
-            self.indep_build_deps[name] = []
-        self.indep_build_deps[name].append(arch)
-
     def add_unsatisfiable_dep(self, signature, arch):
         """Add an unsatisfiable dependency"""
         self.unsat_deps[arch].add(signature)
 
-    def invalidate_dep(self, name):
+    def invalidate_dependency(self, name):
         """Invalidate dependency"""
-        self.invalid_deps.add(name)
-
-    def invalidate_build_dep(self, name):
-        """Invalidate build-dependency"""
-        self.invalid_build_deps.add(name)
+        self.all_invalid_deps.add(name)
 
     def setdaysold(self, daysold, mindays):
         """Set the number of days from the upload and the minimum number of days for the update"""
@@ -213,18 +210,23 @@ class Excuse(object):
             return VERDICT2DESC[verdict]
         return "UNKNOWN: Missing description for {0} - Please file a bug against Britney".format(verdict.name)
 
-    def _render_dep_issue(self, dep_issues, invalid_deps, field):
+    def _render_dep_issues(self, dep_issues, invalid_deps):
         lastdep = ""
         res = []
         for x in sorted(dep_issues, key=lambda x: x.split('/')[0]):
             dep = x.split('/')[0]
-            if dep == lastdep:
-                continue
+            if dep != lastdep:
+                seen = {}
             lastdep = dep
-            if x in invalid_deps:
-                res.append("<li>%s: %s <a href=\"#%s\">%s</a> (not considered)\n" % (field, self.name, dep, dep))
-            else:
-                res.append("<li>%s: %s <a href=\"#%s\">%s</a>\n" % (field, self.name, dep, dep))
+            for deptype in sorted(dep_issues[x], key=lambda y: str(y)):
+                field = deptype
+                if deptype in seen:
+                    continue
+                seen[deptype] = True
+                if x in invalid_deps:
+                    res.append("<li>%s: %s <a href=\"#%s\">%s</a> (not considered)\n" % (field, self.name, dep, dep))
+                else:
+                    res.append("<li>%s: %s <a href=\"#%s\">%s</a>\n" % (field, self.name, dep, dep))
 
         return "".join(res)
 
@@ -248,14 +250,11 @@ class Excuse(object):
                              (self.daysold, self.mindays))
         for x in self.htmlline:
             res = res + "<li>" + x + "\n"
-        res += self._render_dep_issue(self.deps, self.invalid_deps, 'Depends')
+        res += self._render_dep_issues(self.all_deps, self.all_invalid_deps)
 
         for (n, a) in self.break_deps:
-            if n not in self.deps:
+            if n not in self.all_deps:
                 res += "<li>Ignoring %s depends: <a href=\"#%s\">%s</a>\n" % (a, n, n)
-
-        res += self._render_dep_issue(self.arch_build_deps, self.invalid_build_deps, 'Build-Depends(-Arch)')
-        res += self._render_dep_issue(self.indep_build_deps, self.invalid_build_deps, 'Build-Depends-Indep')
 
         res = res + "</ul>\n"
         return res
@@ -304,17 +303,16 @@ class Excuse(object):
                 'on-architectures': sorted(self.missing_builds),
                 'on-unimportant-architectures': sorted(self.missing_builds_ood_arch),
             }
-        if self.invalid_deps or self.invalid_build_deps:
+        if self.all_invalid_deps:
             excusedata['invalidated-by-other-package'] = True
-        if self.deps or self.invalid_deps or self.arch_build_deps or self.indep_build_deps \
-                or self.invalid_build_deps or self.break_deps or self.unsat_deps:
+        if self.all_deps or self.all_invalid_deps \
+                or self.break_deps or self.unsat_deps:
             excusedata['dependencies'] = dep_data = {}
-            migrate_after_bd = (self.arch_build_deps.keys() | self.indep_build_deps.keys()) - self.invalid_build_deps
-            migrate_after = sorted((self.deps.keys() - self.invalid_deps) | migrate_after_bd)
-            break_deps = [x for x, _ in self.break_deps if x not in self.deps]
+            migrate_after = sorted(self.all_deps.keys() - self.all_invalid_deps)
+            break_deps = [x for x, _ in self.break_deps if x not in self.all_deps]
 
-            if self.invalid_deps or self.invalid_build_deps:
-                dep_data['blocked-by'] = sorted(self.invalid_deps | self.invalid_build_deps)
+            if self.all_invalid_deps:
+                dep_data['blocked-by'] = sorted(self.all_invalid_deps)
             if migrate_after:
                 dep_data['migrate-after'] = migrate_after
             if break_deps:

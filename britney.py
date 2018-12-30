@@ -193,7 +193,7 @@ from urllib.parse import quote
 
 import apt_pkg
 
-from britney2 import SourcePackage, BinaryPackageId, BinaryPackage
+from britney2 import SourcePackage, BinaryPackageId, BinaryPackage, DependencyType
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.inputs.suiteloader import DebMirrorLikeSuiteContentLoader, MissingRequiredConfigurationError
@@ -806,9 +806,9 @@ class Britney(object):
                 sources_s = source_suite.sources
                 for p in packages:
                     if p in sources_t and sources_t[p].version == sources_s[p].version:
-                        excuse.add_dep("%s/%s" % (p, arch), arch)
+                        excuse.add_dependency(DependencyType.DEPENDS, "%s/%s" % (p, arch), arch)
                     else:
-                        excuse.add_dep(p, arch)
+                        excuse.add_dependency(DependencyType.DEPENDS, p, arch)
             else:
                 for p in packages:
                     excuse.add_break_dep(p, arch)
@@ -1410,34 +1410,35 @@ class Britney(object):
             # parts[0] == package name
             # parts[1] == optional architecture
             parts = e.name.split('/')
-            for d in e.deps:
-                ok = False
-                # source -> source dependency; both packages must have
-                # valid excuses
-                if d in upgrade_me or d in unconsidered:
-                    ok = True
-                # if the excuse is for a binNMU, also consider d/$arch as a
-                # valid excuse
-                elif len(parts) == 2:
-                    bd = '%s/%s' % (d, parts[1])
-                    if bd in upgrade_me or bd in unconsidered:
+            for d in e.all_deps:
+                for deptype in e.all_deps[d]:
+                    ok = False
+                    # source -> source dependency; both packages must have
+                    # valid excuses
+                    if d in upgrade_me or d in unconsidered:
                         ok = True
-                # if the excuse is for a source package, check each of the
-                # architectures on which the excuse lists a dependency on d,
-                # and consider the excuse valid if it is possible on each
-                # architecture
-                else:
-                    arch_ok = True
-                    for arch in e.deps[d]:
-                        bd = '%s/%s' % (d, arch)
-                        if bd not in upgrade_me and bd not in unconsidered:
-                            arch_ok = False
-                            break
-                    if arch_ok:
-                        ok = True
-                if not ok:
-                    e.addhtml("Impossible dependency: %s -> %s" % (e.name, d))
-                    e.addreason("depends")
+                    # if the excuse is for a binNMU, also consider d/$arch as a
+                    # valid excuse
+                    elif len(parts) == 2:
+                        bd = '%s/%s' % (d, parts[1])
+                        if bd in upgrade_me or bd in unconsidered:
+                            ok = True
+                    # if the excuse is for a source package, check each of the
+                    # architectures on which the excuse lists a dependency on d,
+                    # and consider the excuse valid if it is possible on each
+                    # architecture
+                    else:
+                        arch_ok = True
+                        for arch in e.all_deps[d][deptype]:
+                            bd = '%s/%s' % (d, arch)
+                            if bd not in upgrade_me and bd not in unconsidered:
+                                arch_ok = False
+                                break
+                        if arch_ok:
+                            ok = True
+                    if not ok:
+                        e.addhtml("Impossible %s: %s -> %s" % (deptype, e.name, d))
+                        e.addreason(deptype.get_reason())
         invalidate_excuses(excuses, upgrade_me, unconsidered)
 
         # sort the list of candidates
@@ -2048,7 +2049,7 @@ class Britney(object):
         # consider only excuses which are valid candidates and still relevant.
         valid_excuses = frozenset(y.uvname for y in upgrade_me
                                   if y not in sources_t or sources_t[y].version != excuses[y].ver[1])
-        excuses_deps = {name: valid_excuses.intersection(excuse.deps)
+        excuses_deps = {name: valid_excuses.intersection(excuse.get_deps())
                         for name, excuse in excuses.items() if name in valid_excuses}
         excuses_rdeps = defaultdict(set)
         for name, deps in excuses_deps.items():
@@ -2059,7 +2060,7 @@ class Britney(object):
             excuse = excuses[e]
             if not circular_first:
                 hint[e] = excuse.ver[1]
-            if not excuse.deps:
+            if not excuse.get_deps():
                 return hint
             for p in excuses_deps[e]:
                 if p in hint or p not in valid_excuses:
@@ -2074,7 +2075,7 @@ class Britney(object):
         seen_hints = set()
         for e in valid_excuses:
             excuse = excuses[e]
-            if excuse.deps:
+            if excuse.get_deps():
                 hint = find_related(e, {}, True)
                 if isinstance(hint, dict) and e in hint:
                     h = frozenset(hint.items())
