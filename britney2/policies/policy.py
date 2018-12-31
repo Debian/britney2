@@ -14,6 +14,39 @@ from britney2.utils import get_dependency_solvers
 from britney2 import DependencyType
 
 
+class PolicyEngine(object):
+    def __init__(self):
+        self._policies = []
+
+    def add_policy(self, policy):
+        self._policies.append(policy)
+
+    def register_policy_hints(self, hint_parser):
+        for policy in self._policies:
+            policy.register_hints(hint_parser)
+
+    def initialise(self, britney, hints):
+        for policy in self._policies:
+            policy.hints = hints
+            policy.initialise(britney)
+
+    def save_state(self, britney):
+        for policy in self._policies:
+            policy.save_state(britney)
+
+    def apply_src_policies(self, source_suite, src, source_t, source_u, excuse):
+        policy_verdict = excuse.policy_verdict
+        policy_info = excuse.policy_info
+        suite_name = source_suite.name
+        suite_class = source_suite.suite_class
+        for policy in self._policies:
+            if suite_class in policy.applicable_suites:
+                v = policy.apply_policy(policy_info, suite_name, src, source_t, source_u, excuse)
+                if v.value > policy_verdict.value:
+                    policy_verdict = v
+        excuse.policy_verdict = policy_verdict
+
+
 class BasePolicy(object):
 
     def __init__(self, policy_id, options, suite_info, applicable_suites):

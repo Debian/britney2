@@ -202,7 +202,7 @@ from britney2.installability.solver import InstallabilitySolver
 from britney2.migration import MigrationManager
 from britney2.migrationitem import MigrationItem, MigrationItemFactory
 from britney2.policies import PolicyVerdict
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
@@ -282,7 +282,7 @@ class Britney(object):
         apt_pkg.init()
 
         # parse the command line arguments
-        self.policies = []
+        self._policy_engine = PolicyEngine()
         self.suite_info = None  # Initialized during __parse_arguments
         self.__parse_arguments()
 
@@ -365,17 +365,14 @@ class Britney(object):
         # nuninst_orig may get updated during the upgrade process
         self.nuninst_orig_save = clone_nuninst(self.nuninst_orig, architectures=self.options.architectures)
 
-        for policy in self.policies:
-            policy.register_hints(self._hint_parser)
+        self._policy_engine.register_policy_hints(self._hint_parser)
 
         try:
             self.read_hints(self.options.hintsdir)
         except AttributeError:
             self.read_hints(os.path.join(self.suite_info['unstable'].path, 'Hints'))
 
-        for policy in self.policies:
-            policy.hints = self.hints
-            policy.initialise(self)
+        self._policy_engine.initialise(self, self.hints)
 
     def __parse_arguments(self):
         """Parse the command line arguments
@@ -491,12 +488,12 @@ class Britney(object):
         if not hasattr(self.options, 'adt_retry_url_mech'):
             self.options.adt_retry_url_mech = ''
 
-        self.policies.append(RCBugPolicy(self.options, self.suite_info))
-        self.policies.append(PiupartsPolicy(self.options, self.suite_info))
+        self._policy_engine.add_policy(RCBugPolicy(self.options, self.suite_info))
+        self._policy_engine.add_policy(PiupartsPolicy(self.options, self.suite_info))
         if getattr(self.options, 'adt_enable') == 'yes':
-            self.policies.append(AutopkgtestPolicy(self.options, self.suite_info))
-        self.policies.append(AgePolicy(self.options, self.suite_info, MINDAYS))
-        self.policies.append(BuildDependsPolicy(self.options, self.suite_info))
+            self._policy_engine.add_policy(AutopkgtestPolicy(self.options, self.suite_info))
+        self._policy_engine.add_policy(AgePolicy(self.options, self.suite_info, MINDAYS))
+        self._policy_engine.add_policy(BuildDependsPolicy(self.options, self.suite_info))
 
     @property
     def hints(self):
@@ -1245,15 +1242,7 @@ class Britney(object):
             excuse.addreason("no-binaries")
             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        policy_verdict = excuse.policy_verdict
-        policy_info = excuse.policy_info
-        suite_class = source_suite.suite_class
-        for policy in self.policies:
-            if suite_class in policy.applicable_suites:
-                v = policy.apply_policy(policy_info, suite_name, src, source_t, source_u, excuse)
-                if v.value > policy_verdict.value:
-                    policy_verdict = v
-        excuse.policy_verdict = policy_verdict
+        self._policy_engine.apply_src_policies(source_suite, src, source_t, source_u, excuse)
 
         if source_suite.suite_class.is_additional_source and source_t:
             # o-o-d(ish) checks for (t-)p-u
@@ -1887,8 +1876,7 @@ class Britney(object):
                                  target_suite.path)
                 write_controlfiles(target_suite)
 
-            for policy in self.policies:
-                policy.save_state(self)
+            self._policy_engine.save_state(self)
 
             # write HeidiResult
             self.logger.info("Writing Heidi results to %s", self.options.heidi_output)
