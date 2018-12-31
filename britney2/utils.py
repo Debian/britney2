@@ -806,8 +806,7 @@ def invalidate_excuses(excuses, valid, invalid):
 def compile_nuninst(target_suite, architectures, nobreakall_arches):
     """Compile a nuninst dict from the current testing
 
-    :param suite: The target suite
-    :param inst_tester: Britney's installability tester
+    :param target_suite: The target suite
     :param architectures: List of architectures
     :param nobreakall_arches: List of architectures where arch:all packages must be installable
     """
