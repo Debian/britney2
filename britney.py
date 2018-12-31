@@ -1031,6 +1031,8 @@ class Britney(object):
         if anywrongver:
             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
+        self._policy_engine.apply_srcarch_policies(source_suite, src, arch, source_t, source_u, excuse)
+
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
 
