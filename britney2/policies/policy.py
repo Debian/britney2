@@ -41,7 +41,7 @@ class PolicyEngine(object):
         suite_class = source_suite.suite_class
         for policy in self._policies:
             if suite_class in policy.applicable_suites:
-                v = policy.apply_policy(policy_info, suite_name, src, source_t, source_u, excuse)
+                v = policy.apply_src_policy(policy_info, suite_name, src, source_t, source_u, excuse)
                 if v.value > policy_verdict.value:
                     policy_verdict = v
         excuse.policy_verdict = policy_verdict
@@ -99,17 +99,17 @@ class BasePolicy(object):
         """
         pass
 
-    def apply_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         pinfo = {}
         general_policy_info[self.policy_id] = pinfo
-        verdict = self.apply_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
+        verdict = self.apply_src_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
         # The base policy provides this field, so the subclass should leave it blank
         assert 'verdict' not in pinfo
         pinfo['verdict'] = verdict.name
         return verdict
 
     @abstractmethod
-    def apply_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
+    def apply_src_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
         """Apply a policy on a given source migration
 
         Britney will call this method on a given source package, when
@@ -256,7 +256,7 @@ class AgePolicy(BasePolicy):
         super().save_state(britney)
         self._write_dates_file()
 
-    def apply_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         # retrieve the urgency for the upload, ignoring it if this is a NEW package
         # (not present in the target suite)
         urgency = self._urgencies.get(source_name, self._default_urgency)
@@ -494,7 +494,7 @@ class RCBugPolicy(BasePolicy):
         self._bugs['source'] = self._read_bugs(filename_unstable)
         self._bugs['target'] = self._read_bugs(filename_testing)
 
-    def apply_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         bugs_t = set()
         bugs_u = set()
 
@@ -616,7 +616,7 @@ class PiupartsPolicy(BasePolicy):
         self._piuparts['source'] = self._read_piuparts_summary(filename_unstable, keep_url=True)
         self._piuparts['target'] = self._read_piuparts_summary(filename_testing, keep_url=False)
 
-    def apply_policy_impl(self, piuparts_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, piuparts_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         if source_name in self._piuparts['target']:
             testing_state = self._piuparts['target'][source_name][0]
         else:
@@ -707,7 +707,7 @@ class BuildDependsPolicy(BasePolicy):
         super().initialise(britney)
         self._britney = britney
 
-    def apply_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+    def apply_src_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
         britney = self._britney
