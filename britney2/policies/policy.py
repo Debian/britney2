@@ -46,6 +46,18 @@ class PolicyEngine(object):
                     policy_verdict = v
         excuse.policy_verdict = policy_verdict
 
+    def apply_srcarch_policies(self, source_suite, src, arch, source_t, source_u, excuse):
+        policy_verdict = excuse.policy_verdict
+        policy_info = excuse.policy_info
+        suite_name = source_suite.name
+        suite_class = source_suite.suite_class
+        for policy in self._policies:
+            if suite_class in policy.applicable_suites:
+                v = policy.apply_srcarch_policy(policy_info, suite_name, src, arch, source_t, source_u, excuse)
+                if v.value > policy_verdict.value:
+                    policy_verdict = v
+        excuse.policy_verdict = policy_verdict
+
 
 class BasePolicy(object):
 
@@ -136,6 +148,45 @@ class BasePolicy(object):
         :return A Policy Verdict (e.g. PolicyVerdict.PASS)
         """
         pass
+
+    def apply_srcarch_policy(self, general_policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
+        pinfo = {}
+        general_policy_info[self.policy_id] = pinfo
+        verdict = self.apply_srcarch_policy_impl(pinfo, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse)
+        # The base policy provides this field, so the subclass should leave it blank
+        assert 'verdict' not in pinfo
+        pinfo['verdict'] = verdict.name
+        return verdict
+
+    @abstractmethod
+    def apply_srcarch_policy_impl(self, policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
+        """Apply a policy on a given binary migration
+
+        Britney will call this method on binaries from a given source package
+        on a given architecture, when Britney is considering to migrate them
+        from the given source suite to the target suite.  The policy will then
+        evaluate the the migration and then return a verdict.
+
+        :param policy_info A dictionary of all policy results.  The
+        policy can add a value stored in a key related to its name.
+        (e.g. policy_info['age'] = {...}).  This will go directly into
+        the "excuses.yaml" output.
+
+        :param suite The name of the suite from where the source is
+        migrating from.
+
+        :param source_data_tdist Information about the source package
+        in the target distribution (e.g. "testing").  This is the
+        data structure in source_suite.sources[source_name]
+
+        :param source_data_srcdist Information about the source
+        package in the source distribution (e.g. "unstable" or "tpu").
+        This is the data structure in target_suite.sources[source_name]
+
+        :return A Policy Verdict (e.g. PolicyVerdict.PASS)
+        """
+        # if the policy doesn't implement this function, assume it's OK
+        return PolicyVerdict.PASS
 
 
 class SimplePolicyHint(Hint):
