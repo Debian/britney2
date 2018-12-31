@@ -94,7 +94,7 @@ def create_policy_objects(source_name, target_version='1.0', source_version='2.0
     )
 
 
-def apply_policy(policy, expected_verdict, src_name, *, suite='unstable', target_version='1.0', source_version='2.0'):
+def apply_src_policy(policy, expected_verdict, src_name, *, suite='unstable', target_version='1.0', source_version='2.0'):
     suite_info = policy.suite_info
     if src_name in suite_info[suite].sources:
         src_u = suite_info[suite].sources[src_name]
@@ -104,7 +104,7 @@ def apply_policy(policy, expected_verdict, src_name, *, suite='unstable', target
         src_t, src_u, excuse, policy_info = create_policy_objects(src_name, target_version, source_version)
     suite_info.target_suite.sources[src_name] = src_t
     suite_info[suite].sources[src_name] = src_u
-    verdict = policy.apply_policy(policy_info, suite, src_name, src_t, src_u, excuse)
+    verdict = policy.apply_src_policy(policy_info, suite, src_name, src_t, src_u, excuse)
     pinfo = policy_info[policy.policy_id]
     assert verdict == expected_verdict
     assert pinfo['verdict'] == expected_verdict.name
@@ -148,7 +148,7 @@ class TestRCBugsPolicy(unittest.TestCase):
     def test_no_bugs(self):
         src_name = 'has-no-bugs'
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert set(bug_policy_info['unique-source-bugs']) == set()
         assert set(bug_policy_info['unique-target-bugs']) == set()
         assert set(bug_policy_info['shared-bugs']) == set()
@@ -156,7 +156,7 @@ class TestRCBugsPolicy(unittest.TestCase):
     def test_regression(self):
         src_name = 'regression'
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert set(bug_policy_info['unique-source-bugs']) == {'123458'}
         assert set(bug_policy_info['unique-target-bugs']) == set()
         assert set(bug_policy_info['shared-bugs']) == set()
@@ -164,7 +164,7 @@ class TestRCBugsPolicy(unittest.TestCase):
     def test_regression_but_fixes_more_bugs(self):
         src_name = 'regression-but-fixes-more-bugs'
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert set(bug_policy_info['unique-source-bugs']) == {'100003'}
         assert set(bug_policy_info['unique-target-bugs']) == {'100001', '100002'}
         assert set(bug_policy_info['shared-bugs']) == {'100000'}
@@ -172,7 +172,7 @@ class TestRCBugsPolicy(unittest.TestCase):
     def test_not_a_regression(self):
         src_name = 'not-a-regression'
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert set(bug_policy_info['unique-source-bugs']) == set()
         assert set(bug_policy_info['unique-target-bugs']) == set()
         assert set(bug_policy_info['shared-bugs']) == {'123457'}
@@ -180,7 +180,7 @@ class TestRCBugsPolicy(unittest.TestCase):
     def test_improvement(self):
         src_name = 'fixes-bug'
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert set(bug_policy_info['unique-source-bugs']) == set()
         assert set(bug_policy_info['unique-target-bugs']) == {'123456'}
         assert set(bug_policy_info['shared-bugs']) == set()
@@ -189,7 +189,7 @@ class TestRCBugsPolicy(unittest.TestCase):
         src_name = 'regression'
         hints = ['ignore-rc-bugs 123458 regression/2.0']
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
         assert set(bug_policy_info['ignored-bugs']['bugs']) == {'123458'}
         assert bug_policy_info['ignored-bugs']['issued-by'] == TEST_HINTER
         assert set(bug_policy_info['unique-source-bugs']) == set()
@@ -200,7 +200,7 @@ class TestRCBugsPolicy(unittest.TestCase):
         src_name = 'regression-but-fixes-more-bugs'
         hints = ['ignore-rc-bugs 100000 regression-but-fixes-more-bugs/2.0']
         policy = initialize_policy('rc-bugs/basic', RCBugPolicy, hints=hints)
-        bug_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        bug_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert set(bug_policy_info['unique-source-bugs']) == {'100003'}
         assert set(bug_policy_info['unique-target-bugs']) == {'100001', '100002'}
         assert set(bug_policy_info['ignored-bugs']['bugs']) == {'100000'}
@@ -229,7 +229,7 @@ class TestAgePolicy(unittest.TestCase):
         try:
             src_name = 'unlisted-source-package'
             policy = initialize_policy('age/missing-age-file', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
-            age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+            age_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
             assert os.path.exists(age_file)
             assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
             assert age_policy_info['current-age'] == 0
@@ -240,7 +240,7 @@ class TestAgePolicy(unittest.TestCase):
     def test_age_new(self):
         src_name = 'unlisted-source-package'
         policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
-        age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        age_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
         assert age_policy_info['current-age'] == 0
 
@@ -248,7 +248,7 @@ class TestAgePolicy(unittest.TestCase):
         src_name = 'unlisted-source-package'
         policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS,
                                    hints=['urgent unlisted-source-package/2.0'])
-        age_policy_info = apply_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
+        age_policy_info = apply_src_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
         assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
         assert age_policy_info['current-age'] == 0
         assert age_policy_info['age-requirement-reduced']['new-requirement'] == 0
@@ -258,7 +258,7 @@ class TestAgePolicy(unittest.TestCase):
         src_name = 'out-of-date-version'
         policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
         self.reset_age(policy)
-        age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        age_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
         assert age_policy_info['current-age'] == 0
 
@@ -266,7 +266,7 @@ class TestAgePolicy(unittest.TestCase):
         src_name = 'almost-aged-properly'
         policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
         self.reset_age(policy)
-        age_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        age_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
         assert age_policy_info['current-age'] == 4
 
@@ -274,7 +274,7 @@ class TestAgePolicy(unittest.TestCase):
         src_name = 'aged-properly'
         policy = initialize_policy('age/basic', AgePolicy, TestAgePolicy.DEFAULT_MIN_DAYS)
         self.reset_age(policy)
-        age_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        age_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert age_policy_info['age-requirement'] == TestAgePolicy.DEFAULT_MIN_DAYS[DEFAULT_URGENCY]
         assert age_policy_info['current-age'] == 5
 
@@ -284,14 +284,14 @@ class TestPiupartsPolicy(unittest.TestCase):
     def test_passes(self):
         src_name = 'pass'
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        piu_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        piu_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert piu_policy_info['test-results'] == 'pass'
         assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/p/pass.html'
 
     def test_regression(self):
         src_name = 'regression'
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        piu_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        piu_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert piu_policy_info['test-results'] == 'regression'
         assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
 
@@ -299,7 +299,7 @@ class TestPiupartsPolicy(unittest.TestCase):
         src_name = 'regression'
         hints = ['ignore-piuparts regression/2.0']
         policy = initialize_policy('piuparts/basic', PiupartsPolicy, hints=hints)
-        piu_policy_info = apply_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
+        piu_policy_info = apply_src_policy(policy, PolicyVerdict.PASS_HINTED, src_name)
         assert piu_policy_info['test-results'] == 'regression'
         assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/r/regression.html'
         assert piu_policy_info['ignored-piuparts']['issued-by'] == TEST_HINTER
@@ -307,14 +307,14 @@ class TestPiupartsPolicy(unittest.TestCase):
     def test_not_tested_yet(self):
         src_name = 'not-tested-yet'
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        piu_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        piu_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert piu_policy_info['test-results'] == 'waiting-for-test-results'
         assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/n/not-tested-yet.html'
 
     def test_failed_not_regression(self):
         src_name = 'failed-not-regression'
         policy = initialize_policy('piuparts/basic', PiupartsPolicy)
-        piu_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        piu_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert piu_policy_info['test-results'] == 'failed'
         assert piu_policy_info['piuparts-test-url'] == 'https://piuparts.debian.org/sid/source/f/failed-not-regression.html'
 
@@ -358,7 +358,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/pass-to-pass', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'PASS'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -369,7 +369,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/pass-to-fail', AutopkgtestPolicy, adt_amqp=self.amqp, adt_retry_older_than=1)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -380,7 +380,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/pass-to-neutral', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'NEUTRAL'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -395,7 +395,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         new_universe, new_inst_tester = builder_new.build()
         policy = initialize_policy('autopkgtest/new', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, new_universe, new_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING-ALWAYSFAIL'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
         assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -406,7 +406,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/pass-to-new', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
         assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -417,7 +417,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/fail-to-new', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.PASS, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING-ALWAYSFAIL'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
         assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -428,7 +428,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/neutral-to-new', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
         assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -439,7 +439,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/neutral-to-fail', AutopkgtestPolicy, adt_amqp=self.amqp, adt_retry_older_than=1)
         build_sources_from_universe_and_inst_tester(policy, simple_universe, simple_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
@@ -450,7 +450,7 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         src_name = 'pkg'
         policy = initialize_policy('autopkgtest/pass-to-new-with-breaks', AutopkgtestPolicy, adt_amqp=self.amqp)
         build_sources_from_universe_and_inst_tester(policy, breaks_universe, breaks_inst_tester)
-        autopkgtest_policy_info = apply_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
+        autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
         assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'

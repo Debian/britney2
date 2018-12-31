@@ -236,7 +236,7 @@ class AutopkgtestPolicy(BasePolicy):
             json.dump(self.pending_tests, f, indent=2)
         os.rename(self.pending_tests_file + '.new', self.pending_tests_file)
 
-    def apply_policy_impl(self, tests_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, tests_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         # initialize
         verdict = PolicyVerdict.PASS
         elegible_for_bounty = False
