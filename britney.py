@@ -1012,25 +1012,27 @@ class Britney(object):
                             # reverse dependencies.
                             anyworthdoing = True
 
-        if anyworthdoing and same_source and not is_primary_source:
+        if not anyworthdoing:
+            # nothing worth doing, we don't add an excuse to the list, we just return false
+            return False
+
+        # there is something worth doing
+        # we assume that this package will be ok, if not invalidated below
+        excuse.policy_verdict = PolicyVerdict.PASS
+
+        if same_source and not is_primary_source:
             # support for binNMUs from *pu is currently broken, so disable it
             # for now
             # see https://bugs.debian.org/916209 for more info
             excuse.addhtml("Ignoring binaries for %s from %s on %s (see https://bugs.debian.org/916209)" % (src, source_suite.name, arch))
-            self.excuses[excuse.name] = excuse
-            return False
+            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        # if there is nothing wrong and there is something worth doing, this is a valid candidate
-        if not anywrongver and anyworthdoing:
-            excuse.policy_verdict = PolicyVerdict.PASS
-            self.excuses[excuse.name] = excuse
-            return True
-        # else if there is something worth doing (but something wrong, too) this package won't be considered
-        elif anyworthdoing:
-            self.excuses[excuse.name] = excuse
+        # if there is something something wrong, reject this package
+        if anywrongver:
+            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        # otherwise, return False
-        return False
+        self.excuses[excuse.name] = excuse
+        return excuse.is_valid
 
     def should_upgrade_src(self, src, source_suite):
         """Check if source package should be upgraded
