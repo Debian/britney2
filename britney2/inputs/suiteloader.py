@@ -64,7 +64,7 @@ class SuiteContentLoader(object):
         return self._all_binaries
 
     @abstractmethod
-    def load_suites(self):
+    def load_suites(self):   # pragma: no cover
         pass
 
 
@@ -146,7 +146,7 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
             self.logger.info("Using components listed in Release file: %s", ' '.join(self._components))
 
         if self._architectures is None:
-            if release_file is None:
+            if release_file is None:  # pragma: no cover
                 self.logger.error("No configured architectures and there is no release file in the %s suite.",
                                   target_suite.name)
                 self.logger.error("Please check if there is a \"Release\" file in %s",

@@ -73,7 +73,7 @@ def ifilter_only(container, iterable=None):
 
 
 # iter_except is from the "itertools" recipe
-def iter_except(func, exception, first=None):
+def iter_except(func, exception, first=None):  # pragma: no cover - itertools recipe function
     """ Call a function repeatedly until an exception is raised.
 
     Converts a call-until-exception interface to an iterator interface.
@@ -308,7 +308,7 @@ def write_excuses(excuselist, dest_file, output_format="yaml"):
             for e in excuselist:
                 f.write("<li>%s" % e.html())
             f.write("</ul></body></html>\n")
-    else:
+    else:   # pragma: no cover
         raise ValueError('Output format must be either "yaml or "legacy-html"')
 
 
@@ -592,7 +592,7 @@ def possibly_compressed(path, *, permitted_compressions=None):
         cpath = "%s.%s" % (path, ext)
         if os.path.exists(cpath):
             return cpath
-    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)
+    raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), path)  # pragma: no cover
 
 
 def create_provides_map(packages):

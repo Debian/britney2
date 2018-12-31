@@ -256,7 +256,7 @@ class Britney(object):
             'DEBUG': 'N',
         }
 
-        def record_factory(*args, **kwargs):
+        def record_factory(*args, **kwargs):   # pragma: no cover
             record = old_factory(*args, **kwargs)
             try:
                 record.shortlevelname = short_level_mapping[record.levelname]
@@ -453,7 +453,7 @@ class Britney(object):
                          not getattr(self.options, k.lower()):
                         setattr(self.options, k.lower(), v)
 
-        if hasattr(self.options, 'components'):
+        if hasattr(self.options, 'components'):  # pragma: no cover
             self.logger.error("The COMPONENTS configuration has been removed.")
             self.logger.error("Britney will read the value from the Release file automatically")
             sys.exit(1)
@@ -462,7 +462,7 @@ class Britney(object):
 
         try:
             self.suite_info = suite_loader.load_suites()
-        except MissingRequiredConfigurationError as e:
+        except MissingRequiredConfigurationError as e:   # pragma: no cover
             self.logger.error("Could not load the suite content due to missing configuration: %s", str(e))
             sys.exit(1)
         self.all_binaries = suite_loader.all_binaries()

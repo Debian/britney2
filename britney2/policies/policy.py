@@ -334,11 +334,11 @@ class AgePolicy(BasePolicy):
                         continue
                     # <source> <version> <date>)
                     l = line.split()
-                    if len(l) != 3:
+                    if len(l) != 3:  # pragma: no cover
                         continue
                     try:
                         dates[l[0]] = (l[1], int(l[2]))
-                    except ValueError:
+                    except ValueError:  # pragma: no cover
                         pass
         except FileNotFoundError:
             if not using_new_name:
@@ -549,7 +549,7 @@ class RCBugPolicy(BasePolicy):
         self.logger.info("Loading RC bugs data from %s", filename)
         for line in open(filename, encoding='ascii'):
             l = line.split()
-            if len(l) != 2:
+            if len(l) != 2:  # pragma: no cover
                 self.logger.warning("Malformed line found in line %s", line)
                 continue
             pkg = l[0]
