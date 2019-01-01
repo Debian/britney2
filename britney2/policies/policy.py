@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 from urllib.parse import quote
 
@@ -837,4 +838,94 @@ class BuildDependsPolicy(BasePolicy):
             build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
 
         return verdict
+
+
+class BlockPolicy(BasePolicy):
+
+    def __init__(self, options, suite_info):
+        super().__init__('block', options, suite_info,
+                         {SuiteClass.PRIMARY_SOURCE_SUITE, SuiteClass.ADDITIONAL_SOURCE_SUITE})
+        self._britney = None
+        self._blockall = {}
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        self._britney = britney
+        for hint in self.hints.search(type='block-all'):
+            self._blockall[hint.package] = hint
+
+    def register_hints(self, hint_parser):
+        # block related hints are currently defined in hint.py
+        pass
+
+    def _check_blocked(self, src, arch, version, suite_name, excuse):
+        verdict = PolicyVerdict.PASS
+        blocked = {}
+        unblocked = {}
+        source_suite = self.suite_info[suite_name]
+        is_primary = source_suite.suite_class == SuiteClass.PRIMARY_SOURCE_SUITE
+
+        if is_primary:
+            if 'source' in self._blockall:
+                blocked['block'] = self._blockall['source'].user
+                excuse.add_hint(self._blockall['source'])
+            elif 'new-source' in self._blockall and \
+                src not in self.suite_info.target_suite.sources:
+                blocked['block'] = self._blockall['new-source'].user
+                excuse.add_hint(self._blockall['new-source'])
+        else:
+            blocked['block'] = suite_name
+            excuse.needs_approval = True
+
+        shints = self.hints.search(package=src)
+        mismatches = False
+        r = re.compile('^(un)?(block-?.*)$')
+        for hint in shints:
+            m = r.match(hint.type)
+            if m:
+                if m.group(1) == 'un':
+                    if hint.version != version or hint.suite.name != suite_name or \
+                        (hint.architecture != arch and hint.architecture != 'source'):
+                        print('hint mismatch: %s %s %s' % (version, arch, suite_name))
+                        mismatches = True
+                    else:
+                        print('hint match')
+                        unblocked[m.group(2)] = hint.user
+                        excuse.add_hint(hint)
+                else:
+                    # block(-*) hint: only accepts a source, so this will
+                    # always match
+                    blocked[m.group(2)] = hint.user
+                    excuse.add_hint(hint)
+
+        for block_cmd in blocked:
+            unblock_cmd = 'un'+block_cmd
+            if block_cmd in unblocked:
+                if is_primary or block_cmd == 'block-udeb':
+                    excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
+                                   (block_cmd, blocked[block_cmd], unblock_cmd, unblocked[block_cmd]))
+                else:
+                    excuse.addhtml("Approved by %s" % (unblocked[block_cmd]))
+            else:
+                if is_primary or block_cmd == 'block-udeb':
+                    tooltip = "please contact debian-release if update is needed"
+                    # redirect people to d-i RM for udeb things:
+                    if block_cmd == 'block-udeb':
+                        tooltip = "please contact the d-i release manager if an update is needed"
+                    excuse.addhtml("Not touching package due to %s request by %s (%s)" %
+                                   (block_cmd, blocked[block_cmd], tooltip))
+                else:
+                    excuse.addhtml("NEEDS APPROVAL BY RM")
+                excuse.addreason("block")
+                if mismatches:
+                    excuse.addhtml("Some hints for %s do not match this item" % src)
+                verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
+        return verdict
+
+
+    def apply_src_policy_impl(self, block_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+        return self._check_blocked(source_name, "source", source_data_srcdist.version, suite, excuse)
+
+    def apply_srcarch_policy_impl(self, block_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
+        return self._check_blocked(source_name, arch, source_data_srcdist.version, suite, excuse)
 

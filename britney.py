@@ -202,7 +202,7 @@ from britney2.installability.solver import InstallabilitySolver
 from britney2.migration import MigrationManager
 from britney2.migrationitem import MigrationItem, MigrationItemFactory
 from britney2.policies import PolicyVerdict
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine, BlockPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
@@ -494,6 +494,7 @@ class Britney(object):
             self._policy_engine.add_policy(AutopkgtestPolicy(self.options, self.suite_info))
         self._policy_engine.add_policy(AgePolicy(self.options, self.suite_info, MINDAYS))
         self._policy_engine.add_policy(BuildDependsPolicy(self.options, self.suite_info))
+        self._policy_engine.add_policy(BlockPolicy(self.options, self.suite_info))
 
     @property
     def hints(self):
@@ -1021,13 +1022,6 @@ class Britney(object):
         # we assume that this package will be ok, if not invalidated below
         excuse.policy_verdict = PolicyVerdict.PASS
 
-        if same_source and not is_primary_source:
-            # support for binNMUs from *pu is currently broken, so disable it
-            # for now
-            # see https://bugs.debian.org/916209 for more info
-            excuse.addhtml("Ignoring binaries for %s from %s on %s (see https://bugs.debian.org/916209)" % (src, source_suite.name, arch))
-            excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
-
         # if there is something something wrong, reject this package
         if anywrongver:
             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
@@ -1096,58 +1090,6 @@ class Britney(object):
                 excuse.addhtml("Trying to remove package, not update it")
                 excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
                 break
-
-        # check if there is a `block' or `block-udeb' hint for this package, or a `block-all source' hint
-        blocked = {}
-        for hint in self.hints.search(package=src):
-            if hint.type in {'block', 'block-udeb'}:
-                blocked[hint.type] = hint
-                excuse.add_hint(hint)
-
-        if 'block' not in blocked:
-            for hint in self.hints.search(type='block-all'):
-                if hint.package == 'source' or (not source_t and hint.package == 'new-source'):
-                    blocked['block'] = hint
-                    excuse.add_hint(hint)
-                    break
-        if source_suite.suite_class.is_additional_source:
-            blocked['block'] = '%s-block' % (suite_name)
-            excuse.needs_approval = True
-
-        # if the source is blocked, then look for an `unblock' hint; the unblock request
-        # is processed only if the specified version is correct. If a package is blocked
-        # by `block-udeb', then `unblock-udeb' must be present to cancel it.
-        for block_cmd in blocked:
-            unblock_cmd = "un" + block_cmd
-            unblocks = self.hints.search(unblock_cmd, package=src)
-
-            if unblocks and unblocks[0].version is not None and unblocks[0].version == source_u.version:
-                excuse.add_hint(unblocks[0])
-                if block_cmd == 'block-udeb' or not excuse.needs_approval:
-                    excuse.addhtml("Ignoring %s request by %s, due to %s request by %s" %
-                                   (block_cmd, blocked[block_cmd].user, unblock_cmd, unblocks[0].user))
-                else:
-                    excuse.addhtml("Approved by %s" % (unblocks[0].user))
-            else:
-                if unblocks:
-                    if unblocks[0].version is None:
-                        excuse.addhtml("%s request by %s ignored due to missing version" %
-                                       (unblock_cmd.capitalize(), unblocks[0].user))
-                    else:
-                        excuse.addhtml("%s request by %s ignored due to version mismatch: %s" %
-                                       (unblock_cmd.capitalize(), unblocks[0].user, unblocks[0].version))
-                if source_suite.suite_class.is_primary_source or block_cmd == 'block-udeb':
-                    tooltip = "please contact debian-release if update is needed"
-                    # redirect people to d-i RM for udeb things:
-                    if block_cmd == 'block-udeb':
-                        tooltip = "please contact the d-i release manager if an update is needed"
-                    excuse.addhtml("Not touching package due to %s request by %s (%s)" %
-                                   (block_cmd, blocked[block_cmd].user, tooltip))
-                    excuse.addreason("block")
-                else:
-                    excuse.addhtml("NEEDS APPROVAL BY RM")
-                    excuse.addreason("block")
-                excuse.policy_verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
 
         all_binaries = self.all_binaries
         for pkg_id in source_u.binaries:
