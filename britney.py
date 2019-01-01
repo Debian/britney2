@@ -703,29 +703,30 @@ class Britney(object):
         hints = self._hint_parser.hints
 
         for x in ["block", "block-all", "block-udeb", "unblock", "unblock-udeb", "force", "urgent", "remove", "age-days"]:
-            z = {}
+            z = defaultdict(dict)
             for hint in hints[x]:
                 package = hint.package
+                architecture = hint.architecture
                 key = (hint, hint.user)
-                if package in z and z[package] != key:
-                    hint2 = z[package][0]
+                if package in z and architecture in z[package] and z[package][architecture] != key:
+                    hint2 = z[package][architecture][0]
                     if x in ['unblock', 'unblock-udeb']:
                         if apt_pkg.version_compare(hint2.version, hint.version) < 0:
                             # This hint is for a newer version, so discard the old one
-                            self.logger.warning("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')",
-                                                x, package, hint2.version, hint2.user, hint.version, hint.user)
+                            self.logger.warning("Overriding %s[%s] = ('%s', '%s', '%s') with ('%s', '%s', '%s')",
+                                                x, package, hint2.version, hint2.architecture, hint2.user, hint.version, hint.architecture, hint.user)
                             hint2.set_active(False)
                         else:
                             # This hint is for an older version, so ignore it in favour of the new one
-                            self.logger.warning("Ignoring %s[%s] = ('%s', '%s'), ('%s', '%s') is higher or equal",
-                                                x, package, hint.version, hint.user, hint2.version, hint2.user)
+                            self.logger.warning("Ignoring %s[%s] = ('%s', '%s', '%s'), ('%s', '%s', '%s') is higher or equal",
+                                                x, package, hint.version, hint.architecture, hint.user, hint2.version, hint2.architecture, hint2.user)
                             hint.set_active(False)
                     else:
                         self.logger.warning("Overriding %s[%s] = ('%s', '%s') with ('%s', '%s')",
                                             x, package, hint2.user, hint2, hint.user, hint)
                         hint2.set_active(False)
 
-                z[package] = key
+                z[package][architecture] = key
 
         # Sanity check the hints hash
         if len(hints["block"]) == 0 and len(hints["block-udeb"]) == 0:
