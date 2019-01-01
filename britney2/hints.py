@@ -33,13 +33,15 @@ class HintCollection(object):
         return self.search(type)
 
     def search(self, type=None, onlyactive=True, package=None, \
-       version=None, removal=None):
+       version=None, architecture=None, suite=None, removal=None):
 
         return [ hint for hint in self._hints if
                  (type is None or type == hint.type) and
                  (hint.active or not onlyactive) and
                  (package is None or package == hint.packages[0].package) and
                  (version is None or version == hint.packages[0].version) and
+                 (architecture is None or architecture == hint.packages[0].architecture) and
+                 (suite is None or suite == hint.packages[0].suite) and
                  (removal is None or removal == hint.packages[0].is_removal)
                ]
 
@@ -60,6 +62,7 @@ class Hint(object):
         
     def check(self):
         for package in self.packages:
+            # TODO check if hint is allowed to specify architecture
             if self.type in self.__class__.NO_VERSION:
                 if package.version is not None:
                     raise MalformedHintException("\"%s\" needs unversioned packages, got \"%s\"" % (self.type, package))
@@ -111,6 +114,22 @@ class Hint(object):
         if self.packages:
             assert len(self.packages) == 1, self.packages
             return self.packages[0].version
+        else:
+            return None
+
+    @property
+    def architecture(self):
+        if self.packages:
+            assert len(self.packages) == 1, self.packages
+            return self.packages[0].architecture
+        else:
+            return None
+
+    @property
+    def suite(self):
+        if self.packages:
+            assert len(self.packages) == 1, self.packages
+            return self.packages[0].suite
         else:
             return None
 
