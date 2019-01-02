@@ -4,6 +4,10 @@ from enum import Enum, unique
 class PolicyVerdict(Enum):
     """"""
     """
+    The policy doesn't apply to this item. No test was done.
+    """
+    NOT_APPLICABLE = 0
+    """
     The migration item passed the policy.
     """
     PASS = 1

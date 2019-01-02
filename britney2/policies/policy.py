@@ -112,11 +112,12 @@ class BasePolicy(object):
 
     def apply_src_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         pinfo = {}
-        general_policy_info[self.policy_id] = pinfo
         verdict = self.apply_src_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
         # The base policy provides this field, so the subclass should leave it blank
         assert 'verdict' not in pinfo
-        pinfo['verdict'] = verdict.name
+        if verdict != PolicyVerdict.NOT_APPLICABLE:
+            general_policy_info[self.policy_id] = pinfo
+            pinfo['verdict'] = verdict.name
         return verdict
 
     def apply_src_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
@@ -145,15 +146,16 @@ class BasePolicy(object):
 
         :return A Policy Verdict (e.g. PolicyVerdict.PASS)
         """
-        return PolicyVerdict.PASS
+        return PolicyVerdict.NOT_APPLICABLE
 
     def apply_srcarch_policy(self, general_policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
         pinfo = {}
-        general_policy_info[self.policy_id] = pinfo
         verdict = self.apply_srcarch_policy_impl(pinfo, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse)
         # The base policy provides this field, so the subclass should leave it blank
         assert 'verdict' not in pinfo
-        pinfo['verdict'] = verdict.name
+        if verdict != PolicyVerdict.NOT_APPLICABLE:
+            general_policy_info[self.policy_id] = pinfo
+            pinfo['verdict'] = verdict.name
         return verdict
 
     def apply_srcarch_policy_impl(self, policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
@@ -183,7 +185,7 @@ class BasePolicy(object):
         :return A Policy Verdict (e.g. PolicyVerdict.PASS)
         """
         # if the policy doesn't implement this function, assume it's OK
-        return PolicyVerdict.PASS
+        return PolicyVerdict.NOT_APPLICABLE
 
 
 class SimplePolicyHint(Hint):
