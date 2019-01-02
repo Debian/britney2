@@ -761,15 +761,25 @@ class BuildDependsPolicy(BasePolicy):
     def apply_src_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
+
+        # analyze the dependency fields (if present)
+        deps = source_data_srcdist.build_deps_arch
+        if deps:
+            v = self._check_build_deps(deps, DependencyType.BUILD_DEPENDS, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+                          get_dependency_solvers=get_dependency_solvers)
+            if verdict.value < v.value:
+                verdict = v
+
+        return verdict
+
+    def _check_build_deps(self, deps, dep_type, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+                          get_dependency_solvers=get_dependency_solvers):
+        verdict = PolicyVerdict.PASS
+
         britney = self._britney
 
         # local copies for better performance
         parse_src_depends = apt_pkg.parse_src_depends
-
-        # analyze the dependency fields (if present)
-        deps = source_data_srcdist.build_deps_arch
-        if not deps:
-            return verdict
 
         sources_s = None
         sources_t = None
