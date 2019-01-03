@@ -209,7 +209,7 @@ from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers
                             format_and_log_uninst, newly_uninst,
                             write_excuses, write_heidi_delta,
                             old_libraries, is_nuninst_asgood_generous,
-                            clone_nuninst,
+                            clone_nuninst, compute_item_name,
                             invalidate_excuses, compile_nuninst,
                             find_smooth_updateable_binaries, parse_provides,
                             MigrationConstraintException,
@@ -801,10 +801,8 @@ class Britney(object):
                 sources_t = target_suite.sources
                 sources_s = source_suite.sources
                 for p in packages:
-                    if p in sources_t and sources_t[p].version == sources_s[p].version:
-                        excuse.add_dependency(DependencyType.DEPENDS, "%s/%s" % (p, arch), arch)
-                    else:
-                        excuse.add_dependency(DependencyType.DEPENDS, p, arch)
+                    item_name = compute_item_name(sources_t, sources_s, p, arch)
+                    excuse.add_dependency(DependencyType.DEPENDS, item_name, arch)
             else:
                 for p in packages:
                     excuse.add_break_dep(p, arch)

@@ -13,7 +13,7 @@ from britney2 import SuiteClass
 from britney2.hints import Hint, split_into_one_hint_per_package
 from britney2.inputs.suiteloader import SuiteContentLoader
 from britney2.policies import PolicyVerdict
-from britney2.utils import get_dependency_solvers
+from britney2.utils import get_dependency_solvers, compute_item_name
 from britney2 import DependencyType
 
 
@@ -821,10 +821,8 @@ class BuildDependsPolicy(BasePolicy):
             # for the solving packages, update the excuse to add the dependencies
             for p in packages:
                 if arch not in self.options.break_arches:
-                    if p in sources_t and sources_t[p].version == sources_s[p].version:
-                        excuse.add_dependency(dep_type,"%s/%s" % (p, arch), arch)
-                    else:
-                        excuse.add_dependency(dep_type, p, arch)
+                    item_name = compute_item_name(sources_t, sources_s, p, arch)
+                    excuse.add_dependency(dep_type, item_name, arch)
 
         if arch in results:
             if results[arch] == BuildDepResult.FAILED:
