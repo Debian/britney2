@@ -3,6 +3,7 @@ import logging
 import os
 import re
 import time
+from enum import IntEnum, unique
 from urllib.parse import quote
 
 import apt_pkg
@@ -746,6 +747,15 @@ class PiupartsPolicy(BasePolicy):
 
         return summary
 
+
+@unique
+class BuildDepResult(IntEnum):
+    # relation is satisfied in target
+    OK = 1
+    # relation can be satisfied by other packages in source
+    DEPENDS = 2
+    # relation cannot be satisfied
+    FAILED = 3
 
 class BuildDependsPolicy(BasePolicy):
 
