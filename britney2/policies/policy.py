@@ -11,6 +11,7 @@ import apt_pkg
 
 from britney2 import SuiteClass
 from britney2.hints import Hint, split_into_one_hint_per_package
+from britney2.inputs.suiteloader import SuiteContentLoader
 from britney2.policies import PolicyVerdict
 from britney2.utils import get_dependency_solvers
 from britney2 import DependencyType
@@ -764,10 +765,13 @@ class BuildDependsPolicy(BasePolicy):
         super().__init__('build-depends', options, suite_info,
                          {SuiteClass.PRIMARY_SOURCE_SUITE, SuiteClass.ADDITIONAL_SOURCE_SUITE})
         self._britney = None
+        self._all_buildarch = []
 
     def initialise(self, britney):
         super().initialise(britney)
         self._britney = britney
+        if hasattr(self.options, 'all_buildarch'):
+            self._all_buildarch = SuiteContentLoader.config_str_as_list(self.options.all_buildarch,[])
 
     def apply_src_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
