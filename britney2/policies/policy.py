@@ -4,6 +4,7 @@ import os
 import re
 import time
 from enum import IntEnum, unique
+from collections import defaultdict
 from urllib.parse import quote
 
 import apt_pkg
@@ -786,6 +787,32 @@ class BuildDependsPolicy(BasePolicy):
         if dep_type == DependencyType.BUILD_DEPENDS:
             return [arch for arch in self.options.architectures if arch in archs]
 
+    def _add_info_for_arch(self, arch, excuses_info, blockers, results, dep_type, target_suite, source_suite, excuse, verdict):
+        if arch in excuses_info:
+            for excuse_text in excuses_info[arch]:
+                excuse.addhtml(excuse_text)
+
+        if arch in blockers:
+            packages = blockers[arch]
+
+            sources_t = target_suite.sources
+            sources_s = source_suite.sources
+
+            # for the solving packages, update the excuse to add the dependencies
+            for p in packages:
+                if arch not in self.options.break_arches:
+                    if p in sources_t and sources_t[p].version == sources_s[p].version:
+                        excuse.add_dependency(dep_type,"%s/%s" % (p, arch), arch)
+                    else:
+                        excuse.add_dependency(dep_type, p, arch)
+
+        if arch in results:
+            if results[arch] == BuildDepResult.FAILED:
+                if verdict.value < PolicyVerdict.REJECTED_PERMANENTLY.value:
+                    verdict = PolicyVerdict.REJECTED_PERMANENTLY
+
+        return verdict
+
     def _check_build_deps(self, deps, dep_type, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
@@ -807,6 +834,9 @@ class BuildDependsPolicy(BasePolicy):
         relevant_archs = {binary.architecture for binary in source_data_srcdist.binaries
                           if britney.all_binaries[binary].architecture != 'all'}
 
+        excuses_info = defaultdict(list)
+        blockers = defaultdict(list)
+        arch_results = {}
         check_archs = self._get_check_archs(relevant_archs,dep_type);
         for arch in check_archs:
             # retrieve the binary package from the specified suite and arch
@@ -814,6 +844,7 @@ class BuildDependsPolicy(BasePolicy):
             provides_s_a = provides_s[arch]
             binaries_t_a = binaries_t[arch]
             provides_t_a = provides_t[arch]
+            arch_results[arch] = BuildDepResult.OK
             # for every dependency block (formed as conjunction of disjunction)
             for block_txt in deps.split(','):
                 block = parse_src_depends(block_txt, False, arch)
@@ -840,25 +871,21 @@ class BuildDependsPolicy(BasePolicy):
 
                 # if no package can satisfy the dependency, add this information to the excuse
                 if not packages:
-                    excuse.addhtml("%s unsatisfiable %s on %s: %s" % (source_name, dep_type, arch, block_txt.strip()))
+                    excuses_info[arch].append("%s unsatisfiable %s on %s: %s" % (source_name, dep_type, arch, block_txt.strip()))
                     if arch not in unsat_bd:
                         unsat_bd[arch] = []
                     unsat_bd[arch].append(block_txt.strip())
-                    if verdict.value < PolicyVerdict.REJECTED_PERMANENTLY.value:
-                        verdict = PolicyVerdict.REJECTED_PERMANENTLY
+                    arch_results[arch] = BuildDepResult.FAILED
                     continue
 
-                if not sources_t:
-                    sources_t = target_suite.sources
-                    sources_s = source_suite.sources
+                blockers[arch] = packages
+                if arch_results[arch] < BuildDepResult.DEPENDS:
+                    arch_results[arch] = BuildDepResult.DEPENDS
 
-                # for the solving packages, update the excuse to add the dependencies
-                for p in packages:
-                    if arch not in self.options.break_arches:
-                        if p in sources_t and sources_t[p].version == sources_s[p].version:
-                            excuse.add_dependency(DependencyType.BUILD_DEPENDS,"%s/%s" % (p, arch), arch)
-                        else:
-                            excuse.add_dependency(DependencyType.BUILD_DEPENDS, p, arch)
+
+        for arch in check_archs:
+            verdict = self._add_info_for_arch(arch, excuses_info, blockers, arch_results, dep_type, target_suite, source_suite, excuse, verdict)
+
         if unsat_bd:
             build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
 
