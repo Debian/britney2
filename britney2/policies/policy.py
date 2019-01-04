@@ -830,7 +830,7 @@ class BuildDependsPolicy(BasePolicy):
 
                 # if no package can satisfy the dependency, add this information to the excuse
                 if not packages:
-                    excuse.addhtml("%s unsatisfiable Build-Depends(-Arch) on %s: %s" % (source_name, arch, block_txt.strip()))
+                    excuse.addhtml("%s unsatisfiable %s on %s: %s" % (source_name, dep_type, arch, block_txt.strip()))
                     if arch not in unsat_bd:
                         unsat_bd[arch] = []
                     unsat_bd[arch].append(block_txt.strip())
