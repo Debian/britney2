@@ -785,6 +785,13 @@ class BuildDependsPolicy(BasePolicy):
             if verdict.value < v.value:
                 verdict = v
 
+        ideps = source_data_srcdist.build_deps_indep
+        if ideps:
+            v = self._check_build_deps(ideps, DependencyType.BUILD_DEPENDS_INDEP, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+                          get_dependency_solvers=get_dependency_solvers)
+            if verdict.value < v.value:
+                verdict = v
+
         return verdict
 
     def _get_check_archs(self, archs, dep_type):
