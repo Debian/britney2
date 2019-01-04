@@ -850,6 +850,8 @@ class BuildDependsPolicy(BasePolicy):
         excuses_info = defaultdict(list)
         blockers = defaultdict(list)
         arch_results = {}
+        result_archs = defaultdict(list)
+        bestresult = BuildDepResult.FAILED
         check_archs = self._get_check_archs(relevant_archs,dep_type);
         for arch in check_archs:
             # retrieve the binary package from the specified suite and arch
@@ -894,6 +896,15 @@ class BuildDependsPolicy(BasePolicy):
                 blockers[arch] = packages
                 if arch_results[arch] < BuildDepResult.DEPENDS:
                     arch_results[arch] = BuildDepResult.DEPENDS
+
+            if dep_type == DependencyType.BUILD_DEPENDS_INDEP:
+                if arch_results[arch] < bestresult:
+                    bestresult = arch_results[arch]
+                result_archs[arch_results[arch]].append(arch)
+                if bestresult == BuildDepResult.OK:
+                    # we found an architecture where the b-deps-indep are
+                    # satisfied in the target suite, so we can stop
+                    break
 
 
         for arch in check_archs:
