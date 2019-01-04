@@ -772,6 +772,10 @@ class BuildDependsPolicy(BasePolicy):
 
         return verdict
 
+    def _get_check_archs(self, archs, dep_type):
+        if dep_type == DependencyType.BUILD_DEPENDS:
+            return [arch for arch in self.options.architectures if arch in archs]
+
     def _check_build_deps(self, deps, dep_type, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
@@ -793,7 +797,8 @@ class BuildDependsPolicy(BasePolicy):
         relevant_archs = {binary.architecture for binary in source_data_srcdist.binaries
                           if britney.all_binaries[binary].architecture != 'all'}
 
-        for arch in (arch for arch in self.options.architectures if arch in relevant_archs):
+        check_archs = self._get_check_archs(relevant_archs,dep_type);
+        for arch in check_archs:
             # retrieve the binary package from the specified suite and arch
             binaries_s_a = binaries_s[arch]
             provides_s_a = provides_s[arch]
