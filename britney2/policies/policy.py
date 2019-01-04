@@ -791,6 +791,15 @@ class BuildDependsPolicy(BasePolicy):
         if dep_type == DependencyType.BUILD_DEPENDS:
             return [arch for arch in self.options.architectures if arch in archs]
 
+        # first try the all buildarch
+        checkarchs = self._all_buildarch
+        # then try the architectures where this source has arch specific
+        # binaries (in the order of the architecture config file)
+        checkarchs.extend(arch for arch in self.options.architectures if arch in archs and arch not in checkarchs)
+        # then try all other architectures
+        checkarchs.extend(arch for arch in self.options.architectures if arch not in checkarchs)
+        return checkarchs
+
     def _add_info_for_arch(self, arch, excuses_info, blockers, results, dep_type, target_suite, source_suite, excuse, verdict):
         if arch in excuses_info:
             for excuse_text in excuses_info[arch]:
