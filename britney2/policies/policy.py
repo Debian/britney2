@@ -906,12 +906,18 @@ class BuildDependsPolicy(BasePolicy):
                     # satisfied in the target suite, so we can stop
                     break
 
-
-        for arch in check_archs:
+        if dep_type == DependencyType.BUILD_DEPENDS_INDEP:
+            arch = result_archs[bestresult][0]
+            excuse.addhtml("Checking %s on %s"%(dep_type.get_description(),arch))
+            build_deps_info['check-indep-build-depends-on-arch'] = arch
             verdict = self._add_info_for_arch(arch, excuses_info, blockers, arch_results, dep_type, target_suite, source_suite, excuse, verdict)
 
-        if unsat_bd:
-            build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
+        else:
+            for arch in check_archs:
+                verdict = self._add_info_for_arch(arch, excuses_info, blockers, arch_results, dep_type, target_suite, source_suite, excuse, verdict)
+
+            if unsat_bd:
+                build_deps_info['unsatisfiable-arch-build-depends'] = unsat_bd
 
         return verdict
 
