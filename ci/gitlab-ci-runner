@@ -21,6 +21,8 @@ if [ $err = 0 ] && [ "x$1" = "x--with-coverage" ]; then
     python3-coverage report -m
     echo
     python3-coverage html -d coverage
+    mkdir codestyle
+    pycodestyle --config=setup.cfg britney.py  britney2  --show-source --count > codestyle/codestyle.txt
 fi
 
 exit $err
