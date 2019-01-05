@@ -803,10 +803,10 @@ class AutopkgtestPolicy(BasePolicy):
         if trigsrc == src and apt_pkg.version_compare(ver, trigver) < 0:
             self.logger.error('test trigger %s, but run for older version %s, ignoring', trigger, ver)
             return
-    
+
         result = self.test_results.setdefault(trigger, {}).setdefault(
             src, {}).setdefault(arch, [Result.FAIL, None, ''])
-    
+
         # don't clobber existing passed results with non-passing ones from
         # re-runs, except for reference updates
         if status == Result.PASS or result[0] != Result.PASS or \

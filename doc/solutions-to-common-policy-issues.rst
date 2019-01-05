@@ -88,7 +88,7 @@ non-obvious issues:
  * If the bugs policy is enabled, an bug in the old binaries that
    is fixed in the new version will still be a blocker.  Here, the
    best solution is to get rid of the old binaries.
-   
+
    * Note: the bugs data is not versioned so britney cannot tell which
      versions the bug applies to.  Just which suite they affect.
 
@@ -97,7 +97,7 @@ non-obvious issues:
    britney will also attempt to keep the old binaries around as long
    as they are used.  The most often cause of this when the old
    binaries are not co-installable with the new ones.
-   
+
    * Note: Britney generally only works with the highest version of a
      given binary.  If you have libfoo1 depends on libfoo-data v1 and
      then libfoo2 depends on libfoo-data v2, then libfoo1 will become

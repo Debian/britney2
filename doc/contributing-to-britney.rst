@@ -13,7 +13,7 @@ You will need some packages to run britney and the test suites::
   # Runtime dependencies
   apt install python3 python3-apt python3-yaml
   # Test dependencies
-  apt install python3-pytest libclass-accessor-perl rsync 
+  apt install python3-pytest libclass-accessor-perl rsync
   # Documentation generator
   apt install python3-sphinx
   # AMQP integration for autopkgtest policy (optional runtime dependency)

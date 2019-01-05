@@ -58,7 +58,7 @@ class Completer(object):
         self.tpu_packages = sorted(tpu)
         target_suite = suite_info.target_suite.sources
         self.testing_packages = sorted("%s/%s" % (pkg, target_suite[pkg].version) for pkg in target_suite)
-        
+
     def completer(self, text, state):
         """readline completer (see the readline API)"""
 

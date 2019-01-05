@@ -42,7 +42,7 @@ VERDICT2DESC = {
 
 class Excuse(object):
     """Excuse class
-    
+
     This class represents an update excuse, which is a detailed explanation
     of why a package can or cannot be updated in the testing distribution from
     a newer package in another distribution (like for example unstable).
@@ -59,7 +59,7 @@ class Excuse(object):
 
     def __init__(self, name):
         """Class constructor
-        
+
         This method initializes the excuse with the specified name and
         the default values.
         """

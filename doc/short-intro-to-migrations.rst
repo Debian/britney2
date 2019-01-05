@@ -33,7 +33,7 @@ of the following points:
  1. The migration items pass a number of policies for the target
     suite.  Most of these policies are basically that the
     migration items do not regress on selected QA checks.
-    
+
     * An item satisfying this part is called a `valid candiate`.
 
  2. Installability will not regress as a result of
@@ -67,7 +67,7 @@ migration item and various QA checks/policies will be applied to the
 item.
 
 Once britney deems the item ready, it will attempt to
-migrate the item (i.e. source with its binaries) to the 
+migrate the item (i.e. source with its binaries) to the
 target suite.
 
 
@@ -249,13 +249,13 @@ we are not actually sure whether this problem is architecture specific.  For
     Trying easy from autohinter: asis/2017-1 dh-ada-library/6.12 [...]
                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                                     migration item(s) being attemped
-    
+
     [... several lines of statistics from start, before and after ...]
         * amd64: asis-programs, libasis2017, libasis2017-dev, libaws-bin, [...]
           ^^^^^  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           |||||        The binary packages becoming uninstallable on amd64
           Affected architecture (here "amd64")
-    
+
         * i386: asis-programs, libasis2017, libasis2017-dev, libaws-bin, [...]
           ^^^^^ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
           |||||       The binary packages becoming uninstallable on i386

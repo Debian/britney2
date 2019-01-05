@@ -57,9 +57,9 @@ class Hint(object):
         self._active = True
         self._type = hint_type
         self._packages = packages
-        
+
         self.check()
-        
+
     def check(self):
         for package in self.packages:
             # TODO check if hint is allowed to specify architecture

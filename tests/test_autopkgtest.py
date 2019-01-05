@@ -2557,7 +2557,7 @@ class T(TestBase):
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['verdict'], 'PASS')
         # instead, it should cause the age to sky-rocket
         self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 40)
-        
+
     def test_multi_rdepends_with_tests_no_penalty(self):
         '''Check that penalties are not applied for "urgency >= high"'''
 

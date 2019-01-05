@@ -28,7 +28,7 @@ to always be fully installable and close to being a release candidate.
 
 Britney's source code is split between two different but related tasks:
 the first one is the generation of the update excuses, while the
-second tries to update testing with the valid candidates; first 
+second tries to update testing with the valid candidates; first
 each package alone, then larger and even larger sets of packages
 together. Each try is accepted if testing is not more uninstallable
 after the update than before.
@@ -53,7 +53,7 @@ Other than source and binary packages, Britney loads the following data:
   * BugsV, which contains the list of release-critical bugs for a given
     version of a source or binary package (see RCBugPolicy.read_bugs).
 
-  * Dates, which contains the date of the upload of a given version 
+  * Dates, which contains the date of the upload of a given version
     of a source package (see Britney.read_dates).
 
   * Urgencies, which contains the urgency of the upload of a given
@@ -71,7 +71,7 @@ instead explained in the chapter "Excuses Generation".
 An excuse is a detailed explanation of why a package can or cannot
 be updated in the testing distribution from a newer package in
 another distribution (like for example unstable). The main purpose
-of the excuses is to be written in an HTML file which will be 
+of the excuses is to be written in an HTML file which will be
 published over HTTP. The maintainers will be able to parse it manually
 or automatically to find the explanation of why their packages have
 been updated or not.
@@ -222,9 +222,9 @@ __version__ = '2.0'
 
 class Britney(object):
     """Britney, the Debian testing updater script
-    
+
     This is the script that updates the testing distribution. It is executed
-    each day after the installation of the updated packages. It generates the 
+    each day after the installation of the updated packages. It generates the
     `Packages' files for the testing distribution, but it does so in an
     intelligent manner; it tries to avoid any inconsistency and to use only
     non-buggy packages.
@@ -671,12 +671,12 @@ class Britney(object):
 
     def read_hints(self, hintsdir):
         """Read the hint commands from the specified directory
-        
+
         The hint commands are read from the files contained in the directory
         specified by the `hintsdir' parameter.
         The names of the files have to be the same as the authorized users
         for the hints.
-        
+
         The file contains rows with the format:
 
         <command> <package-name>[/<version>]
@@ -814,7 +814,7 @@ class Britney(object):
 
     def should_remove_source(self, pkg):
         """Check if a source package should be removed from testing
-        
+
         This method checks if a source package should be removed from the
         target suite; this happens if the source package is not
         present in the primary source suite anymore.
@@ -853,7 +853,7 @@ class Britney(object):
         This method checks if the binary packages produced by the source
         package on the given architecture should be upgraded; this can
         happen also if the migration is a binary-NMU for the given arch.
-       
+
         It returns False if the given packages don't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the object attribute excuses.
@@ -873,7 +873,7 @@ class Britney(object):
         excuse.set_vers(source_t.version, source_t.version)
         source_u.maintainer and excuse.set_maint(source_u.maintainer)
         source_u.section and excuse.set_section(source_u.section)
-        
+
         # if there is a `remove' hint and the requested version is the same as the
         # version in testing, then stop here and return False
         # (as a side effect, a removal may generate such excuses for both the source
@@ -1031,9 +1031,9 @@ class Britney(object):
         """Check if source package should be upgraded
 
         This method checks if a source package should be upgraded. The analysis
-        is performed for the source package specified by the `src' parameter, 
+        is performed for the source package specified by the `src' parameter,
         for the distribution `source_suite'.
-       
+
         It returns False if the given package doesn't need to be upgraded,
         True otherwise. In the former case, a new excuse is appended to
         the object attribute excuses.
@@ -1232,7 +1232,7 @@ class Britney(object):
 
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
- 
+
     def write_excuses(self):
         """Produce and write the update excuses
 
@@ -2052,7 +2052,7 @@ class Britney(object):
 
     def main(self):
         """Main method
-        
+
         This is the entry point for the class: it includes the list of calls
         for the member methods which will produce the output files.
         """
