@@ -19,12 +19,13 @@ from britney2 import SuiteClass
 
 class MigrationItem(object):
 
-    def __init__(self, package=None, version=None, architecture=None, uvname=None, suite=None):
+    def __init__(self, package=None, version=None, architecture=None, uvname=None, suite=None, is_cruft_removal=False):
         self._uvname = uvname
         self._package = package
         self._version = version
         self._architecture = architecture
         self._suite = suite
+        self._is_cruft_removal = is_cruft_removal
         if version is not None:
             self._name = "%s/%s" % (uvname, version)
         else:
@@ -80,6 +81,10 @@ class MigrationItem(object):
     def uvname(self):
         return self._uvname
 
+    @property
+    def is_cruft_removal(self):
+        return self._is_cruft_removal
+
 
 class MigrationItemFactory(object):
 
@@ -95,7 +100,8 @@ class MigrationItemFactory(object):
                              version=pkg_id.version,
                              architecture=pkg_id.architecture,
                              uvname=uvname,
-                             suite=self._suites.target_suite
+                             suite=self._suites.target_suite,
+                             is_cruft_removal=True,
                              )
 
     @staticmethod

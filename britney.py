@@ -1967,7 +1967,8 @@ class Britney(object):
 
         # consider only excuses which are valid candidates and still relevant.
         valid_excuses = frozenset(y.uvname for y in upgrade_me
-                                  if y not in sources_t or sources_t[y].version != excuses[y].ver[1])
+                                  if not y.is_cruft_removal and
+                                  (y not in sources_t or sources_t[y].version != excuses[y].ver[1]))
         excuses_deps = {name: valid_excuses.intersection(excuse.get_deps())
                         for name, excuse in excuses.items() if name in valid_excuses}
         excuses_rdeps = defaultdict(set)
