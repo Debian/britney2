@@ -289,6 +289,7 @@ class Britney(object):
 
         self.all_selected = []
         self.excuses = {}
+        self.upgrade_me = []
 
         if self.options.nuninst_cache:
             self.logger.info("Not building the list of non-installable packages, as requested")
@@ -1378,6 +1379,7 @@ class Britney(object):
         # sort the list of candidates
         mi_factory = self._migration_item_factory
         self.upgrade_me = sorted(mi_factory.parse_item(x, versioned=False, auto_correct=False) for x in upgrade_me)
+        self.upgrade_me.extend(old_libraries(mi_factory, self.suite_info, self.options.outofsync_arches))
 
         # write excuses to the output file
         if not self.options.dry_run:
@@ -1425,7 +1427,7 @@ class Britney(object):
             res.append("%s-%d" % (arch[0], n))
         return "%d+%d: %s" % (total, totalbreak, ":".join(res))
 
-    def iter_packages(self, packages, selected, nuninst=None, try_removals=True):
+    def iter_packages(self, packages, selected, nuninst=None):
         """Iter on the list of actions and apply them one-by-one
 
         This method applies the changes from `packages` to testing, checking the uninstallability
@@ -1537,17 +1539,6 @@ class Britney(object):
                             worklist.extend([item] for item in comp)
                         else:
                             maybe_rescheduled_packages.append(comp[0])
-
-        if try_removals and self.options.smooth_updates:
-            self.logger.info("> Removing old packages left in the target suite from smooth updates")
-            removals = old_libraries(self._migration_item_factory, self.suite_info, self.options.outofsync_arches)
-            if removals:
-                output_logger.info("Removing packages left in the target suite for smooth updates (%d):", len(removals))
-                log_and_format_old_libraries(self.output_logger, removals)
-                (nuninst_last_accepted, extra) = self.iter_packages(removals,
-                                                                    selected,
-                                                                    nuninst=nuninst_last_accepted,
-                                                                    try_removals=False)
 
         output_logger.info(" finish: [%s]", ",".join(x.uvname for x in selected))
         output_logger.info("endloop: %s", self.eval_nuninst(self.nuninst_orig))
