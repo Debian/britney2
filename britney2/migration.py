@@ -88,7 +88,7 @@ class MigrationManager(object):
         InstallabilityTester.
 
 
-        Unlike migrate_item_to_target_suite, this will not modify
+        Unlike migrate_items_to_target_suite, this will not modify
         any data structure.
         """
         # local copies for better performances
@@ -401,7 +401,7 @@ class MigrationManager(object):
 
         return is_source_migration, affected_architectures, affected_direct, affected_all, smooth_updates
 
-    def migrate_item_to_target_suite(self, items, nuninst_now, stop_on_first_regression=True):
+    def migrate_items_to_target_suite(self, items, nuninst_now, stop_on_first_regression=True):
         is_accepted = True
         target_suite = self.suite_info.target_suite
         packages_t = target_suite.binaries

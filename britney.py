@@ -1475,7 +1475,7 @@ class Britney(object):
                 with mm.start_transaction() as transaction:
                     accepted = False
                     try:
-                        accepted, nuninst_after, failed_arch, new_cruft = mm.migrate_item_to_target_suite(
+                        accepted, nuninst_after, failed_arch, new_cruft = mm.migrate_items_to_target_suite(
                             comp,
                             nuninst_last_accepted
                         )
@@ -1607,9 +1607,9 @@ class Britney(object):
 
             if init:
                 # init => a hint (e.g. "easy") - so do the hint run
-                (_, nuninst_end, _, new_cruft) = mm.migrate_item_to_target_suite(selected,
-                                                                                 self.nuninst_orig,
-                                                                                 stop_on_first_regression=False)
+                (_, nuninst_end, _, new_cruft) = mm.migrate_items_to_target_suite(selected,
+                                                                                  self.nuninst_orig,
+                                                                                  stop_on_first_regression=False)
 
                 if recurse:
                     # Ensure upgrade_me and selected do not overlap, if we
