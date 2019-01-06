@@ -842,8 +842,6 @@ class BuildDependsPolicy(BasePolicy):
         # local copies for better performance
         parse_src_depends = apt_pkg.parse_src_depends
 
-        sources_s = None
-        sources_t = None
         source_suite = self.suite_info[suite]
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
