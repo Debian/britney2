@@ -330,7 +330,7 @@ class Britney(object):
         self._migration_item_factory = MigrationItemFactory(self.suite_info)
         self._hint_parser = HintParser(self._migration_item_factory)
         self._migration_manager = MigrationManager(self.options, self.suite_info, self.all_binaries, self.pkg_universe,
-                                                   self.constraints)
+                                                   self.constraints, self._migration_item_factory)
 
         if not self.options.nuninst_cache:
             self.logger.info("Building the list of non-installable packages for the full archive")
@@ -1473,8 +1473,10 @@ class Britney(object):
                 with mm.start_transaction() as transaction:
                     accepted = False
                     try:
-                        accepted, nuninst_after, failed_arch = mm.migrate_item_to_target_suite(comp,
-                                                                                               nuninst_last_accepted)
+                        accepted, nuninst_after, failed_arch, new_cruft = mm.migrate_item_to_target_suite(
+                            comp,
+                            nuninst_last_accepted
+                        )
                         if accepted:
                             selected.extend(comp)
                             transaction.commit()
@@ -1491,6 +1493,11 @@ class Britney(object):
                             if self.options.check_consistency_level >= 3:
                                 target_suite.check_suite_source_pkg_consistency('iter_packages after commit')
                             nuninst_last_accepted = nuninst_after
+                            for cruft_item in new_cruft:
+                                _, updates, rms, _ = mm.compute_groups(cruft_item)
+                                result = (cruft_item, frozenset(updates), frozenset(rms))
+                                group_info[cruft_item] = result
+                            worklist.extend([x] for x in new_cruft)
                             rescheduled_packages.extend(maybe_rescheduled_packages)
                             maybe_rescheduled_packages.clear()
                         else:
@@ -1609,14 +1616,18 @@ class Britney(object):
 
             if init:
                 # init => a hint (e.g. "easy") - so do the hint run
-                (_, nuninst_end, _) = mm.migrate_item_to_target_suite(selected,
-                                                                      self.nuninst_orig,
-                                                                      stop_on_first_regression=False)
+                (_, nuninst_end, _, new_cruft) = mm.migrate_item_to_target_suite(selected,
+                                                                                 self.nuninst_orig,
+                                                                                 stop_on_first_regression=False)
 
                 if recurse:
                     # Ensure upgrade_me and selected do not overlap, if we
                     # follow-up with a recurse ("hint"-hint).
                     upgrade_me = [x for x in upgrade_me if x not in set(selected)]
+
+                # Add new cruft items regardless of whether we recurse.  A future run might clean
+                # them for us.
+                upgrade_me.extend(new_cruft)
 
             if recurse:
                 # Either the main run or the recursive run of a "hint"-hint.

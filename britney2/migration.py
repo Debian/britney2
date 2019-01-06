@@ -37,7 +37,7 @@ def is_nuninst_worse(must_be_installable, nuninst_now_arch, nuninst_after_arch):
 
 class MigrationManager(object):
 
-    def __init__(self, options, suite_info, all_binaries, pkg_universe, constraints):
+    def __init__(self, options, suite_info, all_binaries, pkg_universe, constraints, migration_item_factory):
         self.options = options
         self.suite_info = suite_info
         self.all_binaries = all_binaries
@@ -45,6 +45,7 @@ class MigrationManager(object):
         self.constraints = constraints
         self._transactions = []
         self._all_architectures = frozenset(self.options.architectures)
+        self._migration_item_factory = migration_item_factory
 
     @property
     def current_transaction(self):
@@ -243,8 +244,7 @@ class MigrationManager(object):
         pkg_universe = self.pkg_universe
         transaction = self.current_transaction
 
-        source_name, updates, rms, _ = self.compute_groups(item, removals=removals)
-
+        source_name, updates, rms, smooth_updates = self.compute_groups(item, removals=removals)
         sources_t = target_suite.sources
         # Handle the source package
         old_source = sources_t.get(source_name)
@@ -364,14 +364,14 @@ class MigrationManager(object):
         if transaction:
             transaction.add_undo_item(undo, updated_binaries)
         # return the affected packages (direct and than all)
-        return (affected_direct, affected_all)
+        return (affected_direct, affected_all, smooth_updates)
 
     def _apply_multiple_items_to_target_suite(self, items):
         is_source_migration = False
         if len(items) == 1:
             item = items[0]
             # apply the changes
-            affected_direct, affected_all = self._apply_item_to_target_suite(item)
+            affected_direct, affected_all, smooth_updates = self._apply_item_to_target_suite(item)
             if item.architecture == 'source':
                 affected_architectures = self._all_architectures
                 is_source_migration = True
@@ -382,6 +382,7 @@ class MigrationManager(object):
             removals = set()
             affected_direct = set()
             affected_all = set()
+            smooth_updates = set()
             for item in items:
                 _, _, rms, _ = self.compute_groups(item, allow_smooth_updates=False)
                 removals.update(rms)
@@ -392,12 +393,13 @@ class MigrationManager(object):
                 is_source_migration = True
 
             for item in items:
-                item_affected_direct, item_affected_all = self._apply_item_to_target_suite(item,
-                                                                                           removals=removals)
+                item_affected_direct, item_affected_all, item_smooth = self._apply_item_to_target_suite(item,
+                                                                                                        removals=removals)
                 affected_direct.update(item_affected_direct)
                 affected_all.update(item_affected_all)
+                smooth_updates.update(item_smooth)
 
-        return is_source_migration, affected_architectures, affected_direct, affected_all
+        return is_source_migration, affected_architectures, affected_direct, affected_all, smooth_updates
 
     def migrate_item_to_target_suite(self, items, nuninst_now, stop_on_first_regression=True):
         is_accepted = True
@@ -409,7 +411,7 @@ class MigrationManager(object):
         break_arches = self.options.break_arches
         arch = None
 
-        is_source_migration, affected_architectures, affected_direct, affected_all = \
+        is_source_migration, affected_architectures, affected_direct, affected_all, smooth_updates = \
             self._apply_multiple_items_to_target_suite(items)
 
         # Optimise the test if we may revert directly.
@@ -448,7 +450,9 @@ class MigrationManager(object):
                     is_accepted = False
                     break
 
-        return (is_accepted, nuninst_after, arch)
+        new_cruft = [self._migration_item_factory.generate_removal_for_cruft_item(x) for x in smooth_updates]
+
+        return (is_accepted, nuninst_after, arch, new_cruft)
 
     @contextlib.contextmanager
     def start_transaction(self):
