@@ -957,7 +957,7 @@ class BlockPolicy(BasePolicy):
                 blocked['block'] = self._blockall['source'].user
                 excuse.add_hint(self._blockall['source'])
             elif 'new-source' in self._blockall and \
-                src not in self.suite_info.target_suite.sources:
+                    src not in self.suite_info.target_suite.sources:
                 blocked['block'] = self._blockall['new-source'].user
                 excuse.add_hint(self._blockall['new-source'])
         else:
@@ -972,11 +972,10 @@ class BlockPolicy(BasePolicy):
             if m:
                 if m.group(1) == 'un':
                     if hint.version != version or hint.suite.name != suite_name or \
-                        (hint.architecture != arch and hint.architecture != 'source'):
-                        print('hint mismatch: %s %s %s' % (version, arch, suite_name))
+                            (hint.architecture != arch and hint.architecture != 'source'):
+                        self.logger.info('hint mismatch: %s %s %s', version, arch, suite_name)
                         mismatches = True
                     else:
-                        print('hint match')
                         unblocked[m.group(2)] = hint.user
                         excuse.add_hint(hint)
                 else:
@@ -1008,7 +1007,6 @@ class BlockPolicy(BasePolicy):
                     excuse.addhtml("Some hints for %s do not match this item" % src)
                 verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
         return verdict
-
 
     def apply_src_policy_impl(self, block_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
         return self._check_blocked(source_name, "source", source_data_srcdist.version, suite, excuse)
