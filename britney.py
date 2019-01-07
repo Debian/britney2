@@ -207,7 +207,7 @@ from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
                             format_and_log_uninst, newly_uninst,
-                            write_excuses, write_heidi_delta, write_controlfiles,
+                            write_excuses, write_heidi_delta,
                             old_libraries, is_nuninst_asgood_generous,
                             clone_nuninst,
                             invalidate_excuses, compile_nuninst,
@@ -396,8 +396,6 @@ class Britney(object):
                                help="provide a command line interface to test hints")
         parser.add_option("", "--dry-run", action="store_true", dest="dry_run", default=False,
                                help="disable all outputs to the testing directory")
-        parser.add_option("", "--control-files", action="store_true", dest="control_files", default=False,
-                               help="enable control files generation")
         parser.add_option("", "--nuninst-cache", action="store_true", dest="nuninst_cache", default=False,
                                help="do not build the non-installability status, use the cache from file")
         parser.add_option("", "--print-uninst", action="store_true", dest="print_uninst", default=False,
@@ -469,12 +467,6 @@ class Britney(object):
         self.options.outofsync_arches = suite_loader.outofsync_arches
         self.options.break_arches = suite_loader.break_arches
         self.options.new_arches = suite_loader.new_arches
-
-        if self.options.control_files and self.options.components:  # pragma: no cover
-            # We cannot regenerate the control files correctly when reading from an
-            # actual mirror (we don't which package goes in what component etc.).
-            self.logger.error("Cannot use --control-files with mirror-layout (components)!")
-            sys.exit(1)
 
         if not hasattr(self.options, "heidi_delta_output"):
             self.options.heidi_delta_output = self.options.heidi_output + "Delta"
@@ -1817,11 +1809,6 @@ class Britney(object):
         # output files
         if not self.options.dry_run:
             target_suite = self.suite_info.target_suite
-            # re-write control files
-            if self.options.control_files:
-                self.logger.info("Writing new control files for the target suite to %s",
-                                 target_suite.path)
-                write_controlfiles(target_suite)
 
             self._policy_engine.save_state(self)
 
