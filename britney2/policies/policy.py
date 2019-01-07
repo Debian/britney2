@@ -929,6 +929,8 @@ class BuildDependsPolicy(BasePolicy):
 
 class BlockPolicy(BasePolicy):
 
+    BLOCK_HINT_REGEX = re.compile('^(un)?(block-?.*)$')
+
     def __init__(self, options, suite_info):
         super().__init__('block', options, suite_info,
                          {SuiteClass.PRIMARY_SOURCE_SUITE, SuiteClass.ADDITIONAL_SOURCE_SUITE})
@@ -966,7 +968,7 @@ class BlockPolicy(BasePolicy):
 
         shints = self.hints.search(package=src)
         mismatches = False
-        r = re.compile('^(un)?(block-?.*)$')
+        r = self.BLOCK_HINT_REGEX
         for hint in shints:
             m = r.match(hint.type)
             if m:
