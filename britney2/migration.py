@@ -1,5 +1,6 @@
 import apt_pkg
 import contextlib
+import copy
 
 from britney2.transaction import MigrationTransactionState
 from britney2.utils import (
@@ -246,14 +247,21 @@ class MigrationManager(object):
 
         sources_t = target_suite.sources
         # Handle the source package
-        if item.architecture == 'source':
-            undo['sources'][source_name] = sources_t.get(source_name)
+        old_source = sources_t.get(source_name)
 
-            # add/update the source package
-            if item.is_removal:
-                del sources_t[source_name]
+        # add/update the source package
+        if item.is_removal and item.architecture == 'source':
+            del sources_t[source_name]
+        else:
+            # always create a copy of the SourcePackage object
+            sources_t[source_name] = copy.copy(source_suite.sources[source_name])
+            if old_source is not None:
+                # always create a new list of binaries
+                sources_t[source_name].binaries = copy.copy(old_source.binaries)
             else:
-                sources_t[source_name] = source_suite.sources[source_name]
+                sources_t[source_name].binaries = list()
+
+        undo['sources'][source_name] = old_source
 
         eqv_set = compute_eqv_set(pkg_universe, updates, rms)
 
@@ -281,6 +289,10 @@ class MigrationManager(object):
                 provides_t_a[provided_pkg].remove((binary, prov_version))
                 if not provides_t_a[provided_pkg]:
                     del provides_t_a[provided_pkg]
+            # for source removal, the source is already gone
+            if source_name in sources_t:
+                if rm_pkg_id in sources_t[source_name].binaries:
+                    sources_t[source_name].binaries.remove(rm_pkg_id)
             # finally, remove the binary package
             del binaries_t_a[binary]
             target_suite.remove_binary(rm_pkg_id)
@@ -333,6 +345,9 @@ class MigrationManager(object):
                 binaries_t_a[binary] = new_pkg_data
                 target_suite.add_binary(updated_pkg_id)
                 updated_binaries.add(updated_pkg_id)
+                # add the binary to the source package
+                if updated_pkg_id not in sources_t[source_name].binaries:
+                    sources_t[source_name].binaries.append(updated_pkg_id)
                 # register new provided packages
                 for provided_pkg, prov_version, _ in new_pkg_data.provides:
                     key = (provided_pkg, parch)
