@@ -1441,7 +1441,7 @@ class Britney(object):
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             try:
-                updates, rms, _ = mm.compute_groups(y)
+                _, updates, rms, _ = mm.compute_groups(y)
                 result = (y, frozenset(updates), frozenset(rms))
                 group_info[y] = result
             except MigrationConstraintException as e:

@@ -109,6 +109,7 @@ class MigrationManager(object):
         else:
             assert source_name in binaries_t[item.architecture]
             pkg_id = binaries_t[item.architecture][source_name].pkg_id
+            source_name = binaries_t[item.architecture][source_name].source
             rms = {pkg_id}
             smoothbins = set()
 
@@ -156,7 +157,7 @@ class MigrationManager(object):
 
                 adds.add(pkg_id)
 
-        return (adds, rms, smoothbins)
+        return (source_name, adds, rms, smoothbins)
 
     def _compute_removals(self, item, allow_smooth_updates, removals):
         pkg_universe = self.pkg_universe
@@ -241,18 +242,18 @@ class MigrationManager(object):
         pkg_universe = self.pkg_universe
         transaction = self.current_transaction
 
-        updates, rms, _ = self.compute_groups(item, removals=removals)
+        source_name, updates, rms, _ = self.compute_groups(item, removals=removals)
 
         # Handle the source package
         if item.architecture == 'source':
             sources_t = target_suite.sources
-            undo['sources'][item.package] = sources_t.get(item.package)
+            undo['sources'][source_name] = sources_t.get(source_name)
 
             # add/update the source package
             if item.is_removal:
-                del sources_t[item.package]
+                del sources_t[source_name]
             else:
-                sources_t[item.package] = source_suite.sources[item.package]
+                sources_t[source_name] = source_suite.sources[source_name]
 
         eqv_set = compute_eqv_set(pkg_universe, updates, rms)
 
@@ -369,7 +370,7 @@ class MigrationManager(object):
             affected_direct = set()
             affected_all = set()
             for item in items:
-                _, rms, _ = self.compute_groups(item, allow_smooth_updates=False)
+                _, _, rms, _ = self.compute_groups(item, allow_smooth_updates=False)
                 removals.update(rms)
                 affected_architectures.add(item.architecture)
 
