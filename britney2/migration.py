@@ -244,9 +244,9 @@ class MigrationManager(object):
 
         source_name, updates, rms, _ = self.compute_groups(item, removals=removals)
 
+        sources_t = target_suite.sources
         # Handle the source package
         if item.architecture == 'source':
-            sources_t = target_suite.sources
             undo['sources'][source_name] = sources_t.get(source_name)
 
             # add/update the source package
