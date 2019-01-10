@@ -226,7 +226,7 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
                 # stop-gap relies on the packages files being sorted by name
                 # and the version, so it is not particularly resilient.
                 if pkg_id not in old_src_binaries:
-                    old_src_binaries.append(pkg_id)
+                    old_src_binaries.add(pkg_id)
 
             # Merge Pre-Depends with Depends and Conflicts with
             # Breaks. Britney is not interested in the "finer
@@ -280,10 +280,10 @@ class DebMirrorLikeSuiteContentLoader(SuiteContentLoader):
                 # of the versions we include as only the package name and
                 # architecture are recorded.
                 if pkg_id not in srcdist[source].binaries:
-                    srcdist[source].binaries.append(pkg_id)
+                    srcdist[source].binaries.add(pkg_id)
             # if the source package doesn't exist, create a fake one
             else:
-                srcdist[source] = SourcePackage(source_version, 'faux', [pkg_id], None, True, None, None, [], [])
+                srcdist[source] = SourcePackage(source_version, 'faux', {pkg_id}, None, True, None, None, [], [])
 
             # add the resulting dictionary to the package list
             packages[pkg] = dpkg

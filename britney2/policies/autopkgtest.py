@@ -22,6 +22,7 @@ import os
 import json
 import tarfile
 import io
+import itertools
 import re
 import sys
 import urllib.parse
@@ -577,7 +578,7 @@ class AutopkgtestPolicy(BasePolicy):
         pkg_universe = self.britney.pkg_universe
         # plus all direct reverse dependencies and test triggers of its
         # binaries which have an autopkgtest
-        for binary in srcinfo.binaries + extra_bins:
+        for binary in itertools.chain(srcinfo.binaries, extra_bins):
             rdeps = pkg_universe.reverse_dependencies_of(binary)
             for rdep in rdeps:
                 try:

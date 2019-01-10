@@ -617,7 +617,7 @@ def read_sources_file(filename, sources=None, intern=sys.intern):
             build_deps_indep = sys.intern(build_deps_indep)
         sources[intern(pkg)] = SourcePackage(intern(ver),
                                              section,
-                                             [],
+                                             set(),
                                              maint,
                                              False,
                                              build_deps_arch,

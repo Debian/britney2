@@ -259,7 +259,7 @@ class MigrationManager(object):
                 # always create a new list of binaries
                 sources_t[source_name].binaries = copy.copy(old_source.binaries)
             else:
-                sources_t[source_name].binaries = list()
+                sources_t[source_name].binaries = set()
 
         undo['sources'][source_name] = old_source
 
@@ -291,8 +291,7 @@ class MigrationManager(object):
                     del provides_t_a[provided_pkg]
             # for source removal, the source is already gone
             if source_name in sources_t:
-                if rm_pkg_id in sources_t[source_name].binaries:
-                    sources_t[source_name].binaries.remove(rm_pkg_id)
+                sources_t[source_name].binaries.discard(rm_pkg_id)
             # finally, remove the binary package
             del binaries_t_a[binary]
             target_suite.remove_binary(rm_pkg_id)
@@ -346,8 +345,7 @@ class MigrationManager(object):
                 target_suite.add_binary(updated_pkg_id)
                 updated_binaries.add(updated_pkg_id)
                 # add the binary to the source package
-                if updated_pkg_id not in sources_t[source_name].binaries:
-                    sources_t[source_name].binaries.append(updated_pkg_id)
+                sources_t[source_name].binaries.add(updated_pkg_id)
                 # register new provided packages
                 for provided_pkg, prov_version, _ in new_pkg_data.provides:
                     key = (provided_pkg, parch)

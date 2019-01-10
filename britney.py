@@ -534,7 +534,7 @@ class Britney(object):
                 faux_section = "%s/faux" % component
             src_data = SourcePackage(version,
                                      sys.intern(faux_section),
-                                     [],
+                                     set(),
                                      None,
                                      True,
                                      None,
@@ -565,7 +565,7 @@ class Britney(object):
                                          pkg_id,
                                          )
 
-                src_data.binaries.append(pkg_id)
+                src_data.binaries.add(pkg_id)
                 target_suite.binaries[arch][pkg_name] = bin_data
                 pri_source_suite.binaries[arch][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data
@@ -614,7 +614,7 @@ class Britney(object):
             pkg_list = [x.strip() for x in mandatory_field('Package-List').split("\n") if x.strip() != '' and not x.strip().startswith("#")]
             src_data = SourcePackage(faux_version,
                                      faux_section,
-                                     [],
+                                     set(),
                                      None,
                                      True,
                                      None,
@@ -659,7 +659,7 @@ class Britney(object):
                                          False,
                                          pkg_id,
                                          )
-                src_data.binaries.append(pkg_id)
+                src_data.binaries.add(pkg_id)
                 target_suite.binaries[arch][pkg_name] = bin_data
                 pri_source_suite.binaries[arch][pkg_name] = bin_data
                 self.all_binaries[pkg_id] = bin_data

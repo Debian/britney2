@@ -60,7 +60,7 @@ def create_excuse(name):
 
 def create_source_package(version, section='devel', binaries=None):
     if binaries is None:
-        binaries = []
+        binaries = set()
     return SourcePackage(version, section, binaries, 'Random tester', False, None, None, ['autopkgtest'], [])
 
 
@@ -122,7 +122,7 @@ def build_sources_from_universe_and_inst_tester(policy, pkg_universe, inst_teste
     binaries_s = {}
     for pkg_id in pkg_universe:
         pkg_name = pkg_id.package_name
-        src_universe[pkg_id] = create_source_package(pkg_id.version, binaries=[pkg_id])
+        src_universe[pkg_id] = create_source_package(pkg_id.version, binaries={pkg_id})
         bin_universe[pkg_id] = create_bin_package(pkg_id)
         if inst_tester.is_pkg_in_the_suite(pkg_id):
             if pkg_name in suite_info.target_suite.sources:
