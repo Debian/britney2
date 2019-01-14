@@ -336,6 +336,32 @@ def old_libraries(mi_factory, suite_info, outofsync_arches=frozenset()):
                 removals.append(mi_factory.generate_removal_for_cruft_item(pkg.pkg_id))
     return removals
 
+def check_target_suite_source_pkg_consistency(suite_info, comment, logger):
+    sources_t = suite_info.target_suite.sources
+    binaries_t = suite_info.target_suite.binaries
+    issues_found = False
+
+    logger.info("check_target_suite_source_pkg_consistency %s",comment)
+
+    for arch in binaries_t:
+        for pkg_name in binaries_t[arch]:
+            pkg = binaries_t[arch][pkg_name]
+            src = pkg.source
+
+            if src not in sources_t:
+                issues_found = True
+                logger.error("inconsistency found (%s): src %s not in target, target has pkg %s with source %s"%(comment,src,pkg_name,src))
+
+    for src in sources_t:
+        source_data = sources_t[src]
+        for pkg_id in source_data.binaries:
+            binary, _, parch = pkg_id
+            if binary not in binaries_t[parch]:
+                issues_found = True
+                logger.error("inconsistency found (%s): binary %s from source %s not in binaries_t[%s]"%(comment,binary,src,parch))
+
+    if issues_found:
+        raise AssertionError("inconsistencies found in target suite")
 
 def is_nuninst_asgood_generous(constraints, architectures, old, new, break_arches=frozenset()):
     """Compares the nuninst counters and constraints to see if they improved
