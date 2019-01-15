@@ -202,7 +202,7 @@ from britney2.installability.solver import InstallabilitySolver
 from britney2.migration import MigrationManager
 from britney2.migrationitem import MigrationItem, MigrationItemFactory
 from britney2.policies import PolicyVerdict
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine, BlockPolicy
+from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine, BlockPolicy, BuiltUsingPolicy
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
@@ -493,6 +493,7 @@ class Britney(object):
         self._policy_engine.add_policy(AgePolicy(self.options, self.suite_info, MINDAYS))
         self._policy_engine.add_policy(BuildDependsPolicy(self.options, self.suite_info))
         self._policy_engine.add_policy(BlockPolicy(self.options, self.suite_info))
+        self._policy_engine.add_policy(BuiltUsingPolicy(self.options, self.suite_info))
 
     @property
     def hints(self):
