@@ -56,3 +56,33 @@ class PolicyVerdict(Enum):
             PolicyVerdict.REJECTED_CANNOT_DETERMINE_IF_PERMANENT, # Assuming the worst
             PolicyVerdict.REJECTED_PERMANENTLY,
         }
+
+
+@unique
+class ApplySrcPolicy(Enum):
+    """
+    For a source item, run the source policy (this is the default)
+    """
+    RUN_SRC = 1
+    """
+    For a source item, run the arch policy on every arch
+    """
+    RUN_ON_EVERY_ARCH_ONLY = 2
+    """
+    For a source item, run the source policy and run the arch policy on every arch
+    """
+    RUN_SRC_AND_EVERY_ARCH = 3
+
+    @property
+    def run_src(self):
+        return self in {
+            ApplySrcPolicy.RUN_SRC,
+            ApplySrcPolicy.RUN_SRC_AND_EVERY_ARCH,
+        }
+
+    @property
+    def run_arch(self):
+        return self in {
+            ApplySrcPolicy.RUN_ON_EVERY_ARCH_ONLY,
+            ApplySrcPolicy.RUN_SRC_AND_EVERY_ARCH,
+        }

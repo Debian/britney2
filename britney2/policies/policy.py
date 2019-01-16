@@ -12,7 +12,7 @@ import apt_pkg
 from britney2 import SuiteClass
 from britney2.hints import Hint, split_into_one_hint_per_package
 from britney2.inputs.suiteloader import SuiteContentLoader
-from britney2.policies import PolicyVerdict
+from britney2.policies import PolicyVerdict, ApplySrcPolicy
 from britney2.utils import get_dependency_solvers, compute_item_name
 from britney2 import DependencyType
 
@@ -44,9 +44,15 @@ class PolicyEngine(object):
         suite_class = source_suite.suite_class
         for policy in self._policies:
             if suite_class in policy.applicable_suites:
-                v = policy.apply_src_policy(policy_info, suite_name, src, source_t, source_u, excuse)
-                if v.value > policy_verdict.value:
-                    policy_verdict = v
+                if policy.src_policy.run_arch:
+                    for arch in policy.options.architectures:
+                        v = policy.apply_srcarch_policy(policy_info, suite_name, src, arch, source_t, source_u, excuse)
+                        if v.value > policy_verdict.value:
+                            policy_verdict = v
+                if policy.src_policy.run_src:
+                    v = policy.apply_src_policy(policy_info, suite_name, src, source_t, source_u, excuse)
+                    if v.value > policy_verdict.value:
+                        policy_verdict = v
         excuse.policy_verdict = policy_verdict
 
     def apply_srcarch_policies(self, source_suite, src, arch, source_t, source_u, excuse):
@@ -64,7 +70,7 @@ class PolicyEngine(object):
 
 class BasePolicy(object):
 
-    def __init__(self, policy_id, options, suite_info, applicable_suites):
+    def __init__(self, policy_id, options, suite_info, applicable_suites, src_policy = ApplySrcPolicy.RUN_SRC):
         """The BasePolicy constructor
 
         :param policy_id An string identifying the policy.  It will
@@ -80,6 +86,7 @@ class BasePolicy(object):
         self.options = options
         self.suite_info = suite_info
         self.applicable_suites = applicable_suites
+        self.src_policy = src_policy
         self.hints = None
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
