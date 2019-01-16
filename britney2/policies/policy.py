@@ -882,7 +882,7 @@ class BuildDependsPolicy(BasePolicy):
 
                 # check if the block can be satisfied in the source suite, and list the solving packages
                 packages = get_dependency_solvers(block, binaries_s_a, provides_s_a, build_depends=True)
-                packages = [p.source for p in packages]
+                packages = sorted(p.source for p in packages)
 
                 # if the dependency can be satisfied by the same source package, skip the block:
                 # obviously both binary packages will enter the target suite together

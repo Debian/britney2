@@ -780,7 +780,7 @@ class Britney(object):
 
             # check if the block can be satisfied in the source suite, and list the solving packages
             packages = get_dependency_solvers(block, binaries_s_a, provides_s_a)
-            packages = [p.source for p in packages]
+            packages = sorted(p.source for p in packages)
 
             # if the dependency can be satisfied by the same source package, skip the block:
             # obviously both binary packages will enter testing together
@@ -1090,7 +1090,7 @@ class Britney(object):
                 break
 
         all_binaries = self.all_binaries
-        for pkg_id in source_u.binaries:
+        for pkg_id in sorted(source_u.binaries):
             is_valid = self.excuse_unsat_deps(pkg_id.package_name, src, pkg_id.architecture, source_suite, excuse)
             if is_valid:
                 continue
@@ -1151,7 +1151,7 @@ class Britney(object):
             # in the `outofsync_arches' list, then do not block the update
             if oodbins:
                 oodtxt = ""
-                for v in oodbins:
+                for v in sorted(oodbins):
                     if oodtxt: oodtxt = oodtxt + "; "
                     oodtxt = oodtxt + "%s (from <a href=\"https://buildd.debian.org/status/logs.php?" \
                         "arch=%s&pkg=%s&ver=%s\" target=\"_blank\">%s</a>)" % \
