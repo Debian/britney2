@@ -933,6 +933,107 @@ class BuildDependsPolicy(BasePolicy):
         return verdict
 
 
+class BuiltUsingPolicy(BasePolicy):
+    """Built-Using policy
+
+    Binaries that incorporate (part of) another source package must list these
+    sources under 'Built-Using'.
+
+    This policy checks if the corresponding sources are available in the
+    target suite. If they are not, but they are candidates for migration, a
+    dependency is added.
+
+    If the binary incorporates a newer version of a source, that is not (yet)
+    a candidate, we don't want to accept that binary. A rebuild later in the
+    primary suite wouldn't fix the issue, because that would incorporate the
+    newer version again.
+
+    If the binary incorporates an older version of the source, a newer version
+    will be accepted as a replacement. We assume that this can be fixed by
+    rebuilding the binary at some point during the development cycle.
+
+    Requiring exact version of the source would not be useful in practice. A
+    newer upload of that source wouldn't be blocked by this policy, so the
+    built-using would be outdated anyway.
+
+    """
+
+    def __init__(self, options, suite_info):
+        super().__init__('built-using', options, suite_info,
+                         {SuiteClass.PRIMARY_SOURCE_SUITE, SuiteClass.ADDITIONAL_SOURCE_SUITE},
+                         ApplySrcPolicy.RUN_ON_EVERY_ARCH_ONLY)
+        self._britney = None
+
+    def initialise(self, britney):
+        super().initialise(britney)
+        self._britney = britney
+
+    def apply_srcarch_policy_impl(self, build_deps_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse,
+                          get_dependency_solvers=get_dependency_solvers):
+        verdict = PolicyVerdict.PASS
+        britney = self._britney
+
+        source_suite = self.suite_info[suite]
+        target_suite = self.suite_info.target_suite
+        binaries_s = source_suite.binaries
+        provides_s = source_suite.provides_table
+        binaries_t = target_suite.binaries
+        provides_t = target_suite.provides_table
+
+        sources_t = target_suite.sources
+
+        def check_bu_in_suite(bu_source, bu_version, source_suite):
+            found = False
+            if not bu_source in source_suite.sources:
+                return found
+            s_source = source_suite.sources[bu_source]
+            s_ver = s_source.version
+            if apt_pkg.version_compare(s_ver, bu_version) >= 0:
+                found = True
+                item_name = compute_item_name(sources_t, source_suite.sources, bu_source, arch)
+                if arch in self.options.break_arches:
+                    excuse.addhtml("Ignoring Built-Using for %s/%s on %s" % (pkg_name,arch,item_name))
+                else:
+                    excuse.add_dependency(DependencyType.BUILT_USING, item_name, arch)
+                    excuse.addhtml("%s/%s has Built-Using on %s" % (pkg_name,arch,item_name))
+
+            return found
+
+
+        for pkg_id in sorted(x for x in source_data_srcdist.binaries if x.architecture == arch):
+            pkg_name = pkg_id.package_name
+
+            # retrieve the testing (if present) and unstable corresponding binary packages
+            binary_t = binaries_t[arch][pkg_name] if pkg_name in binaries_t[arch] else None
+            binary_s = binaries_s[arch][pkg_name]
+
+            for bu in binary_s.builtusing:
+                bu_source = bu[0]
+                bu_version = bu[1]
+                found = False
+                if bu_source in target_suite.sources:
+                    t_source = target_suite.sources[bu_source]
+                    t_ver = t_source.version
+                    if apt_pkg.version_compare(t_ver, bu_version) >= 0:
+                        found = True
+
+                if not found:
+                    found = check_bu_in_suite(bu_source, bu_version, source_suite)
+
+                if not found and source_suite.suite_class.is_additional_source:
+                    found = check_bu_in_suite(bu_source, bu_version, self.suite_info.primary_source_suite)
+
+                if not found:
+                    if arch in self.options.break_arches:
+                        excuse.addhtml("Ignoring unsatisfiable Built-Using for %s/%s on %s %s" % (pkg_name,arch, bu_source, bu_version))
+                    else:
+                        excuse.addhtml("%s/%s has unsatisfiable Built-Using on %s %s" % (pkg_name,arch, bu_source, bu_version))
+                        if verdict.value < PolicyVerdict.REJECTED_PERMANENTLY.value:
+                            verdict = PolicyVerdict.REJECTED_PERMANENTLY
+
+        return verdict
+
+
 class BlockPolicy(BasePolicy):
 
     BLOCK_HINT_REGEX = re.compile('^(un)?(block-?.*)$')

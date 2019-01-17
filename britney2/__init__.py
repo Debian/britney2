@@ -6,6 +6,7 @@ class DependencyType(Enum):
     # BUILD_DEPENDS includes BUILD_DEPENDS_ARCH
     BUILD_DEPENDS = ('Build-Depends(-Arch)', 'build-depends', 'build-dependency')
     BUILD_DEPENDS_INDEP = ('Build-Depends-Indep', 'build-depends-indep', 'build-dependency (indep)')
+    BUILT_USING = ('Built-Using', 'built-using', 'built-using')
 
     def __str__(self):
         return self.value[0]
