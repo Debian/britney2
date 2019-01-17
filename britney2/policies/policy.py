@@ -38,34 +38,47 @@ class PolicyEngine(object):
             policy.save_state(britney)
 
     def apply_src_policies(self, source_suite, src, source_t, source_u, excuse):
-        policy_verdict = excuse.policy_verdict
-        policy_info = excuse.policy_info
+        excuse_verdict = excuse.policy_verdict
         suite_name = source_suite.name
         suite_class = source_suite.suite_class
         for policy in self._policies:
+            pinfo = {}
+            policy_verdict = PolicyVerdict.NOT_APPLICABLE
             if suite_class in policy.applicable_suites:
                 if policy.src_policy.run_arch:
                     for arch in policy.options.architectures:
-                        v = policy.apply_srcarch_policy(policy_info, suite_name, src, arch, source_t, source_u, excuse)
+                        v = policy.apply_srcarch_policy_impl(pinfo, suite_name, src, arch, source_t, source_u, excuse)
                         if v.value > policy_verdict.value:
                             policy_verdict = v
                 if policy.src_policy.run_src:
-                    v = policy.apply_src_policy(policy_info, suite_name, src, source_t, source_u, excuse)
+                    v = policy.apply_src_policy_impl(pinfo, suite_name, src, source_t, source_u, excuse)
                     if v.value > policy_verdict.value:
                         policy_verdict = v
-        excuse.policy_verdict = policy_verdict
+            # The base policy provides this field, so the subclass should leave it blank
+            assert 'verdict' not in pinfo
+            if policy_verdict != PolicyVerdict.NOT_APPLICABLE:
+                excuse.policy_info[policy.policy_id] = pinfo
+                pinfo['verdict'] = policy_verdict.name
+                if policy_verdict.value > excuse_verdict.value:
+                    excuse_verdict = policy_verdict
+        excuse.policy_verdict = excuse_verdict
 
     def apply_srcarch_policies(self, source_suite, src, arch, source_t, source_u, excuse):
-        policy_verdict = excuse.policy_verdict
-        policy_info = excuse.policy_info
+        excuse_verdict = excuse.policy_verdict
         suite_name = source_suite.name
         suite_class = source_suite.suite_class
         for policy in self._policies:
+            pinfo = {}
             if suite_class in policy.applicable_suites:
-                v = policy.apply_srcarch_policy(policy_info, suite_name, src, arch, source_t, source_u, excuse)
-                if v.value > policy_verdict.value:
-                    policy_verdict = v
-        excuse.policy_verdict = policy_verdict
+                policy_verdict = policy.apply_srcarch_policy_impl(pinfo, suite_name, src, arch, source_t, source_u, excuse)
+                if policy_verdict.value > excuse_verdict.value:
+                    excuse_verdict = policy_verdict
+                # The base policy provides this field, so the subclass should leave it blank
+                assert 'verdict' not in pinfo
+                if policy_verdict != PolicyVerdict.NOT_APPLICABLE:
+                    excuse.policy_info[policy.policy_id] = pinfo
+                    pinfo['verdict'] = policy_verdict.name
+        excuse.policy_verdict = excuse_verdict
 
 
 class BasePolicy(object):
@@ -121,16 +134,6 @@ class BasePolicy(object):
         """
         pass
 
-    def apply_src_policy(self, general_policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
-        pinfo = {}
-        verdict = self.apply_src_policy_impl(pinfo, suite, source_name, source_data_tdist, source_data_srcdist, excuse)
-        # The base policy provides this field, so the subclass should leave it blank
-        assert 'verdict' not in pinfo
-        if verdict != PolicyVerdict.NOT_APPLICABLE:
-            general_policy_info[self.policy_id] = pinfo
-            pinfo['verdict'] = verdict.name
-        return verdict
-
     def apply_src_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
         """Apply a policy on a given source migration
 
@@ -158,16 +161,6 @@ class BasePolicy(object):
         :return A Policy Verdict (e.g. PolicyVerdict.PASS)
         """
         return PolicyVerdict.NOT_APPLICABLE
-
-    def apply_srcarch_policy(self, general_policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
-        pinfo = {}
-        verdict = self.apply_srcarch_policy_impl(pinfo, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse)
-        # The base policy provides this field, so the subclass should leave it blank
-        assert 'verdict' not in pinfo
-        if verdict != PolicyVerdict.NOT_APPLICABLE:
-            general_policy_info[self.policy_id] = pinfo
-            pinfo['verdict'] = verdict.name
-        return verdict
 
     def apply_srcarch_policy_impl(self, policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
         """Apply a policy on a given binary migration

@@ -99,15 +99,14 @@ def apply_src_policy(policy, expected_verdict, src_name, *, suite='unstable', ta
     if src_name in suite_info[suite].sources:
         src_u = suite_info[suite].sources[src_name]
         src_t = suite_info.target_suite.sources.get(src_name)
-        _, _, excuse, policy_info = create_policy_objects(src_name)
+        _, _, excuse, _ = create_policy_objects(src_name)
     else:
         src_t, src_u, excuse, policy_info = create_policy_objects(src_name, target_version, source_version)
     suite_info.target_suite.sources[src_name] = src_t
     suite_info[suite].sources[src_name] = src_u
-    verdict = policy.apply_src_policy(policy_info, suite, src_name, src_t, src_u, excuse)
-    pinfo = policy_info[policy.policy_id]
+    pinfo = {}
+    verdict = policy.apply_src_policy_impl(pinfo, suite, src_name, src_t, src_u, excuse)
     assert verdict == expected_verdict
-    assert pinfo['verdict'] == expected_verdict.name
     return pinfo
 
 
