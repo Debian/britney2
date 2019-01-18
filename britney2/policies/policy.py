@@ -841,6 +841,7 @@ class BuildDependsPolicy(BasePolicy):
     def _check_build_deps(self, deps, dep_type, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
+        any_arch_ok = dep_type == DependencyType.BUILD_DEPENDS_INDEP
 
         britney = self._britney
 
@@ -863,6 +864,12 @@ class BuildDependsPolicy(BasePolicy):
         result_archs = defaultdict(list)
         bestresult = BuildDepResult.FAILED
         check_archs = self._get_check_archs(relevant_archs,dep_type);
+        if not check_archs:
+            # when the arch list is empty, we check the b-d on any arch, instead of all archs
+            # this happens for Build-Depens on a source package that only produces arch: all binaries
+            any_arch_ok = True
+            check_archs = self._get_check_archs(self.options.architectures,DependencyType.BUILD_DEPENDS_INDEP);
+
         for arch in check_archs:
             # retrieve the binary package from the specified suite and arch
             binaries_s_a = binaries_s[arch]
@@ -907,7 +914,7 @@ class BuildDependsPolicy(BasePolicy):
                 if arch_results[arch] < BuildDepResult.DEPENDS:
                     arch_results[arch] = BuildDepResult.DEPENDS
 
-            if dep_type == DependencyType.BUILD_DEPENDS_INDEP:
+            if any_arch_ok:
                 if arch_results[arch] < bestresult:
                     bestresult = arch_results[arch]
                 result_archs[arch_results[arch]].append(arch)
@@ -916,10 +923,11 @@ class BuildDependsPolicy(BasePolicy):
                     # satisfied in the target suite, so we can stop
                     break
 
-        if dep_type == DependencyType.BUILD_DEPENDS_INDEP:
+        if any_arch_ok:
             arch = result_archs[bestresult][0]
             excuse.addhtml("Checking %s on %s"%(dep_type.get_description(),arch))
-            build_deps_info['check-indep-build-depends-on-arch'] = arch
+            key = "check-%s-on-arch" % dep_type.get_reason()
+            build_deps_info[key] = arch
             verdict = self._add_info_for_arch(arch, excuses_info, blockers, arch_results, dep_type, target_suite, source_suite, excuse, verdict)
 
         else:
