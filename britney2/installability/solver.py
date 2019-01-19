@@ -141,15 +141,11 @@ class InstallabilitySolver(object):
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
 
-    def solve_groups(self, groups):
+    def _compute_group_order(self, groups, key2item):
         sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
         universe = self._universe
-        result = []
-        emitted = set()
-        queue = deque()
-        order = {}
         ptable = {}
-        key2item = {}
+        order = {}
         going_out = set()
         going_in = set()
         debug_solver = self.logger.isEnabledFor(logging.DEBUG)
@@ -259,27 +255,12 @@ class InstallabilitySolver(object):
                         order[key]['before'].add(other)
                         order[other]['after'].add(key)
 
-        # === MILESTONE: Partial-order constrains computed ===
+        return order
 
-        # At this point, we have computed all the partial-order
-        # constrains needed.  Some of these may have created strongly
-        # connected components (SSC) [of size 2 or greater], which
-        # represents a group of items that (we believe) must migrate
-        # together.
-        #
-        # Each one of those components will become an "easy" hint.
-
-        comps = compute_scc(order)
+    def _merge_items_into_components(self, comps, order):
         merged = {}
         scc = {}
-        # Now that we got the SSCs (in comps), we select on item from
-        # each SSC to represent the group and become an ID for that
-        # SSC.
-        #  * ssc[ssc_id] => All the items in that SSC
-        #  * merged[item] => The ID of the SSC to which the item belongs.
-        #
-        # We also "repair" the ordering, so we know in which order the
-        # hints should be emitted.
+        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
         for com in comps:
             scc_id = com[0]
             scc[scc_id] = com
@@ -316,6 +297,37 @@ class InstallabilitySolver(object):
             for other_scc_id in order[scc_id]['after']:
                 order[other_scc_id]['before'].add(scc_id)
 
+        return scc
+
+    def solve_groups(self, groups):
+        result = []
+        emitted = set()
+        queue = deque()
+        key2item = {}
+        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
+
+        order = self._compute_group_order(groups, key2item)
+
+        # === MILESTONE: Partial-order constrains computed ===
+
+        # At this point, we have computed all the partial-order
+        # constrains needed.  Some of these may have created strongly
+        # connected components (SSC) [of size 2 or greater], which
+        # represents a group of items that (we believe) must migrate
+        # together.
+        #
+        # Each one of those components will become an "easy" hint.
+
+        comps = compute_scc(order)
+        # Now that we got the SSCs (in comps), we select on item from
+        # each SSC to represent the group and become an ID for that
+        # SSC.
+        #  * scc_items[ssc_id] => All the items in that SSC
+        #
+        # We also "repair" the ordering, so we know in which order the
+        # hints should be emitted.
+        scc_items = self._merge_items_into_components(comps, order)
+
         if debug_solver:  # pragma: no cover
             self.logger.debug("-- PARTIAL ORDER --")
 
@@ -341,9 +353,9 @@ class InstallabilitySolver(object):
             if order[cur]['after'] <= emitted and cur not in emitted:
                 # This item is ready to be emitted right now
                 if debug_solver:  # pragma: no cover
-                    self.logger.debug("%s -- %s", cur, sorted(scc[cur]))
+                    self.logger.debug("%s -- %s", cur, sorted(scc_items[cur]))
                 emitted.add(cur)
-                result.append([key2item[x] for x in scc[cur]])
+                result.append([key2item[x] for x in scc_items[cur]])
                 if order[cur]['before']:
                     # There are components that come after this one.
                     # Add it to queue:
