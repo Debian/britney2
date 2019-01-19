@@ -337,11 +337,11 @@ class InstallabilitySolver(object):
         # Now that we got the SSCs (in comps), we select on item from
         # each SSC to represent the group and become an ID for that
         # SSC.
-        #  * scc_items[ssc_id] => All the items in that SSC
+        #  * scc_keys[ssc_id] => All the item-keys in that SSC
         #
         # We also "repair" the ordering, so we know in which order the
         # hints should be emitted.
-        scc_items = self._merge_items_into_components(comps, order)
+        scc_keys = self._merge_items_into_components(comps, order)
 
         if debug_solver:  # pragma: no cover
             self.logger.debug("-- PARTIAL ORDER --")
@@ -368,9 +368,9 @@ class InstallabilitySolver(object):
             if order[cur].after <= emitted and cur not in emitted:
                 # This item is ready to be emitted right now
                 if debug_solver:  # pragma: no cover
-                    self.logger.debug("%s -- %s", cur, sorted(scc_items[cur]))
+                    self.logger.debug("%s -- %s", cur, sorted(scc_keys[cur]))
                 emitted.add(cur)
-                result.append([key2item[x] for x in scc_items[cur]])
+                result.append([key2item[x] for x in scc_keys[cur]])
                 if order[cur].before:
                     # There are components that come after this one.
                     # Add it to queue:
