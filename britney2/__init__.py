@@ -2,6 +2,7 @@ import logging
 from collections import namedtuple
 from enum import Enum, unique
 
+
 class DependencyType(Enum):
     DEPENDS = ('Depends', 'depends', 'dependency')
     # BUILD_DEPENDS includes BUILD_DEPENDS_ARCH
@@ -216,7 +217,8 @@ class SourcePackage(object):
     __slots__ = ['version', 'section', 'binaries', 'maintainer', 'is_fakesrc', 'build_deps_arch', 'build_deps_indep',
                  'testsuite', 'testsuite_triggers']
 
-    def __init__(self, version, section, binaries, maintainer, is_fakesrc, build_deps_arch, build_deps_indep, testsuite, testsuite_triggers):
+    def __init__(self, version, section, binaries, maintainer, is_fakesrc, build_deps_arch, build_deps_indep,
+                 testsuite, testsuite_triggers):
         self.version = version
         self.section = section
         self.binaries = binaries
