@@ -81,6 +81,7 @@ class AutopkgtestPolicy(BasePolicy):
         self.pending_tests = None
         self.pending_tests_file = os.path.join(self.state_dir, 'autopkgtest-pending.json')
         self.testsuite_triggers = {}
+        self.result_in_baseline_cache = collections.defaultdict(dict)
 
         # results map: trigger -> src -> arch -> [passed, version, run_id]
         # - trigger is "source/version" of an unstable package that triggered
@@ -133,8 +134,6 @@ class AutopkgtestPolicy(BasePolicy):
         if not hasattr(self.options, 'adt_baseline'):
             # Make adt_baseline optional
             setattr(self.options, 'adt_baseline', None)
-
-        self.result_in_baseline_cache = collections.defaultdict(dict)
 
         # read the cached results that we collected so far
         if os.path.exists(self.results_cache_file):
