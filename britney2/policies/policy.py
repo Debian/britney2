@@ -962,23 +962,17 @@ class BuiltUsingPolicy(BasePolicy):
         super().__init__('built-using', options, suite_info,
                          {SuiteClass.PRIMARY_SOURCE_SUITE, SuiteClass.ADDITIONAL_SOURCE_SUITE},
                          ApplySrcPolicy.RUN_ON_EVERY_ARCH_ONLY)
-        self._britney = None
 
     def initialise(self, britney):
         super().initialise(britney)
-        self._britney = britney
 
     def apply_srcarch_policy_impl(self, build_deps_info, suite, source_name, arch, source_data_tdist,
-                                  source_data_srcdist, excuse, get_dependency_solvers=get_dependency_solvers):
+                                  source_data_srcdist, excuse):
         verdict = PolicyVerdict.PASS
-        britney = self._britney
 
         source_suite = self.suite_info[suite]
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
-        provides_s = source_suite.provides_table
-        binaries_t = target_suite.binaries
-        provides_t = target_suite.provides_table
 
         sources_t = target_suite.sources
 
@@ -1003,7 +997,6 @@ class BuiltUsingPolicy(BasePolicy):
             pkg_name = pkg_id.package_name
 
             # retrieve the testing (if present) and unstable corresponding binary packages
-            binary_t = binaries_t[arch][pkg_name] if pkg_name in binaries_t[arch] else None
             binary_s = binaries_s[arch][pkg_name]
 
             for bu in binary_s.builtusing:
