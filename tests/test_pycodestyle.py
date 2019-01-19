@@ -32,6 +32,8 @@ def all_python_files(project_dir):
                 subdirs.remove('.git')
             if 'doc' in subdirs:
                 subdirs.remove('doc')
+            if 'britney2-tests' in subdirs:
+                subdirs.remove('britney2-tests')
 
         subdirs.sort()
         files.sort()
