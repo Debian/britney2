@@ -1,3 +1,4 @@
+import logging
 from collections import namedtuple
 from enum import Enum, unique
 
@@ -89,6 +90,8 @@ class TargetSuite(Suite):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.inst_tester = None
+        logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
+        self._logger = logging.getLogger(logger_name)
 
     def any_of_these_are_in_the_suite(self, pkg_ids):
         """Test if at least one package of a given set is in the suite
@@ -132,6 +135,36 @@ class TargetSuite(Suite):
         KeyError.
         """
         self.inst_tester.remove_binary(pkg_id)
+
+    def check_suite_source_pkg_consistency(self, comment):
+        sources_t = self.sources
+        binaries_t = self.binaries
+        logger = self._logger
+        issues_found = False
+
+        logger.info("check_target_suite_source_pkg_consistency %s", comment)
+
+        for arch in binaries_t:
+            for pkg_name in binaries_t[arch]:
+                pkg = binaries_t[arch][pkg_name]
+                src = pkg.source
+
+                if src not in sources_t:  # pragma: no cover
+                    issues_found = True
+                    logger.error("inconsistency found (%s): src %s not in target, target has pkg %s with source %s" % (
+                        comment, src, pkg_name, src))
+
+        for src in sources_t:
+            source_data = sources_t[src]
+            for pkg_id in source_data.binaries:
+                binary, _, parch = pkg_id
+                if binary not in binaries_t[parch]:  # pragma: no cover
+                    issues_found = True
+                    logger.error("inconsistency found (%s): binary %s from source %s not in binaries_t[%s]" % (
+                        comment, binary, src, parch))
+
+        if issues_found:  # pragma: no cover
+            raise AssertionError("inconsistencies found in target suite")
 
 
 class Suites(object):

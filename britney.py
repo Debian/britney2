@@ -214,7 +214,6 @@ from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers
                             invalidate_excuses, compile_nuninst,
                             find_smooth_updateable_binaries, parse_provides,
                             MigrationConstraintException,
-                            check_target_suite_source_pkg_consistency,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -1440,6 +1439,7 @@ class Britney(object):
         output_logger = self.output_logger
         solver = InstallabilitySolver(self.pkg_universe, self._inst_tester)
         mm = self._migration_manager
+        target_suite = self.suite_info.target_suite
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             try:
@@ -1489,7 +1489,7 @@ class Britney(object):
                                                    len(selected),
                                                    " ".join(x.uvname for x in selected[-20:]))
                             if self.options.check_consistency_level >= 3:
-                                check_target_suite_source_pkg_consistency(self.suite_info, "iter_packages after commit", self.logger)
+                                target_suite.check_suite_source_pkg_consistency('iter_packages after commit')
                             nuninst_last_accepted = nuninst_after
                             rescheduled_packages.extend(maybe_rescheduled_packages)
                             maybe_rescheduled_packages.clear()
@@ -1510,7 +1510,7 @@ class Britney(object):
                             output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
                             output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
                             if self.options.check_consistency_level >= 3:
-                                check_target_suite_source_pkg_consistency(self.suite_info, "iter_package after rollback (not accepted)",self.logger)
+                                target_suite.check_suite_source_pkg_consistency('iter_package after rollback (not accepted)')
 
                     except MigrationConstraintException as e:
                         transaction.rollback()
@@ -1522,7 +1522,7 @@ class Britney(object):
                                            )
                         output_logger.info("    got exception: %s"%(repr(e)))
                         if self.options.check_consistency_level >= 3:
-                            check_target_suite_source_pkg_consistency(self.suite_info, "iter_package after rollback (MigrationConstraintException)",self.logger)
+                            target_suite.check_suite_source_pkg_consistency('iter_package after rollback (MigrationConstraintException)')
 
                     if not accepted:
                         if len(comp) > 1:
@@ -1567,6 +1567,7 @@ class Britney(object):
             upgrade_me = self.upgrade_me[:]
         nuninst_start = self.nuninst_orig
         output_logger = self.output_logger
+        target_suite = self.suite_info.target_suite
 
         # these are special parameters for hints processing
         force = False
@@ -1674,7 +1675,7 @@ class Britney(object):
                 if transaction:
                     transaction.commit()
                     if self.options.check_consistency_level >= 2:
-                        check_target_suite_source_pkg_consistency(self.suite_info, "do_all after commit", self.logger)
+                        target_suite.check_suite_source_pkg_consistency('do_all after commit')
                 if not actions:
                     if recurse:
                         self.upgrade_me = extra
@@ -1686,7 +1687,7 @@ class Britney(object):
                     return
                 transaction.rollback()
                 if self.options.check_consistency_level >= 2:
-                    check_target_suite_source_pkg_consistency(self.suite_info, "do_all after rollback", self.logger)
+                    target_suite.check_suite_source_pkg_consistency('do_all after rollback')
 
         output_logger.info("")
 
@@ -1818,8 +1819,9 @@ class Britney(object):
 
         self.printuninstchange()
         if self.options.check_consistency_level >= 1:
+            target_suite = self.suite_info.target_suite
             self.assert_nuninst_is_correct()
-            check_target_suite_source_pkg_consistency(self.suite_info, "end", self.logger)
+            target_suite.check_suite_source_pkg_consistency('end')
 
         # output files
         if not self.options.dry_run:
