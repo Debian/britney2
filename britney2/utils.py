@@ -364,7 +364,7 @@ def check_target_suite_source_pkg_consistency(suite_info, comment, logger):
                 logger.error("inconsistency found (%s): binary %s from source %s not in binaries_t[%s]" % (
                     comment, binary, src, parch))
 
-    if issues_found:
+    if issues_found:  # pragma: no cover
         raise AssertionError("inconsistencies found in target suite")
 
 
