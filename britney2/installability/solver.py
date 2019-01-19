@@ -21,6 +21,15 @@ from itertools import chain
 from britney2.utils import (ifilter_only, iter_except)
 
 
+class OrderNode(object):
+
+    __slots__ = ['before', 'after']
+
+    def __init__(self):
+        self.after = set()
+        self.before = set()
+
+
 def compute_scc(graph):
     """Iterative algorithm for strongly-connected components
 
@@ -35,7 +44,7 @@ def compute_scc(graph):
     node_stack = []
 
     def _cannot_be_a_scc(graph_node):
-        if not graph[graph_node]['before'] or not graph[graph_node]['after']:
+        if not graph[graph_node].before or not graph[graph_node].after:
             # Short-cut obviously isolated component
             result.append((graph_node,))
             # Set the item number so high that no other item might
@@ -63,7 +72,7 @@ def compute_scc(graph):
                 continue
             succ_num = len(low)
             low[succ] = succ_num
-            work_stack.append((succ, len(node_stack), succ_num, graph[succ]['before']))
+            work_stack.append((succ, len(node_stack), succ_num, graph[succ].before))
             node_stack.append(succ)
             # "Recurse" into the child node first
             return True
@@ -81,7 +90,7 @@ def compute_scc(graph):
         low[n] = root_num
         # DFS work-stack needed to avoid call recursion.  It (more or less)
         # replaces the variables on the call stack in Tarjan's algorithm
-        work_stack = [(n, len(node_stack), root_num, graph[n]['before'])]
+        work_stack = [(n, len(node_stack), root_num, graph[n].before)]
         node_stack.append(n)
         while work_stack:
             node, stack_idx, orig_node_num, successors = work_stack[-1]
@@ -132,17 +141,18 @@ def apply_order(key, relation, ptable, order, negative_relation, debug_solver, l
     if other == key:
         # "Self-relation" => ignore
         return
+    order_key = order[key]
     if negative_relation:
-        order_key_fwd = 'before'
-        order_key_back = 'after'
+        order_key.before.add(other)
+        order[other].after.add(key)
+        debug_check = order_key.before
     else:
-        order_key_fwd = 'after'
-        order_key_back = 'before'
-    if debug_solver and other not in order[key][order_key_fwd]:  # pragma: no cover
+        order_key.after.add(other)
+        order[other].before.add(key)
+        debug_check = order_key.after
+    if debug_solver and other not in debug_check:  # pragma: no cover
         cause = 'Conflict' if negative_relation else 'Conflict'
         logger.debug("%s induced order: %s before %s", cause, key, other)
-    order[key][order_key_fwd].add(other)
-    order[other][order_key_back].add(key)
 
 
 class InstallabilitySolver(object):
@@ -207,16 +217,16 @@ class InstallabilitySolver(object):
                     other_rms.add(other)
 
             for other in (other_adds - other_rms):
-                if debug_solver and other != key and other not in order[key]['after']:  # pragma: no cover
+                if debug_solver and other != key and other not in order[key].after:  # pragma: no cover
                     self.logger.debug("Dependency induced order (add): %s before %s", key, other)
-                order[key]['after'].add(other)
-                order[other]['before'].add(key)
+                order[key].after.add(other)
+                order[other].before.add(key)
 
             for other in (other_rms - other_adds):
-                if debug_solver and other != key and other not in order[key]['before']:  # pragma: no cover
+                if debug_solver and other != key and other not in order[key].before:  # pragma: no cover
                     self.logger.debug("Dependency induced order (remove): %s before %s", key, other)
-                order[key]['before'].add(other)
-                order[other]['after'].add(key)
+                order[key].before.add(other)
+                order[other].after.add(key)
 
     def _compute_group_order(self, groups, key2item):
         universe = self._universe
@@ -231,7 +241,7 @@ class InstallabilitySolver(object):
         for (item, adds, rms) in groups:
             key = str(item)
             key2item[key] = item
-            order[key] = {'before': set(), 'after': set()}
+            order[key] = OrderNode()
             going_in.update(adds)
             going_out.update(rms)
             for x in chain(adds, rms):
@@ -271,13 +281,13 @@ class InstallabilitySolver(object):
             if len(com) < 2:
                 # Trivial case
                 continue
-            so_before = order[scc_id]['before']
-            so_after = order[scc_id]['after']
+            so_before = order[scc_id].before
+            so_after = order[scc_id].after
             for n in com:
                 if n == scc_id:
                     continue
-                so_before.update(order[n]['before'])
-                so_after.update(order[n]['after'])
+                so_before.update(order[n].before)
+                so_after.update(order[n].after)
                 merged[n] = scc_id
                 del order[n]
             if debug_solver:  # pragma: no cover
@@ -285,22 +295,22 @@ class InstallabilitySolver(object):
 
         for com in comps:
             node = com[0]
-            nbefore = set(merged[b] for b in order[node]['before'])
-            nafter = set(merged[b] for b in order[node]['after'])
+            nbefore = set(merged[b] for b in order[node].before)
+            nafter = set(merged[b] for b in order[node].after)
 
             # Drop self-relations (usually caused by the merging)
             nbefore.discard(node)
             nafter.discard(node)
-            order[node]['before'] = nbefore
-            order[node]['after'] = nafter
+            order[node].before = nbefore
+            order[node].after = nafter
 
         for com in comps:
             scc_id = com[0]
 
-            for other_scc_id in order[scc_id]['before']:
-                order[other_scc_id]['after'].add(scc_id)
-            for other_scc_id in order[scc_id]['after']:
-                order[other_scc_id]['before'].add(scc_id)
+            for other_scc_id in order[scc_id].before:
+                order[other_scc_id].after.add(scc_id)
+            for other_scc_id in order[scc_id].after:
+                order[other_scc_id].before.add(scc_id)
 
         return scc
 
@@ -338,14 +348,14 @@ class InstallabilitySolver(object):
 
         initial_round = []
         for com in sorted(order):
-            if debug_solver and order[com]['before']:  # pragma: no cover
-                self.logger.debug("N: %s <= %s", com, str(sorted(order[com]['before'])))
-            if not order[com]['after']:
+            if debug_solver and order[com].before:  # pragma: no cover
+                self.logger.debug("N: %s <= %s", com, str(sorted(order[com].before)))
+            if not order[com].after:
                 # This component can be scheduled immediately, add it
                 # to the queue
                 initial_round.append(com)
             elif debug_solver:  # pragma: no cover
-                self.logger.debug("N: %s >= %s", com, str(sorted(order[com]['after'])))
+                self.logger.debug("N: %s >= %s", com, str(sorted(order[com].after)))
 
         queue.extend(sorted(initial_round, key=len))
         del initial_round
@@ -355,18 +365,18 @@ class InstallabilitySolver(object):
             self.logger.debug("-- LINEARIZED ORDER --")
 
         for cur in iter_except(queue.popleft, IndexError):
-            if order[cur]['after'] <= emitted and cur not in emitted:
+            if order[cur].after <= emitted and cur not in emitted:
                 # This item is ready to be emitted right now
                 if debug_solver:  # pragma: no cover
                     self.logger.debug("%s -- %s", cur, sorted(scc_items[cur]))
                 emitted.add(cur)
                 result.append([key2item[x] for x in scc_items[cur]])
-                if order[cur]['before']:
+                if order[cur].before:
                     # There are components that come after this one.
                     # Add it to queue:
                     # - if it is ready, it will be emitted.
                     # - else, it will be dropped and re-added later.
-                    queue.extend(sorted(order[cur]['before'] - emitted, key=len))
+                    queue.extend(sorted(order[cur].before - emitted, key=len))
 
         if debug_solver:  # pragma: no cover
             self.logger.debug("-- END LINEARIZED ORDER --")
