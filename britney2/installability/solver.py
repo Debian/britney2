@@ -34,6 +34,19 @@ def compute_scc(graph):
     low = {}
     node_stack = []
 
+    def _cannot_be_a_scc(graph_node):
+        if not graph[graph_node]['before'] or not graph[graph_node]['after']:
+            # Short-cut obviously isolated component
+            result.append((graph_node,))
+            # Set the item number so high that no other item might
+            # mistakenly assume that they can form a component via
+            # this item.
+            # (Replaces the "is w on the stack check" for us from
+            #  the original algorithm)
+            low[graph_node] = len(graph) + 1
+            return True
+        return False
+
     def _handle_succ(parent, parent_num, successors_remaining):
         while successors_remaining:
             succ = successors_remaining.pop()
@@ -46,15 +59,7 @@ def compute_scc(graph):
                 continue
             # It cannot be a part of a SCC if it does not have depends
             # or reverse depends.
-            if not graph[succ]['before'] or not graph[succ]['after']:
-                # Short-cut obviously isolated component
-                result.append((succ,))
-                # Set the item number so high that no other item might
-                # mistakenly assume that they can form a component via
-                # this item.
-                # (Replaces the "is w on the stack check" for us from
-                #  the original algorithm)
-                low[succ] = len(graph) + 1
+            if _cannot_be_a_scc(succ):
                 continue
             succ_num = len(low)
             low[succ] = succ_num
@@ -69,15 +74,7 @@ def compute_scc(graph):
             continue
         # It cannot be a part of a SCC if it does not have depends
         # or reverse depends.
-        if not graph[n]['before'] or not graph[n]['after']:
-            # Short-cut obviously isolated component
-            result.append((n,))
-            # Set the item number so high that no other item might
-            # mistakenly assume that they can form a component via
-            # this item.
-            # (Replaces the "is w on the stack check" for us from
-            #  the original algorithm)
-            low[n] = len(graph) + 1
+        if _cannot_be_a_scc(n):
             continue
 
         root_num = len(low)
