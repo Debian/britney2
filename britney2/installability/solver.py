@@ -183,10 +183,44 @@ class InstallabilitySolver(object):
                 if rdep in ptable:
                     apply_order(key, rdep, ptable, order, False, debug_solver, logger)
 
+    def _compute_order_for_dependency(self, key, depgroup, ptable, order, going_in, debug_solver):
+        # We got three cases:
+        # - "swap" (replace existing binary with a newer version)
+        # - "addition" (add new binary without removing any)
+        # - "removal" (remove binary without providing a new)
+        #
+        # The problem is that only the two latter requires
+        # an ordering.  A "swap" (in itself) should not
+        # affect us.
+        other_adds = set()
+        other_rms = set()
+        for d in ifilter_only(ptable, depgroup):
+            other = ptable[d]
+            if d in going_in:
+                # "other" provides something "key" needs,
+                # schedule accordingly.
+                other_adds.add(other)
+            else:
+                # "other" removes something "key" needs,
+                # schedule accordingly.
+                other_rms.add(other)
+
+        for other in (other_adds - other_rms):
+            if debug_solver and other != key and other not in order[key].after:  # pragma: no cover
+                self.logger.debug("Dependency induced order (add): %s before %s", key, other)
+            order[key].after.add(other)
+            order[other].before.add(key)
+
+        for other in (other_rms - other_adds):
+            if debug_solver and other != key and other not in order[key].before:  # pragma: no cover
+                self.logger.debug("Dependency induced order (remove): %s before %s", key, other)
+            order[key].before.add(other)
+            order[other].after.add(key)
+
     def _compute_group_order_adds(self, adds, order, key, ptable, going_out, going_in):
+        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
         sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
         universe = self._universe
-        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
         for depgroup in chain.from_iterable(universe.dependencies_of(a) for a in adds):
             # Check if this item should migrate before others
             # (e.g. because they depend on a new [version of a]
@@ -195,38 +229,7 @@ class InstallabilitySolver(object):
             if sat_in_testing(rigid):
                 # (partly) satisfied by testing, assume it is okay
                 continue
-            # okay - we got three cases now.
-            # - "swap" (replace existing binary with a newer version)
-            # - "addition" (add new binary without removing any)
-            # - "removal" (remove binary without providing a new)
-            #
-            # The problem is that only the two latter requires
-            # an ordering.  A "swap" (in itself) should not
-            # affect us.
-            other_adds = set()
-            other_rms = set()
-            for d in ifilter_only(ptable, depgroup):
-                other = ptable[d]
-                if d in going_in:
-                    # "other" provides something "key" needs,
-                    # schedule accordingly.
-                    other_adds.add(other)
-                else:
-                    # "other" removes something "key" needs,
-                    # schedule accordingly.
-                    other_rms.add(other)
-
-            for other in (other_adds - other_rms):
-                if debug_solver and other != key and other not in order[key].after:  # pragma: no cover
-                    self.logger.debug("Dependency induced order (add): %s before %s", key, other)
-                order[key].after.add(other)
-                order[other].before.add(key)
-
-            for other in (other_rms - other_adds):
-                if debug_solver and other != key and other not in order[key].before:  # pragma: no cover
-                    self.logger.debug("Dependency induced order (remove): %s before %s", key, other)
-                order[key].before.add(other)
-                order[other].after.add(key)
+            self._compute_order_for_dependency(key, depgroup, ptable, order, going_in, debug_solver)
 
     def _compute_group_order(self, groups, key2item):
         universe = self._universe
