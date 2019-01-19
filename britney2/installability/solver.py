@@ -226,10 +226,8 @@ class InstallabilitySolver(object):
             order[key] = {'before': set(), 'after': set()}
             going_in.update(adds)
             going_out.update(rms)
-            for a in adds:
-                ptable[a] = key
-            for r in rms:
-                ptable[r] = key
+            for x in chain(adds, rms):
+                ptable[x] = key
 
         if debug_solver:  # pragma: no cover
             self._dump_groups(groups)
