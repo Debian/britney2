@@ -156,7 +156,8 @@ def read_nuninst(filename, architectures):
     nuninst = {}
     with open(filename, encoding='ascii') as f:
         for r in f:
-            if ":" not in r: continue
+            if ":" not in r:
+                continue
             arch, packages = r.strip().split(":", 1)
             if arch.split("+", 1)[0] in architectures:
                 nuninst[arch] = set(packages.split())
@@ -234,8 +235,8 @@ def write_heidi(filename, target_suite, *, outofsync_arches=frozenset(), sorted=
                     # Faux package; not really a part of testing
                     continue
                 if pkg.source_version and pkgarch == 'all' and \
-                    pkg.source_version != sources_t[pkg.source].version and \
-                    arch in outofsync_arches:
+                        pkg.source_version != sources_t[pkg.source].version and \
+                        arch in outofsync_arches:
                     # when architectures are marked as "outofsync", their binary
                     # versions may be lower than those of the associated
                     # source package in testing. the binary package list for
