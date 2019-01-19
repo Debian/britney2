@@ -127,6 +127,24 @@ def compute_scc(graph):
     return result
 
 
+def apply_order(key, relation, ptable, order, negative_relation, debug_solver, logger):
+    other = ptable[relation]
+    if other == key:
+        # "Self-relation" => ignore
+        return
+    if negative_relation:
+        order_key_fwd = 'before'
+        order_key_back = 'after'
+    else:
+        order_key_fwd = 'after'
+        order_key_back = 'before'
+    if debug_solver and other not in order[key][order_key_fwd]:  # pragma: no cover
+        cause = 'Conflict' if negative_relation else 'Conflict'
+        logger.debug("%s induced order: %s before %s", cause, key, other)
+    order[key][order_key_fwd].add(other)
+    order[other][order_key_back].add(key)
+
+
 class InstallabilitySolver(object):
 
     def __init__(self, universe, inst_tester):
@@ -142,7 +160,8 @@ class InstallabilitySolver(object):
     def _compute_group_order_rms(self, rms, order, key, ptable, going_out):
         sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
         universe = self._universe
-        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
+        logger = self.logger
+        debug_solver = logger.isEnabledFor(logging.DEBUG)
         for rdep in chain.from_iterable(universe.reverse_dependencies_of(r) for r in rms):
             # The binaries have reverse dependencies in testing;
             # check if we can/should migrate them first.
@@ -152,14 +171,7 @@ class InstallabilitySolver(object):
                     # (partly) satisfied by testing, assume it is okay
                     continue
                 if rdep in ptable:
-                    other = ptable[rdep]
-                    if other == key:
-                        # "Self-dependency" => ignore
-                        continue
-                    if debug_solver and other not in order[key]['after']:  # pragma: no cover
-                        self.logger.debug("Removal induced order: %s before %s", key, other)
-                    order[key]['after'].add(other)
-                    order[other]['before'].add(key)
+                    apply_order(key, rdep, ptable, order, False, debug_solver, logger)
 
     def _compute_group_order_adds(self, adds, order, key, ptable, going_out, going_in):
         sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
@@ -212,7 +224,8 @@ class InstallabilitySolver(object):
         order = {}
         going_out = set()
         going_in = set()
-        debug_solver = self.logger.isEnabledFor(logging.DEBUG)
+        logger = self.logger
+        debug_solver = logger.isEnabledFor(logging.DEBUG)
 
         # Build the tables
         for (item, adds, rms) in groups:
@@ -240,14 +253,7 @@ class InstallabilitySolver(object):
                 # "key" removes a conflict with one of
                 # "other"'s binaries, so it is probably a good
                 # idea to migrate "key" before "other"
-                other = ptable[o]
-                if other == key:
-                    # "Self-conflicts" => ignore
-                    continue
-                if debug_solver and other not in order[key]['before']:  # pragma: no cover
-                    self.logger.debug("Conflict induced order: %s before %s", key, other)
-                order[key]['before'].add(other)
-                order[other]['after'].add(key)
+                apply_order(key, o, ptable, order, True, debug_solver, logger)
 
             self._compute_group_order_rms(rms, order, key, ptable, going_out)
             self._compute_group_order_adds(adds, order, key, ptable, going_out, going_in)
