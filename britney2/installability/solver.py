@@ -239,21 +239,20 @@ class InstallabilitySolver(object):
             oldcons = set(chain.from_iterable(universe.negative_dependencies_of(r) for r in rms))
             newcons = set(chain.from_iterable(universe.negative_dependencies_of(a) for a in adds))
             oldcons -= newcons
-            if oldcons:
-                # Some of the old binaries have "conflicts" that will
-                # be removed.
-                for o in ifilter_only(ptable, oldcons):
-                    # "key" removes a conflict with one of
-                    # "other"'s binaries, so it is probably a good
-                    # idea to migrate "key" before "other"
-                    other = ptable[o]
-                    if other == key:
-                        # "Self-conflicts" => ignore
-                        continue
-                    if debug_solver and other not in order[key]['before']:  # pragma: no cover
-                        self.logger.debug("Conflict induced order: %s before %s", key, other)
-                    order[key]['before'].add(other)
-                    order[other]['after'].add(key)
+            # Some of the old binaries have "conflicts" that will
+            # be removed.
+            for o in ifilter_only(ptable, oldcons):
+                # "key" removes a conflict with one of
+                # "other"'s binaries, so it is probably a good
+                # idea to migrate "key" before "other"
+                other = ptable[o]
+                if other == key:
+                    # "Self-conflicts" => ignore
+                    continue
+                if debug_solver and other not in order[key]['before']:  # pragma: no cover
+                    self.logger.debug("Conflict induced order: %s before %s", key, other)
+                order[key]['before'].add(other)
+                order[other]['after'].add(key)
 
             self._compute_group_order_rms(rms, order, key, ptable, going_out)
             self._compute_group_order_adds(adds, order, key, ptable, going_out, going_in)
