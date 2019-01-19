@@ -1808,7 +1808,7 @@ class Britney(object):
         # smooth updates
         removals = old_libraries(self._migration_item_factory, self.suite_info, self.options.outofsync_arches)
         if removals:
-            output_logger.info("Removing packages left in the target suite (e.g. smooth updatees or cruft)")
+            output_logger.info("Removing packages left in the target suite (e.g. smooth updates or cruft)")
             log_and_format_old_libraries(self.output_logger, removals)
             self.do_all(actions=removals)
             removals = old_libraries(self._migration_item_factory, self.suite_info, self.options.outofsync_arches)
