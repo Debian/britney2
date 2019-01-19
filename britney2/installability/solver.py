@@ -16,6 +16,7 @@
 
 import logging
 from collections import deque
+from itertools import chain
 
 from britney2.utils import (ifilter_only, iter_except)
 
@@ -237,15 +238,9 @@ class InstallabilitySolver(object):
         # that migrates based on various rules.
         for (item, adds, rms) in groups:
             key = str(item)
-            oldcons = set()
-            newcons = set()
-            for r in rms:
-                oldcons.update(universe.negative_dependencies_of(r))
-            for a in adds:
-                newcons.update(universe.negative_dependencies_of(a))
-            current = newcons & oldcons
-            oldcons -= current
-            newcons -= current
+            oldcons = set(chain.from_iterable(universe.negative_dependencies_of(r) for r in rms))
+            newcons = set(chain.from_iterable(universe.negative_dependencies_of(a) for a in adds))
+            oldcons -= newcons
             if oldcons:
                 # Some of the old binaries have "conflicts" that will
                 # be removed.
