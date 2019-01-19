@@ -4,7 +4,7 @@ import unittest
 from collections import OrderedDict
 
 from . import new_pkg_universe_builder
-from britney2.installability.solver import compute_scc, InstallabilitySolver
+from britney2.installability.solver import compute_scc, InstallabilitySolver, OrderNode
 
 
 class TestInstTester(unittest.TestCase):
@@ -513,34 +513,40 @@ class TestInstTester(unittest.TestCase):
 
         graph = OrderedDict()
 
-        graph['A'] = {
-            'before': ['C', 'B'],
-            'after': ['A0'],
-        }
-        graph['B'] = {
-            'before': ['F'],
-            'after': ['A'],
-        }
-        graph['C'] = {
-            'before': ['E', 'D'],
-            'after': ['A'],
-        }
-        graph['D'] = {
-            'before': [],
-            'after': ['C']
-        }
-        graph['E'] = {
-            'before': ['B'],
-            'after': ['C']
-        }
-        graph['F'] = {
-            'before': [],
-            'after': ['B']
-        }
-        graph['A0'] = {
-            'before': ['A0'],
-            'after': []
-        }
+        def _order_node(**args):
+            node = OrderNode()
+            node.before = args['before']
+            node.after = args['after']
+            return node
+
+        graph['A'] = _order_node(
+            before=['C', 'B'],
+            after=['A0'],
+        )
+        graph['B'] = _order_node(
+            before=['F'],
+            after=['A'],
+        )
+        graph['C'] = _order_node(
+            before=['E', 'D'],
+            after=['A'],
+        )
+        graph['D'] = _order_node(
+            before=[],
+            after=['C'],
+        )
+        graph['E'] = _order_node(
+            before=['B'],
+            after=['C']
+        )
+        graph['F'] = _order_node(
+            before=[],
+            after=['B'],
+        )
+        graph['A0'] = _order_node(
+            before=['A0'],
+            after=[],
+        )
 
         # We also assert that the order is correct to ensure that
         # nodes were visited in the order we expected (the bug is
