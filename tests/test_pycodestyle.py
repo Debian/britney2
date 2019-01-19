@@ -3,6 +3,12 @@ import unittest
 import pycodestyle
 
 
+def should_skip_codestyle():
+    if 'nocodestyle' in os.environ.get('TEST_FLAGS', ''):
+        return True
+    return False
+
+
 EXCEPTIONS_BY_FILE = {
     'britney.py': 36,
     'britney2/__init__.py': 2,
@@ -47,6 +53,7 @@ def all_python_files(project_dir):
 
 class TestCodeFormat(unittest.TestCase):
 
+    @unittest.skipIf(should_skip_codestyle(), 'codestyle conformance skipped as requested')
     def test_conformance(self):
         """Test that we conform to PEP-8."""
         project_dir = os.path.dirname(os.path.dirname(__file__))

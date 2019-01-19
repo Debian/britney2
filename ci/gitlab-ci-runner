@@ -12,8 +12,15 @@ git clone https://salsa.debian.org/debian/britney2-tests.git britney2-tests
 if [ "x$1" = "x--with-coverage" ]; then
     PYTEST_COV_OPTIONS="--cov-branch --cov --cov-report="
     BRITNEY=./ci/britney-coverage.sh
+    TEST_FLAGS=
+else
+    TEST_FLAGS=nocodestyle
 fi
+
+export TEST_FLAGS
+
 py.test-3 -v $PYTEST_COV_OPTIONS || err=$?
+
 echo
 britney2-tests/bin/runtests "$BRITNEY" britney2-tests/t test-out || err=$?
 
