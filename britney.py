@@ -200,9 +200,10 @@ from britney2.inputs.suiteloader import DebMirrorLikeSuiteContentLoader, Missing
 from britney2.installability.builder import build_installability_tester
 from britney2.installability.solver import InstallabilitySolver
 from britney2.migration import MigrationManager
-from britney2.migrationitem import MigrationItem, MigrationItemFactory
+from britney2.migrationitem import MigrationItemFactory
 from britney2.policies import PolicyVerdict
-from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine, BlockPolicy, BuiltUsingPolicy
+from britney2.policies.policy import (AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine,
+                                      BlockPolicy, BuiltUsingPolicy)
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,

@@ -968,8 +968,8 @@ class BuiltUsingPolicy(BasePolicy):
         super().initialise(britney)
         self._britney = britney
 
-    def apply_srcarch_policy_impl(self, build_deps_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse,
-                          get_dependency_solvers=get_dependency_solvers):
+    def apply_srcarch_policy_impl(self, build_deps_info, suite, source_name, arch, source_data_tdist,
+                                  source_data_srcdist, excuse, get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
         britney = self._britney
 
@@ -984,7 +984,7 @@ class BuiltUsingPolicy(BasePolicy):
 
         def check_bu_in_suite(bu_source, bu_version, source_suite):
             found = False
-            if not bu_source in source_suite.sources:
+            if bu_source not in source_suite.sources:
                 return found
             s_source = source_suite.sources[bu_source]
             s_ver = s_source.version
@@ -992,13 +992,12 @@ class BuiltUsingPolicy(BasePolicy):
                 found = True
                 item_name = compute_item_name(sources_t, source_suite.sources, bu_source, arch)
                 if arch in self.options.break_arches:
-                    excuse.addhtml("Ignoring Built-Using for %s/%s on %s" % (pkg_name,arch,item_name))
+                    excuse.addhtml("Ignoring Built-Using for %s/%s on %s" % (pkg_name, arch, item_name))
                 else:
                     excuse.add_dependency(DependencyType.BUILT_USING, item_name, arch)
-                    excuse.addhtml("%s/%s has Built-Using on %s" % (pkg_name,arch,item_name))
+                    excuse.addhtml("%s/%s has Built-Using on %s" % (pkg_name, arch, item_name))
 
             return found
-
 
         for pkg_id in sorted(x for x in source_data_srcdist.binaries if x.architecture == arch):
             pkg_name = pkg_id.package_name
@@ -1025,9 +1024,11 @@ class BuiltUsingPolicy(BasePolicy):
 
                 if not found:
                     if arch in self.options.break_arches:
-                        excuse.addhtml("Ignoring unsatisfiable Built-Using for %s/%s on %s %s" % (pkg_name,arch, bu_source, bu_version))
+                        excuse.addhtml("Ignoring unsatisfiable Built-Using for %s/%s on %s %s" % (
+                            pkg_name, arch, bu_source, bu_version))
                     else:
-                        excuse.addhtml("%s/%s has unsatisfiable Built-Using on %s %s" % (pkg_name,arch, bu_source, bu_version))
+                        excuse.addhtml("%s/%s has unsatisfiable Built-Using on %s %s" % (
+                            pkg_name, arch, bu_source, bu_version))
                         if verdict.value < PolicyVerdict.REJECTED_PERMANENTLY.value:
                             verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
