@@ -1341,7 +1341,7 @@ class Britney(object):
             # parts[0] == package name
             # parts[1] == optional architecture
             parts = e.name.split('/')
-            for d in e.all_deps:
+            for d in sorted(e.all_deps):
                 for deptype in e.all_deps[d]:
                     ok = False
                     # source -> source dependency; both packages must have
