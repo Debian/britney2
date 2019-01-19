@@ -267,18 +267,20 @@ class InstallabilitySolver(object):
             scc_id = com[0]
             scc[scc_id] = com
             merged[scc_id] = scc_id
-            if len(com) > 1:
-                so_before = order[scc_id]['before']
-                so_after = order[scc_id]['after']
-                for n in com:
-                    if n == scc_id:
-                        continue
-                    so_before.update(order[n]['before'])
-                    so_after.update(order[n]['after'])
-                    merged[n] = scc_id
-                    del order[n]
-                if debug_solver:  # pragma: no cover
-                    self.logger.debug("SCC: %s -- %s", scc_id, str(sorted(com)))
+            if len(com) < 2:
+                # Trivial case
+                continue
+            so_before = order[scc_id]['before']
+            so_after = order[scc_id]['after']
+            for n in com:
+                if n == scc_id:
+                    continue
+                so_before.update(order[n]['before'])
+                so_after.update(order[n]['after'])
+                merged[n] = scc_id
+                del order[n]
+            if debug_solver:  # pragma: no cover
+                self.logger.debug("SCC: %s -- %s", scc_id, str(sorted(com)))
 
         for com in comps:
             node = com[0]
