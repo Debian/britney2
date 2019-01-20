@@ -529,14 +529,14 @@ class AutopkgtestPolicy(BasePolicy):
         # gcc already tests itself during build, and it is being used from
         # -proposed, so holding it back on a dozen unrelated test failures
         # serves no purpose. Just check some key packages which actually use
-        # gcc during the test, and libreoffice as an example for a libgcc user.
+        # gcc during the test, and doxygen as an example for a libgcc user.
         if src.startswith('gcc-'):
             if re.match(r'gcc-\d$', src):
                 # add gcc's own tests, if it has any
                 srcinfo = source_suite.sources[src]
                 if 'autopkgtest' in srcinfo.testsuite:
                     tests.append((src, ver))
-                for test in ['binutils', 'fglrx-installer', 'libreoffice', 'linux']:
+                for test in ['binutils', 'fglrx-installer', 'doxygen', 'linux']:
                     try:
                         tests.append((test, sources_info[test].version))
                     except KeyError:
