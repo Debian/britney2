@@ -183,8 +183,9 @@ class MigrationManager(object):
             if item.architecture == 'source' and item.is_removal and binary not in binaries_t[parch]:
                 continue
 
-            # Do not include hijacked binaries
-            if binaries_t[parch][binary].source != source_name:
+            bin_data = binaries_t[parch][binary]
+            # Do not include hijacked binaries nor cruft (cruft is handled separately)
+            if bin_data.source != source_name or bin_data.source_version != source_data.version:
                 continue
             bins.append(pkg_id)
 
