@@ -949,7 +949,8 @@ class AutopkgtestPolicy(BasePolicy):
                 # might work against the default kernel but fail against a
                 # different flavor; so for those, ignore the "ever
                 # passed" check; FIXME: check against trigsrc only
-                if trigger.startswith('linux-meta') or trigger.startswith('linux/'):
+                if self.options.adt_baseline != 'reference' and \
+                  (trigger.startswith('linux-meta') or trigger.startswith('linux/')):
                     baseline_result = Result.FAIL
 
                 if baseline_result == Result.FAIL:
