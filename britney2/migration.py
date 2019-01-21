@@ -451,7 +451,7 @@ class MigrationManager(object):
                     is_accepted = False
                     break
 
-        new_cruft = [self._migration_item_factory.generate_removal_for_cruft_item(x) for x in smooth_updates]
+        new_cruft = {self._migration_item_factory.generate_removal_for_cruft_item(x) for x in smooth_updates}
 
         return (is_accepted, nuninst_after, arch, new_cruft)
 

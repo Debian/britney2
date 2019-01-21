@@ -1615,6 +1615,18 @@ class Britney(object):
                     # Ensure upgrade_me and selected do not overlap, if we
                     # follow-up with a recurse ("hint"-hint).
                     upgrade_me = [x for x in upgrade_me if x not in set(selected)]
+                else:
+                    # On non-recursive hints check for cruft and purge it proactively in case it "fixes" the hint.
+                    cruft = [x for x in upgrade_me if x.is_cruft_removal]
+                    cruft.extend(new_cruft)
+                    if cruft:
+                        output_logger.info("Checking if changes enables cruft removal")
+                        (nuninst_end, remaining_cruft) = self.iter_packages(cruft,
+                                                                            selected,
+                                                                            nuninst=nuninst_end)
+                        output_logger.info("Removed %d of %d cruft item(s) after the changes",
+                                           len(cruft) - len(remaining_cruft), len(cruft))
+                        new_cruft.difference_update(remaining_cruft)
 
                 # Add new cruft items regardless of whether we recurse.  A future run might clean
                 # them for us.
