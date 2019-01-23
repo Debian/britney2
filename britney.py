@@ -766,37 +766,7 @@ class Britney(object):
     # Upgrade run
     # -----------
 
-    def eval_nuninst(self, nuninst, original=None):
-        """Return a string which represents the uninstallability counters
-
-        This method returns a string which represents the uninstallability
-        counters reading the uninstallability statistics `nuninst` and, if
-        present, merging the results with the `original` one.
-
-        An example of the output string is:
-        1+2: i-0:a-0:a-0:h-0:i-1:m-0:m-0:p-0:a-0:m-0:s-2:s-0
-
-        where the first part is the number of broken packages in non-break
-        architectures + the total number of broken packages for all the
-        architectures.
-        """
-        res = []
-        total = 0
-        totalbreak = 0
-        for arch in self.options.architectures:
-            if arch in nuninst:
-                n = len(nuninst[arch])
-            elif original and arch in original:
-                n = len(original[arch])
-            else: continue
-            if arch in self.options.break_arches:
-                totalbreak = totalbreak + n
-            else:
-                total = total + n
-            res.append("%s-%d" % (arch[0], n))
-        return "%d+%d: %s" % (total, totalbreak, ":".join(res))
-
-    def iter_packages(self, packages, selected, nuninst=None):
+    def iter_packages(self, packages, solver_helper):
         """Iter on the list of actions and apply them one-by-one
 
         This method applies the changes from `packages` to testing, checking the uninstallability
@@ -805,22 +775,12 @@ class Britney(object):
         final result is successful, otherwise (None, []).
         """
         output_logger = self.output_logger
-
-        if nuninst:
-            nuninst_orig = nuninst
-        else:
-            nuninst_orig = self.nuninst_orig
-
-        output_logger.info("recur: [] %s %d/0", ",".join(x.uvname for x in selected), len(packages))
+        output_logger.info("recur: [] %s %d/0", ",".join(x.uvname for x in solver_helper.selected), len(packages))
         target_suite = self.suite_info.target_suite
-        solver_helper = SolverStateHelper(self.options, target_suite, self._migration_manager,
-                                          nuninst_orig, selected, output_logger)
         solver = PartialOrderSolver(solver_helper, target_suite, self.pkg_universe, output_logger)
         result = solver.solve_as_many_as_possible(self._migration_manager, packages)
 
-        selected.extend(result.committed_items)
-
-        output_logger.info(" finish: [%s]", ",".join(x.uvname for x in selected))
+        output_logger.info(" finish: [%s]", ",".join(x.uvname for x in solver_helper.selected))
         output_logger.info("endloop: %s", solver_helper.eval_nuninst(self.nuninst_orig))
         output_logger.info("    now: %s", solver_helper.eval_nuninst(result.new_baseline))
         format_and_log_uninst(output_logger,
@@ -829,7 +789,7 @@ class Britney(object):
                               )
         output_logger.info("")
 
-        return (result.new_baseline, result.unsolved_items)
+        return result.unsolved_items
 
     def do_all(self, hinttype=None, init=None, actions=None):
         """Testing update runner
@@ -850,7 +810,6 @@ class Britney(object):
         # these are special parameters for hints processing
         force = False
         recurse = True
-        nuninst_end = None
         extra = []
         mm = self._migration_manager
 
@@ -867,8 +826,11 @@ class Britney(object):
                 selected.append(x)
                 upgrade_me.remove(x)
 
-        output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
-        output_logger.info("orig: %s", self.eval_nuninst(nuninst_start))
+        solver_helper = SolverStateHelper(self.options, target_suite, self._migration_manager,
+                                          nuninst_start, selected, output_logger)
+
+        output_logger.info("start: %s", solver_helper.eval_nuninst(nuninst_start))
+        output_logger.info("orig: %s", solver_helper.eval_nuninst(nuninst_start))
 
         if init and not force:
             # We will need to be able to roll back (e.g. easy or a "hint"-hint)
@@ -891,6 +853,9 @@ class Britney(object):
                                                                                   self.nuninst_orig,
                                                                                   stop_on_first_regression=False)
 
+                # Update the baseline to match the newly migrated packages.
+                solver_helper.baseline_current = nuninst_end
+
                 if recurse:
                     # Ensure upgrade_me and selected do not overlap, if we
                     # follow-up with a recurse ("hint"-hint).
@@ -901,9 +866,7 @@ class Britney(object):
                     cruft.extend(new_cruft)
                     if cruft:
                         output_logger.info("Checking if changes enables cruft removal")
-                        (nuninst_end, remaining_cruft) = self.iter_packages(cruft,
-                                                                            selected,
-                                                                            nuninst=nuninst_end)
+                        remaining_cruft = self.iter_packages(cruft, solver_helper)
                         output_logger.info("Removed %d of %d cruft item(s) after the changes",
                                            len(cruft) - len(remaining_cruft), len(cruft))
                         new_cruft.difference_update(remaining_cruft)
@@ -914,11 +877,10 @@ class Britney(object):
 
             if recurse:
                 # Either the main run or the recursive run of a "hint"-hint.
-                (nuninst_end, extra) = self.iter_packages(upgrade_me,
-                                                          selected,
-                                                          nuninst=nuninst_end)
+                extra = self.iter_packages(upgrade_me, solver_helper)
 
-            nuninst_end_str = self.eval_nuninst(nuninst_end)
+            nuninst_end = solver_helper.baseline_current
+            nuninst_end_str = solver_helper.eval_nuninst(nuninst_end)
 
             if not recurse:
                 # easy or force-hint
@@ -949,8 +911,8 @@ class Britney(object):
             if better:
                 # Result accepted either by force or by being better than the original result.
                 output_logger.info("final: %s", ",".join(sorted(x.uvname for x in selected)))
-                output_logger.info("start: %s", self.eval_nuninst(nuninst_start))
-                output_logger.info(" orig: %s", self.eval_nuninst(self.nuninst_orig))
+                output_logger.info("start: %s", solver_helper.eval_nuninst(nuninst_start))
+                output_logger.info(" orig: %s", solver_helper.eval_nuninst(self.nuninst_orig))
                 output_logger.info("  end: %s", nuninst_end_str)
                 if force:
                     broken = newly_uninst(nuninst_start, nuninst_end)

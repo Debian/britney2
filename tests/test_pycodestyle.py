@@ -10,7 +10,7 @@ def should_skip_codestyle():
 
 
 EXCEPTIONS_BY_FILE = {
-    'britney.py': 20,
+    'britney.py': 19,
     'britney2/excuse.py': 5,
     'britney2/excusefinder.py': 1,
     'britney2/hints.py': 8,
