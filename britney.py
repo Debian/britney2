@@ -188,7 +188,6 @@ import time
 from collections import defaultdict
 from functools import reduce
 from itertools import chain
-from operator import attrgetter
 from urllib.parse import quote
 
 import apt_pkg
@@ -198,13 +197,13 @@ from britney2.excuse import Excuse
 from britney2.hints import HintParser
 from britney2.inputs.suiteloader import DebMirrorLikeSuiteContentLoader, MissingRequiredConfigurationError
 from britney2.installability.builder import build_installability_tester
-from britney2.installability.solver import InstallabilitySolver
 from britney2.migration import MigrationManager
 from britney2.migrationitem import MigrationItemFactory
 from britney2.policies import PolicyVerdict
 from britney2.policies.policy import (AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine,
                                       BlockPolicy, BuiltUsingPolicy)
 from britney2.policies.autopkgtest import AutopkgtestPolicy
+from britney2.solvers import PartialOrderSolver, SolverStateHelper
 from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers,
                             read_nuninst, write_nuninst, write_heidi,
                             format_and_log_uninst, newly_uninst,
@@ -213,7 +212,6 @@ from britney2.utils import (log_and_format_old_libraries, get_dependency_solvers
                             clone_nuninst, compute_item_name,
                             invalidate_excuses, compile_nuninst,
                             find_smooth_updateable_binaries, parse_provides,
-                            MigrationConstraintException,
                             )
 
 __author__ = 'Fabio Tranchitella and the Debian Release Team'
@@ -1435,121 +1433,32 @@ class Britney(object):
         The method returns the new uninstallability counters and the remaining actions if the
         final result is successful, otherwise (None, []).
         """
-        group_info = {}
-        rescheduled_packages = packages
-        maybe_rescheduled_packages = []
         output_logger = self.output_logger
-        target_suite = self.suite_info.target_suite
-        solver = InstallabilitySolver(self.pkg_universe, target_suite)
-        mm = self._migration_manager
-
-        for y in sorted((y for y in packages), key=attrgetter('uvname')):
-            try:
-                _, updates, rms, _ = mm.compute_groups(y)
-                result = (y, frozenset(updates), frozenset(rms))
-                group_info[y] = result
-            except MigrationConstraintException as e:
-                rescheduled_packages.remove(y)
-                output_logger.info("not adding package to list: %s",(y.package))
-                output_logger.info("    got exception: %s"%(repr(e)))
 
         if nuninst:
             nuninst_orig = nuninst
         else:
             nuninst_orig = self.nuninst_orig
 
-        nuninst_last_accepted = nuninst_orig
-
         output_logger.info("recur: [] %s %d/0", ",".join(x.uvname for x in selected), len(packages))
-        while rescheduled_packages:
-            groups = {group_info[x] for x in rescheduled_packages}
-            worklist = solver.solve_groups(groups)
-            rescheduled_packages = []
+        target_suite = self.suite_info.target_suite
+        solver_helper = SolverStateHelper(self.options, target_suite, self._migration_manager,
+                                          nuninst_orig, selected, output_logger)
+        solver = PartialOrderSolver(solver_helper, target_suite, self.pkg_universe, output_logger)
+        result = solver.solve_as_many_as_possible(self._migration_manager, packages)
 
-            worklist.reverse()
-
-            while worklist:
-                comp = worklist.pop()
-                comp_name = ' '.join(item.uvname for item in comp)
-                output_logger.info("trying: %s" % comp_name)
-                with mm.start_transaction() as transaction:
-                    accepted = False
-                    try:
-                        accepted, nuninst_after, failed_arch, new_cruft = mm.migrate_items_to_target_suite(
-                            comp,
-                            nuninst_last_accepted
-                        )
-                        if accepted:
-                            selected.extend(comp)
-                            transaction.commit()
-                            output_logger.info("accepted: %s", comp_name)
-                            output_logger.info("   ori: %s", self.eval_nuninst(nuninst_orig))
-                            output_logger.info("   pre: %s", self.eval_nuninst(nuninst_last_accepted))
-                            output_logger.info("   now: %s", self.eval_nuninst(nuninst_after))
-                            if len(selected) <= 20:
-                                output_logger.info("   all: %s", " ".join(x.uvname for x in selected))
-                            else:
-                                output_logger.info("  most: (%d) .. %s",
-                                                   len(selected),
-                                                   " ".join(x.uvname for x in selected[-20:]))
-                            if self.options.check_consistency_level >= 3:
-                                target_suite.check_suite_source_pkg_consistency('iter_packages after commit')
-                            nuninst_last_accepted = nuninst_after
-                            for cruft_item in new_cruft:
-                                _, updates, rms, _ = mm.compute_groups(cruft_item)
-                                result = (cruft_item, frozenset(updates), frozenset(rms))
-                                group_info[cruft_item] = result
-                            worklist.extend([x] for x in new_cruft)
-                            rescheduled_packages.extend(maybe_rescheduled_packages)
-                            maybe_rescheduled_packages.clear()
-                        else:
-                            transaction.rollback()
-                            broken = sorted(b for b in nuninst_after[failed_arch]
-                                            if b not in nuninst_last_accepted[failed_arch])
-                            compare_nuninst = None
-                            if any(item for item in comp if item.architecture != 'source'):
-                                compare_nuninst = nuninst_last_accepted
-                            # NB: try_migration already reverted this for us, so just print the results and move on
-                            output_logger.info("skipped: %s (%d, %d, %d)",
-                                               comp_name,
-                                               len(rescheduled_packages),
-                                               len(maybe_rescheduled_packages),
-                                               len(worklist)
-                                               )
-                            output_logger.info("    got: %s", self.eval_nuninst(nuninst_after, compare_nuninst))
-                            output_logger.info("    * %s: %s", failed_arch, ", ".join(broken))
-                            if self.options.check_consistency_level >= 3:
-                                target_suite.check_suite_source_pkg_consistency('iter_package after rollback (not accepted)')
-
-                    except MigrationConstraintException as e:
-                        transaction.rollback()
-                        output_logger.info("skipped: %s (%d, %d, %d)",
-                                           comp_name,
-                                           len(rescheduled_packages),
-                                           len(maybe_rescheduled_packages),
-                                           len(worklist)
-                                           )
-                        output_logger.info("    got exception: %s"%(repr(e)))
-                        if self.options.check_consistency_level >= 3:
-                            target_suite.check_suite_source_pkg_consistency('iter_package after rollback (MigrationConstraintException)')
-
-                    if not accepted:
-                        if len(comp) > 1:
-                            output_logger.info("    - splitting the component into single items and retrying them")
-                            worklist.extend([item] for item in comp)
-                        else:
-                            maybe_rescheduled_packages.append(comp[0])
+        selected.extend(result.committed_items)
 
         output_logger.info(" finish: [%s]", ",".join(x.uvname for x in selected))
-        output_logger.info("endloop: %s", self.eval_nuninst(self.nuninst_orig))
-        output_logger.info("    now: %s", self.eval_nuninst(nuninst_last_accepted))
+        output_logger.info("endloop: %s", solver_helper.eval_nuninst(self.nuninst_orig))
+        output_logger.info("    now: %s", solver_helper.eval_nuninst(result.new_baseline))
         format_and_log_uninst(output_logger,
                               self.options.architectures,
-                              newly_uninst(self.nuninst_orig, nuninst_last_accepted)
+                              newly_uninst(self.nuninst_orig, result.new_baseline)
                               )
         output_logger.info("")
 
-        return (nuninst_last_accepted, maybe_rescheduled_packages)
+        return (result.new_baseline, result.unsolved_items)
 
     def do_all(self, hinttype=None, init=None, actions=None):
         """Testing update runner
