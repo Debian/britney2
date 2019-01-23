@@ -157,18 +157,21 @@ def apply_order(key, other, order, logger, order_cause, invert=False, order_sub_
 
 class InstallabilitySolver(object):
 
-    def __init__(self, universe, inst_tester):
+    def __init__(self, universe, target_suite):
         """Create a new installability solver
 
         universe is a BinaryPackageUniverse.
         """
         self._universe = universe
-        self._inst_tester = inst_tester
+        # NB: unit tests uses an InstallabilityTester instead (because mocking a TargetSuite on top
+        # is just more complexity for no gain atm. given both classes expose the interface needed
+        # by this class)
+        self._target_suite = target_suite
         logger_name = ".".join((self.__class__.__module__, self.__class__.__name__))
         self.logger = logging.getLogger(logger_name)
 
     def _compute_group_order_rms(self, rms, order, key, ptable, going_out):
-        sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
+        sat_in_testing = self._target_suite.any_of_these_are_in_the_suite
         universe = self._universe
         logger = self.logger
         for rdep in chain.from_iterable(universe.reverse_dependencies_of(r) for r in rms):
@@ -211,7 +214,7 @@ class InstallabilitySolver(object):
             apply_order(key, other, order, logger, 'Dependency', order_sub_cause='remove', invert=True)
 
     def _compute_group_order_adds(self, adds, order, key, ptable, going_out, going_in):
-        sat_in_testing = self._inst_tester.any_of_these_are_in_the_suite
+        sat_in_testing = self._target_suite.any_of_these_are_in_the_suite
         universe = self._universe
         for depgroup in chain.from_iterable(universe.dependencies_of(a) for a in adds):
             # Check if this item should migrate before others

@@ -4,7 +4,14 @@ import unittest
 from collections import OrderedDict
 
 from . import new_pkg_universe_builder
+from britney2 import TargetSuite, SuiteClass
 from britney2.installability.solver import compute_scc, InstallabilitySolver, OrderNode
+
+
+def mock_target_suite(inst_tester):
+    target_suite = TargetSuite(SuiteClass.TARGET_SUITE, 'testing', '/non-existent/mirror/testing', '')
+    target_suite.inst_tester = inst_tester
+    return target_suite
 
 
 class TestInstTester(unittest.TestCase):
@@ -434,7 +441,7 @@ class TestInstTester(unittest.TestCase):
         try:
             sys.setrecursionlimit(recursion_limit)
             universe, inst_tester = builder.build()
-            solver = InstallabilitySolver(universe, inst_tester)
+            solver = InstallabilitySolver(universe, mock_target_suite(inst_tester))
             groups = []
 
             for pkg in pkgs:
@@ -480,7 +487,7 @@ class TestInstTester(unittest.TestCase):
         pkgh.depends_on(pkge).depends_on(pkgi)
 
         universe, inst_tester = builder.build()
-        solver = InstallabilitySolver(universe, inst_tester)
+        solver = InstallabilitySolver(universe, mock_target_suite(inst_tester))
         expected = [
             # SSC 3 first
             {pkgi.pkg_id.package_name},

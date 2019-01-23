@@ -810,9 +810,9 @@ class Britney(object):
         rescheduled_packages = packages
         maybe_rescheduled_packages = []
         output_logger = self.output_logger
-        solver = InstallabilitySolver(self.pkg_universe, self._inst_tester)
-        mm = self._migration_manager
         target_suite = self.suite_info.target_suite
+        solver = InstallabilitySolver(self.pkg_universe, target_suite)
+        mm = self._migration_manager
 
         for y in sorted((y for y in packages), key=attrgetter('uvname')):
             try:
