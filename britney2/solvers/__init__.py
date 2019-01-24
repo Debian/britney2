@@ -134,15 +134,9 @@ class PartialOrderSolver(object):
         self._pkg_universe = pkg_universe
         self._solver_helper = solver_helper
 
-    def solve_as_many_as_possible(self, mm, considered_items):
-        group_info = {}
-        rescheduled_packages = considered_items
-        maybe_rescheduled_packages = []
-        output_logger = self.output_logger
-        solver = InstallabilitySolver(self._pkg_universe, self._target_suite)
-        solver_helper = self._solver_helper
-
-        for y in sorted((y for y in considered_items), key=attrgetter('uvname')):
+    @staticmethod
+    def _compute_groups(items, mm, group_info, rescheduled_packages, output_logger):
+        for y in items:
             try:
                 _, updates, rms, _ = mm.compute_groups(y)
                 result = (y, frozenset(updates), frozenset(rms))
@@ -151,6 +145,18 @@ class PartialOrderSolver(object):
                 rescheduled_packages.remove(y)
                 output_logger.info("not adding package to list: %s", y.package)
                 output_logger.info("    got exception: %s", repr(e))
+
+    def solve_as_many_as_possible(self, mm, considered_items):
+        group_info = {}
+        rescheduled_packages = considered_items
+        maybe_rescheduled_packages = []
+        output_logger = self.output_logger
+        solver = InstallabilitySolver(self._pkg_universe, self._target_suite)
+        solver_helper = self._solver_helper
+
+        self._compute_groups(sorted(considered_items, key=attrgetter('uvname')),
+                             mm, group_info, rescheduled_packages, output_logger
+                             )
 
         while rescheduled_packages:
             groups = {group_info[x] for x in rescheduled_packages}
@@ -168,10 +174,7 @@ class PartialOrderSolver(object):
                 accepted, new_cruft = solver_helper.try_migrating_items(comp, progress)
 
                 if accepted:
-                    for cruft_item in new_cruft:
-                        _, updates, rms, _ = mm.compute_groups(cruft_item)
-                        result = (cruft_item, frozenset(updates), frozenset(rms))
-                        group_info[cruft_item] = result
+                    self._compute_groups(new_cruft, mm, group_info, rescheduled_packages, output_logger)
                     worklist.extend([x] for x in new_cruft)
                     rescheduled_packages.extend(maybe_rescheduled_packages)
                     maybe_rescheduled_packages.clear()
