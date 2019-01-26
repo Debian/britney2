@@ -201,7 +201,8 @@ from britney2.migrationitem import MigrationItemFactory
 from britney2.policies.policy import (AgePolicy, RCBugPolicy, PiupartsPolicy, BuildDependsPolicy, PolicyEngine,
                                       BlockPolicy, BuiltUsingPolicy)
 from britney2.policies.autopkgtest import AutopkgtestPolicy
-from britney2.solvers import PartialOrderSolver, SolverStateHelper
+from britney2.solvers import SolverStateHelper
+from britney2.solvers.partialorder import PartialOrderSolver
 from britney2.utils import (log_and_format_old_libraries,
                             read_nuninst, write_nuninst, write_heidi,
                             format_and_log_uninst, newly_uninst,
