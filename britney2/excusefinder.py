@@ -1,3 +1,4 @@
+from itertools import chain
 from urllib.parse import quote
 
 import apt_pkg
@@ -527,7 +528,7 @@ class ExcuseFinder(object):
         should_upgrade_src = self._should_upgrade_src
         mi_factory = self._migration_item_factory
 
-        sources_s = pri_source_suite.sources
+        sources_ps = pri_source_suite.sources
         sources_t = suite_info.target_suite.sources
 
         # this set will contain the packages which are valid candidates;
@@ -537,41 +538,28 @@ class ExcuseFinder(object):
 
         # for every source package in testing, check if it should be removed
         for pkg in sources_t:
-            if pkg not in sources_s:
+            if pkg not in sources_ps:
                 item = mi_factory.parse_item("-" + pkg, versioned=False, auto_correct=False)
                 if should_remove_source(item):
                     actionable_items_add(item.name)
 
-        # for every source package in unstable check if it should be upgraded
-        for pkg in sources_s:
-            if sources_s[pkg].is_fakesrc:
-                continue
-            # if the source package is already present in testing,
-            # check if it should be upgraded for every binary package
-            if pkg in sources_t and not sources_t[pkg].is_fakesrc:
-                for arch in architectures:
-                    item = mi_factory.parse_item("%s/%s" % (pkg, arch), versioned=False, auto_correct=False)
-                    if should_upgrade_srcarch(item):
-                        actionable_items_add(item.name)
-
-            item = mi_factory.parse_item(pkg, versioned=False, auto_correct=False)
-            # check if the source package should be upgraded
-            if should_upgrade_src(item):
-                actionable_items_add(item.name)
-
-        # for every source package in the additional source suites, check if it should be upgraded
-        for suite in self.suite_info.additional_source_suites:
-            for pkg in suite.sources:
-                # if the source package is already present in testing,
+        # for every source package in the source suites, check if it should be upgraded
+        for suite in chain((pri_source_suite, *suite_info.additional_source_suites)):
+            sources_s = suite.sources
+            item_suffix = "_%s" % suite.excuses_suffix if suite.excuses_suffix else ''
+            for pkg in sources_s:
+                if sources_s[pkg].is_fakesrc:
+                    continue
+                # if the source package is already present in the target suite,
                 # check if it should be upgraded for every binary package
                 if pkg in sources_t:
                     for arch in architectures:
-                        item = mi_factory.parse_item("%s/%s_%s" % (pkg, arch, suite.excuses_suffix),
+                        item = mi_factory.parse_item("%s/%s%s" % (pkg, arch, item_suffix),
                                                      versioned=False, auto_correct=False)
                         if should_upgrade_srcarch(item):
                             actionable_items_add(item.name)
 
-                item = mi_factory.parse_item("%s_%s" % (pkg, suite.excuses_suffix), versioned=False, auto_correct=False)
+                item = mi_factory.parse_item("%s%s" % (pkg, item_suffix), versioned=False, auto_correct=False)
                 # check if the source package should be upgraded
                 if should_upgrade_src(item):
                     actionable_items_add(item.name)
