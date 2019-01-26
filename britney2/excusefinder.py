@@ -310,7 +310,7 @@ class ExcuseFinder(object):
         if anywrongver:
             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        self._policy_engine.apply_srcarch_policies(source_suite, src, arch, source_t, source_u, excuse)
+        self._policy_engine.apply_srcarch_policies(item, arch, source_t, source_u, excuse)
 
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
@@ -470,7 +470,7 @@ class ExcuseFinder(object):
             excuse.addreason("no-binaries")
             excuse.policy_verdict = PolicyVerdict.REJECTED_PERMANENTLY
 
-        self._policy_engine.apply_src_policies(source_suite, src, source_t, source_u, excuse)
+        self._policy_engine.apply_src_policies(item, source_t, source_u, excuse)
 
         if source_suite.suite_class.is_additional_source and source_t:
             # o-o-d(ish) checks for (t-)p-u

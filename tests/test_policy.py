@@ -6,7 +6,7 @@ import unittest
 from britney2 import Suites, Suite, SuiteClass, SourcePackage, BinaryPackageId, BinaryPackage
 from britney2.excuse import Excuse
 from britney2.hints import HintParser
-from britney2.migrationitem import MigrationItemFactory
+from britney2.migrationitem import MigrationItemFactory, MigrationItem
 from britney2.policies.policy import AgePolicy, RCBugPolicy, PiupartsPolicy, PolicyVerdict
 from britney2.policies.autopkgtest import AutopkgtestPolicy
 
@@ -91,7 +91,6 @@ def create_policy_objects(source_name, target_version='1.0', source_version='2.0
         create_source_package(target_version),
         create_source_package(source_version),
         create_excuse(source_name),
-        {},
     )
 
 
@@ -100,13 +99,15 @@ def apply_src_policy(policy, expected_verdict, src_name, *, suite='unstable', ta
     if src_name in suite_info[suite].sources:
         src_u = suite_info[suite].sources[src_name]
         src_t = suite_info.target_suite.sources.get(src_name)
-        _, _, excuse, _ = create_policy_objects(src_name)
+        _, _, excuse = create_policy_objects(src_name)
     else:
-        src_t, src_u, excuse, policy_info = create_policy_objects(src_name, target_version, source_version)
+        src_t, src_u, excuse = create_policy_objects(src_name, target_version, source_version)
     suite_info.target_suite.sources[src_name] = src_t
     suite_info[suite].sources[src_name] = src_u
+    factory = MigrationItemFactory(suite_info)
+    item = factory.parse_item(src_name, versioned=False, auto_correct=False)
     pinfo = {}
-    verdict = policy.apply_src_policy_impl(pinfo, suite, src_name, src_t, src_u, excuse)
+    verdict = policy.apply_src_policy_impl(pinfo, item, src_t, src_u, excuse)
     assert verdict == expected_verdict
     return pinfo
 

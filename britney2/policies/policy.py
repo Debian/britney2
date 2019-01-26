@@ -37,9 +37,9 @@ class PolicyEngine(object):
         for policy in self._policies:
             policy.save_state(britney)
 
-    def apply_src_policies(self, source_suite, src, source_t, source_u, excuse):
+    def apply_src_policies(self, item, source_t, source_u, excuse):
         excuse_verdict = excuse.policy_verdict
-        suite_name = source_suite.name
+        source_suite = item.suite
         suite_class = source_suite.suite_class
         for policy in self._policies:
             pinfo = {}
@@ -47,11 +47,11 @@ class PolicyEngine(object):
             if suite_class in policy.applicable_suites:
                 if policy.src_policy.run_arch:
                     for arch in policy.options.architectures:
-                        v = policy.apply_srcarch_policy_impl(pinfo, suite_name, src, arch, source_t, source_u, excuse)
+                        v = policy.apply_srcarch_policy_impl(pinfo, item, arch, source_t, source_u, excuse)
                         if v.value > policy_verdict.value:
                             policy_verdict = v
                 if policy.src_policy.run_src:
-                    v = policy.apply_src_policy_impl(pinfo, suite_name, src, source_t, source_u, excuse)
+                    v = policy.apply_src_policy_impl(pinfo, item, source_t, source_u, excuse)
                     if v.value > policy_verdict.value:
                         policy_verdict = v
             # The base policy provides this field, so the subclass should leave it blank
@@ -63,14 +63,14 @@ class PolicyEngine(object):
                     excuse_verdict = policy_verdict
         excuse.policy_verdict = excuse_verdict
 
-    def apply_srcarch_policies(self, source_suite, src, arch, source_t, source_u, excuse):
+    def apply_srcarch_policies(self, item, arch, source_t, source_u, excuse):
         excuse_verdict = excuse.policy_verdict
-        suite_name = source_suite.name
+        source_suite = item.suite
         suite_class = source_suite.suite_class
         for policy in self._policies:
             pinfo = {}
             if suite_class in policy.applicable_suites:
-                policy_verdict = policy.apply_srcarch_policy_impl(pinfo, suite_name, src, arch, source_t, source_u, excuse)
+                policy_verdict = policy.apply_srcarch_policy_impl(pinfo, item, arch, source_t, source_u, excuse)
                 if policy_verdict.value > excuse_verdict.value:
                     excuse_verdict = policy_verdict
                 # The base policy provides this field, so the subclass should leave it blank
@@ -134,7 +134,7 @@ class BasePolicy(object):
         """
         pass
 
-    def apply_src_policy_impl(self, policy_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
+    def apply_src_policy_impl(self, policy_info, item, source_data_tdist, source_data_srcdist, excuse):  # pragma: no cover
         """Apply a policy on a given source migration
 
         Britney will call this method on a given source package, when
@@ -147,8 +147,7 @@ class BasePolicy(object):
         (e.g. policy_info['age'] = {...}).  This will go directly into
         the "excuses.yaml" output.
 
-        :param suite The name of the suite from where the source is
-        migrating from.
+        :param item The migration item the policy is applied to.
 
         :param source_data_tdist Information about the source package
         in the target distribution (e.g. "testing").  This is the
@@ -162,7 +161,7 @@ class BasePolicy(object):
         """
         return PolicyVerdict.NOT_APPLICABLE
 
-    def apply_srcarch_policy_impl(self, policy_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
+    def apply_srcarch_policy_impl(self, policy_info, item, arch, source_data_tdist, source_data_srcdist, excuse):
         """Apply a policy on a given binary migration
 
         Britney will call this method on binaries from a given source package
@@ -175,8 +174,11 @@ class BasePolicy(object):
         (e.g. policy_info['age'] = {...}).  This will go directly into
         the "excuses.yaml" output.
 
-        :param suite The name of the suite from where the source is
-        migrating from.
+        :param item The migration item the policy is applied to.
+
+        :param arch The architecture the item is applied to.  This is mostly
+        relevant for policies where src_policy is not ApplySrcPolicy.RUN_SRC
+        (as that is the only case where arch can differ from item.architecture)
 
         :param source_data_tdist Information about the source package
         in the target distribution (e.g. "testing").  This is the
@@ -310,9 +312,10 @@ class AgePolicy(BasePolicy):
         super().save_state(britney)
         self._write_dates_file()
 
-    def apply_src_policy_impl(self, age_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, age_info, item, source_data_tdist, source_data_srcdist, excuse):
         # retrieve the urgency for the upload, ignoring it if this is a NEW package
         # (not present in the target suite)
+        source_name = item.package
         urgency = self._urgencies.get(source_name, self._default_urgency)
 
         if urgency not in self._min_days:
@@ -548,9 +551,10 @@ class RCBugPolicy(BasePolicy):
         self._bugs['source'] = self._read_bugs(filename_unstable)
         self._bugs['target'] = self._read_bugs(filename_testing)
 
-    def apply_src_policy_impl(self, rcbugs_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, rcbugs_info, item, source_data_tdist, source_data_srcdist, excuse):
         bugs_t = set()
         bugs_u = set()
+        source_name = item.package
 
         for src_key in (source_name, 'src:%s' % source_name):
             if source_data_tdist and src_key in self._bugs['target']:
@@ -670,7 +674,9 @@ class PiupartsPolicy(BasePolicy):
         self._piuparts['source'] = self._read_piuparts_summary(filename_unstable, keep_url=True)
         self._piuparts['target'] = self._read_piuparts_summary(filename_testing, keep_url=False)
 
-    def apply_src_policy_impl(self, piuparts_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, piuparts_info, item, source_data_tdist, source_data_srcdist, excuse):
+        source_name = item.package
+
         if source_name in self._piuparts['target']:
             testing_state = self._piuparts['target'][source_name][0]
         else:
@@ -759,6 +765,7 @@ class BuildDepResult(IntEnum):
     # relation cannot be satisfied
     FAILED = 3
 
+
 class BuildDependsPolicy(BasePolicy):
 
     def __init__(self, options, suite_info):
@@ -773,22 +780,24 @@ class BuildDependsPolicy(BasePolicy):
         if hasattr(self.options, 'all_buildarch'):
             self._all_buildarch = SuiteContentLoader.config_str_as_list(self.options.all_buildarch,[])
 
-    def apply_src_policy_impl(self, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
-                          get_dependency_solvers=get_dependency_solvers):
+    def apply_src_policy_impl(self, build_deps_info, item, source_data_tdist, source_data_srcdist, excuse,
+                              get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
 
         # analyze the dependency fields (if present)
         deps = source_data_srcdist.build_deps_arch
         if deps:
-            v = self._check_build_deps(deps, DependencyType.BUILD_DEPENDS, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
-                          get_dependency_solvers=get_dependency_solvers)
+            v = self._check_build_deps(deps, DependencyType.BUILD_DEPENDS, build_deps_info, item,
+                                       source_data_tdist, source_data_srcdist, excuse,
+                                       get_dependency_solvers=get_dependency_solvers)
             if verdict.value < v.value:
                 verdict = v
 
         ideps = source_data_srcdist.build_deps_indep
         if ideps:
-            v = self._check_build_deps(ideps, DependencyType.BUILD_DEPENDS_INDEP, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
-                          get_dependency_solvers=get_dependency_solvers)
+            v = self._check_build_deps(ideps, DependencyType.BUILD_DEPENDS_INDEP, build_deps_info, item,
+                                       source_data_tdist, source_data_srcdist, excuse,
+                                       get_dependency_solvers=get_dependency_solvers)
             if verdict.value < v.value:
                 verdict = v
 
@@ -831,7 +840,7 @@ class BuildDependsPolicy(BasePolicy):
 
         return verdict
 
-    def _check_build_deps(self, deps, dep_type, build_deps_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse,
+    def _check_build_deps(self, deps, dep_type, build_deps_info, item, source_data_tdist, source_data_srcdist, excuse,
                           get_dependency_solvers=get_dependency_solvers):
         verdict = PolicyVerdict.PASS
         any_arch_ok = dep_type == DependencyType.BUILD_DEPENDS_INDEP
@@ -841,7 +850,8 @@ class BuildDependsPolicy(BasePolicy):
         # local copies for better performance
         parse_src_depends = apt_pkg.parse_src_depends
 
-        source_suite = self.suite_info[suite]
+        source_name = item.package
+        source_suite = item.suite
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
         provides_s = source_suite.provides_table
@@ -966,11 +976,11 @@ class BuiltUsingPolicy(BasePolicy):
     def initialise(self, britney):
         super().initialise(britney)
 
-    def apply_srcarch_policy_impl(self, build_deps_info, suite, source_name, arch, source_data_tdist,
+    def apply_srcarch_policy_impl(self, build_deps_info, item, arch, source_data_tdist,
                                   source_data_srcdist, excuse):
         verdict = PolicyVerdict.PASS
 
-        source_suite = self.suite_info[suite]
+        source_suite = item.suite
         target_suite = self.suite_info.target_suite
         binaries_s = source_suite.binaries
 
@@ -1048,11 +1058,13 @@ class BlockPolicy(BasePolicy):
         # block related hints are currently defined in hint.py
         pass
 
-    def _check_blocked(self, src, arch, version, suite_name, excuse):
+    def _check_blocked(self, item, arch, version, excuse):
         verdict = PolicyVerdict.PASS
         blocked = {}
         unblocked = {}
-        source_suite = self.suite_info[suite_name]
+        source_suite = item.suite
+        suite_name = source_suite.name
+        src = item.package
         is_primary = source_suite.suite_class == SuiteClass.PRIMARY_SOURCE_SUITE
 
         if is_primary:
@@ -1111,9 +1123,9 @@ class BlockPolicy(BasePolicy):
                 verdict = PolicyVerdict.REJECTED_NEEDS_APPROVAL
         return verdict
 
-    def apply_src_policy_impl(self, block_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
-        return self._check_blocked(source_name, "source", source_data_srcdist.version, suite, excuse)
+    def apply_src_policy_impl(self, block_info, item, source_data_tdist, source_data_srcdist, excuse):
+        return self._check_blocked(item, "source", source_data_srcdist.version, excuse)
 
-    def apply_srcarch_policy_impl(self, block_info, suite, source_name, arch, source_data_tdist, source_data_srcdist, excuse):
-        return self._check_blocked(source_name, arch, source_data_srcdist.version, suite, excuse)
+    def apply_srcarch_policy_impl(self, block_info, item, arch, source_data_tdist, source_data_srcdist, excuse):
+        return self._check_blocked(item, arch, source_data_srcdist.version, excuse)
 

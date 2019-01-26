@@ -239,14 +239,14 @@ class AutopkgtestPolicy(BasePolicy):
             json.dump(self.pending_tests, f, indent=2)
         os.rename(self.pending_tests_file + '.new', self.pending_tests_file)
 
-    def apply_src_policy_impl(self, tests_info, suite, source_name, source_data_tdist, source_data_srcdist, excuse):
+    def apply_src_policy_impl(self, tests_info, item, source_data_tdist, source_data_srcdist, excuse):
         # initialize
         verdict = PolicyVerdict.PASS
         elegible_for_bounty = False
+        source_name = item.package
 
         # skip/delay autopkgtests until new package is built somewhere
-        binaries_info = self.suite_info[suite].sources[source_name]
-        if not binaries_info.binaries:
+        if not source_data_srcdist.binaries:
             self.logger.info('%s hasn''t been built anywhere, skipping autopkgtest policy', excuse.name)
             excuse.addhtml("nothing built yet, autopkgtest delayed")
             verdict = PolicyVerdict.REJECTED_TEMPORARILY
@@ -275,7 +275,7 @@ class AutopkgtestPolicy(BasePolicy):
                     self.logger.info('%s is uninstallable on arch %s, delay autopkgtest there', source_name, arch)
                     excuse.addhtml("uninstallable on arch %s, autopkgtest delayed there" % arch)
                 else:
-                    self.request_tests_for_source(suite, arch, source_name, source_data_srcdist.version, pkg_arch_result)
+                    self.request_tests_for_source(item, arch, source_data_srcdist, pkg_arch_result)
 
             # add test result details to Excuse
             cloud_url = self.options.adt_ci_url + "packages/%(h)s/%(s)s/%(r)s/%(a)s"
@@ -391,13 +391,13 @@ class AutopkgtestPolicy(BasePolicy):
                 return True
         return False
 
-    def request_tests_for_source(self, suite, arch, source_name, source_version, pkg_arch_result):
+    def request_tests_for_source(self, item, arch, source_data_srcdist, pkg_arch_result):
         pkg_universe = self.britney.pkg_universe
-        suite_info = self.suite_info
-        target_suite = suite_info.target_suite
-        sources_s = suite_info[suite].sources
-        binaries_info = sources_s[source_name]
-        packages_s_a = suite_info[suite].binaries[arch]
+        target_suite = self.suite_info.target_suite
+        sources_s = item.suite.sources
+        packages_s_a = item.suite.binaries[arch]
+        source_name = item.package
+        source_version = source_data_srcdist.version
         # request tests (unless they were already requested earlier or have a result)
         tests = self.tests_for_source(source_name, source_version, arch)
         is_huge = False
@@ -430,7 +430,7 @@ class AutopkgtestPolicy(BasePolicy):
         # packages to the list of triggers.
 
         bin_triggers = set()
-        bin_new = set(binaries_info.binaries)
+        bin_new = set(source_data_srcdist.binaries)
         for binary in iter_except(bin_new.pop, KeyError):
             if binary in bin_triggers:
                 continue
@@ -490,7 +490,7 @@ class AutopkgtestPolicy(BasePolicy):
                     # unstable e.g. if packages are replaced
                     # (e.g. -dbg to -dbgsym)
                     pass
-                if binary not in binaries_info.binaries:
+                if binary not in source_data_srcdist.binaries:
                     for tdep_src in self.testsuite_triggers.get(binary.package_name, set()):
                         try:
                             triggers.add(
