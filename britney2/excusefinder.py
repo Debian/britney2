@@ -98,7 +98,7 @@ class ExcuseFinder(object):
 
         return is_all_ok
 
-    def _should_remove_source(self, pkg):
+    def _should_remove_source(self, item):
         """Check if a source package should be removed from testing
 
         This method checks if a source package should be removed from the
@@ -111,11 +111,12 @@ class ExcuseFinder(object):
         """
         # if the source package is available in unstable, then do nothing
         source_suite = self.suite_info.primary_source_suite
+        pkg = item.package
         if pkg in source_suite.sources:
             return False
         # otherwise, add a new excuse for its removal
-        src = self.suite_info.target_suite.sources[pkg]
-        excuse = Excuse("-" + pkg)
+        src = item.suite.sources[pkg]
+        excuse = Excuse(item.name)
         excuse.addhtml("Package not in %s, will try to remove" % source_suite.name)
         excuse.set_vers(src.version, None)
         src.maintainer and excuse.set_maint(src.maintainer)
@@ -133,7 +134,7 @@ class ExcuseFinder(object):
         self.excuses[excuse.name] = excuse
         return True
 
-    def _should_upgrade_srcarch(self, src, arch, source_suite):
+    def _should_upgrade_srcarch(self, item):
         """Check if a set of binary packages should be upgraded
 
         This method checks if the binary packages produced by the source
@@ -147,15 +148,13 @@ class ExcuseFinder(object):
         # retrieve the source packages for testing and suite
 
         target_suite = self.suite_info.target_suite
+        source_suite = item.suite
+        src = item.package
+        arch = item.architecture
         source_t = target_suite.sources[src]
         source_u = source_suite.sources[src]
-        suffix = ''
-        if source_suite.excuses_suffix:
-            suffix = "_%s" % source_suite.excuses_suffix
 
-        # build the common part of the excuse, which will be filled by the code below
-        ref = "%s/%s%s" % (src, arch, suffix)
-        excuse = Excuse(ref)
+        excuse = Excuse(item.name)
         excuse.set_vers(source_t.version, source_t.version)
         source_u.maintainer and excuse.set_maint(source_u.maintainer)
         source_u.section and excuse.set_section(source_u.section)
@@ -315,7 +314,7 @@ class ExcuseFinder(object):
         self.excuses[excuse.name] = excuse
         return excuse.is_valid
 
-    def _should_upgrade_src(self, src, source_suite):
+    def _should_upgrade_src(self, item):
         """Check if source package should be upgraded
 
         This method checks if a source package should be upgraded. The analysis
@@ -327,6 +326,8 @@ class ExcuseFinder(object):
         the object attribute excuses.
         """
 
+        src = item.package
+        source_suite = item.suite
         suite_name = source_suite.name
         source_u = source_suite.sources[src]
         if source_u.is_fakesrc:
@@ -343,13 +344,7 @@ class ExcuseFinder(object):
         else:
             source_t = None
 
-        suffix = ''
-        if source_suite.excuses_suffix:
-            suffix = "_%s" % source_suite.excuses_suffix
-
-        # build the common part of the excuse, which will be filled by the code below
-        ref = "%s%s" % (src, suffix)
-        excuse = Excuse(ref)
+        excuse = Excuse(item.name)
         excuse.set_vers(source_t and source_t.version or None, source_u.version)
         source_u.maintainer and excuse.set_maint(source_u.maintainer)
         source_u.section and excuse.set_section(source_u.section)
@@ -530,6 +525,7 @@ class ExcuseFinder(object):
         should_remove_source = self._should_remove_source
         should_upgrade_srcarch = self._should_upgrade_srcarch
         should_upgrade_src = self._should_upgrade_src
+        mi_factory = self._migration_item_factory
 
         sources_s = pri_source_suite.sources
         sources_t = suite_info.target_suite.sources
@@ -541,8 +537,10 @@ class ExcuseFinder(object):
 
         # for every source package in testing, check if it should be removed
         for pkg in sources_t:
-            if should_remove_source(pkg):
-                actionable_items_add("-" + pkg)
+            if pkg not in sources_s:
+                item = mi_factory.parse_item("-" + pkg, versioned=False, auto_correct=False)
+                if should_remove_source(item):
+                    actionable_items_add(item.name)
 
         # for every source package in unstable check if it should be upgraded
         for pkg in sources_s:
@@ -552,12 +550,14 @@ class ExcuseFinder(object):
             # check if it should be upgraded for every binary package
             if pkg in sources_t and not sources_t[pkg].is_fakesrc:
                 for arch in architectures:
-                    if should_upgrade_srcarch(pkg, arch, pri_source_suite):
-                        actionable_items_add("%s/%s" % (pkg, arch))
+                    item = mi_factory.parse_item("%s/%s" % (pkg, arch), versioned=False, auto_correct=False)
+                    if should_upgrade_srcarch(item):
+                        actionable_items_add(item.name)
 
+            item = mi_factory.parse_item(pkg, versioned=False, auto_correct=False)
             # check if the source package should be upgraded
-            if should_upgrade_src(pkg, pri_source_suite):
-                actionable_items_add(pkg)
+            if should_upgrade_src(item):
+                actionable_items_add(item.name)
 
         # for every source package in the additional source suites, check if it should be upgraded
         for suite in self.suite_info.additional_source_suites:
@@ -566,12 +566,15 @@ class ExcuseFinder(object):
                 # check if it should be upgraded for every binary package
                 if pkg in sources_t:
                     for arch in architectures:
-                        if should_upgrade_srcarch(pkg, arch, suite):
-                            actionable_items_add("%s/%s_%s" % (pkg, arch, suite.excuses_suffix))
+                        item = mi_factory.parse_item("%s/%s_%s" % (pkg, arch, suite.excuses_suffix),
+                                                     versioned=False, auto_correct=False)
+                        if should_upgrade_srcarch(item):
+                            actionable_items_add(item.name)
 
+                item = mi_factory.parse_item("%s_%s" % (pkg, suite.excuses_suffix), versioned=False, auto_correct=False)
                 # check if the source package should be upgraded
-                if should_upgrade_src(pkg, suite):
-                    actionable_items_add("%s_%s" % (pkg, suite.excuses_suffix))
+                if should_upgrade_src(item):
+                    actionable_items_add(item.name)
 
         # process the `remove' hints, if the given package is not yet in actionable_items
         for hint in self.hints['remove']:
