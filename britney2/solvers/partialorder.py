@@ -17,8 +17,10 @@
 import logging
 from collections import deque
 from itertools import chain
+from operator import attrgetter
 
-from britney2.utils import (ifilter_only, iter_except)
+from britney2.solvers import MigrationSolverResult
+from britney2.utils import (ifilter_only, iter_except, MigrationConstraintException)
 
 
 class OrderNode(object):
@@ -155,7 +157,7 @@ def apply_order(key, other, order, logger, order_cause, invert=False, order_sub_
     order_set.add(other)
 
 
-class InstallabilitySolver(object):
+class PartialOrderGraphNodeSorter(object):
 
     def __init__(self, universe, target_suite):
         """Create a new installability solver
@@ -312,7 +314,7 @@ class InstallabilitySolver(object):
 
         return scc
 
-    def solve_groups(self, groups):
+    def sort_groups(self, groups):
         result = []
         emitted = set()
         queue = deque()
@@ -386,3 +388,85 @@ class InstallabilitySolver(object):
         for (item, adds, rms) in groups:
             self.logger.debug("%s =>  A: %s, R: %s", str(item), str(adds), str(rms))
         self.logger.debug("=== END Groups ===")
+
+
+class PartialOrderSolverProgress(object):
+
+    def __init__(self, rescheduled_packages, maybe_rescheduled_packages, worklist):
+        self.rescheduled_packages = rescheduled_packages
+        self.maybe_rescheduled_packages = maybe_rescheduled_packages
+        self.worklist = worklist
+
+    def __str__(self):
+        return '%d, %d, %d' % (
+            len(self.rescheduled_packages),
+            len(self.maybe_rescheduled_packages),
+            len(self.worklist)
+        )
+
+
+class PartialOrderSolver(object):
+
+    def __init__(self, solver_helper, target_suite, pkg_universe, output_logger):
+        self.output_logger = output_logger
+        self._target_suite = target_suite
+        self._pkg_universe = pkg_universe
+        self._solver_helper = solver_helper
+
+    @staticmethod
+    def _compute_groups(items, mm, group_info, rescheduled_packages, output_logger):
+        for y in items:
+            try:
+                _, updates, rms, _ = mm.compute_groups(y)
+                result = (y, frozenset(updates), frozenset(rms))
+                group_info[y] = result
+            except MigrationConstraintException as e:
+                rescheduled_packages.remove(y)
+                output_logger.info("not adding package to list: %s", y.package)
+                output_logger.info("    got exception: %s", repr(e))
+
+    def solve_as_many_as_possible(self, mm, considered_items):
+        group_info = {}
+        rescheduled_packages = considered_items
+        maybe_rescheduled_packages = []
+        output_logger = self.output_logger
+        solver = PartialOrderGraphNodeSorter(self._pkg_universe, self._target_suite)
+        solver_helper = self._solver_helper
+
+        self._compute_groups(sorted(considered_items, key=attrgetter('uvname')),
+                             mm, group_info, rescheduled_packages, output_logger
+                             )
+
+        while rescheduled_packages:
+            groups = {group_info[x] for x in rescheduled_packages}
+            worklist = solver.sort_groups(groups)
+            rescheduled_packages = []
+
+            # Relies on the parameters being mutable/updated for providing accurate feedback
+            progress = PartialOrderSolverProgress(rescheduled_packages, maybe_rescheduled_packages, worklist)
+
+            worklist.reverse()
+
+            while worklist:
+                comp = worklist.pop()
+
+                accepted, new_cruft = solver_helper.try_migrating_items(comp, progress)
+
+                if accepted:
+                    self._compute_groups(new_cruft, mm, group_info, rescheduled_packages, output_logger)
+                    worklist.extend([x] for x in new_cruft)
+                    rescheduled_packages.extend(maybe_rescheduled_packages)
+                    maybe_rescheduled_packages.clear()
+
+                else:
+                    if len(comp) > 1:
+                        output_logger.info("    - splitting the component into single items and retrying them")
+                        worklist.extend([item] for item in comp)
+                    else:
+                        maybe_rescheduled_packages.append(comp[0])
+
+        return MigrationSolverResult(committed_items=solver_helper.selected,
+                                     unsolved_items=maybe_rescheduled_packages,
+                                     original_baseline=solver_helper.baseline_original,
+                                     new_baseline=solver_helper.baseline_current,
+                                     )

@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 from . import new_pkg_universe_builder
 from britney2 import TargetSuite, SuiteClass
-from britney2.installability.solver import compute_scc, InstallabilitySolver, OrderNode
+from britney2.solvers.partialorder import compute_scc, PartialOrderGraphNodeSorter, OrderNode
 
 
 def mock_target_suite(inst_tester):
@@ -441,7 +441,7 @@ class TestInstTester(unittest.TestCase):
         try:
             sys.setrecursionlimit(recursion_limit)
             universe, inst_tester = builder.build()
-            solver = InstallabilitySolver(universe, mock_target_suite(inst_tester))
+            posorter = PartialOrderGraphNodeSorter(universe, mock_target_suite(inst_tester))
             groups = []
 
             for pkg in pkgs:
@@ -449,7 +449,7 @@ class TestInstTester(unittest.TestCase):
                 groups.append(group)
 
             expected = {g[0] for g in groups}
-            actual = solver.solve_groups(groups)
+            actual = posorter.sort_groups(groups)
             assert actual
             assert expected == set(actual[0])
             assert len(actual) == 1
@@ -487,7 +487,7 @@ class TestInstTester(unittest.TestCase):
         pkgh.depends_on(pkge).depends_on(pkgi)
 
         universe, inst_tester = builder.build()
-        solver = InstallabilitySolver(universe, mock_target_suite(inst_tester))
+        posorter = PartialOrderGraphNodeSorter(universe, mock_target_suite(inst_tester))
         expected = [
             # SSC 3 first
             {pkgi.pkg_id.package_name},
@@ -502,7 +502,7 @@ class TestInstTester(unittest.TestCase):
             for node in ssc:
                 groups.append((node, {builder.pkg_id(node)}, {}))
 
-        actual = [set(x) for x in solver.solve_groups(groups)]
+        actual = [set(x) for x in posorter.sort_groups(groups)]
         print("EXPECTED: %s" % str(expected))
         print("ACTUAL  : %s" % str(actual))
         assert expected == actual
