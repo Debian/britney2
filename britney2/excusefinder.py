@@ -12,12 +12,13 @@ from britney2.utils import (invalidate_excuses, find_smooth_updateable_binaries,
 
 class ExcuseFinder(object):
 
-    def __init__(self, options, suite_info, all_binaries, pkg_universe, policy_engine, hints):
+    def __init__(self, options, suite_info, all_binaries, pkg_universe, policy_engine, mi_factory, hints):
         self.options = options
         self.suite_info = suite_info
         self.all_binaries = all_binaries
         self.pkg_universe = pkg_universe
         self._policy_engine = policy_engine
+        self._migration_item_factory = mi_factory
         self.hints = hints
         self.excuses = {}
 
@@ -653,4 +654,7 @@ class ExcuseFinder(object):
                         e.addreason(deptype.get_reason())
 
         invalidate_excuses(excuses, actionable_items, unconsidered)
+
+        mi_factory = self._migration_item_factory
+        actionable_items = {mi_factory.parse_item(x, versioned=False, auto_correct=False) for x in actionable_items}
         return excuses, actionable_items

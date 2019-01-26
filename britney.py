@@ -741,15 +741,15 @@ class Britney(object):
 
         self.logger.info("Update Excuses generation started")
 
+        mi_factory = self._migration_item_factory
         excusefinder = ExcuseFinder(self.options, self.suite_info, self.all_binaries,
-                                    self.pkg_universe, self._policy_engine, self.hints)
+                                    self.pkg_universe, self._policy_engine, mi_factory, self.hints)
 
         excuses, upgrade_me = excusefinder.find_actionable_excuses()
         self.excuses = excuses
 
         # sort the list of candidates
-        mi_factory = self._migration_item_factory
-        self.upgrade_me = sorted(mi_factory.parse_item(x, versioned=False, auto_correct=False) for x in upgrade_me)
+        self.upgrade_me = sorted(upgrade_me)
         self.upgrade_me.extend(old_libraries(mi_factory, self.suite_info, self.options.outofsync_arches))
 
         # write excuses to the output file
