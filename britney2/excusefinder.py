@@ -548,21 +548,24 @@ class ExcuseFinder(object):
             sources_s = suite.sources
             item_suffix = "_%s" % suite.excuses_suffix if suite.excuses_suffix else ''
             for pkg in sources_s:
-                if sources_s[pkg].is_fakesrc:
+                src_s_data = sources_s[pkg]
+                if src_s_data.is_fakesrc:
                     continue
-                # if the source package is already present in the target suite,
-                # check if it should be upgraded for every binary package
-                if pkg in sources_t:
+                src_t_data = sources_t.get(pkg)
+
+                if src_t_data is None or apt_pkg.version_compare(src_s_data.version, src_t_data.version) != 0:
+                    item = mi_factory.parse_item("%s%s" % (pkg, item_suffix), versioned=False, auto_correct=False)
+                    # check if the source package should be upgraded
+                    if should_upgrade_src(item):
+                        actionable_items_add(item.name)
+                else:
+                    # package has same version in source and target suite; check if any of the
+                    # binaries have changed on the various architectures
                     for arch in architectures:
                         item = mi_factory.parse_item("%s/%s%s" % (pkg, arch, item_suffix),
                                                      versioned=False, auto_correct=False)
                         if should_upgrade_srcarch(item):
                             actionable_items_add(item.name)
-
-                item = mi_factory.parse_item("%s%s" % (pkg, item_suffix), versioned=False, auto_correct=False)
-                # check if the source package should be upgraded
-                if should_upgrade_src(item):
-                    actionable_items_add(item.name)
 
         # process the `remove' hints, if the given package is not yet in actionable_items
         for hint in self.hints['remove']:
