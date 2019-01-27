@@ -799,7 +799,7 @@ class BuildDependsPolicy(BasePolicy):
             return [arch for arch in self.options.architectures if arch in archs]
 
         # first try the all buildarch
-        checkarchs = self._all_buildarch
+        checkarchs = list(self._all_buildarch)
         # then try the architectures where this source has arch specific
         # binaries (in the order of the architecture config file)
         checkarchs.extend(arch for arch in self.options.architectures if arch in archs and arch not in checkarchs)
