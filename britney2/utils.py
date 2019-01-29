@@ -640,11 +640,10 @@ def get_dependency_solvers(block, binaries_s_a, provides_s_a, *, build_depends=F
             if (op == '' and version == '') or apt_pkg.check_dep(package.version, op, version):
                 if archqual is None:
                     packages.append(package)
-                elif build_depends:
+                elif build_depends and archqual == 'native':
                     # Multi-arch handling for build-dependencies
-                    # - :native is ok iff the target is arch:any
-                    if archqual == 'native' and package.architecture != 'all':
-                        packages.append(package)
+                    # - :native is ok always (since dpkg 1.19.1)
+                    packages.append(package)
 
                 # Multi-arch handling for both build-dependencies and regular dependencies
                 # - :any is ok iff the target has "M-A: allowed"
