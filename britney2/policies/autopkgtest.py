@@ -207,7 +207,7 @@ class AutopkgtestPolicy(BasePolicy):
                             # still running => pending
                             arch_list = self.pending_tests.setdefault(trigger, {}).setdefault(src, [])
                             if arch not in arch_list:
-                                self.logger.info('Pending autopkgtest %s on %s to verify %s',src, arch, trigger)
+                                self.logger.info('Pending autopkgtest %s on %s to verify %s', src, arch, trigger)
                                 arch_list.append(arch)
                                 arch_list.sort()
                         elif status == 'tmpfail':
@@ -397,7 +397,7 @@ class AutopkgtestPolicy(BasePolicy):
                                                            [('ppa', p) for p in self.options.adt_ppas])
 
                     tests_info.setdefault(testname, {})[arch] = \
-                            [status, log_url, history_url, artifact_url, retry_url]
+                        [status, log_url, history_url, artifact_url, retry_url]
 
                     # render HTML snippet for testsrc entry for current arch
                     if history_url:
@@ -555,7 +555,7 @@ class AutopkgtestPolicy(BasePolicy):
                 try:
                     source_of_bin = packages_s_a[binary.package_name].source
                     triggers.add(
-                        source_of_bin + '/' + \
+                        source_of_bin + '/' +
                         sources_s[source_of_bin].version)
                 except KeyError:
                     # Apparently the package was removed from
@@ -566,7 +566,7 @@ class AutopkgtestPolicy(BasePolicy):
                     for tdep_src in self.testsuite_triggers.get(binary.package_name, set()):
                         try:
                             triggers.add(
-                                tdep_src + '/' + \
+                                tdep_src + '/' +
                                 sources_s[tdep_src].version)
                         except KeyError:
                             # Apparently the source was removed from
@@ -842,8 +842,9 @@ class AutopkgtestPolicy(BasePolicy):
         else:
             result = Result.FAIL
 
-        self.logger.info('Fetched test result for %s/%s/%s %s (triggers: %s): %s',
-                 src, ver, arch, run_id, result_triggers, result.name.lower())
+        self.logger.info(
+            'Fetched test result for %s/%s/%s %s (triggers: %s): %s',
+            src, ver, arch, run_id, result_triggers, result.name.lower())
 
         # remove matching test requests
         for trigger in result_triggers:
@@ -888,12 +889,11 @@ class AutopkgtestPolicy(BasePolicy):
         # don't clobber existing passed results with non-passing ones from
         # re-runs, except for reference updates
         if status == Result.PASS or result[0] != Result.PASS or \
-          (self.options.adt_baseline == 'reference' and trigger == REF_TRIG):
+           (self.options.adt_baseline == 'reference' and trigger == REF_TRIG):
             result[0] = status
             result[1] = ver
             result[2] = run_id
             result[3] = seen
-
 
     def send_test_request(self, src, arch, trigger, huge=False):
         '''Send out AMQP request for testing src/arch for trigger
@@ -947,9 +947,9 @@ class AutopkgtestPolicy(BasePolicy):
             version = result[1]
             baseline = self.result_in_baseline(src, arch)
             if result_state == Result.FAIL and \
-                baseline[0] in {Result.PASS, Result.NEUTRAL} and \
-                self.options.adt_retry_older_than and \
-                result[3] + int(self.options.adt_retry_older_than) * SECPERDAY < self._now:
+               baseline[0] in {Result.PASS, Result.NEUTRAL} and \
+               self.options.adt_retry_older_than and \
+               result[3] + int(self.options.adt_retry_older_than) * SECPERDAY < self._now:
                 # We might want to retry this failure, so continue
                 pass
             elif not uses_swift:
@@ -1123,4 +1123,3 @@ class AutopkgtestPolicy(BasePolicy):
                     return True
 
         return False
-

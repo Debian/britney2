@@ -17,7 +17,7 @@ EXCEPTIONS_BY_FILE = {
     'britney2/installability/tester.py': 4,
     'britney2/policies/__init__.py': 2,
     'britney2/policies/policy.py': 19,
-    'britney2/policies/autopkgtest.py': 9,
+    'britney2/policies/autopkgtest.py': 0,
     'tests/mock_swift.py': 2,
     'tests/__init__.py': 31,
     'tests/test_autopkgtest.py': 338,
