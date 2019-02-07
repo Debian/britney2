@@ -29,6 +29,7 @@ apt_pkg.init()
 def tr(s):
     return {'custom_environment': ['ADT_TEST_TRIGGERS=%s' % s]}
 
+
 ON_ALL_ARCHES = {'on-architectures': ['amd64', 'arm64', 'armhf', 'i386', 'powerpc', 'ppc64el'],
                  'on-unimportant-architectures': []}
 
@@ -177,15 +178,15 @@ class T(TestBase):
             {'lightgreen': [('old-version', '1'), ('new-version', '1.1~beta'),
                             ('reason', 'depends'),
                             ('excuses', 'lightgreen/amd64 unsatisfiable Depends: libgreen1 (>= 2)')
-                           ]
-            })[1]
+                            ]
+             })[1]
         # autopkgtest should not be triggered for uninstallable pkg
         self.assertEqual(exc['lightgreen']['policy_info']['autopkgtest'], {'verdict': 'REJECTED_TEMPORARILY'})
 
         self.assertEqual(self.pending_requests, {})
         self.assertEqual(self.amqp_requests, set())
 
-        with open(os.path.join(self.data.path, 'output','output.txt')) as f:
+        with open(os.path.join(self.data.path, 'output', 'output.txt')) as f:
             upgrade_out = f.read()
         self.assertNotIn('accepted:', upgrade_out)
         self.assertIn('SUCCESS (0/0)', upgrade_out)
@@ -249,7 +250,7 @@ class T(TestBase):
         self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green'}, None)],
             {'green': (False, {'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'}})
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '2'),
                        ('reason', 'autopkgtest')]})
 
@@ -282,8 +283,8 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2'),
                        ('reason', 'autopkgtest')]})
 
@@ -323,13 +324,13 @@ class T(TestBase):
         # first run requests tests and marks them as pending
         exc = self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest'),
-            # a reverse dep that does not exist in testing should not be triggered
+             # a reverse dep that does not exist in testing should not be triggered
              ('brittle', {'Depends': 'libgreen1'}, 'autopkgtest')],
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]})[1]
         self.assertNotIn('brittle', exc['green']['policy_info']['autopkgtest'])
 
@@ -355,9 +356,9 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
+                              }),
              'brittle': (True, {'brittle/1': {'amd64': 'PASS', 'i386': 'PASS'}})
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]}
         )[0]
 
@@ -384,8 +385,8 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             })
-            })[0]
+                              })
+             })[0]
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
         self.assertNotIn('Failure', out, out)
@@ -406,8 +407,8 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]})
 
         # second run collects the results
@@ -427,8 +428,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'ALWAYSFAIL', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'RUNNING'},
                                'darkgreen/1': {'amd64': 'RUNNING', 'i386': 'PASS'},
-                              })
-            })[0]
+                               })
+             })[0]
 
         self.assertIn('Update Excuses generation completed', out)
         # not expecting any failures to retrieve from swift
@@ -458,8 +459,8 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              })
-            })
+                               })
+             })
 
         # there should be some pending ones
         self.assertEqual(self.pending_requests,
@@ -489,8 +490,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'REGRESSION', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]}
         )
 
@@ -543,8 +544,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'REGRESSION', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]}
         )[0]
 
@@ -574,8 +575,8 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'ALWAYSFAIL', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'ALWAYSFAIL', 'i386': 'ALWAYSFAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             })
-            },
+                              })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]}
         )[0]
 
@@ -604,8 +605,8 @@ class T(TestBase):
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'green64': {'amd64': 'RUNNING'},
-                              })
-            })
+                               })
+             })
 
         self.assertEqual(
             self.amqp_requests,
@@ -645,8 +646,8 @@ class T(TestBase):
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'green64/1': {'amd64': 'PASS'},
-                             })
-            },
+                              })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]}
         )[0]
 
@@ -667,7 +668,7 @@ class T(TestBase):
                                           'Depends': 'libc6 (>= 0.9)'},
                       testsuite='autopkgtest', add_src=False)
         self.data.add('green', True, {'Depends': 'libc6 (>= 0.9), libgreen1',
-                                       'Conflicts': 'blue'},
+                                      'Conflicts': 'blue'},
                       testsuite='autopkgtest', add_src=False)
 
         exc = self.run_it(
@@ -676,8 +677,8 @@ class T(TestBase):
             {'green': (False, {})},
             {'green': [('old-version', '1'), ('new-version', '2'),
                        ('missing-builds', ON_ALL_ARCHES),
-                      ]
-            })[1]
+                       ]
+             })[1]
         # autopkgtest should not be triggered for unbuilt pkg
         self.assertEqual(exc['green']['policy_info']['autopkgtest'], {'verdict': 'REJECTED_TEMPORARILY'})
         self.assertEqual(self.amqp_requests, set())
@@ -698,7 +699,7 @@ class T(TestBase):
             {'lime': [('old-version', '-'), ('new-version', '1'),
                       ('reason', 'no-binaries'),
                       ]
-            })[1]
+             })[1]
         # autopkgtest should not be triggered for unbuilt pkg
         self.assertEqual(exc['lime']['policy_info']['autopkgtest'], {'verdict': 'REJECTED_TEMPORARILY'})
         self.assertEqual(self.amqp_requests, set())
@@ -712,7 +713,7 @@ class T(TestBase):
         self.data.add_src('green', True, {'Version': '2', 'Testsuite': 'autopkgtest'})
         self.data.add('libgreen1', True, {'Version': '2', 'Source': 'green', 'Architecture': 'i386'}, add_src=False)
         self.data.add('green', True, {'Depends': 'libc6 (>= 0.9), libgreen1',
-                                       'Conflicts': 'blue'},
+                                      'Conflicts': 'blue'},
                       testsuite='autopkgtest', add_src=False)
 
         self.swift.set_results({'autopkgtest-testing': {
@@ -727,8 +728,8 @@ class T(TestBase):
             {'green': [('old-version', '1'), ('new-version', '2'),
                        ('missing-builds', {'on-architectures': ['amd64', 'arm64', 'armhf', 'powerpc', 'ppc64el'],
                                            'on-unimportant-architectures': []})
-                      ]
-            })[1]
+                       ]
+             })[1]
         # autopkgtest should not be triggered on arches with unbuilt pkg
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['verdict'], 'REJECTED_TEMPORARILY')
         self.assertEqual(self.amqp_requests, set())
@@ -744,7 +745,7 @@ class T(TestBase):
         self.data.add_src('green', True, {'Version': '2', 'Testsuite': 'autopkgtest'})
         self.data.add('libgreen1', True, {'Version': '2', 'Source': 'green', 'Architecture': 'i386'}, add_src=False)
         self.data.add('green', True, {'Depends': 'libc6 (>= 0.9), libgreen1',
-                                       'Conflicts': 'blue'},
+                                      'Conflicts': 'blue'},
                       testsuite='autopkgtest', add_src=False)
 
         self.swift.set_results({'autopkgtest-testing': {
@@ -759,8 +760,8 @@ class T(TestBase):
             {'green': [('old-version', '1'), ('new-version', '2'),
                        ('missing-builds', {'on-architectures': ['amd64', 'arm64', 'armhf', 'powerpc', 'ppc64el'],
                                            'on-unimportant-architectures': []})
-                      ]
-            })[1]
+                       ]
+             })[1]
         # autopkgtest should not be triggered on arches with unbuilt pkg
         self.assertEqual(exc['green']['policy_info']['autopkgtest']['verdict'], 'REJECTED_TEMPORARILY')
         self.assertEqual(self.amqp_requests, set())
@@ -795,13 +796,13 @@ class T(TestBase):
             {'green': (False, {'green/1.1': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
+                               }),
              'lightgreen': (False, {}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '1.1')],
              'lightgreen': [('old-version', '1'), ('new-version', '2'),
                             ('missing-builds', ON_ALL_ARCHES)],
-            }
+             }
         )
 
         self.assertEqual(self.amqp_requests, set())
@@ -843,14 +844,14 @@ class T(TestBase):
             [],
             # green hasn't changed, the above re-run was for trigger lightgreen/2
             {'green': (False, {'green/1.1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
-                              'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
+                               'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
+                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
+                               }),
              'lightgreen': (True, {'lightgreen/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '1.1')],
              'lightgreen': [('old-version', '1'), ('new-version', '2')],
-            }
+             }
         )
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
@@ -880,12 +881,12 @@ class T(TestBase):
             [('brokengreen', {'Version': '1', 'Depends': 'libgreen1, nonexisting'}, 'autopkgtest')],
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
              'brokengreen': (False, {}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '2')],
              'brokengreen': [('old-version', '-'), ('new-version', '1'),
                              ('reason', 'depends'),
                              ('excuses', 'brokengreen/amd64 unsatisfiable Depends: nonexisting')],
-            })[1]
+             })[1]
         # autopkgtest should not be triggered for uninstallable pkg
         self.assertEqual(exc['brokengreen']['policy_info']['autopkgtest'], {'verdict': 'REJECTED_TEMPORARILY'})
 
@@ -926,13 +927,13 @@ class T(TestBase):
             {'green': (False, {'green/1.1': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
+                               }),
              'lightgreen': (False, {}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '1.1')],
              'lightgreen': [('old-version', '1'), ('new-version', '2'),
                             ('missing-builds', ON_ALL_ARCHES)]
-            }
+             }
         )
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
@@ -947,13 +948,13 @@ class T(TestBase):
             {'green': (True, {'green/1.1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
+                              }),
              'lightgreen': (False, {}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '1.1')],
              'lightgreen': [('old-version', '1'), ('new-version', '2'),
                             ('missing-builds', ON_ALL_ARCHES)]
-            }
+             }
         )
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
@@ -982,13 +983,13 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              }),
+                               }),
              'lightgreen': (False, {}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '2')],
              'lightgreen': [('old-version', '1'), ('new-version', '2'),
                             ('missing-builds', ON_ALL_ARCHES)],
-            }
+             }
         )
         self.assertEqual(len(self.amqp_requests), 6)
 
@@ -1008,13 +1009,13 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/2': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
+                               }),
              'lightgreen': (False, {}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '2')],
              'lightgreen': [('old-version', '1'), ('new-version', '2'),
                             ('missing-builds', ON_ALL_ARCHES)],
-            }
+             }
         )
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
@@ -1024,24 +1025,24 @@ class T(TestBase):
         self.assertEqual(self.pending_requests, {})
         self.assertEqual(self.amqp_requests, set())
 
-###    def test_same_version_binary_in_unstable(self):
-###        '''binary from new architecture in unstable with testing version'''
-###
-###        # Invalid dataset in Debian and Ubuntu: ... ARCHITECTURE all != i386
-###        self.data.add('lightgreen', False)
-###
-###        # i386 is in testing already, but amd64 just recently built and is in unstable
-###        self.data.add_src('brown', False, {'Testsuite': 'autopkgtest'})
-###        self.data.add_src('brown', True, {'Testsuite': 'autopkgtest'})
-###        self.data.add('brown', False, {'Architecture': 'i386'}, add_src=False)
-###        self.data.add('brown', True, {}, add_src=False)
-###
-###        exc = self.run_it(
-###            # we need some other package to create unstable Sources
-###            [('lightgreen', {'Version': '2'}, 'autopkgtest')],
-###            {'brown': (True, {})}
-###            )[1]
-###        self.assertEqual(exc['brown']['item-name'], 'brown/amd64')
+# #    def test_same_version_binary_in_unstable(self):
+# #        '''binary from new architecture in unstable with testing version'''
+# #
+# #        # Invalid dataset in Debian and Ubuntu: ... ARCHITECTURE all != i386
+# #        self.data.add('lightgreen', False)
+# #
+# #        # i386 is in testing already, but amd64 just recently built and is in unstable
+# #        self.data.add_src('brown', False, {'Testsuite': 'autopkgtest'})
+# #        self.data.add_src('brown', True, {'Testsuite': 'autopkgtest'})
+# #        self.data.add('brown', False, {'Architecture': 'i386'}, add_src=False)
+# #        self.data.add('brown', True, {}, add_src=False)
+# #
+# #        exc = self.run_it(
+# #            # we need some other package to create unstable Sources
+# #            [('lightgreen', {'Version': '2'}, 'autopkgtest')],
+# #            {'brown': (True, {})}
+# #            )[1]
+# #        self.assertEqual(exc['brown']['item-name'], 'brown/amd64')
 
     def test_package_pair_running(self):
         '''Two packages in unstable that need to go in together (running)'''
@@ -1059,12 +1060,12 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              }),
+                               }),
              'lightgreen': (False, {'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'}}),
-            },
+             },
             {'green': [('old-version', '1'), ('new-version', '2')],
              'lightgreen': [('old-version', '1'), ('new-version', '2')],
-            })
+             })
 
         # we expect the package's and its reverse dependencies' tests to get
         # triggered; lightgreen should be triggered for each trigger
@@ -1097,7 +1098,7 @@ class T(TestBase):
                                  'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                  'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                  }),
-            },
+             },
             {'newgreen': [('old-version', '-'), ('new-version', '2')]})
 
         self.assertEqual(len(self.amqp_requests), 8)
@@ -1130,7 +1131,7 @@ class T(TestBase):
              'grey': (True, {'grey': {'amd64': 'RUNNING-ALWAYSFAIL'},
                              'brown/blacklisted': {'amd64': 'ALWAYSFAIL'},
                              'brown': {'i386': 'RUNNING-ALWAYSFAIL'}})
-            })
+             })
 
         self.assertEqual(len(self.amqp_requests), 4)
         self.assertEqual(self.pending_requests,
@@ -1156,8 +1157,8 @@ class T(TestBase):
         self.run_it(
             [('black', {'Version': '2'}, 'autopkgtest')],
             {'black': (True, {'black/blacklisted': {'amd64': 'IGNORE-FAIL',
-                                             'i386': 'IGNORE-FAIL'}})
-            },
+                                                    'i386': 'IGNORE-FAIL'}})
+             },
             {'black': [('old-version', '1'), ('new-version', '2')]})
 
         self.assertEqual(len(self.amqp_requests), 0)
@@ -1184,8 +1185,8 @@ class T(TestBase):
                                  'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                                  'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                                  'green/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                                }),
-            },
+                                 }),
+             },
             {'newgreen': [('old-version', '-'), ('new-version', '2')]})
 
         self.assertEqual(self.amqp_requests, set())
@@ -1273,8 +1274,8 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            })
+                              }),
+             })
 
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
@@ -1286,8 +1287,8 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING', 'i386': 'RUNNING'},
                                'darkgreen': {'amd64': 'RUNNING', 'i386': 'RUNNING'},
-                              }),
-            })
+                               }),
+             })
 
         self.assertEqual(len(self.amqp_requests), 6)
         self.assertEqual(self.pending_requests,
@@ -1308,8 +1309,8 @@ class T(TestBase):
             {'green': (False, {'green/3': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                                'darkgreen': {'amd64': 'RUNNING', 'i386': 'RUNNING'},
-                              }),
-            })
+                               }),
+             })
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests,
                          {'green/3': {'darkgreen': ['amd64', 'i386']}})
@@ -1324,8 +1325,8 @@ class T(TestBase):
             {'green': (True, {'green/3': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            })
+                              }),
+             })
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
 
@@ -1352,7 +1353,7 @@ class T(TestBase):
             [],
             {'green': (False, {'darkgreen': {'amd64': 'RUNNING'},
                                'darkgreen/1.1': {'i386': 'PASS'},
-                              })})
+                               })})
 
         # third run: amd64 result has version 1.2
         self.swift.set_results({'autopkgtest-testing': {
@@ -1362,7 +1363,7 @@ class T(TestBase):
             [],
             {'green': (True, {'darkgreen/1.2': {'amd64': 'PASS'},
                               'darkgreen/1.1': {'i386': 'PASS'},
-                             })})
+                              })})
 
     def test_tmpfail(self):
         '''tmpfail results'''
@@ -1419,8 +1420,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
-            })
+                               }),
+             })
         self.assertEqual(self.pending_requests, {})
 
         # re-running test manually succeeded (note: darkgreen result should be
@@ -1436,8 +1437,8 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            })
+                              }),
+             })
         self.assertEqual(self.pending_requests, {})
 
     def test_new_runs_dont_clobber_pass(self):
@@ -1484,14 +1485,14 @@ class T(TestBase):
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
             {'green': (False, {'green/2': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'}}),
              'libc6': (True, {'green/1': {'amd64': 'PASS', 'i386': 'PASS'}}),
-            })
+             })
         self.assertEqual(
             self.amqp_requests,
             set(['debci-testing-i386:darkgreen {"triggers": ["green/2"]}',
                  'debci-testing-amd64:darkgreen {"triggers": ["green/2"]}',
                  'debci-testing-i386:lightgreen {"triggers": ["green/2"]}',
                  'debci-testing-amd64:lightgreen {"triggers": ["green/2"]}',
-                ]))
+                 ]))
 
     def test_remove_from_unstable(self):
         '''broken package gets removed from unstable'''
@@ -1516,8 +1517,8 @@ class T(TestBase):
              ('lightgreen', {'Version': '2', 'Depends': 'libgreen1 (>= 2)'}, 'autopkgtest')],
             {'green': (False, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/2': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
-                              }),
-            })
+                               }),
+             })
         self.assertEqual(self.pending_requests, {})
         self.assertEqual(self.amqp_requests, set())
 
@@ -1536,8 +1537,8 @@ class T(TestBase):
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            })[1]
+                              }),
+             })[1]
         self.assertNotIn('lightgreen 2', exc['green']['policy_info']['autopkgtest'])
 
         # should not trigger new requests
@@ -1549,35 +1550,35 @@ class T(TestBase):
             [],
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            })
+                              }),
+             })
         self.assertEqual(self.pending_requests, {})
         self.assertEqual(self.amqp_requests, set())
 
-###    def test_multiarch_dep(self):
-###        '''multi-arch dependency'''
-###        # needs changes in britney2/installability/builder.py
-###
-###        self.data.add_default_packages(lightgreen=False)
-###
-###        # lightgreen has passed before on i386 only, therefore ALWAYSFAIL on amd64
-###        self.swift.set_results({'autopkgtest-testing': {
-###            'testing/i386/l/lightgreen/20150101_100000@': (0, 'lightgreen 1', tr('passedbefore/1')),
-###        }})
-###
-###        self.data.add('rainbow', False, {'Depends': 'lightgreen:any'},
-###                      testsuite='autopkgtest')
-###        self.data.add('rainbow', True, {'Depends': 'lightgreen:any'},
-###                      testsuite='autopkgtest')
-###
-###        self.run_it(
-###            [('lightgreen', {'Version': '2'}, 'autopkgtest')],
-###            {'lightgreen': (False, {'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
-###                                    'rainbow': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-###                                   }),
-###            },
-###            {'lightgreen': [('old-version', '1'), ('new-version', '2')]}
-###        )
+# #    def test_multiarch_dep(self):
+# #        '''multi-arch dependency'''
+# #        # needs changes in britney2/installability/builder.py
+# #
+# #        self.data.add_default_packages(lightgreen=False)
+# #
+# #        # lightgreen has passed before on i386 only, therefore ALWAYSFAIL on amd64
+# #        self.swift.set_results({'autopkgtest-testing': {
+# #            'testing/i386/l/lightgreen/20150101_100000@': (0, 'lightgreen 1', tr('passedbefore/1')),
+# #        }})
+# #
+# #        self.data.add('rainbow', False, {'Depends': 'lightgreen:any'},
+# #                      testsuite='autopkgtest')
+# #        self.data.add('rainbow', True, {'Depends': 'lightgreen:any'},
+# #                      testsuite='autopkgtest')
+# #
+# #        self.run_it(
+# #            [('lightgreen', {'Version': '2'}, 'autopkgtest')],
+# #            {'lightgreen': (False, {'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
+# #                                    'rainbow': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+# #                                   }),
+# #            },
+# #            {'lightgreen': [('old-version', '1'), ('new-version', '2')]}
+# #        )
 
     def test_nbs(self):
         '''source-less binaries do not cause harm'''
@@ -1593,8 +1594,8 @@ class T(TestBase):
             {'green': (True, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                               'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                               'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                             }),
-            },
+                              }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]})
 
     def test_newer_version_in_testing(self):
@@ -1608,8 +1609,8 @@ class T(TestBase):
             {'lightgreen': [('old-version', '1'), ('new-version', '0.9~beta'),
                             ('reason', 'newerintesting'),
                             ('excuses', 'ALERT: lightgreen is newer in the target suite (1 0.9~beta)')
-                           ]
-            })[1]
+                            ]
+             })[1]
 
         # autopkgtest should not be triggered
         self.assertNotIn('autopkgtest', exc['lightgreen'].get('policy_info', {}))
@@ -1632,8 +1633,8 @@ class T(TestBase):
             [('lightgreen', {'Version': '2'}, 'autopkgtest')],
             {'lightgreen': (False, {'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                     'rainbow': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
-                                   }),
-            }
+                                    }),
+             }
         )
 
     def test_huge_number_of_tests(self):
@@ -1649,9 +1650,9 @@ class T(TestBase):
             {'green': (True, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                               'green0': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                               'green29': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                             })
-            },
-            )
+                              })
+             },
+        )
 
         # requests should all go into the -huge queues
         self.assertEqual([x for x in self.amqp_requests if 'huge' not in x], [])
@@ -1687,10 +1688,10 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'IGNORE-FAIL', 'i386': 'IGNORE-FAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            },
+                              }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]
-            })
+             })
 
     def test_hint_force_badtest_multi_version(self):
         '''force-badtest hint'''
@@ -1716,10 +1717,10 @@ class T(TestBase):
                                'lightgreen/1': {'i386': 'IGNORE-FAIL'},
                                'lightgreen/2': {'amd64': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
-            },
+                               }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]
-            })
+             })
 
         # hint the version on amd64 too
         self.create_hint('autopkgtest', 'force-badtest lightgreen/2')
@@ -1730,10 +1731,10 @@ class T(TestBase):
                               'lightgreen/1': {'i386': 'IGNORE-FAIL'},
                               'lightgreen/2': {'amd64': 'IGNORE-FAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            },
+                              }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]
-            })
+             })
 
     def test_hint_force_badtest_different_version(self):
         '''force-badtest hint with non-matching version'''
@@ -1759,8 +1760,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
-            },
+                               }),
+             },
             {'green': [('reason', 'autopkgtest')]}
         )[1]
         self.assertNotIn('forced-reason', exc['green'])
@@ -1772,8 +1773,8 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'IGNORE-FAIL', 'i386': 'IGNORE-FAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            },
+                              }),
+             },
             {}
         )
 
@@ -1800,10 +1801,10 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'IGNORE-FAIL', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              }),
-            },
+                               }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]
-            })
+             })
 
         # hint i386 too, then it should become valid
         self.create_hint('autopkgtest', 'force-badtest lightgreen/i386/all')
@@ -1813,10 +1814,10 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen/1': {'amd64': 'IGNORE-FAIL', 'i386': 'IGNORE-FAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            },
+                              }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]
-            })
+             })
 
     def test_hint_force_badtest_running(self):
         '''force-badtest hint on running test'''
@@ -1839,10 +1840,10 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'PASS', 'i386': 'PASS'},
                               'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            },
+                              }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]
-            })
+             })
 
     def test_hint_force_skiptest(self):
         '''force-skiptest hint'''
@@ -1863,12 +1864,12 @@ class T(TestBase):
             {'green': (True, {'green/2': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'REGRESSION'},
                               'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                               'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                             }),
-            },
+                              }),
+             },
             {'green': [('old-version', '1'), ('new-version', '2'),
                        ('reason', 'skiptest'),
                        ('excuses', 'Should wait for tests relating to green 2, but forced by autopkgtest')]
-            })
+             })
 
     def test_hint_force_skiptest_different_version(self):
         '''force-skiptest hint with non-matching version'''
@@ -1886,8 +1887,8 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              }),
-            },
+                               }),
+             },
             {'green': [('reason', 'autopkgtest')]}
         )[1]
         self.assertNotIn('forced-reason', exc['green'])
@@ -1920,29 +1921,27 @@ class T(TestBase):
             {'lightgreen': [('reason', 'block')]}
         )
 
-
     ################################################################
     # Tests for non-hint policies (Ubuntu only)
     ################################################################
 
-###    def test_lp_bug_block(self):
-###        self.data.add_default_packages(darkgreen=False)
-###
-###        with open(os.path.join(self.data.path, 'data/unstable/Blocks'), 'w') as f:
-###            f.write('darkgreen 12345 1471505000\ndarkgreen 98765 1471500000\n')
-###
-###        exc = self.run_it(
-###            [('darkgreen', {'Version': '2'}, 'autopkgtest')],
-###            {'darkgreen': (False, {'darkgreen': {'i386': 'RUNNING-ALWAYSFAIL', 'amd64': 'RUNNING-ALWAYSFAIL'}})},
-###            {'darkgreen': [('reason', 'block'),
-###                           ('excuses', 'Not touching package as requested in <a href="https://launchpad.net/bugs/12345">bug 12345</a> on Thu Aug 18 07:23:20 2016'),
-###                           ('is-candidate', False),
-###                           ]
-###            }
-###        )[1]
-###        self.assertEqual(exc['darkgreen']['policy_info']['block-bugs'],
-###                         {'12345': 1471505000, '98765': 1471500000})
-
+# #    def test_lp_bug_block(self):
+# #        self.data.add_default_packages(darkgreen=False)
+# #
+# #        with open(os.path.join(self.data.path, 'data/unstable/Blocks'), 'w') as f:
+# #            f.write('darkgreen 12345 1471505000\ndarkgreen 98765 1471500000\n')
+# #
+# #        exc = self.run_it(
+# #            [('darkgreen', {'Version': '2'}, 'autopkgtest')],
+# #            {'darkgreen': (False, {'darkgreen': {'i386': 'RUNNING-ALWAYSFAIL', 'amd64': 'RUNNING-ALWAYSFAIL'}})},
+# #            {'darkgreen': [('reason', 'block'),
+# #                           ('excuses', 'Not touching package as requested in <a href="https://launchpad.net/bugs/12345">bug 12345</a> on Thu Aug 18 07:23:20 2016'),
+# #                           ('is-candidate', False),
+# #                           ]
+# #            }
+# #        )[1]
+# #        self.assertEqual(exc['darkgreen']['policy_info']['block-bugs'],
+# #                         {'12345': 1471505000, '98765': 1471500000})
 
     ################################################################
     # Kernel related tests
@@ -1973,11 +1972,11 @@ class T(TestBase):
             [('linux-image-generic', {'Source': 'linux-meta'}, None),
              ('linux-image-grumpy-generic', {'Source': 'linux-meta-lts-grumpy'}, None),
              ('linux-image-64only', {'Source': 'linux-meta-64only', 'Architecture': 'amd64'}, None),
-            ],
+             ],
             {'linux-meta': (True, {'fancy': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'}}),
              'linux-meta-lts-grumpy': (True, {'fancy': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'}}),
              'linux-meta-64only': (True, {'fancy': {'amd64': 'RUNNING-ALWAYSFAIL'}}),
-            })
+             })
 
         # one separate test should be triggered for each kernel
         self.assertEqual(
@@ -2014,11 +2013,11 @@ class T(TestBase):
             [('linux-image-generic', {'Source': 'linux-meta'}, None),
              ('linux-image-grumpy-generic', {'Source': 'linux-meta-lts-grumpy'}, None),
              ('linux-image-64only', {'Source': 'linux-meta-64only', 'Architecture': 'amd64'}, None),
-            ],
+             ],
             {'linux-meta': (True, {'fancy/1': {'amd64': 'PASS', 'i386': 'PASS'}}),
              'linux-meta-lts-grumpy': (False, {'fancy/1': {'amd64': 'RUNNING', 'i386': 'ALWAYSFAIL'}}),
              'linux-meta-64only': (True, {'fancy/1': {'amd64': 'PASS'}}),
-            })
+             })
 
         self.assertEqual(self.pending_requests,
                          {'linux-meta-lts-grumpy/1': {'fancy': ['amd64']}})
@@ -2046,110 +2045,110 @@ class T(TestBase):
             [('linux-image-generic', {'Source': 'linux-meta'}, None),
              ('linux-image-grumpy-generic', {'Source': 'linux-meta-lts-grumpy'}, None),
              ('linux-image-64only', {'Source': 'linux-meta-64only', 'Architecture': 'amd64'}, None),
-            ],
+             ],
             {'linux-meta': (True, {'fancy/1': {'amd64': 'PASS', 'i386': 'PASS'}}),
              # we don't have an explicit result for amd64
              'linux-meta-lts-grumpy': (False, {'fancy/1': {'amd64': 'RUNNING', 'i386': 'ALWAYSFAIL'}}),
              'linux-meta-64only': (True, {'fancy/1': {'amd64': 'PASS'}}),
-            })
+             })
 
         self.assertEqual(self.pending_requests,
                          {'linux-meta-lts-grumpy/1': {'fancy': ['amd64']}})
 
-###    def test_kernel_triggered_tests(self):
-###        '''linux, lxc, glibc, systemd, snapd tests get triggered by linux-meta* uploads'''
-###
-###        self.data.add('libc6-dev', False, {'Source': 'glibc', 'Depends': 'linux-libc-dev'},
-###                      testsuite='autopkgtest')
-###        self.data.add('libc6-dev', True, {'Source': 'glibc', 'Depends': 'linux-libc-dev'},
-###                      testsuite='autopkgtest')
-###        self.data.add('lxc', False, {}, testsuite='autopkgtest')
-###        self.data.add('lxc', True, {}, testsuite='autopkgtest')
-###        self.data.add('systemd', False, {}, testsuite='autopkgtest')
-###        self.data.add('systemd', True, {}, testsuite='autopkgtest')
-###        self.data.add('snapd', False, {}, testsuite='autopkgtest')
-###        self.data.add('snapd', True, {}, testsuite='autopkgtest')
-###        self.data.add('linux-image-1', False, {'Source': 'linux'}, testsuite='autopkgtest')
-###        self.data.add('linux-image-1', True, {'Source': 'linux'}, testsuite='autopkgtest')
-###        self.data.add('linux-libc-dev', False, {'Source': 'linux'}, testsuite='autopkgtest')
-###        self.data.add('linux-image', False, {'Source': 'linux-meta', 'Depends': 'linux-image-1'})
-###
-###        self.swift.set_results({'autopkgtest-testing': {
-###            'testing/amd64/l/lxc/20150101_100101@': (0, 'lxc 0.1', tr('passedbefore/1'))
-###        }})
-###
-###        exc = self.run_it(
-###            [('linux-image', {'Version': '2', 'Depends': 'linux-image-2', 'Source': 'linux-meta'}, None),
-###             ('linux-image-64only', {'Source': 'linux-meta-64only', 'Architecture': 'amd64'}, None),
-###             ('linux-image-2', {'Version': '2', 'Source': 'linux'}, 'autopkgtest'),
-###             ('linux-libc-dev', {'Version': '2', 'Source': 'linux'}, 'autopkgtest'),
-###            ],
-###            {'linux-meta': (False, {'lxc': {'amd64': 'RUNNING', 'i386': 'RUNNING-ALWAYSFAIL'},
-###                                    'glibc': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-###                                    'linux': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-###                                    'systemd': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-###                                    'snapd': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-###                                   }),
-###             'linux-meta-64only': (False, {'lxc': {'amd64': 'RUNNING'}}),
-###             'linux': (False, {}),
-###            })[1]
-###        # the kernel itself should not trigger tests; we want to trigger
-###        # everything from -meta
-###        self.assertEqual(exc['linux']['policy_info']['autopkgtest'], {})
+# #    def test_kernel_triggered_tests(self):
+# #        '''linux, lxc, glibc, systemd, snapd tests get triggered by linux-meta* uploads'''
+# #
+# #        self.data.add('libc6-dev', False, {'Source': 'glibc', 'Depends': 'linux-libc-dev'},
+# #                      testsuite='autopkgtest')
+# #        self.data.add('libc6-dev', True, {'Source': 'glibc', 'Depends': 'linux-libc-dev'},
+# #                      testsuite='autopkgtest')
+# #        self.data.add('lxc', False, {}, testsuite='autopkgtest')
+# #        self.data.add('lxc', True, {}, testsuite='autopkgtest')
+# #        self.data.add('systemd', False, {}, testsuite='autopkgtest')
+# #        self.data.add('systemd', True, {}, testsuite='autopkgtest')
+# #        self.data.add('snapd', False, {}, testsuite='autopkgtest')
+# #        self.data.add('snapd', True, {}, testsuite='autopkgtest')
+# #        self.data.add('linux-image-1', False, {'Source': 'linux'}, testsuite='autopkgtest')
+# #        self.data.add('linux-image-1', True, {'Source': 'linux'}, testsuite='autopkgtest')
+# #        self.data.add('linux-libc-dev', False, {'Source': 'linux'}, testsuite='autopkgtest')
+# #        self.data.add('linux-image', False, {'Source': 'linux-meta', 'Depends': 'linux-image-1'})
+# #
+# #        self.swift.set_results({'autopkgtest-testing': {
+# #            'testing/amd64/l/lxc/20150101_100101@': (0, 'lxc 0.1', tr('passedbefore/1'))
+# #        }})
+# #
+# #        exc = self.run_it(
+# #            [('linux-image', {'Version': '2', 'Depends': 'linux-image-2', 'Source': 'linux-meta'}, None),
+# #             ('linux-image-64only', {'Source': 'linux-meta-64only', 'Architecture': 'amd64'}, None),
+# #             ('linux-image-2', {'Version': '2', 'Source': 'linux'}, 'autopkgtest'),
+# #             ('linux-libc-dev', {'Version': '2', 'Source': 'linux'}, 'autopkgtest'),
+# #            ],
+# #            {'linux-meta': (False, {'lxc': {'amd64': 'RUNNING', 'i386': 'RUNNING-ALWAYSFAIL'},
+# #                                    'glibc': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+# #                                    'linux': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+# #                                    'systemd': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+# #                                    'snapd': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
+# #                                   }),
+# #             'linux-meta-64only': (False, {'lxc': {'amd64': 'RUNNING'}}),
+# #             'linux': (False, {}),
+# #            })[1]
+# #        # the kernel itself should not trigger tests; we want to trigger
+# #        # everything from -meta
+# #        self.assertEqual(exc['linux']['policy_info']['autopkgtest'], {})
 
-###    def test_kernel_waits_on_meta(self):
-###        '''linux waits on linux-meta'''
-###
-###        self.data.add('dkms', False, {})
-###        self.data.add('dkms', True, {})
-###        self.data.add('fancy-dkms', False, {'Source': 'fancy', 'Depends': 'dkms (>= 1)'})
-###        self.data.add('fancy-dkms', True, {'Source': 'fancy', 'Depends': 'dkms (>= 1)'})
-###        self.data.add('linux-image-generic', False, {'Version': '0.1', 'Source': 'linux-meta', 'Depends': 'linux-image-1'})
-###        self.data.add('linux-image-1', False, {'Source': 'linux'}, testsuite='autopkgtest')
-###        self.data.add('linux-firmware', False, {'Source': 'linux-firmware'}, testsuite='autopkgtest')
-###
-###        self.swift.set_results({'autopkgtest-testing': {
-###            'testing/i386/f/fancy/20150101_090000@': (0, 'fancy 0.5', tr('passedbefore/1')),
-###            'testing/i386/l/linux/20150101_100000@': (0, 'linux 2', tr('linux-meta/0.2')),
-###            'testing/amd64/l/linux/20150101_100000@': (0, 'linux 2', tr('linux-meta/0.2')),
-###            'testing/i386/l/linux-firmware/20150101_100000@': (0, 'linux-firmware 2', tr('linux-firmware/2')),
-###            'testing/amd64/l/linux-firmware/20150101_100000@': (0, 'linux-firmware 2', tr('linux-firmware/2')),
-###        }})
-###
-###        self.run_it(
-###            [('linux-image-generic', {'Version': '0.2', 'Source': 'linux-meta', 'Depends': 'linux-image-2'}, None),
-###             ('linux-image-2', {'Version': '2', 'Source': 'linux'}, 'autopkgtest'),
-###             ('linux-firmware', {'Version': '2', 'Source': 'linux-firmware'}, 'autopkgtest'),
-###            ],
-###            {'linux-meta': (False, {'fancy': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
-###                                    'linux/2': {'amd64': 'PASS', 'i386': 'PASS'}
-###                                   }),
-###             # no tests, but should wait on linux-meta
-###             'linux': (False, {}),
-###             # this one does not have a -meta, so don't wait
-###             'linux-firmware': (True, {'linux-firmware/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
-###            },
-###            {'linux': [('reason', 'depends'),
-###                       ('excuses', 'Invalidated by dependency'),
-###                       ('dependencies', {'blocked-by': ['linux-meta']})]
-###            }
-###        )
-###
-###        # now linux-meta is ready to go
-###        self.swift.set_results({'autopkgtest-testing': {
-###            'testing/i386/f/fancy/20150101_100000@': (0, 'fancy 1', tr('linux-meta/0.2')),
-###            'testing/amd64/f/fancy/20150101_100000@': (0, 'fancy 1', tr('linux-meta/0.2')),
-###        }})
-###        self.run_it(
-###            [],
-###            {'linux-meta': (True, {'fancy/1': {'amd64': 'PASS', 'i386': 'PASS'},
-###                                   'linux/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
-###             'linux': (True, {}),
-###             'linux-firmware': (True, {'linux-firmware/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
-###            },
-###            {'linux': [('dependencies', {'migrate-after': ['linux-meta']})]
-###            }
-###        )
+# #    def test_kernel_waits_on_meta(self):
+# #        '''linux waits on linux-meta'''
+# #
+# #        self.data.add('dkms', False, {})
+# #        self.data.add('dkms', True, {})
+# #        self.data.add('fancy-dkms', False, {'Source': 'fancy', 'Depends': 'dkms (>= 1)'})
+# #        self.data.add('fancy-dkms', True, {'Source': 'fancy', 'Depends': 'dkms (>= 1)'})
+# #        self.data.add('linux-image-generic', False, {'Version': '0.1', 'Source': 'linux-meta', 'Depends': 'linux-image-1'})
+# #        self.data.add('linux-image-1', False, {'Source': 'linux'}, testsuite='autopkgtest')
+# #        self.data.add('linux-firmware', False, {'Source': 'linux-firmware'}, testsuite='autopkgtest')
+# #
+# #        self.swift.set_results({'autopkgtest-testing': {
+# #            'testing/i386/f/fancy/20150101_090000@': (0, 'fancy 0.5', tr('passedbefore/1')),
+# #            'testing/i386/l/linux/20150101_100000@': (0, 'linux 2', tr('linux-meta/0.2')),
+# #            'testing/amd64/l/linux/20150101_100000@': (0, 'linux 2', tr('linux-meta/0.2')),
+# #            'testing/i386/l/linux-firmware/20150101_100000@': (0, 'linux-firmware 2', tr('linux-firmware/2')),
+# #            'testing/amd64/l/linux-firmware/20150101_100000@': (0, 'linux-firmware 2', tr('linux-firmware/2')),
+# #        }})
+# #
+# #        self.run_it(
+# #            [('linux-image-generic', {'Version': '0.2', 'Source': 'linux-meta', 'Depends': 'linux-image-2'}, None),
+# #             ('linux-image-2', {'Version': '2', 'Source': 'linux'}, 'autopkgtest'),
+# #             ('linux-firmware', {'Version': '2', 'Source': 'linux-firmware'}, 'autopkgtest'),
+# #            ],
+# #            {'linux-meta': (False, {'fancy': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
+# #                                    'linux/2': {'amd64': 'PASS', 'i386': 'PASS'}
+# #                                   }),
+# #             # no tests, but should wait on linux-meta
+# #             'linux': (False, {}),
+# #             # this one does not have a -meta, so don't wait
+# #             'linux-firmware': (True, {'linux-firmware/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
+# #            },
+# #            {'linux': [('reason', 'depends'),
+# #                       ('excuses', 'Invalidated by dependency'),
+# #                       ('dependencies', {'blocked-by': ['linux-meta']})]
+# #            }
+# #        )
+# #
+# #        # now linux-meta is ready to go
+# #        self.swift.set_results({'autopkgtest-testing': {
+# #            'testing/i386/f/fancy/20150101_100000@': (0, 'fancy 1', tr('linux-meta/0.2')),
+# #            'testing/amd64/f/fancy/20150101_100000@': (0, 'fancy 1', tr('linux-meta/0.2')),
+# #        }})
+# #        self.run_it(
+# #            [],
+# #            {'linux-meta': (True, {'fancy/1': {'amd64': 'PASS', 'i386': 'PASS'},
+# #                                   'linux/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
+# #             'linux': (True, {}),
+# #             'linux-firmware': (True, {'linux-firmware/2': {'amd64': 'PASS', 'i386': 'PASS'}}),
+# #            },
+# #            {'linux': [('dependencies', {'migrate-after': ['linux-meta']})]
+# #            }
+# #        )
 
     ################################################################
     # Tests for special-cased packages
@@ -2253,12 +2252,15 @@ class T(TestBase):
                                       None,
                                       None,
                                       None]},
-                        'verdict': 'PASS'})
+                          'verdict': 'PASS'})
 
         for arch in ['i386', 'amd64']:
-            self.assertTrue('debci-ppa-testing-%s:lightgreen {"triggers": ["lightgreen/2"], "ppas": ["joe/foo", "awesome-developers/staging"]}' % arch in self.amqp_requests or
-                            'debci-ppa-testing-%s:lightgreen {"ppas": ["joe/foo", "awesome-developers/staging"], "triggers": ["lightgreen/2"]}' % arch in self.amqp_requests,
-                            self.amqp_requests)
+            self.assertTrue(
+                ('debci-ppa-testing-%s:lightgreen {"triggers": ["lightgreen/2"], '
+                 '"ppas": ["joe/foo", "awesome-developers/staging"]}') % arch in self.amqp_requests or
+                ('debci-ppa-testing-%s:lightgreen {"ppas": ["joe/foo", '
+                 '"awesome-developers/staging"], "triggers": ["lightgreen/2"]}') % arch in self.amqp_requests,
+                self.amqp_requests)
         self.assertEqual(len(self.amqp_requests), 2)
 
         # add results to PPA specific swift container
@@ -2273,20 +2275,27 @@ class T(TestBase):
             {'lightgreen': (False, {'lightgreen/2': {'i386': 'REGRESSION', 'amd64': 'PASS'}})},
             {'lightgreen': [('old-version', '1'), ('new-version', '2')]}
         )[1]
-        self.assertEqual(exc['lightgreen']['policy_info']['autopkgtest'],
-                         {'lightgreen/2': {
-                             'amd64': ['PASS',
-                                       'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/amd64/l/lightgreen/20150101_100101@/log.gz',
-                                       None,
-                                       'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/amd64/l/lightgreen/20150101_100101@/artifacts.tar.gz',
-                                       None],
-                             'i386': ['REGRESSION',
-                                      'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/i386/l/lightgreen/20150101_100100@/log.gz',
-                                      None,
-                                      'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/testing/i386/l/lightgreen/20150101_100100@/artifacts.tar.gz',
-                                      'https://autopkgtest.ubuntu.com/request.cgi?release=testing&arch=i386&package=lightgreen&'
-                                      'trigger=lightgreen%2F2&ppa=joe%2Ffoo&ppa=awesome-developers%2Fstaging']},
-                         'verdict': 'REJECTED_PERMANENTLY'})
+        self.assertEqual(
+            exc['lightgreen']['policy_info']['autopkgtest'],
+            {'lightgreen/2': {
+                'amd64': [
+                    'PASS',
+                    'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/'
+                    'testing/amd64/l/lightgreen/20150101_100101@/log.gz',
+                    None,
+                    'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/'
+                    'testing/amd64/l/lightgreen/20150101_100101@/artifacts.tar.gz',
+                    None],
+                'i386': [
+                    'REGRESSION',
+                    'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/'
+                    'testing/i386/l/lightgreen/20150101_100100@/log.gz',
+                    None,
+                    'http://localhost:18085/autopkgtest-testing-awesome-developers-staging/'
+                    'testing/i386/l/lightgreen/20150101_100100@/artifacts.tar.gz',
+                    'https://autopkgtest.ubuntu.com/request.cgi?release=testing&arch=i386&package=lightgreen&'
+                    'trigger=lightgreen%2F2&ppa=joe%2Ffoo&ppa=awesome-developers%2Fstaging']},
+             'verdict': 'REJECTED_PERMANENTLY'})
         self.assertEqual(self.amqp_requests, set())
         self.assertEqual(self.pending_requests, {})
 
@@ -2299,7 +2308,7 @@ class T(TestBase):
                                       'Conflicts': 'blue', 'Version': '2'},
                       testsuite='autopkgtest')
 
-        self.data.compute_migrations='--no-compute-migrations'
+        self.data.compute_migrations = '--no-compute-migrations'
 
         self.run_it(
             [('libgreen1', {'Version': '2', 'Source': 'green', 'Depends': 'libc6'}, 'autopkgtest')],
@@ -2308,10 +2317,10 @@ class T(TestBase):
         self.assertFalse(os.path.exists(os.path.join(self.data.path, 'output', 'output.txt')))
         self.assertNotEqual(self.amqp_requests, set())
         # must still record pending tests
-#### Not sure why this doesn't work in the debian env.
-###        self.assertEqual(self.pending_requests, {'green/2': {'green': ['amd64', 'i386'],
-###                                                             'darkgreen': ['amd64', 'i386'],
-###                                                             'lightgreen': ['amd64', 'i386']}})
+# ## Not sure why this doesn't work in the debian env.
+# #        self.assertEqual(self.pending_requests, {'green/2': {'green': ['amd64', 'i386'],
+# #                                                             'darkgreen': ['amd64', 'i386'],
+# #                                                             'lightgreen': ['amd64', 'i386']}})
 
     def test_shared_results_cache(self):
         '''Run with shared r/o autopkgtest-results.cache'''
@@ -2364,58 +2373,57 @@ class T(TestBase):
     # Tests for source ppa grouping
     ################################################################
 
-###    def test_sourceppa_policy(self):
-###        '''Packages from same source PPA get rejected for failed peer policy'''
-###
-###        self.data.add_default_packages(green=False)
-###
-###        ppa = 'devel/~ci-train-ppa-service/+archive/NNNN'
-###        self.sourceppa_cache['green'] = {'2': ppa}
-###        self.sourceppa_cache['red'] = {'2': ppa}
-###        with open(os.path.join(self.data.path, 'data/unstable/Blocks'), 'w') as f:
-###            f.write('green 12345 1471505000\ndarkgreen 98765 1471500000\n')
-###
-###        exc = self.run_it(
-###            [('green', {'Version': '2'}, 'autopkgtest'),
-###             ('red', {'Version': '2'}, 'autopkgtest'),
-###             ('gcc-5', {}, 'autopkgtest')],
-###            {'green': (False, {'green': {'i386': 'RUNNING-ALWAYSFAIL', 'amd64': 'RUNNING-ALWAYSFAIL'}}),
-###             'red': (False, {'red': {'i386': 'RUNNING-ALWAYSFAIL', 'amd64': 'RUNNING-ALWAYSFAIL'}}),
-###             'gcc-5': (True, {}),
-###            },
-###            {'green': [('reason', 'block')],
-###             'red': [('reason', 'source-ppa')]}
-###        )[1]
-###        self.assertEqual(exc['red']['policy_info']['source-ppa'], {'red': ppa, 'green': ppa})
-###
-###        with open(os.path.join(self.data.path, 'data/unstable/SourcePPA')) as f:
-###            res = json.load(f)
-###            self.assertEqual(res, {'red': {'2': ppa},
-###                                   'green': {'2': ppa},
-###                                   'gcc-5': {'1': ''}})
+# #    def test_sourceppa_policy(self):
+# #        '''Packages from same source PPA get rejected for failed peer policy'''
+# #
+# #        self.data.add_default_packages(green=False)
+# #
+# #        ppa = 'devel/~ci-train-ppa-service/+archive/NNNN'
+# #        self.sourceppa_cache['green'] = {'2': ppa}
+# #        self.sourceppa_cache['red'] = {'2': ppa}
+# #        with open(os.path.join(self.data.path, 'data/unstable/Blocks'), 'w') as f:
+# #            f.write('green 12345 1471505000\ndarkgreen 98765 1471500000\n')
+# #
+# #        exc = self.run_it(
+# #            [('green', {'Version': '2'}, 'autopkgtest'),
+# #             ('red', {'Version': '2'}, 'autopkgtest'),
+# #             ('gcc-5', {}, 'autopkgtest')],
+# #            {'green': (False, {'green': {'i386': 'RUNNING-ALWAYSFAIL', 'amd64': 'RUNNING-ALWAYSFAIL'}}),
+# #             'red': (False, {'red': {'i386': 'RUNNING-ALWAYSFAIL', 'amd64': 'RUNNING-ALWAYSFAIL'}}),
+# #             'gcc-5': (True, {}),
+# #            },
+# #            {'green': [('reason', 'block')],
+# #             'red': [('reason', 'source-ppa')]}
+# #        )[1]
+# #        self.assertEqual(exc['red']['policy_info']['source-ppa'], {'red': ppa, 'green': ppa})
+# #
+# #        with open(os.path.join(self.data.path, 'data/unstable/SourcePPA')) as f:
+# #            res = json.load(f)
+# #            self.assertEqual(res, {'red': {'2': ppa},
+# #                                   'green': {'2': ppa},
+# #                                   'gcc-5': {'1': ''}})
 
-###    def test_sourceppa_missingbuild(self):
-###        '''Packages from same source PPA get rejected for failed peer FTBFS'''
-###
-###        self.data.add_default_packages(green=False)
-###
-###        ppa = 'devel/~ci-train-ppa-service/+archive/ZZZZ'
-###        self.sourceppa_cache['green'] = {'2': ppa}
-###        self.sourceppa_cache['red'] = {'2': ppa}
-###
-###        self.data.add_src('green', True, {'Version': '2', 'Testsuite': 'autopkgtest'})
-###        self.data.add('libgreen1', True, {'Version': '2', 'Source': 'green', 'Architecture': 'i386'}, add_src=False)
-###        self.data.add('green', True, {'Version': '2', 'Source': 'green'}, add_src=False)
-###
-###        exc = self.run_it(
-###            [('red', {'Version': '2'}, 'autopkgtest')],
-###            {'green': (False, {}), 'red': (False, {})},
-###            {'green': [('missing-builds', {'on-architectures': ['amd64', 'arm64', 'armhf', 'powerpc', 'ppc64el'],
-###                                           'on-unimportant-architectures': []})],
-###             'red': [('reason', 'source-ppa')]}
-###        )[1]
-###        self.assertEqual(exc['red']['policy_info']['source-ppa'], {'red': ppa, 'green': ppa})
-
+# #    def test_sourceppa_missingbuild(self):
+# #        '''Packages from same source PPA get rejected for failed peer FTBFS'''
+# #
+# #        self.data.add_default_packages(green=False)
+# #
+# #        ppa = 'devel/~ci-train-ppa-service/+archive/ZZZZ'
+# #        self.sourceppa_cache['green'] = {'2': ppa}
+# #        self.sourceppa_cache['red'] = {'2': ppa}
+# #
+# #        self.data.add_src('green', True, {'Version': '2', 'Testsuite': 'autopkgtest'})
+# #        self.data.add('libgreen1', True, {'Version': '2', 'Source': 'green', 'Architecture': 'i386'}, add_src=False)
+# #        self.data.add('green', True, {'Version': '2', 'Source': 'green'}, add_src=False)
+# #
+# #        exc = self.run_it(
+# #            [('red', {'Version': '2'}, 'autopkgtest')],
+# #            {'green': (False, {}), 'red': (False, {})},
+# #            {'green': [('missing-builds', {'on-architectures': ['amd64', 'arm64', 'armhf', 'powerpc', 'ppc64el'],
+# #                                           'on-unimportant-architectures': []})],
+# #             'red': [('reason', 'source-ppa')]}
+# #        )[1]
+# #        self.assertEqual(exc['red']['policy_info']['source-ppa'], {'red': ppa, 'green': ppa})
 
     def test_swift_url_is_file(self):
         '''Run without swift but with debci file (as Debian does)'''
@@ -2436,15 +2444,24 @@ class T(TestBase):
 {
   "until": 12345,
   "results": [
-  {"trigger": "green/2", "package": "darkgreen",  "arch": "i386",  "version": "1", "status": "pass", "run_id": "100000", "updated_at": "2018-10-04T11:18:00.000Z"},
-  {"trigger": "green/2", "package": "darkgreen",  "arch": "amd64", "version": "1", "status": "pass", "run_id": "100000", "updated_at": "2018-10-04T11:18:01.000Z"},
-  {"trigger": "green/1", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "pass", "run_id": "101000", "updated_at": "2018-10-04T11:18:02.000Z"},
-  {"trigger": "green/2", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "fail", "run_id": "101001", "updated_at": "2018-10-04T11:18:03.000Z"},
-  {"trigger": "green/1", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "pass", "run_id": "101000", "updated_at": "2018-10-04T11:18:04.000Z"},
-  {"trigger": "green/2", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "fail", "run_id": "101001", "updated_at": "2018-10-04T11:18:05.000Z"},
-  {"trigger": "green/2", "package": "green",      "arch": "i386",  "version": "2", "status": "pass", "run_id": "102000", "updated_at": "2018-10-04T11:18:06.000Z"},
-  {"trigger": "green/1", "package": "green",      "arch": "amd64", "version": "2", "status": "pass", "run_id": "102000", "updated_at": "2018-10-04T11:18:07.000Z"},
-  {"trigger": "green/2", "package": "green",      "arch": "amd64", "version": "2", "status": "fail", "run_id": "102001", "updated_at": "2018-10-04T11:18:08.000Z"}
+  {"trigger": "green/2", "package": "darkgreen",  "arch": "i386",  "version": "1", "status": "pass",
+   "run_id": "100000", "updated_at": "2018-10-04T11:18:00.000Z"},
+  {"trigger": "green/2", "package": "darkgreen",  "arch": "amd64", "version": "1", "status": "pass",
+   "run_id": "100000", "updated_at": "2018-10-04T11:18:01.000Z"},
+  {"trigger": "green/1", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "pass",
+   "run_id": "101000", "updated_at": "2018-10-04T11:18:02.000Z"},
+  {"trigger": "green/2", "package": "lightgreen", "arch": "i386",  "version": "1", "status": "fail",
+   "run_id": "101001", "updated_at": "2018-10-04T11:18:03.000Z"},
+  {"trigger": "green/1", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "pass",
+   "run_id": "101000", "updated_at": "2018-10-04T11:18:04.000Z"},
+  {"trigger": "green/2", "package": "lightgreen", "arch": "amd64", "version": "1", "status": "fail",
+   "run_id": "101001", "updated_at": "2018-10-04T11:18:05.000Z"},
+  {"trigger": "green/2", "package": "green",      "arch": "i386",  "version": "2", "status": "pass",
+   "run_id": "102000", "updated_at": "2018-10-04T11:18:06.000Z"},
+  {"trigger": "green/1", "package": "green",      "arch": "amd64", "version": "2", "status": "pass",
+   "run_id": "102000", "updated_at": "2018-10-04T11:18:07.000Z"},
+  {"trigger": "green/2", "package": "green",      "arch": "amd64", "version": "2", "status": "fail",
+   "run_id": "102001", "updated_at": "2018-10-04T11:18:08.000Z"}
   ]
 }
 ''')
@@ -2456,8 +2473,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'REGRESSION', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'REGRESSION'},
                                'darkgreen/1': {'amd64': 'PASS', 'i386': 'PASS'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]}
         )
 
@@ -2516,8 +2533,8 @@ class T(TestBase):
             {'green': (False, {'green': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING'},
                                'lightgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'RUNNING-ALWAYSFAIL'},
-                              })
-            },
+                               })
+             },
             {'green': [('old-version', '1'), ('new-version', '2')]})[1]
 
         # while no autopkgtest results are known, penalty applies
@@ -2540,8 +2557,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'ALWAYSFAIL', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'RUNNING'},
                                'darkgreen/1': {'amd64': 'RUNNING', 'i386': 'PASS'},
-                              })
-            })
+                               })
+             })
         out = res[0]
         exc = res[1]
 
@@ -2589,8 +2606,8 @@ class T(TestBase):
             {'green': (False, {'green/2': {'amd64': 'ALWAYSFAIL', 'i386': 'PASS'},
                                'lightgreen/1': {'amd64': 'REGRESSION', 'i386': 'RUNNING-ALWAYSFAIL'},
                                'darkgreen/1': {'amd64': 'RUNNING-ALWAYSFAIL', 'i386': 'PASS'},
-                              })
-                 })[1]
+                               })
+             })[1]
 
         # age-requirement should remain the same despite regression
         self.assertEqual(exc['green']['policy_info']['age']['age-requirement'], 13)
