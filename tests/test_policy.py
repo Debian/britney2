@@ -36,16 +36,16 @@ def initialize_policy(test_name, policy_class, *args, **kwargs):
         state_dir=test_dir,
         verbose=0,
         default_urgency=DEFAULT_URGENCY,
-        dry_run = False,
-        adt_shared_results_cache = False,
-        series = target,
-        adt_arches = ARCH,
-        architectures = ARCH,
-        adt_swift_url = 'file://' + debci_data,
-        adt_ci_url = '',
-        adt_success_bounty = 3,
-        adt_regression_penalty = False,
-        adt_retry_url_mech = 'run_id',
+        dry_run=False,
+        adt_shared_results_cache=False,
+        series=target,
+        adt_arches=ARCH,
+        architectures=ARCH,
+        adt_swift_url='file://' + debci_data,
+        adt_ci_url='',
+        adt_success_bounty=3,
+        adt_regression_penalty=False,
+        adt_retry_url_mech='run_id',
         **kwargs)
     suite_info = Suites(
         Suite(SuiteClass.TARGET_SUITE, target, os.path.join(test_dir, target), ''),
@@ -146,7 +146,7 @@ def build_sources_from_universe_and_inst_tester(policy, pkg_universe, inst_teste
         # We need to find the highest version of a package to add it to the
         # sources of the source suite
         if pkg_name not in src_source or \
-          apt_pkg.version_compare(src_source[pkg_name].version, pkg_id.version) < 0:
+           apt_pkg.version_compare(src_source[pkg_name].version, pkg_id.version) < 0:
             src_source[pkg_name] = pkg_id
     suite_info.target_suite.binaries = binaries_t
     for pkg_id in src_source.values():
@@ -334,7 +334,7 @@ class TestPiupartsPolicy(unittest.TestCase):
 
 pkg1 = BinaryPackageId('pkg', '1.0', ARCH)
 pkg2 = BinaryPackageId('pkg', '2.0', ARCH)
-inter =  BinaryPackageId('inter', '1.0', ARCH)
+inter = BinaryPackageId('inter', '1.0', ARCH)
 broken1 = BinaryPackageId('broken', '1.0', ARCH)
 broken2 = BinaryPackageId('broken', '2.0', ARCH)
 dummy = BinaryPackageId('dummy', '1', ARCH)
@@ -351,6 +351,7 @@ builder_breaks.new_package(inter).in_testing().depends_on_any_of(broken1, broken
 builder_breaks.new_package(pkg1).depends_on(inter).in_testing()
 builder_breaks.new_package(pkg2).depends_on(inter).not_in_testing().conflicts_with(broken1)
 breaks_universe, breaks_inst_tester = builder_breaks.build()
+
 
 class TestAutopkgtestPolicy(unittest.TestCase):
     import apt_pkg
@@ -377,8 +378,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'PASS'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert len(amqp) == 0
 
@@ -393,8 +396,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert amqp[0:-1] == 'debci-testing-amd64:' + src_name + ' {"triggers": ["' + src_name + '/2.0"]}'
 
@@ -409,8 +414,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert len(amqp) == 0
 
@@ -424,8 +431,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'NEUTRAL'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert len(amqp) == 0
 
@@ -444,7 +453,8 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING-ALWAYSFAIL'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
-        assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert amqp[0:-1] == 'debci-testing-amd64:' + src_name + ' {"triggers": ["' + src_name + '/2.0"]}'
 
@@ -474,7 +484,8 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING-ALWAYSFAIL'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
-        assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert amqp[0:-1] == 'debci-testing-amd64:' + src_name + ' {"triggers": ["' + src_name + '/2.0"]}'
 
@@ -489,7 +500,8 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
-        assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert amqp[0:-1] == 'debci-testing-amd64:' + src_name + ' {"triggers": ["' + src_name + '/2.0"]}'
 
@@ -504,8 +516,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert amqp[0:-1] == 'debci-testing-amd64:' + src_name + ' {"triggers": ["' + src_name + '/2.0"]}'
 
@@ -520,8 +534,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_PERMANENTLY, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'REGRESSION'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert len(amqp) == 0
 
@@ -536,7 +552,8 @@ class TestAutopkgtestPolicy(unittest.TestCase):
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.REJECTED_TEMPORARILY, src_name)
         assert autopkgtest_policy_info[src_name][ARCH][0] == 'RUNNING'
         assert autopkgtest_policy_info[src_name][ARCH][1] == 'status/pending'
-        assert autopkgtest_policy_info[src_name][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert amqp[0:-1] == 'debci-testing-amd64:' + src_name + ' {"triggers": ["' + src_name + '/2.0 broken/2.0"]}'
 
@@ -567,8 +584,10 @@ class TestAutopkgtestPolicy(unittest.TestCase):
             inst_tester=simple_inst_tester)
         autopkgtest_policy_info = apply_src_policy(policy, PolicyVerdict.PASS, src_name)
         assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][0] == 'ALWAYSFAIL'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == 'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
-        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == 'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][1] == \
+            'data/autopkgtest/testing/amd64/' + src_name[0] + '/' + src_name + '/2/log.gz'
+        assert autopkgtest_policy_info[src_name + '/2.0'][ARCH][2] == \
+            'packages/' + src_name[0] + '/' + src_name + '/testing/amd64'
         amqp = self.read_amqp()
         assert len(amqp) == 0
 

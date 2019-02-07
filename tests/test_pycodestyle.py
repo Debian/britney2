@@ -21,7 +21,6 @@ EXCEPTIONS_BY_FILE = {
     'tests/mock_swift.py': 2,
     'tests/__init__.py': 31,
     'tests/test_autopkgtest.py': 2,
-    'tests/test_policy.py': 31,
     'tests/test_yaml.py': 1,
 }
 
