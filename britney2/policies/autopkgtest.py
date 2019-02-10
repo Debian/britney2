@@ -162,24 +162,7 @@ class AutopkgtestPolicy(BasePolicy):
         if os.path.exists(self.results_cache_file):
             with open(self.results_cache_file) as f:
                 test_results = json.load(f)
-                for result in all_leaf_results(test_results):
-                    try:
-                        result[0] = Result[result[0]]
-                    except KeyError:
-                        # Legacy support
-                        if isinstance(result[0], type(True)):
-                            if result[0]:
-                                result[0] = Result.PASS
-                            else:
-                                result[0] = Result.FAIL
-                        else:
-                            raise
-                        # More legacy support
-                        try:
-                            dummy = result[3]
-                        except IndexError:
-                            result.append(self._now)
-                self.test_results = test_results
+                self.test_results = self.check_and_upgrade_cache(test_results)
             self.logger.info('Read previous results from %s', self.results_cache_file)
 
             # The cache can contain results against versions of packages that
@@ -257,6 +240,26 @@ class AutopkgtestPolicy(BasePolicy):
             self.amqp_file = amqp_url[7:]
         else:
             raise RuntimeError('Unknown ADT_AMQP schema %s' % amqp_url.split(':', 1)[0])
+
+    def check_and_upgrade_cache(self, test_results):
+        for result in all_leaf_results(test_results):
+            try:
+                result[0] = Result[result[0]]
+            except KeyError:
+                # Legacy support
+                if isinstance(result[0], type(True)):
+                    if result[0]:
+                        result[0] = Result.PASS
+                    else:
+                        result[0] = Result.FAIL
+                else:
+                    raise
+            # More legacy support
+            try:
+                dummy = result[3]
+            except IndexError:
+                result.append(self._now)
+        return test_results
 
     def filter_results_for_old_versions(self):
         '''Remove results for old versions from the cache'''
