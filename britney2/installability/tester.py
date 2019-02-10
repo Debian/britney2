@@ -106,6 +106,14 @@ class InstallabilityTester(object):
         """
         return pkg_id in self._suite_contents
 
+    def which_of_these_are_in_the_suite(self, pkgs):
+        """Iterate over all packages that are in the suite
+
+        :param pkgs: An iterable of package ids
+        :return: An iterable of package ids that are in the suite
+        """
+        yield from (x for x in pkgs if x in self._suite_contents)
+
     def add_binary(self, pkg_id):
         """Add a binary package to the suite
 

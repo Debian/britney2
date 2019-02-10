@@ -73,6 +73,15 @@ def srchash(src):
         return src[0]
 
 
+def added_pkgs_compared_to_target_suite(package_ids, target_suite, *, invert=False):
+    if invert:
+        pkgs_ids_to_ignore = package_ids - set(target_suite.which_of_these_are_in_the_suite(package_ids))
+        names_ignored = {p.package_name for p in pkgs_ids_to_ignore}
+    else:
+        names_ignored = {p.package_name for p in target_suite.which_of_these_are_in_the_suite(package_ids)}
+    yield from (p for p in package_ids if p.package_name not in names_ignored)
+
+
 class AutopkgtestPolicy(BasePolicy):
     """autopkgtest regression policy for source migrations
 
@@ -514,19 +523,10 @@ class AutopkgtestPolicy(BasePolicy):
             # will also show up, but they are already properly
             # installed. Nevermind.
             depends = pkg_universe.dependencies_of(binary)
-            names_testing = set()
-            names_unstable = set()
             # depends is a frozenset{frozenset{BinaryPackageId, ..}}
             for deps_of_bin in depends:
-                for dep in deps_of_bin:
-                    if target_suite.is_pkg_in_the_suite(dep):
-                        names_testing.add(dep.package_name)
-                    else:
-                        names_unstable.add(dep.package_name)
-            for name in names_unstable - names_testing:
-                for deps_of_bin in depends:
-                    # We'll figure out which version later
-                    bin_new.update(d for d in deps_of_bin if d.package_name == name)
+                # We'll figure out which version later
+                bin_new.update(added_pkgs_compared_to_target_suite(deps_of_bin, target_suite))
 
         # Check if the package breaks/conflicts anything. We might
         # be adding slightly too many source packages due to the
@@ -537,16 +537,8 @@ class AutopkgtestPolicy(BasePolicy):
         for binary in bin_triggers:
             # broken is a frozenset{BinaryPackageId, ..}
             broken = pkg_universe.negative_dependencies_of(binary)
-            names_testing = set()
-            names_unstable = set()
-            for broken_bin in broken:
-                if target_suite.is_pkg_in_the_suite(broken_bin):
-                    names_testing.add(broken_bin.package_name)
-                else:
-                    names_unstable.add(broken_bin.package_name)
-            for name in names_testing - names_unstable:
-                # We'll figure out which version later
-                bin_broken.update(b for b in broken if b.package_name == name)
+            # We'll figure out which version later
+            bin_broken.update(added_pkgs_compared_to_target_suite(broken, target_suite, invert=True))
         bin_triggers.update(bin_broken)
 
         triggers = set()

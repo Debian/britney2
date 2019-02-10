@@ -85,6 +85,14 @@ class Suite(object):
         """
         return pkg_id in self._all_binaries_in_suite
 
+    def which_of_these_are_in_the_suite(self, pkgs):
+        """Iterate over all packages that are in the suite
+
+        :param pkgs: An iterable of package ids
+        :return: An iterable of package ids that are in the suite
+        """
+        yield from (x for x in pkgs if x in self._all_binaries_in_suite)
+
 
 class TargetSuite(Suite):
 
@@ -109,6 +117,14 @@ class TargetSuite(Suite):
         :return: True if the pkg is currently in the suite
         """
         return self.inst_tester.is_pkg_in_the_suite(pkg_id)
+
+    def which_of_these_are_in_the_suite(self, pkgs):
+        """Iterate over all packages that are in the suite
+
+        :param pkgs: An iterable of package ids
+        :return: An iterable of package ids that are in the suite
+        """
+        yield from self.inst_tester.which_of_these_are_in_the_suite(pkgs)
 
     def is_installable(self, pkg_id):
         """Determine whether the given package can be installed in the suite
