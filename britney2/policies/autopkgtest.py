@@ -82,6 +82,12 @@ def added_pkgs_compared_to_target_suite(package_ids, target_suite, *, invert=Fal
     yield from (p for p in package_ids if p.package_name not in names_ignored)
 
 
+def all_leaf_results(test_results):
+    for trigger in test_results.values():
+        for arch in trigger.values():
+            yield from arch.values()
+
+
 class AutopkgtestPolicy(BasePolicy):
     """autopkgtest regression policy for source migrations
 
@@ -155,27 +161,25 @@ class AutopkgtestPolicy(BasePolicy):
         # read the cached results that we collected so far
         if os.path.exists(self.results_cache_file):
             with open(self.results_cache_file) as f:
-                results = json.load(f)
-                for trigger in results.values():
-                    for arch in trigger.values():
-                        for result in arch.values():
-                            try:
-                                result[0] = Result[result[0]]
-                            except KeyError:
-                                # Legacy support
-                                if isinstance(result[0], type(True)):
-                                    if result[0]:
-                                        result[0] = Result.PASS
-                                    else:
-                                        result[0] = Result.FAIL
-                                else:
-                                    raise
-                            # More legacy support
-                            try:
-                                dummy = result[3]
-                            except IndexError:
-                                result.append(self._now)
-                self.test_results = results
+                test_results = json.load(f)
+                for result in all_leaf_results(test_results):
+                    try:
+                        result[0] = Result[result[0]]
+                    except KeyError:
+                        # Legacy support
+                        if isinstance(result[0], type(True)):
+                            if result[0]:
+                                result[0] = Result.PASS
+                            else:
+                                result[0] = Result.FAIL
+                        else:
+                            raise
+                        # More legacy support
+                        try:
+                            dummy = result[3]
+                        except IndexError:
+                            result.append(self._now)
+                self.test_results = test_results
             self.logger.info('Read previous results from %s', self.results_cache_file)
 
             # The cache can contain results against versions of packages that
@@ -305,13 +309,11 @@ class AutopkgtestPolicy(BasePolicy):
         # update the results on-disk cache, unless we are using a r/o shared one
         if not self.options.adt_shared_results_cache:
             self.logger.info('Updating results cache')
-            results = deepcopy(self.test_results)
-            for trigger in results.values():
-                for arch in trigger.values():
-                    for result in arch.values():
-                        result[0] = result[0].name
+            test_results = deepcopy(self.test_results)
+            for result in all_leaf_results(test_results):
+                result[0] = result[0].name
             with open(self.results_cache_file + '.new', 'w') as f:
-                json.dump(results, f, indent=2)
+                json.dump(test_results, f, indent=2)
             os.rename(self.results_cache_file + '.new', self.results_cache_file)
 
         # update the pending tests on-disk cache
