@@ -338,18 +338,20 @@ class AgePolicy(BasePolicy):
         days_old = self._date_now - self._dates[source_name][1]
         min_days = self._min_days[urgency]
         for bounty in excuse.bounty:
-            self.logger.info('Applying bounty for %s granted by %s: %d days',
-                             source_name, bounty, excuse.bounty[bounty])
-            excuse.addhtml('Required age reduced by %d days because of %s' %
-                         (excuse.bounty[bounty], bounty))
-            min_days -= excuse.bounty[bounty]
+            if excuse.bounty[bounty]:
+                self.logger.info('Applying bounty for %s granted by %s: %d days',
+                                 source_name, bounty, excuse.bounty[bounty])
+                excuse.addhtml('Required age reduced by %d days because of %s' %
+                             (excuse.bounty[bounty], bounty))
+                min_days -= excuse.bounty[bounty]
         if urgency not in self._penalty_immune_urgencies:
             for penalty in excuse.penalty:
-                self.logger.info('Applying penalty for %s given by %s: %d days',
-                                 source_name, penalty, excuse.penalty[penalty])
-                excuse.addhtml('Required age increased by %d days because of %s' %
-                         (excuse.penalty[penalty], penalty))
-                min_days += excuse.penalty[penalty]
+                if excuse.penalty[penalty]:
+                    self.logger.info('Applying penalty for %s given by %s: %d days',
+                                     source_name, penalty, excuse.penalty[penalty])
+                    excuse.addhtml('Required age increased by %d days because of %s' %
+                             (excuse.penalty[penalty], penalty))
+                    min_days += excuse.penalty[penalty]
 
         # the age in BOUNTY_MIN_AGE can be higher than the one associated with
         # the real urgency, so don't forget to take it into account
