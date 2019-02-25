@@ -231,7 +231,7 @@ In the libaws example, a total of 4 binary packages become
 uninstallable on the architecture ``arm64``.  Here is the output again
 with this information high lighted::
 
-    migration item(s) being attemped
+    migration item(s) being attempted
             vvvvvv
     trying: libaws
     skipped: libaws (0, 165, 11)
@@ -248,7 +248,7 @@ we are not actually sure whether this problem is architecture specific.  For
 
     Trying easy from autohinter: asis/2017-1 dh-ada-library/6.12 [...]
                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-                                    migration item(s) being attemped
+                                    migration item(s) being attempted
 
     [... several lines of statistics from start, before and after ...]
         * amd64: asis-programs, libasis2017, libasis2017-dev, libaws-bin, [...]
